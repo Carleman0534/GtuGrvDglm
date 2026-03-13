@@ -1,0 +1,16 @@
+# Windows geçici dosyaları
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+assign.js
+
+# Yedekleme dosyaları
+*.json_backup
+
+# Log dosyaları
+*.log
+
+# IDE ayarları
+.vscode/
+.idea/
+.gemini/
