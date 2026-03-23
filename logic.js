@@ -708,7 +708,87 @@ function loadFromLocalStorage() {
 
     // Klasik migrasyon işlemleri (Versiyon kontrolü)
     if (DB && (!DB.version || DB.version < 36)) {
-        // ... Mevcut versiyon kontrol kodları devam eder
+        let dbToSave = DB; 
+        if (DB.version < 29) dbToSave = migrateToV29(dbToSave);
+        if (dbToSave.version < 30) dbToSave = migrateToV30(dbToSave);
+        
+        // v31 için swapRequests -> requests kontrolü
+        if (dbToSave.swapRequests && !dbToSave.requests) {
+            dbToSave.requests = dbToSave.swapRequests;
+            delete dbToSave.swapRequests;
+        }
+        // v32 Duyuru Alanı
+        if (dbToSave.announcement === undefined) {
+            dbToSave.announcement = "";
+        }
+        // v33 E-Posta Şablonları
+        if (!dbToSave.templates) {
+            dbToSave.templates = {
+                assignment: `Sayın {hoca_adi},\n\nGözetmenlik sisteminde adınıza yeni bir sınav görevi tanımlanmıştır:\n\n* Sınav: {sinav_adi}\n* Tarih: {tarih}\n* Saat: {saat}\n* Süre: {sure} Dakika\n* Yer / Derslik: {yer}\n\nEk Görev Bilgileri:\n* Sınav Katsayısı: {katsayi}x\n* Kazanılacak Puan: {puan}\n* Toplam Görev Sayınız: {toplam_gorev}\n\nSisteme giriş yaparak güncel puan tablonuzu ve programın tamamını görüntüleyebilirsiniz.\n\nÖnemli Not: Bu görevlendirme, sistemde beyan etmiş olduğunuz müsaitlik durumunuza ve kısıtlarınıza uygun olarak planlanmıştır. Belirtilen saatlerde beklenmedik bir engeliniz oluşması durumunda; Müsaitlik sekmesinden takas isteği göndereceğiniz hocanın müsaitlik durumunu inceleyebilirsiniz. Sınav Programı veya Sınavlar sekmesinden yerinize görev alabilecek diğer hocalarımızla iletişime geçerek "Takas İste" butonu üzerinden mail ile onay alabilirsiniz.\n\nİyi çalışmalar dileriz.\nGTU Matematik Bölümü`,
+                swap_request: `Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}`,
+                swap_notif: `Merhaba,\n\n{tarih} günü saat {saat}'nde yapılacak olan {sinav_adi} dersindeki gözetmenlik görevimi {hedef_hoca}'na devrettiğimi bildiririm.\n\nBilgilerinize iyi çalışmalar`,
+                reminder: `Sayın {hoca_adi},\n\nGözetmenlik sistemindeki yarınki sınav görevinizi hatırlatmak isteriz:\n\n* Sınav: {sinav_adi}\n* Tarih: {tarih} (Yarın)\n* Saat: {saat}\n* Yer / Derslik: {yer}\n\nSınav saatinden en az 15 dakika önce sınav yerinde bulunmanızı rica ederiz. Herhangi bir değişiklik olması durumunda lütfen sistem üzerinden bildiriniz.\n\nİyi çalışmalar dileriz.\nGTU Matematik Bölümü`
+            };
+        }
+        // v36 - Taleplere sınav bilgisi ekle (akıllı eşleştirme)
+        if (dbToSave.requests && dbToSave.requests.length > 0) {
+            dbToSave.requests.forEach(function(req) {
+                if (req.examName && req.examName !== 'Bilinmeyen Sınav') return; 
+                
+                var exams = dbToSave.exams || [];
+                var exam = exams.find(function(e) { return e.id == req.examId; });
+                
+                if (!exam && req.initiatorId) {
+                    var initiatorExams = exams.filter(function(e) {
+                        return e.proctors && e.proctors.some(function(p) {
+                            return p.id == req.initiatorId;
+                        });
+                    });
+                    if (initiatorExams.length === 1) {
+                        exam = initiatorExams[0];
+                    }
+                }
+                
+                if (exam) {
+                    req.examName = exam.name;
+                    req.examDate = exam.date;
+                    req.examTime = exam.time;
+                    req.examId = exam.id;
+                } else {
+                    req.examName = 'Bilinmeyen Sınav';
+                    req.examDate = '';
+                    req.examTime = '';
+                }
+            });
+        }
+        dbToSave.version = 36;
+        DB = dbToSave;
+        saveToLocalStorage();
+    } else if (!DB) {
+        const v29 = localStorage.getItem('gozetmenlik_db_v29');
+        const v28 = localStorage.getItem('gozetmenlik_db_v28');
+        if (v29) {
+            DB = migrateToV30(JSON.parse(v29));
+        } else if (v28) {
+            DB = migrateToV30(migrateToV29(JSON.parse(v28)));
+        } else {
+            seedInitialExams();
+            return;
+        }
+        saveToLocalStorage();
+    }
+
+    // Ek Güvenlik Kontrolleri
+    if (DB && DB.exams) {
+        DB.exams.forEach(ex => {
+            if (!Array.isArray(ex.proctors)) {
+                ex.proctors = [];
+                if (ex.proctorId) {
+                    ex.proctors.push({ id: ex.proctorId, name: ex.proctorName || '' });
+                }
+            }
+            if (!ex.type) ex.type = 'vize';
+        });
     }
 }
 
