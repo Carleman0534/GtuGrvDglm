@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,12 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PDF Raporlama Kütüphaneleri -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-</head>
-
-<body>
+</head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
         <div class="login-card">
@@ -37,7 +31,6 @@
             <div class="logo">
                 <span class="icon">⚖️</span>
                 <h1>Gözetmenlik <span>Katsayı Sistemi</span></h1>
-                <button id="btn-theme-toggle" title="Tema Değiştir">🌙</button>
             </div>
             <nav>
                 <button id="btn-dashboard" class="active">Panel</button>
@@ -45,76 +38,22 @@
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff">Personel</button>
                 <button id="btn-availability">Müsaitlik</button>
-                <button id="btn-stats">İstatistikler</button>
-                <button id="btn-archive">Arşiv</button>
-                <button id="btn-requests" class="admin-only">İstekler <span id="request-badge"
-                        class="badge-count hidden">0</span></button>
-                <button id="btn-my-profile">Profilim (Bireysel Portal)</button>
-                <button id="btn-settings" class="admin-only">Ayarlar</button>
+                <button id="btn-constraints" class="admin-only">Kısıt Yönetimi</button>
             </nav>
         </header>
 
         <main id="main-content">
             <!-- Dashboard Section -->
             <section id="section-dashboard" class="content-section">
-                <!-- Duyuru Paneli -->
-                <div id="announcement-container" class="hidden" style="margin-bottom: 1.5rem;">
-                    <div class="announcement-card">
-                        <div class="announcement-content">
-                            <span class="announcement-icon">📢</span>
-                            <div class="announcement-text">
-                                <h4 style="margin-bottom: 4px; color: #facc15; font-weight: 700;">GÜNCEL DUYURU</h4>
-                                <p id="announcement-display-text"
-                                    style="font-size: 0.95rem; line-height: 1.5; color: white;"></p>
-                            </div>
-                        </div>
-                        <button id="btn-edit-announcement" class="admin-only btn-icon-only" title="Duyuruyu Düzenle"
-                            style="background: rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: white;">
-                            ✏️
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Smart Alert Area (Hidden by default) -->
-                <div id="smart-alert-container" class="hidden admin-only" style="margin-bottom: 1.5rem;">
-                    <div class="card"
-                        style="background: rgba(91, 33, 182, 0.1); border: 1px solid #5b21b6; border-left: 4px solid #5b21b6; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <span style="font-size: 1.5rem;">🔔</span>
-                            <div>
-                                <h4 id="smart-alert-title"
-                                    style="margin-bottom: 4px; color: #a78bfa; font-weight: 600;">Sınav Hatırlatması
-                                </h4>
-                                <p id="smart-alert-msg" style="font-size: 0.875rem; color: var(--text-muted);">Yarın 5
-                                    hocanın sınav görevi var.</p>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 10px;">
-                            <button id="btn-smart-remind" class="btn-primary"
-                                style="background: #5b21b6; font-size: 0.8125rem;">Şimdi Hatırlat</button>
-                            <button onclick="this.closest('#smart-alert-container').classList.add('hidden')"
-                                style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.25rem;">&times;</button>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
                     <h2>Puan Dağılımı ve Sıralama</h2>
                     <div style="display:flex; gap:10px;">
-                        <button id="btn-backup-system" class="btn-primary admin-only" style="background:#4b5563;">💾
-                            Yedekle (JSON)</button>
-                        <button id="id-restore-system" class="btn-primary admin-only" style="background:#6b7280;">📂
-                            Geri Yükle</button>
-                        <button id="btn-reset-exams" class="btn-primary admin-only" style="background:#f59e0b;">🧹
-                            Programı Sıfırla (Puanlar Kalsın)</button>
-                        <button id="btn-resolve-conflicts" class="btn-primary admin-only" style="background:#ef4444;">⚠️
-                            Çakışmaları Otomatik Çöz</button>
-                        <button id="btn-export-dashboard" class="btn-primary" style="background:#28a745;">Resim
-                            İndir</button>
-                        <button id="btn-github-sync" class="btn-primary" style="background:#6366f1;">🔗 GitHub Kod
-                            Üret</button>
-                        <button id="btn-remind-tomorrow" class="btn-primary admin-only"
-                            style="background:#5b21b6; margin-left: 10px;">⏰ Yarınki Görevlileri Hatırlat</button>
+                        <button id="btn-backup-system" class="btn-primary admin-only" style="background:#4b5563;">💾 Yedekle (JSON)</button>
+                        <button id="id-restore-system" class="btn-primary admin-only" style="background:#6b7280;">📂 Geri Yükle</button>
+                        <button id="btn-reset-exams" class="btn-primary admin-only" style="background:#f59e0b;">🧹 Programı Sıfırla (Puanlar Kalsın)</button>
+                        <button id="btn-resolve-conflicts" class="btn-primary admin-only" style="background:#ef4444;">⚠️ Çakışmaları Otomatik Çöz</button>
+                        <button id="btn-export-dashboard" class="btn-primary" style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-github-sync" class="btn-primary" style="background:#6366f1;">🔗 GitHub Kod Üret</button>
                     </div>
                 </div>
                 <div class="stats-grid">
@@ -132,33 +71,9 @@
                     </div>
                 </div>
 
-                <div id="dashboard-export-container"
-                    style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
-                    <!-- Takas Talepleri Kartı (Yeni) -->
-                    <div id="card-swap-requests" class="card card-table card-large hidden admin-only"
-                        style="margin-bottom: 2rem; border-color: var(--accent-orange);">
-                        <h3
-                            style="margin-bottom: 1.5rem; color: var(--accent-orange); font-size: 0.875rem; text-transform: uppercase;">
-                            🕒 Bekleyen Takas Talepleri</h3>
-                        <div class="table-container">
-                            <table id="table-swap-requests">
-                                <thead>
-                                    <tr>
-                                        <th>Sınav</th>
-                                        <th>Talep Eden</th>
-                                        <th>Tarih/Saat</th>
-                                        <th>İşlem</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-
+                <div id="dashboard-export-container" style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
                     <div class="card-large" style="margin-bottom: 2rem;">
-                        <h3
-                            style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">
-                            Gözetmen Puan Analiz Grafiği</h3>
+                        <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Gözetmen Puan Analiz Grafiği</h3>
                         <div style="height: 300px; position: relative;">
                             <canvas id="scoreChart"></canvas>
                         </div>
@@ -191,10 +106,8 @@
                     <h2>Personel Listesi</h2>
                     <div>
                         <button class="btn-primary admin-only" id="btn-add-staff">+ Yeni Personel</button>
-                        <button id="btn-import-excel" class="btn-primary admin-only"
-                            style="background:#1d6f42; margin-left: 10px;">Excel’den İçe Aktar</button>
-                        <button id="btn-export-staff" class="btn-primary"
-                            style="background:#28a745; margin-left: 10px;">Resim İndir</button>
+                        <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42; margin-left: 10px;">Excel’den İçe Aktar</button>
+                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745; margin-left: 10px;">Resim İndir</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -202,7 +115,6 @@
                         <thead>
                             <tr>
                                 <th>İsim Soyisim</th>
-                                <th>E-posta</th>
                                 <th>Toplam Puan</th>
                                 <th>Görev Sayısı</th>
                                 <th class="admin-only">İşlem</th>
@@ -219,11 +131,8 @@
                     <h2>Sınav Listesi</h2>
                     <div>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
-                        <button id="btn-import-auto-assign" class="btn-primary admin-only"
-                            style="background:#6366f1; margin-left: 10px;" onclick="openImportModal()">✨ Taslak Liste
-                            Yükle (Otomatik Ata)</button>
-                        <button id="btn-export-exams" class="btn-primary"
-                            style="background:#28a745; margin-left: 10px;">Resim İndir</button>
+                        <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#6366f1; margin-left: 10px;">✨ Taslak Liste Yükle (Otomatik Ata)</button>
+                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745; margin-left: 10px;">Resim İndir</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -231,15 +140,13 @@
                         <thead>
                             <tr>
                                 <th class="sortable" data-sort="name">Ders / Sınav <span class="sort-icon"></span></th>
-                                <th class="sortable" data-sort="location">Derslik / Mevcut <span
-                                        class="sort-icon"></span></th>
+                                <th class="sortable" data-sort="location">Derslik / Mevcut <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="date">Tarih <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="time">Saat <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="duration">Süre (dk) <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="katsayi">Katsayı <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="score">Puan <span class="sort-icon"></span></th>
-                                <th class="sortable" data-sort="proctorName">Gözetmen <span class="sort-icon"></span>
-                                </th>
+                                <th class="sortable" data-sort="proctorName">Gözetmen <span class="sort-icon"></span></th>
                                 <th class="admin-only">İşlem</th>
                             </tr>
                         </thead>
@@ -251,86 +158,27 @@
             <!-- Schedule Section -->
             <section id="section-schedule" class="content-section hidden">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 20px;">
-                        <h2>Genel Sınav Programı</h2>
-                        <div class="view-toggle">
-                            <button id="btn-view-list" class="active">Liste</button>
-                            <button id="btn-view-calendar">Takvim</button>
-                        </div>
-                    </div>
+                    <h2>Genel Sınav Programı</h2>
                     <div>
-                        <button id="btn-export-schedule-excel" class="btn-primary"
-                            style="background:#1d6f42; margin-right: 10px;">Excel İndir</button>
-                        <button id="btn-export-schedule-pdf" class="btn-primary"
-                            style="background:#dc2626; margin-right: 10px;">PDF İndir</button>
-                        <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">Resim
-                            İndir</button>
+                        <button id="btn-export-schedule-excel" class="btn-primary" style="background:#1d6f42; margin-right: 10px;">Excel İndir</button>
+                        <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">Resim İndir</button>
                     </div>
                 </div>
-
-                <div style="display: flex; flex-direction: column; align-items: center; margin: 1rem 0; gap: 15px;">
-                    <!-- Sınav Türü Filtresi -->
-                    <div class="type-filter-bar" id="schedule-type-filter">
-                        <button class="type-filter-btn active" data-type="all">Tüm Türler</button>
-                        <button class="type-filter-btn" data-type="vize">Vizeler</button>
-                        <button class="type-filter-btn" data-type="final">Finaller</button>
-                        <button class="type-filter-btn" data-type="but">Bütünlemeler</button>
-                        <button class="type-filter-btn" data-type="mazeret">Mazeret</button>
-                        <button class="type-filter-btn" data-type="ek">Ek Sınav</button>
-                        <button class="type-filter-btn" data-type="tercih">Tercih G.</button>
-                        <button class="type-filter-btn" data-type="doktora">Doktora</button>
-                        <button class="type-filter-btn" data-type="asist">Arş. Gör.</button>
-                        <button class="type-filter-btn" data-type="diger">Diğer</button>
-                    </div>
-
-                    <div class="month-selector-bar" id="month-selector">
-                        <button data-month="0">Oca</button>
-                        <button data-month="1">Şub</button>
-                        <button data-month="2">Mar</button>
-                        <button data-month="3">Nis</button>
-                        <button data-month="4">May</button>
-                        <button data-month="5">Haz</button>
-                        <button data-month="6">Tem</button>
-                        <button data-month="7">Ağu</button>
-                        <button data-month="8">Eyl</button>
-                        <button data-month="9">Eki</button>
-                        <button data-month="10">Kas</button>
-                        <button data-month="11">Ara</button>
-                    </div>
-                    <div class="calendar-view-controls">
-                        <button class="btn-icon-only" id="btn-cal-prev"
-                            style="color: white; border: none; background: none; cursor: pointer;">◀</button>
-                        <div id="calendar-month-title" class="calendar-month-title"></div>
-                        <button class="btn-icon-only" id="btn-cal-next"
-                            style="color: white; border: none; background: none; cursor: pointer;">▶</button>
-                    </div>
-                </div>
-
-                <!-- Liste Görünümü -->
-                <div id="schedule-list-view">
-                    <div class="table-container">
-                        <table id="table-schedule">
-                            <thead>
-                                <tr>
-                                    <th>Ders / Sınav</th>
-                                    <th>Derslik / Yer</th>
-                                    <th>Tarih</th>
-                                    <th>Saat</th>
-                                    <th>Süre (dk)</th>
-                                    <th>Gözetmenler</th>
-                                    <th class="admin-only">İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Takvim Görünümü -->
-                <div id="schedule-calendar-view" class="hidden">
-                    <div id="calendar-grid" class="calendar-grid">
-                        <!-- JS tarafından doldurulacak -->
-                    </div>
+                <div class="table-container">
+                    <table id="table-schedule">
+                        <thead>
+                            <tr>
+                                <th>Ders / Sınav</th>
+                                <th>Derslik / Yer</th>
+                                <th>Tarih</th>
+                                <th>Saat</th>
+                                <th>Süre (dk)</th>
+                                <th>Gözetmenler</th>
+                                <th class="admin-only">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </section>
 
@@ -340,8 +188,7 @@
                     <h2>Gözetmen Müsaitlik Takvimi</h2>
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <label style="color: var(--text-muted); font-size: 0.875rem;">Tarih Seçin:</label>
-                        <input type="date" id="availability-date"
-                            style="background: rgba(15,23,42,0.6); border: 1px solid var(--card-border); color: white; padding: 0.5rem 0.75rem; border-radius: 8px; font-family: inherit;">
+                        <input type="date" id="availability-date" style="background: rgba(15,23,42,0.6); border: 1px solid var(--card-border); color: white; padding: 0.5rem 0.75rem; border-radius: 8px; font-family: inherit;">
                     </div>
                 </div>
                 <div class="card-large">
@@ -357,36 +204,31 @@
             </section>
 
             <!-- Kısıt Yönetimi Section -->
-            <section id="section-constraints" class="content-section hidden">
+            <section id="section-constraints" class="content-section hidden admin-only">
                 <div class="section-header">
                     <h2>Gözetmen Kısıt Yönetimi</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Hocaların ders saatlerini veya özel izin
-                        günlerini buradan yönetebilirsiniz.</p>
+                    <p style="color: var(--text-muted); font-size: 0.875rem;">Hocaların ders saatlerini veya özel izin günlerini buradan yönetebilirsiniz.</p>
                 </div>
 
-                <div class="grid-2"
-                    style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start;">
+                <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start;">
                     <!-- Sol: Seçim ve Ekleme -->
                     <div class="card-large">
                         <h3 style="margin-bottom: 1rem;">Yeni Kısıt Ekle</h3>
                         <form id="form-add-constraint">
                             <div class="form-group">
                                 <label>Gözetmen Seçin</label>
-                                <select id="constraint-staff-select" required
-                                    style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
+                                <select id="constraint-staff-select" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
                             </div>
                             <div class="form-group">
                                 <label>Kısıt Tipi</label>
-                                <select id="constraint-type"
-                                    style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                <select id="constraint-type" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
                                     <option value="day">Haftalık Gün (Ders vb.)</option>
                                     <option value="date">Özel Tarih (İzin vb.)</option>
                                 </select>
                             </div>
                             <div id="constraint-day-group" class="form-group">
                                 <label>Gün</label>
-                                <select id="constraint-day"
-                                    style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                <select id="constraint-day" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
                                     <option value="1">Pazartesi</option>
                                     <option value="2">Salı</option>
                                     <option value="3">Çarşamba</option>
@@ -398,30 +240,25 @@
                             </div>
                             <div id="constraint-date-group" class="form-group hidden">
                                 <label>Tarih</label>
-                                <input type="date" id="constraint-date"
-                                    style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                <input type="date" id="constraint-date" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
                             </div>
                             <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                 <div class="form-group">
                                     <label>Başlangıç</label>
-                                    <input type="time" id="constraint-start" value="08:30" required
-                                        style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                    <input type="time" id="constraint-start" value="08:30" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
                                 </div>
                                 <div class="form-group">
                                     <label>Bitiş</label>
-                                    <input type="time" id="constraint-end" value="17:30" required
-                                        style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                    <input type="time" id="constraint-end" value="17:30" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
                                 </div>
                             </div>
-                            <button type="submit" class="btn-primary"
-                                style="width: 100%; margin-top: 1rem;">Ekle</button>
+                            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Ekle</button>
                         </form>
                     </div>
 
                     <!-- Sağ: Liste -->
                     <div class="card-large">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h3 id="current-constraints-title">Mevcut Kısıtlar</h3>
                         </div>
                         <div class="table-container">
@@ -434,524 +271,11 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td colspan="3"
-                                            style="text-align:center; color:var(--text-muted); padding:2rem;">Lütfen bir
-                                            gözetmen seçin...</td>
-                                    </tr>
+                                    <tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Lütfen bir gözetmen seçin...</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            <!-- Ayarlar Section -->
-            <section id="section-settings" class="content-section hidden admin-only">
-                <div class="section-header">
-                    <h2>Sistem Ayarları & E-Posta Şablonları</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Sistem genelindeki mail metinlerini
-                        buradan özelleştirebilirsiniz.</p>
-                </div>
-
-                <div class="card-large">
-                    <div class="form-group">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary);">Yeni
-                            Görevlendirme Maili (Admin -> Hoca)</label>
-                        <textarea id="template-assignment"
-                            style="width: 100%; height: 180px; background: rgba(15,23,42,0.5); border: 1px solid var(--card-border); border-radius: 8px; color: white; padding: 12px; font-family: inherit; font-size: 0.9rem; line-height: 1.5; outline: none; transition: border-color 0.2s;"></textarea>
-                        <p
-                            style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px;">
-                            <strong>Değişkenler:</strong> {hoca_adi}, {sinav_adi}, {tarih}, {saat}, {sure}, {yer},
-                            {katsayi}, {puan}, {toplam_gorev}</p>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 2.5rem;">
-                        <label
-                            style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary);">Takas
-                            İsteği Maili (Hoca -> Hoca)</label>
-                        <textarea id="template-swap_request"
-                            style="width: 100%; height: 100px; background: rgba(15,23,42,0.5); border: 1px solid var(--card-border); border-radius: 8px; color: white; padding: 12px; font-family: inherit; font-size: 0.9rem; line-height: 1.5; outline: none;"></textarea>
-                        <p
-                            style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px;">
-                            <strong>Değişkenler:</strong> {alici_adi}, {gonderen_adi}, {sinav_adi}, {tarih}</p>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 2.5rem;">
-                        <label
-                            style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary);">Takas
-                            Bildirimi Maili (Hoca -> Yönetici)</label>
-                        <textarea id="template-swap_notif"
-                            style="width: 100%; height: 100px; background: rgba(15,23,42,0.5); border: 1px solid var(--card-border); border-radius: 8px; color: white; padding: 12px; font-family: inherit; font-size: 0.9rem; line-height: 1.5; outline: none;"></textarea>
-                        <p
-                            style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px;">
-                            <strong>Değişkenler:</strong> {sinav_adi}, {tarih}, {saat}, {gonderen_adi}, {hedef_hoca}</p>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 2.5rem;">
-                        <label
-                            style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary);">Sınav
-                            Hatırlatma Maili (Sistem -> Hoca)</label>
-                        <textarea id="template-reminder"
-                            style="width: 100%; height: 140px; background: rgba(15,23,42,0.5); border: 1px solid var(--card-border); border-radius: 8px; color: white; padding: 12px; font-family: inherit; font-size: 0.9rem; line-height: 1.5; outline: none;"></textarea>
-                        <p
-                            style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px;">
-                            <strong>Değişkenler:</strong> {hoca_adi}, {sinav_adi}, {tarih}, {saat}, {yer}</p>
-                    </div>
-
-                    <div
-                        style="margin-top: 3rem; display: flex; gap: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 2rem;">
-                        <button class="btn-primary" onclick="saveTemplates()" style="padding: 0.75rem 2rem;">Ayarları
-                            Kaydet</button>
-                        <button class="btn-secondary" onclick="resetTemplates()"
-                            style="padding: 0.75rem 2rem; background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.2);">Varsayılana
-                            Dön</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Arşiv Bölümü -->
-            <section id="section-archive" class="content-section hidden">
-                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
-                    <div>
-                        <h2>Sınav Arşivi & Geçmiş Karşılaştırma</h2>
-                        <p style="color: var(--text-muted); font-size: 0.875rem;">Tamamlanan dönemleri saklayabilir ve mevcut durumla kıyaslayabilirsiniz.</p>
-                    </div>
-                    <button id="btn-open-archive-modal" class="btn-primary admin-only" style="background: #6366f1;">📂 Yeni Dönem Arşivle</button>
-                </div>
-
-                <div class="grid-2 archive-stats-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 2rem;">
-                    <div class="card-large" style="background: rgba(99, 102, 241, 0.05);">
-                        <h3 style="color: #818cf8; margin-bottom: 1rem;">📊 Dönemsel Ortalama Puanlar</h3>
-                        <div id="archive-comparison-chart" style="height: 200px; display: flex; align-items: flex-end; gap: 15px; padding-bottom: 20px;">
-                            <!-- Dinamik Çubuk Grafiği -->
-                            <p style="color: var(--text-muted); margin: auto;">Henüz karşılaştırılacak arşiv bulunmuyor.</p>
-                        </div>
-                    </div>
-                    <div class="card-large">
-                        <h3 style="margin-bottom: 1rem;">💡 Bilgi</h3>
-                        <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;">
-                            Arşivleme işlemi, mevcut sınav listesini bir paket olarak saklar. Bu sayede her dönemin (Örn: 2024 Güz) 
-                            puan dağılımını ayrı ayrı görebilir ve hocaların geçmiş performanslarını takip edebilirsiniz.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="card-large">
-                    <h3 style="margin-bottom: 1.5rem;">Kayıtlı Bölüm/Dönem Arşivleri</h3>
-                    <div class="table-container">
-                        <table id="table-archives">
-                            <thead>
-                                <tr>
-                                    <th>Dönem Adı</th>
-                                    <th>Arşiv Tarihi</th>
-                                    <th>Sınav Sayısı</th>
-                                    <th>Ortalama Puan</th>
-                                    <th style="text-align: right;">İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Dinamik dolacak -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Tamamlanan Sınavlar (Otomatik Arşiv) -->
-                <div class="card-large" style="margin-top: 2rem;">
-                    <h3 style="margin-bottom: 1.5rem;">Tamamlanan Sınavlar (Bu Dönem)</h3>
-                    <div class="table-container">
-                        <table id="table-completed-exams">
-                            <thead>
-                                <tr>
-                                    <th>Ders / Sınav</th>
-                                    <th>Derslik / Yer</th>
-                                    <th>Tarih</th>
-                                    <th>Saat</th>
-                                    <th>Süre (dk)</th>
-                                    <th>Gözetmenler</th>
-                                    <th style="text-align: right;">İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Dinamik dolacak -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Arşivleme Onay Modalı -->
-            <div id="modal-archive-confirm" class="modal hidden">
-                <div class="modal-content" style="max-width: 450px;">
-                    <h2 style="color: #ef4444;">Dönemi Arşivle & Sıfırla</h2>
-                    <p style="margin: 1rem 0; color: var(--text-muted); font-size: 0.9rem;">
-                        Bu işlem mevcut sınav listesini ve takas taleplerini bir arşive taşıyacak ve <strong>sınav programını tamamen temizleyecektir.</strong> 
-                        Hoca puanları hoca listesinde kalmaya devam eder.
-                    </p>
-                    <div class="form-group">
-                        <label>Arşiv Adı (Örn: 2025 Bahar Vizeleri)</label>
-                        <input type="text" id="archive-period-name" placeholder="Dönem adını giriniz..." style="width: 100%; margin-top: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--card-border); color: white; padding: 0.75rem; border-radius: 8px;">
-                    </div>
-                    <div class="form-actions" style="margin-top: 1.5rem; display: flex; gap: 10px;">
-                        <button id="btn-archive-cancel" class="btn-secondary" style="flex: 1;">Vazgeç</button>
-                        <button id="btn-archive-confirm-submit" class="btn-primary" style="flex: 2; background: #ef4444;">Arşivle ve Sıfırla</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Arşiv Detay Modalı -->
-            <div id="modal-archive-detail" class="modal hidden">
-                <div class="modal-content" style="max-width: 800px;">
-                    <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
-                        <h2 id="archive-detail-title">Arşiv Detayı</h2>
-                        <button id="btn-close-archive-detail" class="btn-secondary">Kapat</button>
-                    </div>
-                    <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 1.5rem 0;">
-                        <div class="card" style="background: rgba(255,255,255,0.02);">
-                            <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Dönem Özeti</h4>
-                            <p id="archive-summary-text" style="font-size: 0.85rem; color: var(--text-muted);"></p>
-                        </div>
-                        <div style="display: flex; gap: 10px; align-items: center; justify-content: flex-end;">
-                            <button id="btn-archive-restore" class="btn-secondary" style="font-size: 0.8rem; border-color: #f59e0b; color: #f59e0b;">⚠️ Programı Geri Yükle</button>
-                            <button id="btn-archive-export-excel" class="btn-primary" style="background: #1d6f42; font-size: 0.8rem;">Excel İndir</button>
-                        </div>
-                    </div>
-                    <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                        <table id="table-archive-exams">
-                            <thead>
-                                <tr>
-                                    <th>Ders / Sınav</th>
-                                    <th>Tarih</th>
-                                    <th>Saat</th>
-                                    <th>Gözetmenler</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- İstatistik Bölümü -->
-            <section id="section-stats" class="content-section hidden">
-                <div class="section-header">
-                    <h2>Görev Analizi & İstatistikler</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Sistemdeki gözetmenlerin görev dağılımı ve
-                        puan detayları.</p>
-                </div>
-
-                <div class="stats-grid"
-                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-                    <!-- Genel Dağılım Kartı -->
-                    <div class="card-large">
-                        <h3
-                            style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #818cf8; display: flex; align-items: center; gap: 10px;">
-                            <span>📊</span> Global Görev Dağılımı
-                        </h3>
-                        <div id="stats-global-chart" style="display: flex; flex-direction: column; gap: 1.25rem;">
-                            <!-- Dinamik olarak doldurulacak -->
-                        </div>
-                    </div>
-
-                    <!-- Bilgi Kartı -->
-                    <div class="card-large"
-                        style="background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.2);">
-                        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: #818cf8;">💡 Puanlama Mantığı</h3>
-                        <div style="font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
-                            <p style="margin-bottom: 1rem;">Sistemde puanlar şu formülle hesaplanır:</p>
-                            <code
-                                style="display: block; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 8px; color: #818cf8; margin-bottom: 1rem;">Puan = Sınav Süresi × Katsayı</code>
-                            <ul style="list-style: none; padding: 0;">
-                                <li style="margin-bottom: 0.5rem;">🔹 Hafta içi Mesai: <strong>1.0x</strong></li>
-                                <li style="margin-bottom: 0.5rem;">🔹 Hafta içi Akşam: <strong>1.5x</strong></li>
-                                <li style="margin-bottom: 0.5rem;">🔹 Hafta sonu Gündüz: <strong>2.0x</strong></li>
-                                <li style="margin-bottom: 0.5rem;">🔹 Hafta sonu Akşam: <strong>2.5x</strong></li>
-                            </ul>
-                            <p style="margin-top: 1rem; font-style: italic; font-size: 0.8rem;">Hafta sonu ve akşam
-                                görevleri, zorluk derecesi nedeniyle daha yüksek puan kazandırır.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card-large" style="margin-bottom: 2rem;">
-                    <h3
-                        style="font-size: 1.1rem; margin-bottom: 1.5rem; color: #818cf8; display: flex; align-items: center; gap: 10px;">
-                        <span>👥</span> Personel Bazlı Detaylı Analiz
-                    </h3>
-                    <div class="table-container">
-                        <table id="table-staff-stats">
-                            <thead>
-                                <tr>
-                                    <th>Gözetmen</th>
-                                    <th>H.İçi/Gündüz</th>
-                                    <th>H.İçi/Akşam</th>
-                                    <th>H.Sonu/Gündüz</th>
-                                    <th>H.Sonu/Akşam</th>
-                                    <th>Toplam Görev</th>
-                                    <th>Toplam Puan</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Dinamik olarak doldurulacak -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Takas Talepleri (Admin) Section -->
-            <section id="section-requests" class="content-section hidden admin-only">
-                <div class="section-header">
-                    <h2>Takas Talepleri</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Gözetmenlerden gelen takas ve görev devri
-                        isteklerini buradan yönetebilirsiniz.</p>
-                </div>
-                <div class="card-large">
-                    <div class="table-container">
-                        <table id="table-requests">
-                            <thead>
-                                <tr>
-                                    <th>Tarih</th>
-                                    <th>Sınav</th>
-                                    <th>Devreden</th>
-                                    <th>Devralacak</th>
-                                    <th>Durum</th>
-                                    <th style="text-align: right;">İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">
-                                        Henüz bir talep bulunmuyor.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- My Profile Section -->
-            <section id="section-my-profile" class="content-section hidden">
-                <div class="section-header"
-                    style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
-                    <h2>Bireysel Hoca Portalı</h2>
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <button id="btn-profile-export-ics" class="btn-primary" style="background:#3b82f6; display:none;">📅 Takvimi İndir (.ics)</button>
-                        <button id="btn-profile-export-pdf" class="btn-primary" style="background:#dc2626; display:none;">📄 PDF İndir</button>
-                        <div
-                            style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 12px; border: 1px solid var(--card-border);">
-                            <label style="font-size: 0.9rem; color: var(--text-muted);">Ben Kimim?</label>
-                            <select id="profile-staff-select" class="profile-select-modern"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="profile-content" class="hidden">
-                    <!-- Yönetici Özel Duyurusu -->
-                    <div id="profile-announcement-card" class="card hidden" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.15)); border: 1px solid rgba(245, 158, 11, 0.3); margin-bottom: 2rem; padding: 1.25rem; display: flex; align-items: center; gap: 15px;">
-                        <span style="font-size: 1.5rem;">🔔</span>
-                        <div style="flex: 1;">
-                            <h4 style="color: #fbbf24; margin-bottom: 4px; font-size: 0.9rem; font-weight: 700;">YÖNETİCİ NOTU / DUYURU</h4>
-                            <p id="profile-announcement-text" style="font-size: 0.95rem; line-height: 1.4; color: white;"></p>
-                        </div>
-                    </div>
-
-                    <div class="stats-cards" style="margin-bottom: 2rem;">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">🏆</div>
-                            <div class="stat-info">
-                                <h3 id="profile-stat-score">0.0</h3>
-                                <p>Toplam Puan</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">📋</div>
-                            <div class="stat-info">
-                                <h3 id="profile-stat-tasks">0</h3>
-                                <p>Görev Sayısı</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">📊</div>
-                            <div class="stat-info">
-                                <h3 id="profile-stat-rank">#0</h3>
-                                <p>Sıralama</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="stats-cards" style="margin-bottom: 2rem;">
-                        <div class="stat-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));">
-                            <div class="stat-icon" style="color: #818cf8;">🤝</div>
-                            <div class="stat-info">
-                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">Sık Çalışılan İş Arkadaşları</p>
-                                <h4 id="profile-partners" style="font-size: 0.9rem; color: white;">Veriler yükleniyor...</h4>
-                            </div>
-                        </div>
-                        <div class="stat-card" style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(239, 68, 68, 0.1));">
-                            <div class="stat-icon" style="color: #f472b6;">🔮</div>
-                            <div class="stat-info">
-                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">Bir Sonraki Görev Tahmini</p>
-                                <h4 id="profile-prediction" style="font-size: 0.9rem; color: white;">Analiz ediliyor...</h4>
-                            </div>
-                        </div>
-                        <div class="stat-card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(16, 185, 129, 0.2);">
-                            <div class="stat-icon" style="color: #10b981;">⏳</div>
-                            <div class="stat-info">
-                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">Sıradaki Görevinize Kalan Süre</p>
-                                <h4 id="profile-countdown" style="font-size: 0.95rem; color: #10b981; font-weight: 700;">Hesaplanıyor...</h4>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid-two-cols">
-                        <div class="card-large">
-                            <h4 style="margin-bottom: 1rem; color: var(--primary);">🗓️ Kişisel Takvimim</h4>
-                            <div
-                                style="display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 1.5rem;">
-                                <!-- Profil Sınav Türü Filtresi -->
-                                <div class="type-filter-bar" id="profile-type-filter">
-                                    <button class="type-filter-btn active" data-type="all">Tümü</button>
-                                    <button class="type-filter-btn" data-type="vize">Vize</button>
-                                    <button class="type-filter-btn" data-type="final">Final</button>
-                                    <button class="type-filter-btn" data-type="but">Büt</button>
-                                    <button class="type-filter-btn" data-type="mazeret">Maz.</button>
-                                    <button class="type-filter-btn" data-type="ek">Ek</button>
-                                    <button class="type-filter-btn" data-type="tercih">Ter.</button>
-                                    <button class="type-filter-btn" data-type="doktora">Dok.</button>
-                                    <button class="type-filter-btn" data-type="asist">Asis.</button>
-                                    <button class="type-filter-btn" data-type="diger">Diğ.</button>
-                                </div>
-                                <div class="month-selector-bar" id="profile-month-selector">
-                                    <button data-month="0">Oca</button><button data-month="1">Şub</button><button
-                                        data-month="2">Mar</button><button data-month="3">Nis</button>
-                                    <button data-month="4">May</button><button data-month="5">Haz</button><button
-                                        data-month="6">Tem</button><button data-month="7">Ağu</button>
-                                    <button data-month="8">Eyl</button><button data-month="9">Eki</button><button
-                                        data-month="10">Kas</button><button data-month="11">Ara</button>
-                                </div>
-                                <div class="calendar-view-controls">
-                                    <button class="btn-icon-only" id="btn-profile-cal-prev">◀</button>
-                                    <div id="profile-calendar-month-title" class="calendar-month-title"></div>
-                                    <button class="btn-icon-only" id="btn-profile-cal-next">▶</button>
-                                </div>
-                            </div>
-                            <div id="profile-calendar-grid" class="calendar-grid"></div>
-                        </div>
-
-                        <div class="card-large" style="padding: 1.5rem;">
-                            <div class="profile-tabs" style="display: flex; gap: 10px; margin-bottom: 1.5rem; border-bottom: 1px solid var(--card-border); padding-bottom: 10px;">
-                                <button class="profile-tab-btn active" data-tab="upcoming" style="background: none; border: none; color: white; cursor: pointer; padding: 5px 15px; font-weight: 600; font-size: 0.95rem; position: relative;">📝 Yaklaşan Görevler</button>
-                                <button class="profile-tab-btn" data-tab="past" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 5px 15px; font-weight: 500; font-size: 0.95rem;">📂 Geçmiş (Arşiv)</button>
-                            </div>
-                            <div class="table-container">
-                                <table id="table-profile-exams">
-                                    <thead>
-                                        <tr>
-                                            <th>Sınav</th>
-                                            <th>Tarih</th>
-                                            <th>Saat</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="card-large">
-                            <h4 style="margin-bottom: 1rem; color: var(--primary);">🕒 Müsaitlik Durumum (Kısıtlarım)
-                            </h4>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-                                Görev alamayacağınız gün ve saatleri buradan ekleyebilirsiniz. Sistem bu saatlerde size
-                                otomatik görev atamayacaktır.
-                            </p>
-
-                            <!-- Kısıt Ekleme Formu -->
-                            <div class="profile-constraint-form"
-                                style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid var(--card-border);">
-                                <div
-                                    style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: flex-end;">
-                                    <div class="form-group" style="margin-bottom:0">
-                                        <label style="font-size: 0.75rem;">Tip</label>
-                                        <select id="profile-con-type">
-                                            <option value="day">Haftalık Gün</option>
-                                            <option value="date">Özel Tarih</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group" id="profile-con-day-group" style="margin-bottom:0">
-                                        <label style="font-size: 0.75rem;">Gün</label>
-                                        <select id="profile-con-day">
-                                            <option value="1">Pazartesi</option>
-                                            <option value="2">Salı</option>
-                                            <option value="3">Çarşamba</option>
-                                            <option value="4">Perşembe</option>
-                                            <option value="5">Cuma</option>
-                                            <option value="6">Cumartesi</option>
-                                            <option value="0">Pazar</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group hidden" id="profile-con-date-group" style="margin-bottom:0">
-                                        <label style="font-size: 0.75rem;">Tarih</label>
-                                        <input type="date" id="profile-con-date">
-                                    </div>
-                                    <div class="form-group" style="margin-bottom:0">
-                                        <label style="font-size: 0.75rem;">Başlangıç</label>
-                                        <input type="time" id="profile-con-start" value="08:30">
-                                    </div>
-                                    <div class="form-group" style="margin-bottom:0">
-                                        <label style="font-size: 0.75rem;">Bitiş</label>
-                                        <input type="time" id="profile-con-end" value="17:30">
-                                    </div>
-                                    <button class="btn-primary" id="btn-profile-add-con"
-                                        style="padding: 8px 15px;">Ekle</button>
-                                </div>
-                            </div>
-
-                            <!-- Kısıt Listesi -->
-                            <div id="profile-constraints-list" class="constraint-badges-container" style="margin-bottom: 2rem;">
-                                <!-- Dinamik olarak dolacak -->
-                            </div>
-
-                            <h4 style="margin-bottom: 1rem; color: var(--primary);">🔄 Takas Taleplerim (Takas Merkezi)</h4>
-                            <div class="table-container">
-                                <table id="table-profile-swap-requests">
-                                    <thead>
-                                        <tr>
-                                            <th>Sınav</th>
-                                            <th>Rol</th>
-                                            <th>Diğer Taraf</th>
-                                            <th>Durum</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Dinamik olarak dolacak -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                            </div>
-                        </div>
-
-                        <div class="card-large">
-                            <h4 style="margin-bottom: 1rem; color: var(--primary);">📋 Sınav Hazırlık Kontrol Listesi</h4>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
-                                Sınav görevine gitmeden önce yapılacakları buradan takip edebilirsiniz.
-                            </p>
-                            <div id="profile-checklist-container" class="checklist-items">
-                                <!-- Dinamik kontrol listesi -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="profile-empty-state"
-                    style="text-align:center; padding: 4rem 2rem; background: rgba(255,255,255,0.02); border-radius: 24px; border: 2px dashed var(--card-border);">
-                    <div style="font-size: 4rem; margin-bottom: 1rem;">👤</div>
-                    <h3 style="color: var(--text-muted);">Hoca Profilinizi Seçin</h3>
-                    <p style="color: rgba(255,255,255,0.3); font-size: 0.9rem;">Size özel program ve istatistikleri
-                        görmek için yukarıdan isminizi seçebilirsiniz.</p>
                 </div>
             </section>
         </main>
@@ -973,22 +297,15 @@
         <!-- Bireysel Personel Takvimi Modalı -->
         <div id="modal-staff-schedule" class="modal hidden">
             <div class="modal-content" style="max-width: 800px;">
-                <div class="section-header"
-                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h2 id="staff-name-title">Personel Sınav Programı</h2>
                     <div style="display: flex; gap: 10px;">
-                        <button id="btn-export-individual-ics" class="btn-calendar" style="background:#3b82f6; color:white; border:none;" title="Tüm Programı .ics Olarak İndir">📅 Takvimi İndir</button>
-                        <button id="btn-export-individual-schedule-pdf" class="btn-primary"
-                            style="background:#dc2626;">PDF İndir</button>
-                        <button id="btn-export-individual-schedule" class="btn-primary"
-                            style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-export-individual-schedule" class="btn-primary" style="background:#28a745;">Resim İndir</button>
                         <button id="btn-close-individual-modal" class="btn-secondary">Kapat</button>
                     </div>
                 </div>
-                <div id="individual-schedule-card" class="card-large"
-                    style="padding: 30px; background: #0f172a; border: 2px solid #334155;">
-                    <div
-                        style="text-align: center; margin-bottom: 25px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
+                <div id="individual-schedule-card" class="card-large" style="padding: 30px; background: #0f172a; border: 2px solid #334155;">
+                    <div style="text-align: center; margin-bottom: 25px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
                         <h1 id="individual-proctor-name" style="margin: 0; color: #6366f1;">Hoca Adı</h1>
                         <p style="color: #94a3b8; margin: 5px 0;">Bireysel Sınav Görev Takvimi</p>
                     </div>
@@ -998,9 +315,9 @@
                                 <tr>
                                     <th>Ders / Sınav</th>
                                     <th>Derslik / Yer</th>
-                                    <th>Tarih & Saat</th>
+                                    <th>Tarih</th>
+                                    <th>Saat</th>
                                     <th>Süre</th>
-                                    <th>İşlem</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -1013,149 +330,36 @@
         <!-- Sınav Detay Modalı -->
         <div id="modal-exam-detail" class="modal hidden">
             <div class="modal-content" style="max-width: 700px;">
-                <div class="section-header"
-                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h2 id="exam-detail-title">Sınav Detayı</h2>
                     <button id="btn-close-exam-detail" class="btn-secondary">Kapat</button>
                 </div>
-                <div id="exam-detail-info"
-                    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;"></div>
-                <h3
-                    style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">
-                    Atanmış Gözetmenler</h3>
+                <div id="exam-detail-info" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;"></div>
+                <h3 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">Atanmış Gözetmenler</h3>
                 <div class="table-container">
                     <table id="table-exam-proctors">
                         <thead>
                             <tr>
                                 <th>#</th>
                                 <th>Gözetmen</th>
-                                <th>Puan</th>
-                                <th>Görev</th>
-                                <th>İşlem</th>
+                                <th>Toplam Puan</th>
+                                <th>Görev Sayısı</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
                 </div>
-
-                <!-- Yedek Havuzu Alanı -->
-                <div id="backup-pool-container"
-                    style="margin-top: 24px; border-top: 1px solid var(--card-border); padding-top: 20px;">
-                    <div
-                        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                        <h3
-                            style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #a78bfa; margin: 0;">
-                            🤖 Akıllı Yedek Önerileri (Acil Durum)</h3>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">Müsait ve düşük puanlı
-                            hocalar</span>
-                    </div>
-                    <div class="table-container"
-                        style="background: rgba(167, 139, 250, 0.05); border: 1px solid rgba(167, 139, 250, 0.2);">
-                        <table id="table-backup-suggestions">
-                            <thead>
-                                <tr>
-                                    <th>Hoca</th>
-                                    <th>Puan</th>
-                                    <th>Durum</th>
-                                    <th>İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
+            </div>
+        </div>
             </div>
         </div>
 
-        <!-- Takas Talebi Modalı -->
-        <div id="modal-swap" class="modal hidden">
-            <div class="modal-content" style="max-width: 500px; padding: 2.5rem;">
-                <h2 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: white;">Takas Talebi
-                    Oluştur</h2>
-                <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">Sınav</p>
-                <h3 id="swap-exam-name"
-                    style="color: #6366f1; font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem;">Ders Adı</h3>
-
-                <form id="form-swap-request">
-                    <input type="hidden" id="swap-exam-id">
-
-                    <div class="form-group">
-                        <label
-                            style="color: #94a3b8; font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; display: block;">Görevi
-                            Kim Devralacak? (Yeni Gözetmen)</label>
-                        <p style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.75rem;">Görevi üstlenecek kişiyi
-                            seçin. Boş bırakırsanız yönetici atayacaktır.</p>
-                        <select id="swap-receiver-select" required
-                            style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.875rem; border-radius: 12px; color: white; font-size: 1rem; outline: none; appearance: none; cursor: pointer;"></select>
-                        <div id="swap-conflict-warning" class="hidden"
-                            style="margin-top: 0.75rem; color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
-                            ⚠️ Dikkat, bu hoca o saatte meşgul!
-                        </div>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 1.5rem;">
-                        <label
-                            style="color: #94a3b8; font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem; display: block;">Kimin
-                            Yerine Gözetmen Olacak? (Devreden)</label>
-                        <select id="swap-initiator-select" required
-                            style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.875rem; border-radius: 12px; color: white; font-size: 1rem; outline: none; appearance: none; cursor: pointer;"></select>
-                    </div>
-
-                    <div id="swap-suggestions" class="suggestion-area hidden" style="margin-top: 1.5rem;">
-                        <h4
-                            style="color: #6366f1; font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
-                            <span>🤖</span> Akıllı Öneriler (En Uygun Gözetmenler)
-                        </h4>
-                        <div id="swap-suggestion-list" class="suggestion-list"
-                            style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
-                    </div>
-
-                    <div id="swap-step-mail" class="form-info-box"
-                        style="margin-top: 1.5rem; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 1.25rem;">
-                        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem;">
-                            <span style="color: #818cf8; font-weight: 700;">⚠ Adım 1:</span> Takas etmek istediğiniz
-                            hocaya mail atarak onayını isteyin.
-                        </p>
-                        <button type="button" id="btn-send-swap-mail" class="btn-primary"
-                            style="width: 100%; background: #4f46e5; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <span>📧</span> Mail Gönder
-                        </button>
-                    </div>
-
-                    <div class="form-actions"
-                        style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
-                        <button type="button" class="btn-secondary" id="btn-swap-cancel"
-                            style="padding: 1rem; border-radius: 12px; background: rgba(15, 23, 42, 0.3); font-weight: 600;">Vazgeç</button>
-                        <button type="submit" id="btn-swap-submit" class="btn-primary"
-                            style="padding: 1rem; border-radius: 12px; background: #6366f1; font-weight: 600; opacity: 0.6; cursor: not-allowed;"
-                            disabled>Talebi Gönder</button>
-                    </div>
-                    <p id="swap-submit-hint"
-                        style="text-align: center; font-size: 0.75rem; color: #ef4444; margin-top: 0.75rem;">Lütfen önce
-                        mail gönderin.</p>
-                </form>
-            </div>
-        </div>
+        <!-- Floating Modal for Editing Exams -->
         <div id="edit-modal" class="modal hidden admin-only">
             <div class="modal-content">
                 <h2>Sınav Düzenle</h2>
                 <form id="edit-modal-form">
                     <input type="hidden" id="edit-exam-id">
-                    <div class="form-group">
-                        <label>Sınav Türü</label>
-                        <select id="edit-exam-type"
-                            style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                            <option value="vize">Vize</option>
-                            <option value="final">Final</option>
-                            <option value="but">Bütünleme</option>
-                            <option value="mazeret">Mazeret Sınavı</option>
-                            <option value="ek">Ek Sınav</option>
-                            <option value="tercih">Tercih Günleri</option>
-                            <option value="doktora">Doktora Yeterlilik</option>
-                            <option value="asist">Araştırma Görevliliği Sınavı</option>
-                            <option value="diger">Diğer</option>
-                        </select>
-                    </div>
                     <div class="form-group">
                         <label>Ders / Sınav Adı</label>
                         <input type="text" id="edit-exam-name" required>
@@ -1177,21 +381,11 @@
                         <input type="number" id="edit-exam-duration" required>
                     </div>
                     <div class="form-group">
-                        <label>Gözetmenler</label>
-                        <div id="edit-exam-proctors-list" class="multi-select-container"></div>
-                    </div>
-                    <div id="edit-suggestions" class="suggestion-area hidden" style="margin-top: 1rem;">
-                        <h4 style="color: #6366f1; font-size: 0.85rem; margin-bottom: 0.5rem;">🤖 Akıllı Öneriler</h4>
-                        <div id="edit-suggestion-list" class="suggestion-list"
-                            style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
-                    </div>
-                    <div id="edit-conflict-warning" class="hidden"
-                        style="margin-top: 1rem; color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
-                        ⚠️ Bazı seçili gözetmenler o saatte meşgul!
+                        <label>Gözetmen</label>
+                        <select id="edit-exam-proctor" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary"
-                            onclick="document.getElementById('edit-modal').classList.add('hidden')">İptal</button>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('edit-modal').classList.add('hidden')">İptal</button>
                         <button type="submit" class="btn-primary">Güncelle</button>
                     </div>
                 </form>
@@ -1202,11 +396,9 @@
     <!-- Excel Import Modali -->
     <div id="modal-import" class="modal hidden admin-only">
         <div class="modal-content" style="max-width: 600px;">
-            <div class="section-header"
-                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                 <h2>📥 Excel’den İçe Aktar</h2>
-                <button class="btn-secondary"
-                    onclick="document.getElementById('modal-import').classList.add('hidden')">Kapat</button>
+                <button class="btn-secondary" onclick="document.getElementById('modal-import').classList.add('hidden')">Kapat</button>
             </div>
             <div class="card-large" style="background:#0f172a; border:1px solid #334155;">
                 <p style="color:var(--text-muted); margin-bottom:1rem; font-size:0.875rem;">
@@ -1218,13 +410,11 @@
                 </div>
                 <div class="form-group">
                     <label>Excel Dosyası Seçin (.xlsx)</label>
-                    <input type="file" id="import-file-input" accept=".xlsx,.xls"
-                        style="width:100%; background:rgba(15,23,42,0.5); border:1px solid var(--card-border); padding:0.75rem; border-radius:8px; color:white; font-family:inherit;">
+                    <input type="file" id="import-file-input" accept=".xlsx,.xls" style="width:100%; background:rgba(15,23,42,0.5); border:1px solid var(--card-border); padding:0.75rem; border-radius:8px; color:white; font-family:inherit;">
                 </div>
                 <div id="import-preview" style="margin-top:1rem;"></div>
                 <div class="form-actions">
-                    <button type="button" class="btn-secondary"
-                        onclick="document.getElementById('modal-import').classList.add('hidden')">Vazgeç</button>
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('modal-import').classList.add('hidden')">Vazgeç</button>
                     <button id="btn-confirm-import" class="btn-primary" disabled>Aktarmayı Onayla</button>
                 </div>
             </div>
@@ -1235,125 +425,19 @@
     <!-- GitHub Sync Modali -->
     <div id="modal-github-sync" class="modal hidden">
         <div class="modal-content" style="max-width: 800px;">
-            <div class="section-header"
-                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                 <h2>🔗 GitHub Senkronizasyon Kodu</h2>
-                <button class="btn-secondary"
-                    onclick="document.getElementById('modal-github-sync').classList.add('hidden')">Kapat</button>
+                <button class="btn-secondary" onclick="document.getElementById('modal-github-sync').classList.add('hidden')">Kapat</button>
             </div>
             <div class="card-large" style="background:#0f172a; border:1px solid #334155;">
                 <p style="color:var(--text-muted); margin-bottom:1rem; font-size:0.875rem;">
-                    Aşağıdaki kodu kopyalayın ve bilgisayarınızdaki <code>logic.js</code> dosyasının en başındaki
-                    <code>let DB = { ... };</code> kısmıyla değiştirin.
+                    Aşağıdaki kodu kopyalayın ve bilgisayarınızdaki <code>logic.js</code> dosyasının en başındaki <code>let DB = { ... };</code> kısmıyla değiştirin.
                 </p>
-                <textarea id="github-sync-code" readonly
-                    style="width:100%; height:300px; background:rgba(15,23,42,0.5); border:1px solid var(--card-border); padding:1rem; border-radius:8px; color:#10b981; font-family:'Courier New', Courier, monospace; font-size:0.875rem; resize: none; margin-bottom: 1.5rem;"></textarea>
+                <textarea id="github-sync-code" readonly style="width:100%; height:300px; background:rgba(15,23,42,0.5); border:1px solid var(--card-border); padding:1rem; border-radius:8px; color:#10b981; font-family:'Courier New', Courier, monospace; font-size:0.875rem; resize: none; margin-bottom: 1.5rem;"></textarea>
                 <div class="form-actions">
                     <button id="btn-copy-sync-code" class="btn-primary">📋 Kodu Kopyala</button>
-                    <button class="btn-secondary"
-                        onclick="document.getElementById('modal-github-sync').classList.add('hidden')">Kapat</button>
+                    <button class="btn-secondary" onclick="document.getElementById('modal-github-sync').classList.add('hidden')">Kapat</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Takas Onay Modali -->
-    <div id="modal-confirm-swap" class="modal hidden admin-only">
-        <div class="modal-content" style="max-width: 500px;">
-            <h2>Takas Onayla</h2>
-            <form id="form-confirm-swap">
-                <input type="hidden" id="swap-request-id">
-                <div class="form-group">
-                    <label>Sınav</label>
-                    <p id="swap-exam-name" style="font-weight:700; color:var(--primary);"></p>
-                </div>
-                <div class="form-group">
-                    <label>Görevi Devredecek</label>
-                    <p id="swap-from-staff" style="font-weight:600;"></p>
-                </div>
-                <div id="swap-suggested-container" class="form-group hidden"
-                    style="background: rgba(99, 102, 241, 0.1); padding: 10px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 15px;">
-                    <label style="color: var(--primary); font-size: 0.75rem;">💡 Gözetmenin Önerisi</label>
-                    <p id="swap-suggested-staff" style="font-weight:700; margin: 0;"></p>
-                </div>
-                <div class="form-group">
-                    <label>Yeni Gözetmen Seçin</label>
-                    <select id="swap-to-staff-select" required
-                        style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
-                    <p id="swap-warning" style="color:var(--accent-orange); font-size:0.75rem; margin-top:5px;"
-                        class="hidden">⚠️ Seçilen hoca bu saatte meşgul!</p>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary"
-                        onclick="document.getElementById('modal-confirm-swap').classList.add('hidden')">İptal</button>
-                    <button type="submit" class="btn-primary" style="background:var(--accent-green);">Takası
-                        Tamamla</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <!-- Takas Talebi Oluşturma Modalı (Personel İçin) -->
-    <div id="modal-request-swap" class="modal hidden">
-        <div class="modal-content" style="max-width: 500px;">
-            <h2>Takas Talebi Oluştur</h2>
-            <form id="form-request-swap">
-                <input type="hidden" id="req-swap-exam-id">
-                <input type="hidden" id="req-swap-staff-id">
-
-                <div class="form-group">
-                    <label>Sınav</label>
-                    <p id="req-swap-exam-name" style="font-weight:700; color:var(--primary); margin-bottom: 5px;"></p>
-                </div>
-
-                <div class="form-group">
-                    <label>Görevi Kim Devralacak? (Yeni Gözetmen)</label>
-                    <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Görevi üstlenecek kişiyi
-                        seçin. Boş bırakırsanız yönetici atayacaktır.</p>
-                    <select id="req-swap-suggested-select"
-                        style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                        <option value="">Hedef Seçin (Opsiyonel)</option>
-                    </select>
-                </div>
-
-                <div id="req-swap-warning" class="hidden"
-                    style="background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); padding: 10px; border-radius: 8px; font-size: 0.75rem; margin-bottom: 15px; border: 1px solid var(--accent-orange);">
-                    ⚠️ Seçilen hoca o saatte meşgul veya kısıtlı görünüyor.
-                </div>
-
-                <div class="form-group">
-                    <label>Kimin Yerine Gözetmen Olacak? (Devreden)</label>
-                    <select id="req-swap-staff-select"
-                        style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                        <option value="">Lütfen listeden seçin</option>
-                    </select>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary"
-                        onclick="document.getElementById('modal-request-swap').classList.add('hidden')">Vazgeç</button>
-                    <button type="button" class="btn-primary" onclick="submitSwapForm()">Talebi Gönder</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Duyuru Düzenleme Modalı -->
-    <div id="modal-announcement" class="modal hidden">
-        <div class="modal-content" style="max-width: 500px;">
-            <h2 style="margin-bottom: 1.5rem; color: var(--primary);">Duyuruyu Güncelle</h2>
-            <div class="form-group">
-                <label>Duyuru Metni</label>
-                <textarea id="announcement-input" rows="4"
-                    placeholder="Tüm kullanıcıların göreceği duyuruyu buraya yazın..."
-                    style="width: 100%; height: 120px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white; resize: none; margin-bottom: 1rem; font-family: inherit; font-size: 0.9rem;"></textarea>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">Duyuruyu tamamen silmek
-                    için metin alanını boş bırakın.</p>
-            </div>
-            <div class="form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button id="btn-announcement-cancel" type="button" class="btn-secondary"
-                    onclick="document.getElementById('modal-announcement').classList.add('hidden')">İptal</button>
-                <button id="btn-announcement-save" type="button" class="btn-primary"
-                    onclick="saveAnnouncement()">Yayınla</button>
             </div>
         </div>
     </div>
@@ -1361,5 +445,4 @@
     <script src="logic.js"></script>
     <script src="app.js"></script>
 </body>
-
 </html>
