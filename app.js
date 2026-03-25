@@ -95,7 +95,8 @@ const navButtons = {
     staff: document.getElementById('btn-staff'),
     availability: document.getElementById('btn-availability'),
     constraints: document.getElementById('btn-constraints'),
-    requests: document.getElementById('btn-requests')
+    requests: document.getElementById('btn-requests'),
+    profile: document.getElementById('btn-profile')
 };
 
 const sections = {
@@ -105,7 +106,8 @@ const sections = {
     staff: document.getElementById('section-staff'),
     availability: document.getElementById('section-availability'),
     constraints: document.getElementById('section-constraints'),
-    requests: document.getElementById('section-requests')
+    requests: document.getElementById('section-requests'),
+    profile: document.getElementById('section-profile')
 };
 
 // Navigation
@@ -132,6 +134,7 @@ Object.entries(navButtons).forEach(([key, btn]) => {
         if (key === 'requests') {
             loadFromDataJSON().then(() => renderSwapRequests());
         }
+        if (key === 'profile') renderProfile();
     });
 });
 
@@ -151,6 +154,37 @@ function initUI() {
         if (window.resolveChoice) window.resolveChoice(true);
         document.getElementById('modal-choice').classList.add('hidden');
     });
+
+    // Profile Setup Listeners
+    document.getElementById('btn-save-identity')?.addEventListener('click', () => {
+        const dropdown = document.getElementById('profile-setup-dropdown');
+        const staffId = dropdown.value;
+        if (staffId) {
+            localStorage.setItem('myStaffId', staffId);
+            renderProfile();
+        }
+    });
+
+    document.getElementById('btn-change-identity')?.addEventListener('click', () => {
+        localStorage.removeItem('myStaffId');
+        renderProfile();
+    });
+
+    // Profile Tab Listeners
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.getAttribute('data-tab');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+        });
+    });
+
+    document.getElementById('btn-prev-month')?.addEventListener('click', () => changeMonth(-1));
+    document.getElementById('btn-next-month')?.addEventListener('click', () => changeMonth(1));
+
     document.getElementById('btn-close-exam-detail')?.addEventListener('click', () => {
         document.getElementById('modal-exam-detail').classList.add('hidden');
     });
@@ -743,8 +777,14 @@ window.showExamDetail = function(examName, date, time, location) {
     if (relatedExams.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamış.</td></tr>';
     } else {
+        const now = new Date();
         relatedExams.forEach((ex, idx) => {
             const staff = DB.staff.find(s => s.id === ex.proctorId);
+            
+            const examDate = new Date(`${ex.date}T${ex.time}`);
+            const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
+            const isPast = examEnd < now;
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${idx + 1}</td>
@@ -752,7 +792,7 @@ window.showExamDetail = function(examName, date, time, location) {
                 <td>${staff ? staff.totalScore.toFixed(1) : '-'}</td>
                 <td>${staff ? staff.taskCount : '-'}</td>
                 <td style="text-align: right;">
-                    <button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px;" onclick="takeOverDuty('${ex.id}', '${ex.proctorId}')">Yerine Geç</button>
+                    ${!isPast ? `<button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px;" onclick="takeOverDuty('${ex.id}', '${ex.proctorId}')">Yerine Geç</button>` : ''}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -1981,4 +2021,80 @@ window.showChoiceModal = function(message) {
         modal.classList.remove('hidden');
         window.resolveChoice = resolve;
     });
+};
+
+/**
+ * Profil Sayfasını Yönet
+ */
+window.renderProfile = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const setupSection = document.getElementById('profile-identity-setup');
+    const mainSection = document.getElementById('profile-main-content');
+    
+    if (!myStaffId) {
+        setupSection.classList.remove('hidden');
+        mainSection.classList.add('hidden');
+        
+        // Dropdown'ı doldur
+        const dropdown = document.getElementById('profile-setup-dropdown');
+        dropdown.innerHTML = '<option value="">İsminizi Seçin...</option>';
+        DB.staff.slice().sort((a,b) => a.name.localeCompare(b.name, 'tr')).forEach(s => {
+            dropdown.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+    } else {
+        setupSection.classList.add('hidden');
+        mainSection.classList.remove('hidden');
+        
+        const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+        if (!staff) {
+            localStorage.removeItem('myStaffId');
+            renderProfile();
+            return;
+        }
+
+        // Header Bilgileri
+        document.getElementById('profile-name').textContent = staff.name;
+        document.getElementById('profile-stat-score').textContent = staff.totalScore;
+        document.getElementById('profile-stat-tasks').textContent = staff.taskCount;
+        
+        const initials = staff.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        document.getElementById('profile-avatar').textContent = initials;
+
+        // Görevleri listele
+        const myExams = DB.exams.filter(e => String(e.proctorId) === String(myStaffId));
+        const now = new Date();
+        const activeExams = myExams.filter(e => new Date(e.date) >= now).sort((a,b) => a.date.localeCompare(b.date));
+        const archiveExams = myExams.filter(e => new Date(e.date) < now).sort((a,b) => b.date.localeCompare(a.date));
+
+        const activeBody = document.querySelector('#profile-table-active tbody');
+        activeBody.innerHTML = '';
+        activeExams.forEach(ex => {
+            activeBody.innerHTML += `
+                <tr>
+                    <td><strong>${ex.name}</strong></td>
+                    <td><span class="badge-location">${ex.location || '-'}</span></td>
+                    <td>${ex.date}</td>
+                    <td>${ex.time}</td>
+                    <td>${ex.duration} dk</td>
+                    <td><span class="score-tag">+${ex.score}</span></td>
+                </tr>
+            `;
+        });
+
+        const archiveBody = document.querySelector('#profile-table-archive tbody');
+        archiveBody.innerHTML = '';
+        archiveExams.forEach(ex => {
+            archiveBody.innerHTML += `
+                <tr>
+                    <td>${ex.name}</td>
+                    <td>${ex.location || '-'}</td>
+                    <td>${ex.date}</td>
+                    <td>${ex.time}</td>
+                    <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
+                </tr>
+            `;
+        });
+
+        // Takvimi varsayılan olarak güncelle
+    }
 };
