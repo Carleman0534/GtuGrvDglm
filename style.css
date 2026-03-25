@@ -638,3 +638,11 @@ body.guest-mode .admin-only {
 #table-archive-schedule tbody tr:hover {
     opacity: 1;
 }
+#table-archive-general tbody tr {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+#table-archive-general tbody tr:hover {
+    opacity: 1;
+}

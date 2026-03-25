@@ -110,7 +110,10 @@ Object.entries(navButtons).forEach(([key, btn]) => {
         if (sections[key]) sections[key].classList.remove('hidden');
 
         if (key === 'dashboard') renderDashboard();
-        if (key === 'schedule') renderSchedule();
+        if (key === 'schedule') {
+            switchGeneralScheduleTab('active');
+            renderSchedule();
+        }
         if (key === 'exams') renderExams();
         if (key === 'staff') renderStaff();
         if (key === 'availability') renderAvailability();
@@ -788,16 +791,19 @@ function renderExams() {
 }
 
 function renderSchedule() {
-    const tbody = document.querySelector('#table-schedule tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    const tbodyActive = document.querySelector('#table-schedule tbody');
+    const tbodyArchive = document.querySelector('#table-archive-general tbody');
+    if (!tbodyActive || !tbodyArchive) return;
+    
+    tbodyActive.innerHTML = '';
+    tbodyArchive.innerHTML = '';
 
     const groups = {};
     DB.exams.forEach(ex => {
         const key = `${ex.name}_${ex.date}_${ex.time}_${ex.location}`;
         if (!groups[key]) {
             groups[key] = {
-                id: ex.id, // ilk sınavın IDsini referans alıyoruz
+                id: ex.id,
                 name: ex.name,
                 date: ex.date,
                 time: ex.time,
@@ -812,6 +818,7 @@ function renderSchedule() {
     const scheduleList = Object.values(groups);
     const conflicts = getConflicts();
     const locConflicts = getLocationConflicts();
+    const now = new Date();
 
     function getYear(name) {
         const match = name.match(/\b(1|2|3|4)\d{2}\b/);
@@ -827,17 +834,24 @@ function renderSchedule() {
         return a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
     });
 
-    let currentYear = -1;
+    let currentYearActive = -1;
+    let currentYearArchive = -1;
 
     scheduleList.forEach(ex => {
         const y = getYear(ex.name);
+        const examDate = new Date(`${ex.date}T${ex.time}`);
+        const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
+        const isPast = examEnd < now;
+
+        const targetTbody = isPast ? tbodyArchive : tbodyActive;
+        let currentYear = isPast ? currentYearArchive : currentYearActive;
         
         if (y > 0 && y !== currentYear) {
-            currentYear = y;
+            if (isPast) currentYearArchive = y; else currentYearActive = y;
             const trHead = document.createElement('tr');
             trHead.className = 'year-header';
-            trHead.innerHTML = `<td colspan="5">${y}. YIL</td>`;
-            tbody.appendChild(trHead);
+            trHead.innerHTML = `<td colspan="7">${y}. YIL</td>`;
+            targetTbody.appendChild(trHead);
         }
 
         const tr = document.createElement('tr');
@@ -872,12 +886,39 @@ function renderSchedule() {
             <td>${ex.duration} dk</td>
             <td class="proctor-list">${ex.proctors.join(', ')}</td>
             <td>
-                 <button class="btn-secondary admin-only" onclick="showEditScheduleModal('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Program/Yer Düzenle</button>
+                 <button class="btn-secondary admin-only" onclick="showEditScheduleModal('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
             </td>
         `;
-        tbody.appendChild(tr);
+        targetTbody.appendChild(tr);
     });
+
+    if (tbodyActive.children.length === 0) {
+        tbodyActive.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Gelecek sınav programı bulunmuyor.</td></tr>';
+    }
+    if (tbodyArchive.children.length === 0) {
+        tbodyArchive.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş sınav programı bulunmuyor.</td></tr>';
+    }
 }
+
+/**
+ * Genel Sınav Programında Sekme Değiştirme
+ */
+window.switchGeneralScheduleTab = (tabName) => {
+    const btnActive = document.getElementById('tab-gen-btn-active');
+    const btnArchive = document.getElementById('tab-gen-btn-archive');
+    
+    if (tabName === 'active') {
+        btnActive.classList.add('active');
+        btnArchive.classList.remove('active');
+        document.getElementById('tab-gen-content-active').classList.add('active');
+        document.getElementById('tab-gen-content-archive').classList.remove('active');
+    } else {
+        btnActive.classList.remove('active');
+        btnArchive.classList.add('active');
+        document.getElementById('tab-gen-content-active').classList.remove('active');
+        document.getElementById('tab-gen-content-archive').classList.add('active');
+    }
+};
 
 function showAddExamModal() {
     const modal = document.getElementById('modal');

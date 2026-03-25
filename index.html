@@ -159,26 +159,56 @@
             <section id="section-schedule" class="content-section hidden">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
                     <h2>Genel Sınav Programı</h2>
-                    <div>
-                        <button id="btn-export-schedule-excel" class="btn-primary" style="background:#1d6f42; margin-right: 10px;">Excel İndir</button>
+                    <div style="display:flex; gap:10px;">
+                        <button id="btn-export-schedule-excel" class="btn-primary" style="background:#1d6f42;">Excel İndir</button>
                         <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">Resim İndir</button>
                     </div>
                 </div>
-                <div class="table-container">
-                    <table id="table-schedule">
-                        <thead>
-                            <tr>
-                                <th>Ders / Sınav</th>
-                                <th>Derslik / Yer</th>
-                                <th>Tarih</th>
-                                <th>Saat</th>
-                                <th>Süre (dk)</th>
-                                <th>Gözetmenler</th>
-                                <th class="admin-only">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+
+                <!-- Sekme Menüsü -->
+                <div class="modal-tabs" style="margin-top: -1rem; margin-bottom: 2rem;">
+                    <button id="tab-gen-btn-active" class="modal-tab-btn active" onclick="switchGeneralScheduleTab('active')">Aktif Program</button>
+                    <button id="tab-gen-btn-archive" class="modal-tab-btn" onclick="switchGeneralScheduleTab('archive')">Arşiv (Geçmiş Program)</button>
+                </div>
+
+                <!-- Aktif Program Tablosu -->
+                <div id="tab-gen-content-active" class="tab-content active">
+                    <div class="table-container">
+                        <table id="table-schedule">
+                            <thead>
+                                <tr>
+                                    <th>Ders / Sınav</th>
+                                    <th>Derslik / Yer</th>
+                                    <th>Tarih</th>
+                                    <th>Saat</th>
+                                    <th>Süre (dk)</th>
+                                    <th>Gözetmenler</th>
+                                    <th class="admin-only">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Arşiv Program Tablosu -->
+                <div id="tab-gen-content-archive" class="tab-content">
+                    <div class="table-container">
+                        <table id="table-archive-general">
+                            <thead>
+                                <tr>
+                                    <th>Ders / Sınav</th>
+                                    <th>Derslik / Yer</th>
+                                    <th>Tarih</th>
+                                    <th>Saat</th>
+                                    <th>Süre (dk)</th>
+                                    <th>Gözetmenler</th>
+                                    <th class="admin-only">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
