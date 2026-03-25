@@ -1150,11 +1150,20 @@ window.showStaffSchedule = (staffName) => {
     const modal = document.getElementById('modal-staff-schedule');
     const title = document.getElementById('staff-name-title');
     const nameHeader = document.getElementById('individual-proctor-name');
-    const tbody = document.querySelector('#table-individual-schedule tbody');
     
     title.textContent = `${staffName} - Bireysel Program`;
     nameHeader.textContent = staffName;
-    tbody.innerHTML = '';
+    
+    // Sekme sıfırlama
+    switchIndividualTab('active');
+    
+    const tbodyActive = document.querySelector('#table-individual-schedule tbody');
+    const tbodyArchive = document.querySelector('#table-archive-schedule tbody');
+    tbodyActive.innerHTML = '';
+    tbodyArchive.innerHTML = '';
+    
+    // Şimdiki zamanı al (Karşılaştırma için)
+    const now = new Date();
     
     // Filtrele ve tarihe göre sırala
     const individualExams = DB.exams
@@ -1164,6 +1173,11 @@ window.showStaffSchedule = (staffName) => {
     individualExams.forEach(ex => {
         const tr = document.createElement('tr');
         const dateStr = ex.date.split("-").reverse().join(".");
+        
+        // Sınavın bitiş zamanını hesapla (yaklaşık)
+        const examDate = new Date(`${ex.date}T${ex.time}`);
+        const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
+        
         tr.innerHTML = `
             <td><strong>${ex.name}</strong></td>
             <td>${ex.location || '-'}</td>
@@ -1171,8 +1185,22 @@ window.showStaffSchedule = (staffName) => {
             <td>${ex.time}</td>
             <td>${ex.duration} dk</td>
         `;
-        tbody.appendChild(tr);
+
+        // Eğer sınav bittiyse Arşiv'e, bitmediyse veya bugünse Aktif'e
+        if (examEnd < now) {
+            tbodyArchive.appendChild(tr);
+        } else {
+            tbodyActive.appendChild(tr);
+        }
     });
+
+    // Eğer tablolar boşsa mesaj göster
+    if (tbodyActive.children.length === 0) {
+        tbodyActive.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Aktif görev bulunmuyor.</td></tr>';
+    }
+    if (tbodyArchive.children.length === 0) {
+        tbodyArchive.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş görev bulunmuyor.</td></tr>';
+    }
     
     modal.classList.remove('hidden');
 };
@@ -1180,6 +1208,27 @@ window.showStaffSchedule = (staffName) => {
 function hideIndividualModal() {
     document.getElementById('modal-staff-schedule').classList.add('hidden');
 }
+
+/**
+ * Bireysel Program Modalında Sekme Değiştirme
+ */
+window.switchIndividualTab = (tabName) => {
+    // Butonları güncelle
+    const btnActive = document.getElementById('tab-btn-active');
+    const btnArchive = document.getElementById('tab-btn-archive');
+    
+    if (tabName === 'active') {
+        btnActive.classList.add('active');
+        btnArchive.classList.remove('active');
+        document.getElementById('tab-content-active').classList.add('active');
+        document.getElementById('tab-content-archive').classList.remove('active');
+    } else {
+        btnActive.classList.remove('active');
+        btnArchive.classList.add('active');
+        document.getElementById('tab-content-active').classList.remove('active');
+        document.getElementById('tab-content-archive').classList.add('active');
+    }
+};
 
 /**
  * UI Öneri Listesini Güncelle

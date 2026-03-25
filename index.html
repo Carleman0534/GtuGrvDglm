@@ -309,19 +309,47 @@
                         <h1 id="individual-proctor-name" style="margin: 0; color: #6366f1;">Hoca Adı</h1>
                         <p style="color: #94a3b8; margin: 5px 0;">Bireysel Sınav Görev Takvimi</p>
                     </div>
-                    <div class="table-container">
-                        <table id="table-individual-schedule">
-                            <thead>
-                                <tr>
-                                    <th>Ders / Sınav</th>
-                                    <th>Derslik / Yer</th>
-                                    <th>Tarih</th>
-                                    <th>Saat</th>
-                                    <th>Süre</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+
+                    <!-- Sekme Menüsü -->
+                    <div class="modal-tabs">
+                        <button id="tab-btn-active" class="modal-tab-btn active" onclick="switchIndividualTab('active')">Aktif Görevler</button>
+                        <button id="tab-btn-archive" class="modal-tab-btn" onclick="switchIndividualTab('archive')">Arşiv (Geçmiş Görevler)</button>
+                    </div>
+
+                    <!-- Aktif Görevler Tablosu -->
+                    <div id="tab-content-active" class="tab-content active">
+                        <div class="table-container">
+                            <table id="table-individual-schedule">
+                                <thead>
+                                    <tr>
+                                        <th>Ders / Sınav</th>
+                                        <th>Derslik / Yer</th>
+                                        <th>Tarih</th>
+                                        <th>Saat</th>
+                                        <th>Süre</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Arşiv Tablosu -->
+                    <div id="tab-content-archive" class="tab-content">
+                        <div class="table-container">
+                            <table id="table-archive-schedule">
+                                <thead>
+                                    <tr>
+                                        <th>Ders / Sınav</th>
+                                        <th>Derslik / Yer</th>
+                                        <th>Tarih</th>
+                                        <th>Saat</th>
+                                        <th>Süre</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
