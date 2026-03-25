@@ -2,7 +2,6 @@
  * Gözetmenlik UI Kontrolcü
  */
 
-let scoreChartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginOverlay = document.getElementById('login-overlay');
@@ -18,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!isAdmin) document.body.classList.add('guest-mode');
         else document.body.classList.remove('guest-mode');
+
+        if (isAdmin) document.body.classList.add('admin-mode');
+        else document.body.classList.remove('admin-mode');
         
         loginOverlay.classList.add('hidden');
         appWrapper.style.display = 'block';
@@ -59,6 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnLogin) btnLogin.addEventListener('click', handleLogin);
     
+    if (btnGuestLogin) {
+        btnGuestLogin.addEventListener('click', () => {
+            finishLogin(false); // Admin=false
+        });
+    }
+    
     if (loginPassInput) {
         loginPassInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleLogin();
@@ -75,6 +83,27 @@ async function initApp() {
 
     // Initialize DB.requests if not present
     if (!DB.requests) DB.requests = [];
+    // Migration: Old single announcement to new announcements array
+    if (DB.announcement && !DB.announcements) {
+        DB.announcements = [{
+            id: Date.now(),
+            text: DB.announcement.text,
+            updatedAt: DB.announcement.updatedAt
+        }];
+        delete DB.announcement;
+    }
+
+    if (!DB.announcements) {
+        DB.announcements = [
+            {
+                id: Date.now(),
+                text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
+                isImportant: true,
+                updatedAt: new Date().toISOString()
+            }
+        ];
+    }
+
     if (!DB.templates) {
         DB.templates = {
             swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
@@ -84,6 +113,7 @@ async function initApp() {
     initUI();
     renderDashboard();
     updateRequestBadge(); // Update badge on load
+    updateAnnouncementBadge(); // New announcement badge
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
 }
 
@@ -96,7 +126,8 @@ const navButtons = {
     availability: document.getElementById('btn-availability'),
     constraints: document.getElementById('btn-constraints'),
     requests: document.getElementById('btn-requests'),
-    profile: document.getElementById('btn-profile')
+    profile: document.getElementById('btn-profile'),
+    announcements: document.getElementById('btn-announcements')
 };
 
 const sections = {
@@ -107,7 +138,8 @@ const sections = {
     availability: document.getElementById('section-availability'),
     constraints: document.getElementById('section-constraints'),
     requests: document.getElementById('section-requests'),
-    profile: document.getElementById('section-profile')
+    profile: document.getElementById('section-profile'),
+    announcements: document.getElementById('section-announcements')
 };
 
 // Navigation
@@ -119,6 +151,15 @@ Object.entries(navButtons).forEach(([key, btn]) => {
         btn.classList.add('active');
 
         // Update Sections
+        const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+        if (btn.classList.contains('admin-only') && !isAdmin) {
+            // Yetkisiz erişim girişimi
+            sections.dashboard.classList.remove('hidden');
+            navButtons.dashboard.classList.add('active');
+            btn.classList.remove('active');
+            return;
+        }
+
         Object.values(sections).forEach(s => s.classList.add('hidden'));
         if (sections[key]) sections[key].classList.remove('hidden');
 
@@ -135,6 +176,10 @@ Object.entries(navButtons).forEach(([key, btn]) => {
             loadFromDataJSON().then(() => renderSwapRequests());
         }
         if (key === 'profile') renderProfile();
+        if (key === 'announcements') {
+            renderAnnouncements();
+            markAnnouncementsAsRead();
+        }
     });
 });
 
@@ -192,6 +237,29 @@ function initUI() {
         if (e.target === document.getElementById('modal-exam-detail')) {
             document.getElementById('modal-exam-detail').classList.add('hidden');
         }
+    });
+
+    // Profile Tab Switching
+    document.querySelectorAll('#section-profile .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('#section-profile .tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#section-profile .tab-pane').forEach(p => p.classList.add('hidden'));
+            btn.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+        });
+    });
+
+    // Profile Constraint Listeners
+    document.getElementById('profile-constraint-type')?.addEventListener('change', (e) => {
+        const type = e.target.value;
+        document.getElementById('profile-constraint-day-group').classList.toggle('hidden', type !== 'day');
+        document.getElementById('profile-constraint-date-group').classList.toggle('hidden', type !== 'date');
+    });
+
+    document.getElementById('form-profile-add-constraint')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleProfileConstraintAdd();
     });
 
     // Swap Request Form listeners
@@ -507,91 +575,15 @@ function initUI() {
     // Aktarmayı Onayla
     const btnConfirm = document.getElementById('btn-confirm-import');
     if (btnConfirm) {
-        btnConfirm.addEventListener('click', () => {
-            const { rows } = btnConfirm._importData || {};
-            if (!rows || rows.length < 2) return;
-            const headers = rows[0].map(h => String(h).toLowerCase().trim());
-
-            // Personel mi Sınav mı? (Daha esnek kontrol)
-            const isStaff = headers.some(h => h.includes('isim') || h.includes('ad') && !h.includes('ders'));
-            const isExam = headers.some(h => h.includes('ders') || h.includes('sinav') || h.includes('sınav'));
-
-            let added = 0;
-
-            if (isStaff) {
-                rows.slice(1).forEach(r => {
-                    const name = String(r[0] || '').trim();
-                    if (!name) return;
-                    if (DB.staff.find(s => s.name === name)) return; // Zaten var
-                    DB.staff.push({ id: Date.now() + Math.random(), name, totalScore: 0, taskCount: 0 });
-                    added++;
-                });
-                saveToLocalStorage();
-                document.getElementById('modal-import').classList.add('hidden');
-                alert(`✓ ${added} yeni personel sisteme eklendi.`);
-                renderStaff();
-                renderDashboard();
-            } else if (isExam) {
-                // Sütun indekslerini bul
-                // Sütun indekslerini bul (Öncelikli eşleşme ile daha akıllı takip)
-                const nameIdx = headers.findIndex(h => h === 'ders adı' || h === 'ders' || (h.includes('ders') && !h.includes('lik') && !h.includes('yer')));
-                const locIdx = headers.findIndex(h => h === 'derslik' || h === 'yer' || h.includes('derslik') || h.includes('konum'));
-                const dateIdx = headers.findIndex(h => h === 'tarih' || h.includes('tarih'));
-                const timeIdx = headers.findIndex(h => h === 'saat' || h.includes('saat') || h.includes('vakit'));
-                const durIdx = headers.findIndex(h => h === 'süre' || h.includes('süre') || h.includes('sure') || h.includes('dakika'));
-                const procIdx = headers.findIndex(h => h === 'gözetmen' || h.includes('gözetmen') || h.includes('gozetmen') || h.includes('hoca'));
-
-                rows.slice(1).forEach(r => {
-                    const examName = String(r[nameIdx] || '').trim();
-                    const date = String(r[dateIdx] || '').trim();
-                    const time = String(r[timeIdx] || '').trim();
-                    if (!examName || !date || !time) return;
-
-                    const proctorName = String(r[procIdx] || '').trim();
-                    let proctor = DB.staff.find(s => s.name === proctorName);
-                    
-                    // SINIR KONTROLÜ: Eğer hoca ismi olsa bile sınırı aşmışsa, otomatik atamaya devret
-                    if (proctor && (proctor.taskCount || 0) >= GLOBAL_LIMITS.MAX_TASKS) {
-                        proctor = null;
-                    }
-
-                    // OTOMATİK ATAMA MANTIĞI: Eğer hoca ismi yoksa veya sınırı aşmış biriyse
-                    if (!proctor) {
-                        const duration = parseInt(r[durIdx]) || 60;
-                        proctor = findBestProctor(date, time, duration);
-                    }
-
-                    if (!proctor) { return; } // Hiç müsait kimse yoksa atla
-
-                    const duration = parseInt(r[durIdx]) || 60;
-                    const dateObj = new Date(`${date}T${time}`);
-                    const k = getKatsayi(dateObj);
-                    const score = parseFloat((k * duration).toFixed(2));
-
-                    DB.exams.push({
-                        id: Date.now() + Math.random(),
-                        name: examName,
-                        location: String(r[locIdx] || '').trim(),
-                        date, time, duration,
-                        katsayi: k, score,
-                        proctorId: proctor.id,
-                        proctorName: proctor.name
-                    });
-                    proctor.totalScore = parseFloat((proctor.totalScore + score).toFixed(2));
-                    proctor.taskCount = (proctor.taskCount || 0) + 1;
-                    added++;
-                });
-                saveToLocalStorage();
-                document.getElementById('modal-import').classList.add('hidden');
-                alert(`✓ ${added} yeni sınav sisteme aktarıldı.`);
-                renderExams();
-                renderSchedule();
-                renderDashboard();
-            } else {
-                alert('Dosya formatı tanınamadı. Lütfen şablonu kullanın.');
-            }
-        });
+        // ... (existing code)
     }
+
+    // Announcement Listeners
+    document.getElementById('btn-add-announcement')?.addEventListener('click', () => showEditAnnouncementModal(null));
+    document.getElementById('form-edit-announcement')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveAnnouncement();
+    });
 }
 
 
@@ -624,12 +616,33 @@ function exportTableToExcel(tableId, filename) {
 
 function renderDashboard() {
     const tbody = document.querySelector('#table-ranking tbody');
+    const tbodyBreakdown = document.querySelector('#table-duty-breakdown tbody');
     tbody.innerHTML = '';
+    if (tbodyBreakdown) tbodyBreakdown.innerHTML = '';
 
-    // Sıralama (Puanı en çoktan aza, şeffaflık için)
+    // Görev dağılım istatistiklerini hazırla
+    const stats = {};
+    DB.staff.forEach(s => {
+        stats[s.id] = { hiG: 0, hiA: 0, hsG: 0, hsA: 0, total: 0 };
+    });
+
+    DB.exams.forEach(ex => {
+        if (!stats[ex.proctorId]) return;
+        
+        const k = ex.katsayi;
+        if (k === 1.0) stats[ex.proctorId].hiG++;
+        else if (k === 1.5) stats[ex.proctorId].hiA++;
+        else if (k === 2.0) stats[ex.proctorId].hsG++;
+        else if (k === 2.5) stats[ex.proctorId].hsA++;
+        
+        stats[ex.proctorId].total++;
+    });
+
+    // Sıralama (Puanı en çoktan aza)
     const sortedStaff = [...DB.staff].sort((a, b) => b.totalScore - a.totalScore);
 
     sortedStaff.forEach((s, idx) => {
+        // Puan Sıralaması Tablosu
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${idx + 1}</td>
@@ -639,6 +652,21 @@ function renderDashboard() {
             <td><span class="badge ${s.totalScore === 0 ? 'idle' : 'active'}">${s.totalScore === 0 ? 'Beklemede' : 'Görevli'}</span></td>
         `;
         tbody.appendChild(tr);
+
+        // Görev Dağılım Detay Tablosu
+        if (tbodyBreakdown) {
+            const trB = document.createElement('tr');
+            const st = stats[s.id];
+            trB.innerHTML = `
+                <td><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>
+                <td>${st.hiG}</td>
+                <td>${st.hiA}</td>
+                <td>${st.hsG}</td>
+                <td>${st.hsA}</td>
+                <td><strong>${st.total}</strong></td>
+            `;
+            tbodyBreakdown.appendChild(trB);
+        }
     });
 
     // Stats
@@ -647,8 +675,7 @@ function renderDashboard() {
     const avg = DB.staff.length ? DB.staff.reduce((a, b) => a + b.totalScore, 0) / DB.staff.length : 0;
     document.getElementById('stat-avg-score').textContent = avg.toFixed(1);
 
-    // Grafigi Guncelle
-    updateScoreChart();
+    // Grafigi Guncelle (KALDIRILDI)
 }
 
 /**
@@ -1507,23 +1534,6 @@ function hideIndividualModal() {
 /**
  * Bireysel Program Modalında Sekme Değiştirme
  */
-window.switchIndividualTab = (tabName) => {
-    // Butonları güncelle
-    const btnActive = document.getElementById('tab-btn-active');
-    const btnArchive = document.getElementById('tab-btn-archive');
-    
-    if (tabName === 'active') {
-        btnActive.classList.add('active');
-        btnArchive.classList.remove('active');
-        document.getElementById('tab-content-active').classList.add('active');
-        document.getElementById('tab-content-archive').classList.remove('active');
-    } else {
-        btnActive.classList.remove('active');
-        btnArchive.classList.add('active');
-        document.getElementById('tab-content-active').classList.remove('active');
-        document.getElementById('tab-content-archive').classList.add('active');
-    }
-};
 
 /**
  * UI Öneri Listesini Güncelle
@@ -1643,50 +1653,6 @@ function renderAvailability() {
     grid.innerHTML = html;
 }
 
-function updateScoreChart() {
-    const ctx = document.getElementById('scoreChart');
-    if (!ctx) return;
-
-    const labels = DB.staff.map(s => s.name);
-    const data = DB.staff.map(s => s.totalScore);
-
-    if (scoreChartInstance) {
-        scoreChartInstance.destroy();
-    }
-
-    scoreChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Toplam Puan',
-                data: data,
-                backgroundColor: 'rgba(99, 102, 241, 0.5)',
-                borderColor: '#6366f1',
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#94a3b8' }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#94a3b8', font: { size: 10 } }
-                }
-            },
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
-}
 
 function showGitHubSyncModal() {
     const modal = document.getElementById('modal-github-sync');
@@ -2096,5 +2062,307 @@ window.renderProfile = function() {
         });
 
         // Takvimi varsayılan olarak güncelle
+        renderProfileAnnouncements();
+        renderProfileConstraints();
     }
 };
+
+/**
+ * DUYURU SİSTEMİ FONKSİYONLARI
+ */
+
+function renderAnnouncements() {
+    const container = document.getElementById('announcements-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const sorted = [...DB.announcements].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    sorted.forEach(ann => {
+        let text = ann.text || "";
+        text = text.replace(/\n/g, '<br>');
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/### (.*?)(<br>|$)/g, '<h3>$1</h3>');
+        
+        // Özel Link: Müsaitlik Girişi
+        if (text.includes('{{AVAIL_LINK}}')) {
+            text = text.replace('{{AVAIL_LINK}}', '#');
+            text = text.replace(/\[(.*?)\]\(#\)/g, '<button class="btn-primary" style="padding: 8px 16px; font-size: 0.8rem; margin-top: 10px;" onclick="goToProfileAvailability()">$1</button>');
+        }
+        
+        const date = new Date(ann.updatedAt).toLocaleString('tr-TR');
+        
+        const card = document.createElement('div');
+        card.className = `card-large announcement-card ${ann.isImportant ? 'important' : ''}`;
+        card.style.position = 'relative';
+        
+        let importantBadge = ann.isImportant ? '<span class="important-badge">ÖNEMLİ</span>' : '';
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    ${importantBadge}
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">🕒 ${date}</span>
+                </div>
+                <div class="admin-only" style="display:flex; gap:10px;">
+                    <button class="btn-icon" onclick="editAnnouncement(${ann.id})">✏️</button>
+                    <button class="btn-icon" style="color:var(--accent-red);" onclick="deleteAnnouncement(${ann.id})">🗑️</button>
+                </div>
+            </div>
+            <div class="announcement-content">${text}</div>
+        `;
+        container.appendChild(card);
+    });
+    
+    updateAnnouncementBadge(); 
+}
+
+window.editAnnouncement = function(id) {
+    const modal = document.getElementById('modal-edit-announcement');
+    const title = document.getElementById('modal-announcement-title');
+    const textarea = document.getElementById('edit-announcement-text');
+    const idInput = document.getElementById('edit-announcement-id');
+    const importantCheckbox = document.getElementById('edit-announcement-important');
+    
+    if (id) {
+        const ann = DB.announcements.find(a => String(a.id) === String(id));
+        title.textContent = "Duyuruyu Düzenle";
+        textarea.value = ann ? ann.text : "";
+        idInput.value = id;
+        importantCheckbox.checked = ann ? !!ann.isImportant : false;
+    } else {
+        title.textContent = "Yeni Duyuru Ekle";
+        textarea.value = "";
+        idInput.value = "";
+        importantCheckbox.checked = false;
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+async function handleAnnouncementSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-announcement-id').value;
+    const text = document.getElementById('edit-announcement-text').value;
+    const isImportant = document.getElementById('edit-announcement-important').checked;
+
+    if (!text.trim()) {
+        alert("Duyuru metni boş olamaz!");
+        return;
+    }
+
+    if (id) {
+        // Güncelle
+        const ann = DB.announcements.find(a => String(a.id) === String(id));
+        if (ann) {
+            ann.text = text;
+            ann.updatedAt = new Date().toISOString();
+        }
+    } else {
+        // Yeni Ekle
+        DB.announcements.push({
+            id: Date.now(),
+            text: text,
+            updatedAt: new Date().toISOString()
+        });
+    }
+    
+    saveToLocalStorage();
+    renderAnnouncements();
+    
+    document.getElementById('modal-edit-announcement').classList.add('hidden');
+    alert("✓ Duyuru başarıyla kaydedildi.");
+}
+
+window.deleteAnnouncement = function(id) {
+    if (confirm("Bu duyuruyu silmek istediğinize emin misiniz?")) {
+        DB.announcements = DB.announcements.filter(a => String(a.id) !== String(id));
+        saveToLocalStorage();
+        renderAnnouncements();
+        alert("✓ Duyuru silindi.");
+    }
+}
+
+function renderProfileAnnouncements() {
+    const container = document.getElementById('profile-announcements');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!DB.announcements || DB.announcements.length === 0) {
+        return; // Profilde boşa yer kaplamasın
+    }
+
+    // En güncel 3 duyuruyu göster (veya hepsini)
+    const sorted = [...DB.announcements].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    sorted.forEach(ann => {
+        let text = ann.text || "";
+        text = text.replace(/\n/g, '<br>');
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/### (.*?)(<br>|$)/g, '<h5>$1</h5>');
+        
+        // Özel Link: Müsaitlik Girişi
+        if (text.includes('{{AVAIL_LINK}}')) {
+            text = text.replace('{{AVAIL_LINK}}', '#');
+            text = text.replace(/\[(.*?)\]\(#\)/g, '<button class="btn-primary" style="padding: 6px 12px; font-size: 0.75rem; margin-top: 8px; background:var(--primary);" onclick="goToProfileAvailability()">$1</button>');
+        }
+        
+        const date = new Date(ann.updatedAt).toLocaleDateString('tr-TR');
+
+        const div = document.createElement('div');
+        div.className = `card-large ${ann.isImportant ? 'important' : ''}`;
+        div.style.padding = '1.5rem';
+        div.style.background = ann.isImportant ? 'rgba(239, 68, 68, 0.05)' : 'rgba(99, 102, 241, 0.05)';
+        div.style.border = ann.isImportant ? '1px solid rgba(239, 68, 68, 0.3)' : '1px dashed rgba(99, 102, 241, 0.3)';
+        div.style.borderRadius = '20px';
+        div.style.fontSize = '0.9rem';
+
+        let badge = ann.isImportant ? '<span class="important-badge" style="background:var(--accent-red); margin-right:8px;">ÖNEMLİ</span>' : '';
+
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">${badge} Duyuru • ${date}</span>
+            </div>
+            <div style="color:var(--text-secondary); line-height:1.5;">${text}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function updateAnnouncementBadge() {
+    const badge = document.getElementById('announcement-badge');
+    if (!badge) return;
+
+    const lastRead = parseInt(localStorage.getItem('lastReadAnnouncementId') || '0');
+    const newCount = DB.announcements.filter(a => a.id > lastRead).length;
+
+    if (newCount > 0) {
+        badge.innerText = newCount;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function markAnnouncementsAsRead() {
+    if (DB.announcements && DB.announcements.length > 0) {
+        const latestId = Math.max(...DB.announcements.map(a => a.id));
+        localStorage.setItem('lastReadAnnouncementId', latestId.toString());
+        updateAnnouncementBadge();
+    }
+}
+
+/**
+ * PROFİL MÜSAİTLİK YÖNETİMİ
+ */
+
+function renderProfileConstraints() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const container = document.querySelector('#profile-table-constraints tbody');
+    if (!container) return;
+
+    const userConstraints = DB.constraints[staff.name] || [];
+    container.innerHTML = '';
+
+    if (userConstraints.length === 0) {
+        container.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir kısıt girmediniz.</td></tr>';
+        return;
+    }
+
+    const TurkishDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+
+    userConstraints.forEach((c, idx) => {
+        let label = "";
+        if (c.day !== undefined) {
+            label = `Haftalık: ${TurkishDays[c.day]}`;
+        } else if (c.date) {
+            label = `Özel Tarih: ${c.date}`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${label}</strong></td>
+            <td>${c.start} - ${c.end}</td>
+            <td style="text-align: right;">
+                <button class="btn-icon" style="color:var(--accent-red);" onclick="handleProfileConstraintDelete('${staff.name}', ${idx})">🗑️ Sil</button>
+            </td>
+        `;
+        container.appendChild(tr);
+    });
+
+    renderMiniAvailabilityGrid(userConstraints);
+}
+
+function renderMiniAvailabilityGrid(constraints) {
+    const grid = document.getElementById('profile-availability-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const days = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+    days.forEach((day, i) => {
+        const hasConstraint = constraints.some(c => c.day === (i === 0 ? 0 : i)); // Pazar=0 fixed
+        const cell = document.createElement('div');
+        cell.style.textAlign = 'center';
+        cell.style.padding = '10px 5px';
+        cell.style.borderRadius = '8px';
+        cell.style.background = hasConstraint ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.1)';
+        cell.style.border = hasConstraint ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(34, 197, 94, 0.2)';
+        cell.innerHTML = `
+            <div style="font-size: 0.65rem; color: var(--text-muted);">${day}</div>
+            <div style="font-size: 0.8rem; margin-top: 4px;">${hasConstraint ? '🚫' : '✅'}</div>
+        `;
+        grid.appendChild(cell);
+    });
+}
+
+function handleProfileConstraintAdd() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const type = document.getElementById('profile-constraint-type').value;
+    const start = document.getElementById('profile-constraint-start').value;
+    const end = document.getElementById('profile-constraint-end').value;
+
+    const newConstraint = { start, end };
+    if (type === 'day') {
+        newConstraint.day = parseInt(document.getElementById('profile-constraint-day').value);
+    } else {
+        const dateVal = document.getElementById('profile-constraint-date').value; // YYYY-MM-DD
+        if (!dateVal) { alert("Lütfen tarih seçin!"); return; }
+        const parts = dateVal.split('-');
+        newConstraint.date = `${parts[1]}-${parts[2]}`; // MM-DD formatı logic.js uyumlu
+    }
+
+    if (!DB.constraints[staff.name]) DB.constraints[staff.name] = [];
+    DB.constraints[staff.name].push(newConstraint);
+
+    saveToLocalStorage();
+    renderProfileConstraints();
+    alert("✓ Müsaitlik kısıtı profilinize eklendi.");
+}
+
+window.handleProfileConstraintDelete = function(name, idx) {
+    if (confirm("Bu kısıtı silmek istediğinize emin misiniz?")) {
+        if (DB.constraints[name]) {
+            DB.constraints[name].splice(idx, 1);
+            saveToLocalStorage();
+            renderProfileConstraints();
+        }
+    }
+}
+
+window.goToProfileAvailability = function() {
+    // 1. Profil sekmesine geç
+    document.getElementById('btn-profile').click();
+    
+    // 2. Müsaitlik tabına geç
+    const availTabBtn = document.querySelector('#section-profile .tab-btn[data-tab="availability"]');
+    if (availTabBtn) availTabBtn.click();
+}

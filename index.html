@@ -5,23 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gözetmenlik Sistemi | Adil Dağıtım</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
-        <div class="login-card">
-            <div class="login-header">
-                <span class="login-icon">🔒</span>
-                <h2>Gözetmenlik Sistemi</h2>
-                <p>Lütfen devam etmek için şifreyi girin</p>
+        <div class="login-container" style="display: flex; gap: 2rem; max-width: 900px; width: 90%; perspective: 1000px;">
+            <!-- Hoca Portalı -->
+            <div class="login-card hoca-portal" style="flex: 1; border-top: 4px solid var(--accent-green);">
+                <div class="login-header">
+                    <span class="login-icon" style="background: rgba(34, 197, 94, 0.2); color: var(--accent-green);">👨‍🏫</span>
+                    <h2>Gözetmen Portalı</h2>
+                    <p>Sınav programınızı görüntülemek ve profilinizi yönetmek için girin.</p>
+                </div>
+                <div class="login-form">
+                    <button id="btn-guest-login" class="btn-primary" style="width: 100%; margin-top: 1rem; background: linear-gradient(135deg, var(--accent-green), #15803d);">Misafir Olarak Giriş Yap</button>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center;">Şifre gerektirmez. Sadece izleme ve profil yönetimi yetkisine sahip olursunuz.</p>
+                </div>
             </div>
-            <div class="login-form">
-                <input type="password" id="login-password" placeholder="Şifre" autofocus>
-                <button id="btn-login" class="btn-primary" style="width: 100%; margin-top: 1rem;">Giriş Yap</button>
-                <p id="login-error" class="login-error hidden">Hatalı şifre, lütfen tekrar deneyin.</p>
+
+            <!-- Yönetici Portalı -->
+            <div class="login-card admin-portal" style="flex: 1; border-top: 4px solid var(--primary);">
+                <div class="login-header">
+                    <span class="login-icon" style="background: rgba(99, 102, 241, 0.2); color: var(--primary);">🛡️</span>
+                    <h2>Yönetici Portalı</h2>
+                    <p>Sınav atamaları ve sistem yönetimi için yetkili girişi.</p>
+                </div>
+                <div class="login-form">
+                    <input type="password" id="login-password" placeholder="Yönetici Şifresi" autofocus style="margin-bottom: 1rem;">
+                    <button id="btn-login" class="btn-primary" style="width: 100%;">Şifreyle Giriş Yap</button>
+                    <p id="login-error" class="login-error hidden">Hatalı şifre, lütfen tekrar deneyin.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -33,28 +49,29 @@
                 <h1>Gözetmenlik <span>Katsayı Sistemi</span></h1>
             </div>
             <nav>
-                <button id="btn-profile" style="color:var(--primary); font-weight:700;">👤 Profilim</button>
+                <button id="btn-profile">👤 Profilim</button>
                 <button id="btn-dashboard" class="active">Panel</button>
                 <button id="btn-schedule">Sınav Programı</button>
                 <button id="btn-exams">Sınavlar</button>
-                <button id="btn-staff">Personel</button>
-                <button id="btn-availability">Müsaitlik</button>
+                <button id="btn-staff" class="admin-only">Personel</button>
+                <button id="btn-availability" class="admin-only">Müsaitlik</button>
                 <button id="btn-constraints" class="admin-only">Kısıt Yönetimi</button>
                 <button id="btn-requests" class="admin-only">İstekler <span id="request-badge" class="badge-count hidden">0</span></button>
+                <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
             </nav>
         </header>
 
         <main id="main-content">
             <!-- Profile Section -->
             <section id="section-profile" class="content-section hidden">
-                <div id="profile-identity-setup" class="identity-setup hidden">
-                    <div style="font-size: 4rem; margin-bottom: 2rem;">👤</div>
-                    <h2>Profilinizi Kurun</h2>
-                    <p style="color: var(--text-muted); margin-bottom: 2rem;">Sistemin sizi tanıması için lütfen isminizi seçin.</p>
-                    <div class="form-group" style="max-width: 400px; margin: 0 auto 2rem;">
-                        <select id="profile-setup-dropdown" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 1rem; border-radius: 12px; color: white; font-size: 1rem;"></select>
+                <div id="profile-identity-setup" class="card-large identity-setup hidden" style="text-align: center; max-width: 500px; margin: 4rem auto;">
+                    <div style="font-size: 5rem; margin-bottom: 2rem; filter: drop-shadow(0 0 15px var(--primary));">👤</div>
+                    <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Profilinizi Kurun</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 2.5rem;">Sistemin sizi tanıması için lütfen listeden isminizi seçin.</p>
+                    <div class="form-group" style="margin-bottom: 2.5rem;">
+                        <select id="profile-setup-dropdown"></select>
                     </div>
-                    <button id="btn-save-identity" class="btn-primary" style="padding: 1rem 3rem; border-radius: 12px;">Profilime Git</button>
+                    <button id="btn-save-identity" class="btn-primary" style="width: 100%; justify-content: center; padding: 1.25rem;">Profilime Git</button>
                 </div>
 
                 <div id="profile-main-content" class="profile-container hidden">
@@ -75,10 +92,14 @@
                             </div>
                         </div>
                     </div>
+                    <div id="profile-announcements" class="profile-announcements-container" style="margin-bottom: 2.5rem; display: grid; gap: 1rem;">
+                        <!-- Duyurular buraya gelecek -->
+                    </div>
 
                     <div class="profile-tabs">
                         <button class="tab-btn active" data-tab="active">Aktif Görevler</button>
                         <button class="tab-btn" data-tab="archive">Arşiv</button>
+                        <button class="tab-btn user-only" data-tab="availability">Kısıt Ayarlarım</button>
                     </div>
 
                     <div id="profile-tab-content">
@@ -119,6 +140,66 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="tab-availability" class="tab-pane hidden">
+                            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start;">
+                                <div class="card-large" style="padding: 2rem;">
+                                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem;">Yeni Kısıt Ekle</h3>
+                                    <form id="form-profile-add-constraint">
+                                        <div class="form-group">
+                                            <label>Kısıt Tipi</label>
+                                            <select id="profile-constraint-type" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                                <option value="day">Haftalık Tekrarla</option>
+                                                <option value="date">Sadece Belirli Gün</option>
+                                            </select>
+                                        </div>
+                                        <div id="profile-constraint-day-group" class="form-group">
+                                            <label>Gün</label>
+                                            <select id="profile-constraint-day" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                                <option value="1">Pazartesi</option>
+                                                <option value="2">Salı</option>
+                                                <option value="3">Çarşamba</option>
+                                                <option value="4">Perşembe</option>
+                                                <option value="5">Cuma</option>
+                                                <option value="6">Cumartesi</option>
+                                                <option value="0">Pazar</option>
+                                            </select>
+                                        </div>
+                                        <div id="profile-constraint-date-group" class="form-group hidden">
+                                            <label>Tarih</label>
+                                            <input type="date" id="profile-constraint-date" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                        </div>
+                                        <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                            <div class="form-group">
+                                                <label>Başlangıç</label>
+                                                <input type="time" id="profile-constraint-start" value="08:30" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Bitiş</label>
+                                                <input type="time" id="profile-constraint-end" value="17:30" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Kısıtı Kaydet</button>
+                                    </form>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.4;">
+                                        * Girdiğiniz saatlerde sistem size otomatik görev atamayacaktır.
+                                    </p>
+                                </div>
+                                <div class="card-large" style="padding: 2rem;">
+                                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem;">Kayıtlı Kısıtlarım</h3>
+                                    <div class="table-container">
+                                        <table id="profile-table-constraints">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tip / Zaman</th>
+                                                    <th>Saat Aralığı</th>
+                                                    <th style="text-align: right;">İşlem</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -138,15 +219,37 @@
                     </div>
                 </div>
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>Toplam Sınav</h3>
-                        <p id="stat-total-exams">0</p>
+                    <div class="stat-card admin-only">
+                        <h3>Çakışmalar</h3>
+                        <p id="stat-conflicts">0</p>
                     </div>
-                    <div class="stat-card">
+                    <!-- Katsayı Açıklama Kartı -->
+                    <div class="stat-card" style="grid-column: span 2; display: flex; flex-direction: column; justify-content: center; padding: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem;">Puanlama (Katsayı) Sistemi</h3>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Hİ Gündüz</div>
+                                <div style="font-weight: 800; color: var(--accent-green);">1.0x</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Hİ Akşam</div>
+                                <div style="font-weight: 800; color: var(--primary);">1.5x</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">HS Gündüz</div>
+                                <div style="font-weight: 800; color: var(--accent-orange);">2.0x</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">HS Akşam</div>
+                                <div style="font-weight: 800; color: var(--accent-red);">2.5x</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card admin-only">
                         <h3>Personel Sayısı</h3>
                         <p id="stat-total-staff">0</p>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card admin-only">
                         <h3>Ortalama Puan</h3>
                         <p id="stat-avg-score">0</p>
                     </div>
@@ -172,14 +275,28 @@
                         </div>
                     </div>
 
-                    <div class="card-large" style="margin-bottom: 2rem;">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Gözetmen Puan Analiz Grafiği</h3>
-                        <div style="height: 300px; position: relative;">
-                            <canvas id="scoreChart"></canvas>
+
+                    <div class="card-large">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Personel Görev Dağılım Detayları</h3>
+                        <div class="table-container">
+                            <table id="table-duty-breakdown">
+                                <thead>
+                                    <tr>
+                                        <th>İsim Soyisim</th>
+                                        <th style="color:var(--accent-green)">Hİ-G</th>
+                                        <th style="color:var(--primary)">Hİ-A</th>
+                                        <th style="color:var(--accent-orange)">HS-G</th>
+                                        <th style="color:var(--accent-red)">HS-A</th>
+                                        <th>Toplam</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
 
                     <div class="card-large">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Genel Puan Sıralaması</h3>
                         <div class="table-container">
                             <table id="table-ranking">
                                 <thead>
@@ -201,7 +318,7 @@
             </section>
 
             <!-- Staff Section -->
-            <section id="section-staff" class="content-section hidden">
+            <section id="section-staff" class="content-section hidden admin-only">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
                     <h2>Personel Listesi</h2>
                     <div>
@@ -313,7 +430,7 @@
             </section>
 
             <!-- Müsaitlik Takvimi Section -->
-            <section id="section-availability" class="content-section hidden">
+            <section id="section-availability" class="content-section hidden admin-only">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
                     <h2>Gözetmen Müsaitlik Takvimi</h2>
                     <div style="display: flex; align-items: center; gap: 12px;">
@@ -359,6 +476,17 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </section>
+
+            <!-- Announcements Section -->
+            <section id="section-announcements" class="content-section hidden">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h2>Sistem Duyuruları</h2>
+                    <button id="btn-add-announcement" class="btn-primary admin-only" style="background: var(--accent-green); height: fit-content;">+ Yeni Duyuru Ekle</button>
+                </div>
+                <div id="announcements-container" style="display: grid; gap: 1.5rem;">
+                    <!-- Duyuru kartları dinamik olarak buraya gelecek -->
                 </div>
             </section>
 
@@ -546,6 +674,25 @@
                 </div>
             </div>
         </div>
+        <!-- Duyuru Düzenleme Modalı -->
+        <div id="modal-edit-announcement" class="modal hidden admin-only">
+            <div class="modal-content" style="max-width: 700px;">
+                <h2 id="modal-announcement-title" style="margin-bottom: 1.5rem;">Duyuru Detayı</h2>
+                <form id="form-edit-announcement">
+                    <input type="hidden" id="edit-announcement-id">
+                    <div class="form-group">
+                        <label>Duyuru Metni (Markdown desteklenir)</label>
+                        <textarea id="edit-announcement-text" style="width: 100%; height: 250px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 1rem; border-radius: 8px; color: white; font-family: inherit; font-size: 0.95rem; line-height: 1.5; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 1rem;">
+                        <input type="checkbox" id="edit-announcement-important" style="width: 20px; height: 20px; cursor: pointer;">
+                        <label for="edit-announcement-important" style="margin-bottom: 0; cursor: pointer; color: var(--accent-red); font-weight: 700;">🌟 Bu Duyuruyu Önemli Olarak İşaretle</label>
+                    </div>
+                    <div class="form-actions" style="margin-top: 2rem;">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-edit-announcement').classList.add('hidden')">İptal</button>
+                        <button type="submit" class="btn-primary">Yayınla</button>
+                    </div>
+                </form>
             </div>
         </div>
 
