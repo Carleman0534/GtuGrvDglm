@@ -39,6 +39,7 @@
                 <button id="btn-staff">Personel</button>
                 <button id="btn-availability">Müsaitlik</button>
                 <button id="btn-constraints" class="admin-only">Kısıt Yönetimi</button>
+                <button id="btn-requests" class="admin-only">İstekler <span id="request-badge" class="badge-count hidden">0</span></button>
             </nav>
         </header>
 
@@ -72,6 +73,25 @@
                 </div>
 
                 <div id="dashboard-export-container" style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
+                    <!-- Takas Talepleri Kartı (Hızlı Görünüm) -->
+                    <div id="card-swap-requests" class="card card-table card-large hidden admin-only" style="margin-bottom: 2rem; border-color: var(--accent-orange);">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--accent-orange); font-size: 0.875rem; text-transform: uppercase;">
+                            🕒 Bekleyen Takas Talepleri</h3>
+                        <div class="table-container">
+                            <table id="table-swap-requests-dashboard">
+                                <thead>
+                                    <tr>
+                                        <th>Sınav</th>
+                                        <th>Talep Eden</th>
+                                        <th>Tarih/Saat</th>
+                                        <th>İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="card-large" style="margin-bottom: 2rem;">
                         <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Gözetmen Puan Analiz Grafiği</h3>
                         <div style="height: 300px; position: relative;">
@@ -233,6 +253,35 @@
                 </div>
             </section>
 
+            <!-- Takas Talepleri (Admin) Section -->
+            <section id="section-requests" class="content-section hidden admin-only">
+                <div class="section-header">
+                    <h2>Takas Talepleri Yönetimi</h2>
+                    <p style="color: var(--text-muted); font-size: 0.875rem;">Gözetmenlerden gelen takas ve görev devri isteklerini buradan yönetebilirsiniz.</p>
+                </div>
+                <div class="card-large">
+                    <div class="table-container">
+                        <table id="table-requests">
+                            <thead>
+                                <tr>
+                                    <th>Oluşturulma</th>
+                                    <th>Sınav</th>
+                                    <th>Devreden</th>
+                                    <th>Devralacak</th>
+                                    <th>Durum</th>
+                                    <th style="text-align: right;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir talep bulunmuyor.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- Kısıt Yönetimi Section -->
             <section id="section-constraints" class="content-section hidden admin-only">
                 <div class="section-header">
@@ -357,6 +406,7 @@
                                         <th>Tarih</th>
                                         <th>Saat</th>
                                         <th>Süre</th>
+                                        <th>İşlem</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -497,6 +547,65 @@
                     <button class="btn-secondary" onclick="document.getElementById('modal-github-sync').classList.add('hidden')">Kapat</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Takas Talebi Modalı (Bireysel) -->
+    <div id="modal-swap" class="modal hidden">
+        <div class="modal-content" style="max-width: 500px; padding: 2.5rem;">
+            <h2 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: white;">Takas Talebi Oluştur</h2>
+            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Sınav</p>
+            <h3 id="swap-exam-name" style="color: #6366f1; font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem;">Ders Adı</h3>
+
+            <form id="form-swap-request">
+                <input type="hidden" id="swap-exam-id">
+
+                <div class="form-group">
+                    <label style="color: #94a3b8; font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; display: block;">Görevi Kim Devralacak? (Yeni Gözetmen)</label>
+                    <p style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.75rem;">Görevi üstlenecek kişiyi seçin. Boş bırakırsanız yönetici atayacaktır.</p>
+                    <select id="swap-receiver-select" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.875rem; border-radius: 12px; color: white;"></select>
+                    <div id="swap-conflict-warning" class="hidden" style="margin-top: 0.75rem; color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
+                        ⚠️ Dikkat, bu hoca o saatte meşgul!
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label style="color: #94a3b8; font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem; display: block;">Kimin Yerine Gözetmen Olacak? (Devreden)</label>
+                    <select id="swap-initiator-select" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.875rem; border-radius: 12px; color: white;"></select>
+                </div>
+
+                <div class="form-actions" style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <button type="button" class="btn-secondary" id="btn-swap-cancel" style="padding: 1rem; border-radius: 12px;">Vazgeç</button>
+                    <button type="submit" id="btn-swap-submit" class="btn-primary" style="padding: 1rem; border-radius: 12px;">Talebi Gönder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Takas Onay Modalı (Admin) -->
+    <div id="modal-confirm-swap" class="modal hidden admin-only">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2>Takas Talebini Onayla</h2>
+            <form id="form-confirm-swap">
+                <input type="hidden" id="swap-request-id-confirm">
+                <div class="form-group">
+                    <label>Sınav</label>
+                    <p id="swap-confirm-exam-name" style="font-weight:700; color:var(--primary);"></p>
+                </div>
+                <div class="form-group">
+                    <label>Görevi Devredecek</label>
+                    <p id="swap-confirm-from-staff" style="font-weight:600;"></p>
+                </div>
+                <div class="form-group">
+                    <label>Yeni Gözetmen (Onaylanan)</label>
+                    <select id="swap-confirm-to-select" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
+                    <p id="swap-confirm-warning" style="color:var(--accent-orange); font-size:0.75rem; margin-top:5px;" class="hidden">⚠️ Seçilen hoca bu saatte meşgul!</p>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('modal-confirm-swap').classList.add('hidden')">İptal</button>
+                    <button type="submit" class="btn-primary" style="background:var(--accent-green);">Değişikliği Onayla</button>
+                </div>
+            </form>
         </div>
     </div>
 
