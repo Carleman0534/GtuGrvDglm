@@ -129,7 +129,9 @@ Object.entries(navButtons).forEach(([key, btn]) => {
         if (key === 'staff') renderStaff();
         if (key === 'availability') renderAvailability();
         if (key === 'constraints') renderConstraintsPage();
-        if (key === 'requests') renderSwapRequests();
+        if (key === 'requests') {
+            loadFromDataJSON().then(() => renderSwapRequests());
+        }
     });
 });
 
@@ -139,6 +141,16 @@ function initUI() {
     document.getElementById('btn-add-exam').addEventListener('click', showAddExamModal);
     document.getElementById('btn-add-staff').addEventListener('click', showAddStaffModal);
     document.getElementById('btn-modal-cancel').addEventListener('click', hideModal);
+    
+    // Choice Modal Listeners
+    document.getElementById('btn-choice-no')?.addEventListener('click', () => {
+        if (window.resolveChoice) window.resolveChoice(false);
+        document.getElementById('modal-choice').classList.add('hidden');
+    });
+    document.getElementById('btn-choice-yes')?.addEventListener('click', () => {
+        if (window.resolveChoice) window.resolveChoice(true);
+        document.getElementById('modal-choice').classList.add('hidden');
+    });
     document.getElementById('btn-close-exam-detail')?.addEventListener('click', () => {
         document.getElementById('modal-exam-detail').classList.add('hidden');
     });
@@ -739,12 +751,122 @@ window.showExamDetail = function(examName, date, time, location) {
                 <td><span class="clickable-name" onclick="showStaffSchedule('${ex.proctorName}')">${ex.proctorName}</span></td>
                 <td>${staff ? staff.totalScore.toFixed(1) : '-'}</td>
                 <td>${staff ? staff.taskCount : '-'}</td>
+                <td style="text-align: right;">
+                    <button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px;" onclick="takeOverDuty('${ex.id}', '${ex.proctorId}')">Yerine Geç</button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
     }
 
     modal.classList.remove('hidden');
+};
+
+/**
+ * Görevi Devralma (Takeover) Fonksiyonu
+ */
+window.takeOverDuty = async function(examId, oldProctorId) {
+    try {
+        const exam = DB.exams.find(e => String(e.id) === String(examId));
+        if (!exam) return alert("Sınav bulunamadı.");
+
+        const oldProctor = DB.staff.find(s => String(s.id) === String(oldProctorId));
+        if (!oldProctor) return alert("Hoca verisi bulunamadı.");
+
+        let newProctorName = "";
+        let newProctor = null;
+
+        if (sessionStorage.getItem('isAdmin') === 'true') {
+            // Admin ise kimi atayacağını seçsin
+            newProctor = await showStaffSelectModal("Görevi devralacak hocayı seçin:");
+            if (!newProctor) return;
+        } else {
+            // Misafir ise "Kimseniz?" diye soralım
+            newProctor = await showStaffSelectModal("Lütfen kendi isminizi seçerek görevi devralın:");
+            if (!newProctor) return;
+        }
+
+        if (!newProctor) return alert("Belirtilen isimde bir hoca bulunamadı! Lütfen tam ve doğru yazın.");
+        if (newProctor.id === oldProctor.id) return alert("Zaten bu görev bu hocaya atanmış!");
+
+        // Müsaitlik kontrolü
+        if (!isProctorTrulyFree(newProctor.id, exam.date, exam.time, exam.duration, exam.id)) {
+            if (!confirm("⚠️ Bu saatte başka bir göreviniz veya kısıtınız var! Yine de devam etmek istiyor musunuz?")) return;
+        }
+
+        if (!confirm(`${oldProctor.name} hocanın görevini ${newProctor.name} hocaya devretmek istediğinize emin misiniz?`)) return;
+
+        // PUAN GÜNCELLEME
+        // Eskiden düş
+        oldProctor.totalScore = parseFloat((oldProctor.totalScore - exam.score).toFixed(2));
+        oldProctor.taskCount = Math.max(0, (oldProctor.taskCount || 1) - 1);
+
+        // Yeniye ekle
+        newProctor.totalScore = parseFloat((newProctor.totalScore + exam.score).toFixed(2));
+        newProctor.taskCount = (newProctor.taskCount || 0) + 1;
+
+        // SINAV GÜNCELLEME
+        exam.proctorId = newProctor.id;
+        exam.proctorName = newProctor.name;
+
+        // KAYDET VE YENİLE
+        saveToLocalStorage();
+        renderDashboard();
+        renderExams();
+        renderSchedule();
+        renderStaff();
+        
+        console.log("Görev devralma başarılı, sunucuya kaydediliyor...");
+        await saveToBackend();
+        
+        alert(`✅ Başarılı!\n${exam.name} görevi ${newProctor.name} hocaya başarıyla devredildi.`);
+        document.getElementById('modal-exam-detail').classList.add('hidden');
+
+    } catch (err) {
+        console.error("Görevi devralma hatası:", err);
+        alert("Bir hata oluştu: " + err.message);
+    }
+};
+
+/**
+ * Personel Seçim Modalı (Promise tabanlı)
+ */
+window.showStaffSelectModal = function(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-staff-select');
+        const dropdown = document.getElementById('takeover-staff-dropdown');
+        const btnConfirm = document.getElementById('btn-staff-select-confirm');
+        const btnCancel = document.getElementById('btn-staff-select-cancel');
+        const title = modal.querySelector('h3');
+
+        title.textContent = message;
+        
+        // Dropdown doldur
+        dropdown.innerHTML = DB.staff
+            .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+            .map(s => `<option value="${s.id}">${s.name}</option>`)
+            .join('');
+
+        modal.classList.remove('hidden');
+
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            btnConfirm.onclick = null;
+            btnCancel.onclick = null;
+        };
+
+        btnConfirm.onclick = () => {
+            const staffId = parseInt(dropdown.value);
+            const staff = DB.staff.find(s => s.id === staffId);
+            cleanup();
+            resolve(staff);
+        };
+
+        btnCancel.onclick = () => {
+            cleanup();
+            resolve(null);
+        };
+    });
 };
 
 function renderExams() {
@@ -1259,11 +1381,8 @@ window.showStaffSchedule = (staffName) => {
         if (examEnd < now) {
             tbodyArchive.appendChild(tr);
         } else {
-            // "Takas İste" butonu ekle (sadece aktif sınavlar için)
             const tdAction = document.createElement('td');
-            const staff = DB.staff.find(s => s.name === staffName);
-            const staffId = staff ? staff.id : null;
-            tdAction.innerHTML = `<button class="btn-swap" onclick="showSwapModal(${ex.id}, ${staffId})">Takas İste</button>`;
+            tdAction.innerHTML = `<span class="badge active">Görevli</span>`;
             tr.appendChild(tdAction);
             tbodyActive.appendChild(tr);
         }
@@ -1271,13 +1390,74 @@ window.showStaffSchedule = (staffName) => {
 
     // Eğer tablolar boşsa mesaj göster
     if (tbodyActive.children.length === 0) {
-        tbodyActive.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Aktif görev bulunmuyor.</td></tr>';
+        tbodyActive.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Aktif görev bulunmuyor.</td></tr>';
     }
     if (tbodyArchive.children.length === 0) {
         tbodyArchive.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş görev bulunmuyor.</td></tr>';
     }
+
+    // --- İKİLİ ONAY SİSTEMİ: Onay Bekleyenleri Göster ---
+    const peerSection = document.getElementById('peer-approval-section');
+    const peerList = document.getElementById('peer-approval-list');
+    if (peerSection && peerList) {
+        const staff = DB.staff.find(s => s.name === staffName);
+        if (staff) {
+            // Eğer ben receiver isem ve onaylamadıysam:
+            const myIncoming = (DB.requests || []).filter(r => r.status === 'pending_peer' && r.receiverId === staff.id && !r.toApproved);
+
+            if (myIncoming.length > 0) {
+                peerSection.classList.remove('hidden');
+                peerList.innerHTML = myIncoming.map(r => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:10px;">
+                        <div style="font-size:0.85rem;">
+                            <strong>${r.examName}</strong><br>
+                            <span style="color:var(--text-muted)">${r.initiatorName} size devretmek istiyor.</span>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-primary" onclick="approveSwapPeer(${r.id}, ${staff.id})" style="background:#10b981; padding:0.4rem 0.8rem; font-size:0.75rem;">Onayla</button>
+                            <button class="btn-delete" onclick="rejectSwapPeer(${r.id})" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Reddet</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                peerSection.classList.add('hidden');
+            }
+        }
+    }
     
     modal.classList.remove('hidden');
+};
+
+window.approveSwapPeer = async function(requestId, staffId) {
+    const req = DB.requests.find(r => r.id === requestId);
+    if (!req) return;
+
+    if (req.receiverId === staffId) {
+        req.toApproved = true;
+        req.status = 'pending_admin'; // Her iki taraf da onayladığı için admin'e gitsin
+        saveToLocalStorage();
+        alert("Takas talebini onayladınız. Yönetici onayı bekleniyor.");
+        
+        const staff = DB.staff.find(s => s.id === staffId);
+        if (staff) showStaffSchedule(staff.name);
+        
+        updateRequestBadge();
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+    }
+};
+
+window.rejectSwapPeer = async function(requestId) {
+    const req = DB.requests.find(r => r.id === requestId);
+    if (!req) return;
+    req.status = 'rejected';
+    saveToLocalStorage();
+    alert("Takas talebini reddettiniz.");
+    
+    const receiver = DB.staff.find(s => s.id === req.receiverId);
+    if (receiver) showStaffSchedule(receiver.name);
+
+    updateRequestBadge();
+    if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
 };
 
 function hideIndividualModal() {
@@ -1484,7 +1664,7 @@ function showGitHubSyncModal() {
  */
 
 window.showSwapModal = function(examId, forceInitiatorId = null) {
-    const exam = DB.exams.find(e => e.id == examId);
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
     if (!exam) return;
 
     document.getElementById('swap-exam-id').value = examId;
@@ -1527,51 +1707,78 @@ window.showSwapModal = function(examId, forceInitiatorId = null) {
 };
 
 window.submitSwapForm = async function() {
-    const examId = parseInt(document.getElementById('swap-exam-id').value);
-    const initiatorId = parseInt(document.getElementById('swap-initiator-select').value);
-    const receiverId = parseInt(document.getElementById('swap-receiver-select').value) || null;
+    try {
+        const examIdElem = document.getElementById('swap-exam-id');
+        const initiatorElem = document.getElementById('swap-initiator-select');
+        const receiverElem = document.getElementById('swap-receiver-select');
 
-    if (!initiatorId) {
-        alert("Lütfen görevi devredecek hocayı seçin.");
-        return;
-    }
-
-    if (initiatorId === receiverId) {
-        alert("Görevi kendinize devredemezsiniz.");
-        return;
-    }
-
-    const initiator = DB.staff.find(s => s.id === initiatorId);
-    const receiver = receiverId ? DB.staff.find(s => s.id === receiverId) : null;
-    const exam = DB.exams.find(e => e.id === examId);
-
-    if (createSwapRequest(examId, initiatorId, receiverId)) {
-        alert("Takas talebiniz başarıyla oluşturuldu ve yönetici paneline iletildi.");
-        document.getElementById('modal-swap').classList.add('hidden');
-        
-        // Mail gönderme (Opsiyonel)
-        if (receiver && confirm(`${receiver.name} hocaya bilgilendirme maili göndermek ister misiniz?`)) {
-            sendSwapMail(exam, initiator, receiver);
+        if (!examIdElem || !initiatorElem || !receiverElem) {
+            console.error("Form elemanları bulunamadı!");
+            return;
         }
 
-        renderDashboard();
-        updateRequestBadge();
-        
-        // Admin ise sunucuya kaydet
-        if (sessionStorage.getItem('isAdmin') === 'true') {
+        const examId = examIdElem.value;
+        const initiatorId = initiatorElem.value;
+        const receiverId = receiverElem.value || null;
+
+        if (!initiatorId) {
+            alert("Lütfen görevi devredecek hocayı seçin.");
+            return;
+        }
+
+        if (String(initiatorId) === String(receiverId)) {
+            alert("Görevi kendinize devredemezsiniz.");
+            return;
+        }
+
+        const initiator = DB.staff.find(s => String(s.id) === String(initiatorId));
+        const receiver = receiverId ? DB.staff.find(s => String(s.id) === String(receiverId)) : null;
+        const exam = DB.exams.find(e => String(e.id) === String(examId));
+
+        if (!exam) {
+            console.error("Sınav bulunamadı. Aranan ID:", examId, "Mevcut ID'ler:", DB.exams.map(e => e.id));
+            alert("Sınav verisi bulunamadı (ID: " + examId + "). Lütfen sayfayı yenileyip tekrar deneyin.");
+            return;
+        }
+        if (!initiator) {
+            alert("Devreden personel verisi bulunamadı (ID: " + initiatorId + ").");
+            return;
+        }
+
+        if (receiver) {
+            const hasConfirmed = await showChoiceModal(`${receiver.name} hocanın takas isteğinden haberi var mı?`);
+            if (!hasConfirmed) {
+                alert("Talep gönderilmedi.");
+                return;
+            }
+        }
+
+        if (createSwapRequest(examId, initiatorId, receiverId)) {
+            alert("Takas talebiniz başarıyla oluşturuldu.");
+            document.getElementById('modal-swap').classList.add('hidden');
+
+            renderDashboard();
+            updateRequestBadge();
+            
+            // Veriyi sunucuya kaydet
+            console.log("Talep oluşturuldu, sunucuya gönderiliyor...");
             await saveToBackend();
+            alert("Takas talebiniz başarıyla oluşturuldu ve sunucuya kaydedildi.");
         }
+    } catch (err) {
+        console.error("Takas gönderme hatası:", err);
+        alert("Takas talebi gönderilirken bir hata oluştu: " + err.message);
     }
 };
 
 function createSwapRequest(examId, fromId, toId) {
-    const exam = DB.exams.find(e => e.id === examId);
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
     if (!exam) return false;
 
     if (!DB.requests) DB.requests = [];
 
-    const fromStaff = DB.staff.find(s => s.id === fromId);
-    const toStaff = toId ? DB.staff.find(s => s.id === toId) : null;
+    const fromStaff = DB.staff.find(s => String(s.id) === String(fromId));
+    const toStaff = toId ? DB.staff.find(s => String(s.id) === String(toId)) : null;
 
     const newReq = {
         id: Date.now(),
@@ -1583,29 +1790,15 @@ function createSwapRequest(examId, fromId, toId) {
         initiatorName: fromStaff ? fromStaff.name : "Bilinmiyor",
         receiverId: toId,
         receiverName: toStaff ? toStaff.name : "Açık Talep (Yönetici Atasın)",
-        status: 'pending_admin',
+        status: 'pending_admin', // Sözel teyit alındığı için direkt admin'e gidiyor
+        fromApproved: true,
+        toApproved: true, // Sözel onay alındığı varsayılıyor
         createdAt: new Date().toISOString()
     };
 
     DB.requests.push(newReq);
     saveToLocalStorage();
     return true;
-}
-
-function sendSwapMail(exam, initiator, receiver) {
-    const formatDate = exam.date.split('-').reverse().join('.');
-    const subject = encodeURIComponent(`Gözetmenlik Takas Talebi: ${exam.name}`);
-    
-    let template = DB.templates?.swap_request || "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}";
-    
-    const bodyTxt = template
-        .replace("{alici_adi}", receiver.name)
-        .replace("{gonderen_adi}", initiator.name)
-        .replace("{sinav_adi}", exam.name)
-        .replace("{tarih}", formatDate);
-        
-    const mailtoLink = `mailto:${receiver.email || ''}?subject=${subject}&body=${encodeURIComponent(bodyTxt)}`;
-    window.open(mailtoLink, '_blank');
 }
 
 window.renderSwapRequests = function() {
@@ -1776,4 +1969,16 @@ window.processSwap = async function(requestId, approve) {
         if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
         alert("Takas işlemi başarıyla onaylandı ve puanlar güncellendi.");
     }
+};
+
+window.showChoiceModal = function(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-choice');
+        const msgElem = document.getElementById('choice-message');
+        if (!modal || !msgElem) return resolve(false);
+        
+        msgElem.textContent = message;
+        modal.classList.remove('hidden');
+        window.resolveChoice = resolve;
+    });
 };

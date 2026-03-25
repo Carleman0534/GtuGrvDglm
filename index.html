@@ -431,6 +431,12 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Onay Bekleyen Talepler (İkili Onay) -->
+                    <div id="peer-approval-section" class="hidden" style="margin-top: 25px; background: rgba(99, 102, 241, 0.05); border: 1px dashed #6366f1; border-radius: 12px; padding: 1.5rem;">
+                        <h4 style="color: #6366f1; margin-bottom: 1rem; font-size: 0.9rem; text-transform: uppercase;">🔔 Onayınızı Bekleyen Takaslar</h4>
+                        <div id="peer-approval-list"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -452,6 +458,7 @@
                                 <th>Gözetmen</th>
                                 <th>Toplam Puan</th>
                                 <th>Görev Sayısı</th>
+                                <th style="text-align: right;">İşlem</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -606,6 +613,32 @@
                     <button type="submit" class="btn-primary" style="background:var(--accent-green);">Değişikliği Onayla</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Özel Seçim Modalı (Evet/Hayır) -->
+    <div id="modal-choice" class="modal hidden" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2.5rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🤔</div>
+            <h3 id="choice-message" style="margin-bottom: 2rem; line-height: 1.5;">Mesaj...</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <button id="btn-choice-yes" class="btn-primary" style="padding: 1rem; border-radius: 12px; background: #10b981;">Evet</button>
+                <button id="btn-choice-no" class="btn-secondary" style="padding: 1rem; border-radius: 12px;">Hayır</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personel Seçim Modalı -->
+    <div id="modal-staff-select" class="modal hidden" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 400px; padding: 2.5rem;">
+            <h3 style="margin-bottom: 1.5rem; text-align: center;">Kendi İsminizi Seçin</h3>
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <select id="takeover-staff-dropdown" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 1rem; border-radius: 12px; color: white; font-size: 1rem;"></select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <button id="btn-staff-select-confirm" class="btn-primary" style="padding: 1rem; border-radius: 12px;">Onayla</button>
+                <button id="btn-staff-select-cancel" class="btn-secondary" style="padding: 1rem; border-radius: 12px;">İptal</button>
+            </div>
         </div>
     </div>
 

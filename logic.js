@@ -308,7 +308,7 @@ async function saveToBackend() {
             const err = await response.json().catch(() => ({ error: "Sunucu geçerli bir JSON dönmedi" }));
             throw new Error(err.error || `Sunucu hatası: ${response.status}`);
         }
-        console.log("Sunucuya başarıyla kaydedildi.");
+        console.log("Sunucuya başarıyla kaydedildi. Talep sayısı:", (DB.requests || []).length);
     } catch (e) {
         console.error("Backend kayit hatasi DETAY:", {
             error: e,
@@ -339,6 +339,7 @@ async function loadFromDataJSON() {
         
         if (data && typeof data === 'object' && Array.isArray(data.staff)) {
             DB = data;
+            if (!DB.requests) DB.requests = []; // Eksikse başlat
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
             console.log("Veriler başarıyla yüklendi.");
