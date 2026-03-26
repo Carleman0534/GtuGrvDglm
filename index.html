@@ -380,6 +380,7 @@
                             <tr>
                                 <th class="sortable" data-sort="type">Tür <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="name">Ders / Sınav <span class="sort-icon"></span></th>
+                                <th class="sortable" data-sort="lecturer">Dersi Veren <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="location">Derslik / Mevcut <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="date">Tarih <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="time">Saat <span class="sort-icon"></span></th>
@@ -419,6 +420,8 @@
                                 <tr>
                                     <th>Tür</th>
                                     <th>Ders / Sınav</th>
+                                    <th>Dersi Veren</th>
+                                    <th>Sınıf Mevcudu / Yer</th>
                                     <th>Derslik / Yer</th>
                                     <th>Tarih</th>
                                     <th>Saat</th>
@@ -440,6 +443,8 @@
                                 <tr>
                                     <th>Tür</th>
                                     <th>Ders / Sınav</th>
+                                    <th>Dersi Veren</th>
+                                    <th>Sınıf Mevcudu / Yer</th>
                                     <th>Derslik / Yer</th>
                                     <th>Tarih</th>
                                     <th>Saat</th>
@@ -647,6 +652,8 @@
                                     <tr>
                                         <th>Tür</th>
                                         <th>Ders / Sınav</th>
+                                        <th>Dersi Veren</th>
+                                        <th>Sınıf Mevcudu / Yer</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
                                         <th>Saat</th>
@@ -667,6 +674,8 @@
                                     <tr>
                                         <th>Tür</th>
                                         <th>Ders / Sınav</th>
+                                        <th>Dersi Veren</th>
+                                        <th>Sınıf Mevcudu / Yer</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
                                         <th>Saat</th>
@@ -750,6 +759,16 @@
                     <div class="form-group">
                         <label>Ders / Sınav Adı</label>
                         <input type="text" id="edit-exam-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Dersi Veren Hoca</label>
+                        <select id="edit-exam-lecturer" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                            <option value="-">Seçin...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sınıf Mevcudu / Yer Bilgisi</label>
+                        <input type="text" id="edit-exam-capacity" placeholder="Örn: 55/ Amfi 2">
                     </div>
                     <div class="form-group">
                         <label>Derslik / Yer Bilgisi</label>

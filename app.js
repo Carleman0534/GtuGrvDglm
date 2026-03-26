@@ -160,6 +160,28 @@ async function initApp() {
         };
     }
 
+    // Auto-match lecturers for existing exams based on courseLecturers map
+    if (DB.exams && Array.isArray(DB.exams)) {
+        let changed = false;
+        DB.exams.forEach(ex => {
+            if (!ex.lecturer || ex.lecturer === "-" || ex.lecturer === "") {
+                // Fuzzy/Partial matching
+                const entry = Object.entries(DB.courseLecturers).find(([k,v]) => {
+                    const examName = (ex.name || "").toLowerCase();
+                    const courseKey = k.toLowerCase();
+                    return examName === courseKey || examName.includes(courseKey) || courseKey.includes(examName);
+                });
+                const mapped = entry ? entry[1] : null;
+
+                if (mapped) {
+                    ex.lecturer = mapped;
+                    changed = true;
+                }
+            }
+        });
+        if (changed) saveToLocalStorage();
+    }
+
     initUI();
     renderProfile();
     updateRequestBadge(); // Update badge on load
@@ -843,6 +865,9 @@ window.showExamDetail = function(examName, date, time, location) {
     const duration = relatedExams.length > 0 ? relatedExams[0].duration : '-';
     const loc = location || (relatedExams.length > 0 ? relatedExams[0].location : '-');
 
+    const exForLecturer = DB.exams.find(e => e.name === examName && e.date === date && e.time === time);
+    const lecturer = exForLecturer ? (exForLecturer.lecturer || '-') : '-';
+
     infoGrid.innerHTML = `
         <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 1rem; text-align:center;">
             <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Tarih</div>
@@ -851,6 +876,14 @@ window.showExamDetail = function(examName, date, time, location) {
         <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 1rem; text-align:center;">
             <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Saat / Süre</div>
             <div style="font-weight:700; font-size:1.1rem;">${time} &bull; ${duration} dk</div>
+        </div>
+        <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 12px; padding: 1rem; text-align:center;">
+            <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Dersi Veren</div>
+            <div style="font-weight:700; font-size:1.1rem; color:var(--accent-orange);">${lecturer}</div>
+        </div>
+        <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 1rem; text-align:center;">
+            <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Mevcut / Yer</div>
+            <div style="font-weight:700; font-size:1.1rem;">${exForLecturer ? (exForLecturer.capacity || '-') : '-'}</div>
         </div>
         <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 1rem; text-align:center;">
             <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Derslik</div>
@@ -1059,6 +1092,7 @@ function renderExams() {
                 <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span>
                 ${conflicts.has(ex.id) ? '<span class="conflict-warning">⚠️ Zaman Çakışması!</span>' : ''}
             </td>
+            <td>${ex.lecturer || '-'}</td>
             <td class="${isLocConflict ? 'location-conflict' : ''}">
                 ${ex.location || '-'}
                 ${isLocConflict ? '<span class="location-warning">⚠️ Derslik Dolu!</span>' : ''}
@@ -1097,6 +1131,8 @@ function renderSchedule() {
                 date: ex.date,
                 time: ex.time,
                 duration: ex.duration,
+                lecturer: ex.lecturer || "-",
+                capacity: ex.capacity || "-",
                 location: ex.location || "-",
                 proctors: []
             };
@@ -1143,7 +1179,7 @@ function renderSchedule() {
             if (isPast) currentYearArchive = y; else currentYearActive = y;
             const trHead = document.createElement('tr');
             trHead.className = 'year-header';
-            trHead.innerHTML = `<td colspan="7">${y}. YIL</td>`;
+            trHead.innerHTML = `<td colspan="10">${y}. YIL</td>`;
             targetTbody.appendChild(trHead);
         }
 
@@ -1166,13 +1202,13 @@ function renderSchedule() {
         const formatString = ex.date.split("-").reverse().join(".") + " " + dayName; 
 
         tr.innerHTML = `
+            <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
             <td>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span>
-                    <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')"><strong>${ex.name}</strong></span>
-                    ${isConflict ? '<span class="conflict-warning">⚠️ Gözetmen Çakışması!</span>' : ''}
-                </div>
+                <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')"><strong>${ex.name}</strong></span>
+                ${isConflict ? '<span class="conflict-warning">⚠️ Gözetmen Çakışması!</span>' : ''}
             </td>
+            <td>${ex.lecturer || '-'}</td>
+            <td>${ex.capacity || '-'}</td>
             <td class="${isLocConflict ? 'location-conflict' : ''}">
                 ${ex.location}
                 ${isLocConflict ? '<span class="location-warning">⚠️ Derslik Çakışması!</span>' : ''}
@@ -1189,10 +1225,10 @@ function renderSchedule() {
     });
 
     if (tbodyActive.children.length === 0) {
-        tbodyActive.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Gelecek sınav programı bulunmuyor.</td></tr>';
+        tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Gelecek sınav programı bulunmuyor.</td></tr>';
     }
     if (tbodyArchive.children.length === 0) {
-        tbodyArchive.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş sınav programı bulunmuyor.</td></tr>';
+        tbodyArchive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş sınav programı bulunmuyor.</td></tr>';
     }
 }
 
@@ -1220,6 +1256,37 @@ function showAddExamModal() {
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
     document.getElementById('modal-title').textContent = "Yeni Sınav Ekle";
+
+    // Eğer DB.lecturers bir şekilde boş kalmışsa, hardcoded değerleri geri getir (Güvenlik önlemi)
+    if (!DB.lecturers || DB.lecturers.length === 0) {
+        console.warn("DB.lecturers boş, varsayılanlar yükleniyor...");
+        DB.lecturers = [
+            { name: "Mustafa AKKURT", title: "Prof. Dr." },
+            { name: "Nuri ÇELİK", title: "Prof. Dr." },
+            { name: "Oğul ESEN", title: "Prof. Dr." },
+            { name: "Mansur İSGENDEROĞLU (İSMAİLOV)", title: "Prof. Dr." },
+            { name: "Emil NOVRUZ", title: "Prof. Dr." },
+            { name: "Sibel ÖZKAN", title: "Prof. Dr." },
+            { name: "Serkan SÜTLÜ", title: "Prof. Dr." },
+            { name: "Coşkun YAKAR (Bölüm Başkanı)", title: "Prof. Dr." },
+            { name: "Nursel EREY", title: "Doç. Dr." },
+            { name: "Gülden GÜN POLAT", title: "Doç. Dr." },
+            { name: "Feray HACIVELİOĞLU", title: "Doç. Dr." },
+            { name: "Roghayeh HAFEZIEH", title: "Doç. Dr." },
+            { name: "Fatma KARAOĞLU CEYHAN", title: "Doç. Dr." },
+            { name: "Ayten KOÇ", title: "Doç. Dr." },
+            { name: "Işıl ÖNER", title: "Doç. Dr." },
+            { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
+            { name: "Ayten KOÇ", title: "Doç. Dr." },
+            { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
+            { name: "Selçuk TOPAL", title: "Doç. Dr." },
+            { name: "Gülşen ULUCAK", title: "Doç. Dr." },
+            { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
+            { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
+            { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
+            { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" }
+        ];
+    }
     
     // Eski seçimleri temizle
     window.selectedProctorId = null;
@@ -1237,6 +1304,17 @@ function showAddExamModal() {
         <div class="form-group">
             <label>Sınav/Ders Adı</label>
             <input type="text" id="exam-name" placeholder="Örn: Matematik I" required>
+        </div>
+        <div class="form-group">
+            <label>Dersi Veren Hoca</label>
+            <select id="exam-lecturer" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                <option value="-">Seçin...</option>
+                ${(DB.lecturers || []).map(l => `<option value="${l.title} ${l.name}">${l.title} ${l.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Sınıf Mevcudu / Yer Bilgisi</label>
+            <input type="text" id="exam-capacity" placeholder="Örn: 55/ Amfi 2">
         </div>
         <div class="form-group">
             <label>Sınav Tarihi</label>
@@ -1278,11 +1356,32 @@ function showAddExamModal() {
     document.getElementById('exam-time').addEventListener('change', updateAddSuggestions);
     document.getElementById('exam-duration').addEventListener('input', updateAddSuggestions);
 
+    // --- LECTURER AUTO-SUGGESTION ---
+    document.getElementById('exam-name').addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        const lecturerName = DB.courseLecturers[val];
+        if (lecturerName) {
+            const selectL = document.getElementById('exam-lecturer');
+            if (selectL) selectL.value = lecturerName;
+        }
+    });
+
+    window.addProctorToAddListManually = (id) => {
+        if (!window.tempSelectedProctors.includes(id)) {
+            window.tempSelectedProctors.push(id);
+            renderTempProctorList();
+            updateProctorSelect();
+            updateAddSuggestions();
+        }
+    };
+
     document.getElementById('modal-form').onsubmit = (e) => {
         e.preventDefault();
         const examData = {
             type: document.getElementById('exam-type').value,
             name: document.getElementById('exam-name').value,
+            lecturer: document.getElementById('exam-lecturer').value,
+            capacity: document.getElementById('exam-capacity').value,
             location: document.getElementById('exam-location').value,
             date: document.getElementById('exam-date').value,
             time: document.getElementById('exam-time').value,
@@ -1396,6 +1495,46 @@ window.showEditExamModal = (id) => {
     ).join('');
     
     document.getElementById('edit-exam-name').value = ex.name;
+    
+    // Eğer DB.lecturers bir şekilde boş kalmışsa, hardcoded değerleri geri getir (Güvenlik önlemi)
+    if (!DB.lecturers || DB.lecturers.length === 0) {
+        console.warn("DB.lecturers boş, varsayılanlar yükleniyor...");
+        DB.lecturers = [
+            { name: "Mustafa AKKURT", title: "Prof. Dr." },
+            { name: "Nuri ÇELİK", title: "Prof. Dr." },
+            { name: "Oğul ESEN", title: "Prof. Dr." },
+            { name: "Mansur İSGENDEROĞLU (İSMAİLOV)", title: "Prof. Dr." },
+            { name: "Emil NOVRUZ", title: "Prof. Dr." },
+            { name: "Sibel ÖZKAN", title: "Prof. Dr." },
+            { name: "Serkan SÜTLÜ", title: "Prof. Dr." },
+            { name: "Coşkun YAKAR (Bölüm Başkanı)", title: "Prof. Dr." },
+            { name: "Nursel EREY", title: "Doç. Dr." },
+            { name: "Gülden GÜN POLAT", title: "Doç. Dr." },
+            { name: "Feray HACIVELİOĞLU", title: "Doç. Dr." },
+            { name: "Roghayeh HAFEZIEH", title: "Doç. Dr." },
+            { name: "Fatma KARAOĞLU CEYHAN", title: "Doç. Dr." },
+            { name: "Ayten KOÇ", title: "Doç. Dr." },
+            { name: "Işıl ÖNER", title: "Doç. Dr." },
+            { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
+            { name: "Ayten KOÇ", title: "Doç. Dr." },
+            { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
+            { name: "Selçuk TOPAL", title: "Doç. Dr." },
+            { name: "Gülşen ULUCAK", title: "Doç. Dr." },
+            { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
+            { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
+            { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
+            { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" }
+        ];
+    }
+
+    const lecturerSelect = document.getElementById('edit-exam-lecturer');
+    lecturerSelect.innerHTML = `<option value="-">Seçin...</option>` + 
+        (DB.lecturers || []).map(l => {
+            const fullName = `${l.title} ${l.name}`;
+            return `<option value="${fullName}" ${fullName === ex.lecturer ? 'selected' : ''}>${fullName}</option>`;
+        }).join('');
+    
+    document.getElementById('edit-exam-capacity').value = ex.capacity || '';
     document.getElementById('edit-exam-location').value = ex.location || '';
     document.getElementById('edit-exam-date').value = ex.date;
     document.getElementById('edit-exam-time').value = ex.time;
@@ -1447,6 +1586,30 @@ window.showEditExamModal = (id) => {
     updateEditProctorSelect();
     renderEditProctorList();
 
+    document.getElementById('edit-exam-date').addEventListener('change', updateEditSuggestions);
+    document.getElementById('edit-exam-time').addEventListener('change', updateEditSuggestions);
+    document.getElementById('edit-exam-duration').addEventListener('input', updateEditSuggestions);
+
+    // --- LECTURER AUTO-SUGGESTION FOR EDIT ---
+    document.getElementById('edit-exam-name').addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        const lecturerName = DB.courseLecturers[val];
+        if (lecturerName) {
+            const selectL = document.getElementById('edit-exam-lecturer');
+            if (selectL) selectL.value = lecturerName;
+
+            const staff = DB.staff.find(s => s.name.includes(lecturerName));
+            if (staff && !window.tempEditProctors.includes(staff.id)) {
+                if (confirm(`Bu dersin hocası ${staff.name} olarak görünüyor. Gözetmen olarak eklemek ister misiniz?`)) {
+                    window.tempEditProctors.push(staff.id);
+                    window.renderEditProctorList();
+                    updateEditProctorSelect();
+                    updateEditSuggestions();
+                }
+            }
+        }
+    });
+
     const updateEditSuggestions = () => {
         const d = document.getElementById('edit-exam-date').value;
         const t = document.getElementById('edit-exam-time').value;
@@ -1470,6 +1633,8 @@ document.getElementById('edit-modal-form').onsubmit = (e) => {
     const data = {
         type: document.getElementById('edit-exam-type').value,
         name: document.getElementById('edit-exam-name').value,
+        lecturer: document.getElementById('edit-exam-lecturer').value,
+        capacity: document.getElementById('edit-exam-capacity').value,
         location: document.getElementById('edit-exam-location').value,
         date: document.getElementById('edit-exam-date').value,
         time: document.getElementById('edit-exam-time').value,
@@ -1646,6 +1811,8 @@ window.showStaffSchedule = (staffName) => {
         tr.innerHTML = `
             <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
             <td style="font-weight: 600;">${ex.name}</td>
+            <td>${ex.lecturer || '-'}</td>
+            <td>${ex.capacity || '-'}</td>
             <td>${ex.location}</td>
             <td>${dateStr}</td>
             <td>${ex.time}</td>
@@ -1680,10 +1847,10 @@ window.showStaffSchedule = (staffName) => {
 
     // Eğer tablolar boşsa mesaj göster
     if (tbodyActive.children.length === 0) {
-        tbodyActive.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Aktif görev bulunmuyor.</td></tr>';
+        tbodyActive.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:2rem;">Aktif görev bulunmuyor.</td></tr>';
     }
     if (tbodyArchive.children.length === 0) {
-        tbodyArchive.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş görev bulunmuyor.</td></tr>';
+        tbodyArchive.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş görev bulunmuyor.</td></tr>';
     }
 
     // --- İKİLİ ONAY SİSTEMİ: Onay Bekleyenleri Göster ---

@@ -18,25 +18,123 @@ const GLOBAL_LIMITS = {
 };
 
 let DB = {
-    staff: [],
+    staff: [
+        { id: 1, name: "Prof. Dr. Mustafa AKKURT", totalScore: 0, taskCount: 0 },
+        { id: 2, name: "Prof. Dr. Nuri ÇELİK", totalScore: 0, taskCount: 0 },
+        { id: 3, name: "Prof. Dr. Oğul ESEN", totalScore: 0, taskCount: 0 },
+        { id: 4, name: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)", totalScore: 0, taskCount: 0 },
+        { id: 5, name: "Prof. Dr. Emil NOVRUZ", totalScore: 0, taskCount: 0 },
+        { id: 6, name: "Prof. Dr. Sibel ÖZKAN", totalScore: 0, taskCount: 0 },
+        { id: 7, name: "Prof. Dr. Serkan SÜTLÜ", totalScore: 0, taskCount: 0 },
+        { id: 8, name: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)", totalScore: 0, taskCount: 0 },
+        { id: 9, name: "Doç. Dr. Nursel EREY", totalScore: 0, taskCount: 0 },
+        { id: 10, name: "Doç. Dr. Gülden GÜN POLAT", totalScore: 0, taskCount: 0 },
+        { id: 11, name: "Doç. Dr. Feray HACIVELİOĞLU", totalScore: 0, taskCount: 0 },
+        { id: 12, name: "Doç. Dr. Roghayeh HAFEZIEH", totalScore: 0, taskCount: 0 },
+        { id: 13, name: "Doç. Dr. Fatma KARAOĞLU CEYHAN", totalScore: 0, taskCount: 0 },
+        { id: 14, name: "Doç. Dr. Ayten KOÇ", totalScore: 0, taskCount: 0 },
+        { id: 15, name: "Doç. Dr. Işıl ÖNER", totalScore: 0, taskCount: 0 },
+        { id: 16, name: "Doç. Dr. Hülya ÖZTÜRK", totalScore: 0, taskCount: 0 },
+        { id: 17, name: "Doç. Dr. Ayşe SÖNMEZ", totalScore: 0, taskCount: 0 },
+        { id: 18, name: "Doç. Dr. Selçuk TOPAL", totalScore: 0, taskCount: 0 },
+        { id: 19, name: "Doç. Dr. Gülşen ULUCAK", totalScore: 0, taskCount: 0 },
+        { id: 20, name: "Dr. Öğr. Üyesi Hadi ALIZADEH", totalScore: 0, taskCount: 0 },
+        { id: 21, name: "Dr. Öğr. Üyesi Keremcan DOĞAN", totalScore: 0, taskCount: 0 },
+        { id: 22, name: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", totalScore: 0, taskCount: 0 },
+        { id: 23, name: "Dr. Öğr. Üyesi Samire YAZAR", totalScore: 0, taskCount: 0 },
+        { id: 24, name: "Arş. Gör. Murat Can AŞKAROĞULLARI", totalScore: 0, taskCount: 0 },
+        { id: 25, name: "Arş. Gör. Serkan AYRICA", totalScore: 0, taskCount: 0 },
+        { id: 26, name: "Arş. Gör. Serdal ÇÖLMEKCİ", totalScore: 0, taskCount: 0 },
+        { id: 27, name: "Arş. Gör. Ömer DEMİR", totalScore: 0, taskCount: 0 },
+        { id: 28, name: "Arş. Gör. Saliha DEMİRBÜKEN", totalScore: 0, taskCount: 0 },
+        { id: 29, name: "Arş. Gör. Muhammed Ergen", totalScore: 0, taskCount: 0 },
+        { id: 30, name: "Arş. Gör. Aslıhan GÜR", totalScore: 0, taskCount: 0 },
+        { id: 31, name: "Arş. Gör. Çağla ÖZATAR", totalScore: 0, taskCount: 0 },
+        { id: 32, name: "Arş. Gör. Ezgi ÖZTEKİN", totalScore: 0, taskCount: 0 },
+        { id: 33, name: "Arş. Gör. Aysel ŞAHİN", totalScore: 0, taskCount: 0 },
+        { id: 34, name: "Arş. Gör. Cansu ŞAHİN", totalScore: 0, taskCount: 0 },
+        { id: 35, name: "Arş. Gör. Oğuzhan SELÇUK", totalScore: 0, taskCount: 0 },
+        { id: 36, name: "Arş. Gör. Yasin TURAN", totalScore: 0, taskCount: 0 },
+        { id: 37, name: "Arş. Gör. Şeyma YAŞAR", totalScore: 0, taskCount: 0 }
+    ],
     exams: [],
     constraints: {},
     requests: [],
     logs: [],
     examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
-    announcements: [
-        {
-            id: Date.now(),
-            text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak üstlenebilir. (Yönetici onayı gerektirir)\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\nBu sistem, hem acil durumlarda gözetmen bulmayı hızlandırır hem de gönüllü olarak ek görev almak isteyen hocalarımıza şeffaf bir liste sunar.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
-            isImportant: true,
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: Date.now() - 1000,
-            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\ Yeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
-            isImportant: false,
-            updatedAt: new Date(Date.now() - 1000).toISOString()
-        }
+    announcements: [],
+    courseLecturers: {
+        "Introduction to Computing": "Dr. Öğr. Üyesi Hadi Alizadeh",
+        "Analysis II": "Prof. Dr. Serkan SÜTLÜ",
+        "MATH 112 - Analysis II": "Prof. Dr. Serkan SÜTLÜ",
+        "Analiz II": "Prof. Dr. Serkan SÜTLÜ",
+        "Linear Algebra II": "Prof. Dr. Mustafa AKKURT",
+        "MATH 114 - Linear Algebra II": "Prof. Dr. Mustafa AKKURT",
+        "Lineer Cebir II": "Prof. Dr. Mustafa AKKURT",
+        "Analytical Geometry": "Dr. Öğr. Üyesi Fatma KARAOĞLU",
+        "Analitik Geometri": "Dr. Öğr. Üyesi Fatma KARAOĞLU",
+        "Turkish II": "Öğr.Gör. Benan Durukan",
+        "Türk Dili II": "Öğr.Gör. Benan Durukan",
+        "Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
+        "PHYS 114 - Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
+        "Fizik II": "Doç. Dr. Eda GOLDENBERG",
+        "Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Diferansiyel Denklemler II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Topology": "Doç. Dr. Ayşe SÖNMEZ",
+        "Topoloji": "Doç. Dr. Ayşe SÖNMEZ",
+        "Algebra II": "Doç. Dr. Ayten KOÇ",
+        "Cebir II": "Doç. Dr. Ayten KOÇ",
+        "Analysis IV": "Dr. Öğr. Üyesi Samire YAZAR",
+        "Analiz IV": "Dr. Öğr. Üyesi Samire YAZAR",
+        "Complex Analysis II": "Doç. Dr. Feray HACIVELİOĞLU",
+        "Kompleks Analiz II": "Doç. Dr. Feray HACIVELİOĞLU",
+        "Real Analysis II": "Prof. Dr. Emil NOVRUZ",
+        "Reel Analiz II": "Prof. Dr. Emil NOVRUZ",
+        "Probability Theory": "Prof. Dr. Nuri ÇELİK",
+        "Olasılık Teorisi": "Prof. Dr. Nuri ÇELİK",
+        "Numerical Analysis II": "Doç. Dr. Hülya ÖZTÜRK",
+        "Nümerik Analiz II": "Doç. Dr. Hülya ÖZTÜRK",
+        "Graph Theory and Combinatorics": "Prof. Dr. Sibel ÖZKAN",
+        "Graf Teori ve Kombinatoryal": "Prof. Dr. Sibel ÖZKAN",
+        "Boundary Value Problems": "Doç. Dr. Gülden GÜN POLAT",
+        "Sınır Değer Problemleri": "Doç. Dr. Gülden GÜN POLAT",
+        "History of Mathematics": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "Matematik Tarihi": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "Introduction to Coding Theory": "Doç. Dr. Ayten KOÇ",
+        "Kodlama Teorisine Giriş": "Doç. Dr. Ayten KOÇ",
+        "Differential Geometry": "Prof. Dr. Oğul ESEN",
+        "Diferansiyel Geometri": "Prof. Dr. Oğul ESEN",
+        "Applied Partial Differential Equations": "Doç. Dr. Işıl ÖNER",
+        "Uygulamalı Kısmi Diferansiyel Denklemler": "Doç. Dr. Işıl ÖNER",
+        "Number Theory": "Doç. Dr. Gülşen ULUCAK",
+        "Sayılar Teorisi": "Doç. Dr. Gülşen ULUCAK",
+        "Introduction to Data Analysis": "Doç. Dr. Selçuk TOPAL",
+        "Veri Analizine Giriş": "Doç. Dr. Selçuk TOPAL"
+    },
+    lecturers: [
+        { name: "Mustafa AKKURT", title: "Prof. Dr." },
+        { name: "Nuri ÇELİK", title: "Prof. Dr." },
+        { name: "Oğul ESEN", title: "Prof. Dr." },
+        { name: "Mansur İSGENDEROĞLU (İSMAİLOV)", title: "Prof. Dr." },
+        { name: "Emil NOVRUZ", title: "Prof. Dr." },
+        { name: "Sibel ÖZKAN", title: "Prof. Dr." },
+        { name: "Serkan SÜTLÜ", title: "Prof. Dr." },
+        { name: "Coşkun YAKAR (Bölüm Başkanı)", title: "Prof. Dr." },
+        { name: "Nursel EREY", title: "Doç. Dr." },
+        { name: "Gülden GÜN POLAT", title: "Doç. Dr." },
+        { name: "Feray HACIVELİOĞLU", title: "Doç. Dr." },
+        { name: "Roghayeh HAFEZIEH", title: "Doç. Dr." },
+        { name: "Fatma KARAOĞLU CEYHAN", title: "Doç. Dr." },
+        { name: "Ayten KOÇ", title: "Doç. Dr." },
+        { name: "Işıl ÖNER", title: "Doç. Dr." },
+        { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
+        { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
+        { name: "Selçuk TOPAL", title: "Doç. Dr." },
+        { name: "Gülşen ULUCAK", title: "Doç. Dr." },
+        { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
+        { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
+        { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
+        { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" }
     ]
 };
 
@@ -263,6 +361,9 @@ function addExam(examData) {
         ...examData,
         id: Date.now(),
         type: examData.type || "Vize",
+        name: examData.name || "İsimsiz Sınav",
+        lecturer: examData.lecturer || "-",
+        capacity: examData.capacity || "-",
         location: examData.location || "Belirtilmedi",
         proctorId: proctor.id,
         proctorName: proctor.name,
@@ -307,6 +408,8 @@ function updateExam(id, newData) {
             ...oldExam,
             name: newData.name,
             type: newData.type || oldExam.type || "Vize",
+            lecturer: newData.lecturer || "-",
+            capacity: newData.capacity || "-",
             location: newData.location || "Belirtilmedi",
             date: newData.date,
             time: newData.time,
@@ -376,6 +479,14 @@ async function loadFromDataJSON() {
         const data = await response.json();
         
         if (data && typeof data === 'object' && Array.isArray(data.staff)) {
+            // Preserve hardcoded lecturers and Math-focused staff if missing in loaded data
+            if (!data.lecturers || data.lecturers.length === 0) {
+                data.lecturers = DB.lecturers;
+            }
+            if (!data.courseLecturers) {
+                data.courseLecturers = DB.courseLecturers;
+            }
+            
             DB = data;
             if (!DB.requests) DB.requests = []; // Eksikse başlat
             // Veriyi lokal hafızaya (cache) alalım
@@ -390,8 +501,13 @@ async function loadFromDataJSON() {
         const saved = localStorage.getItem(DB_KEY);
         if (saved) {
             try {
-                DB = JSON.parse(saved);
-            } catch (parseError) {
+                const parsed = JSON.parse(saved);
+                if (!parsed.lecturers || parsed.lecturers.length === 0) {
+                    parsed.lecturers = DB.lecturers;
+                }
+                DB = parsed;
+            }
+ catch (parseError) {
                 console.error("LocalStorage verisi bozuk!", parseError);
             }
         } else {
