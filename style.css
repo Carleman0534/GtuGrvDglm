@@ -689,6 +689,31 @@ tr:hover td {
     margin-bottom: 1rem;
 }
 
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+    margin-bottom: 2rem;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.3);
+    border: 1px solid var(--glass-border);
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-container th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1e293b;
+}
+
+table {
+    border-radius: 10px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
 .suggestion-list {
     display: flex;
     gap: 0.75rem;

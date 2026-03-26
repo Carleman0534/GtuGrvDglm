@@ -134,6 +134,12 @@ async function initApp() {
             text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak üstlenebilir. (Yönetici onayı gerektirir)\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\nBu sistem, hem acil durumlarda gözetmen bulmayı hızlandırır hem de gönüllü olarak ek görev almak isteyen hocalarımıza şeffaf bir liste sunar.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
+        },
+        {
+            id: 7,
+            text: "### 📢 Manuel Yerine Atama Hakkında\n\nSistem üzerinden otomatik talep oluşturmanın yanı sıra, dilerseniz yerinize geçecek kişiyi manuel olarak da seçebilirsiniz.\n\nBunun için:\n\n**Personel listesi üzerinden**\nveya\n**Sistem içinde ilgili kişinin adına tıklayarak**\n\n“Yerine Ata” seçeneğini kullanabilirsiniz.\n\nSeçtiğiniz kişinin müsait olması durumunda atama işlemini başlatabilirsiniz. Uygun olmayan kişiler için sistem sizi otomatik olarak bilgilendirecektir.",
+            isImportant: true,
+            updatedAt: new Date().toISOString()
         }
     ];
 
@@ -857,24 +863,31 @@ window.showExamDetail = function(examName, date, time, location) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamış.</td></tr>';
     } else {
         const now = new Date();
-        relatedExams.forEach((ex, idx) => {
-            const staff = DB.staff.find(s => s.id === ex.proctorId);
+        // Tüm gözetmenleri (proctorIds içindeki her hoca için) tek tek listele
+        let globalIdx = 1;
+        relatedExams.forEach((ex) => {
+            const currentProctorIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
             
-            const examDate = new Date(`${ex.date}T${ex.time}`);
-            const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
-            const isPast = examEnd < now;
+            currentProctorIds.forEach(pid => {
+                const staff = DB.staff.find(s => s.id === pid);
+                if (!staff) return;
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${idx + 1}</td>
-                <td><span class="clickable-name" onclick="showStaffSchedule('${ex.proctorName}')">${ex.proctorName}</span></td>
-                <td>${staff ? staff.totalScore.toFixed(1) : '-'}</td>
-                <td>${staff ? staff.taskCount : '-'}</td>
-                <td style="text-align: right;">
-                    ${!isPast ? `<button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px;" onclick="takeOverDuty('${ex.id}', '${ex.proctorId}')">Yerine Geç</button>` : ''}
-                </td>
-            `;
-            tbody.appendChild(tr);
+                const examDate = new Date(`${ex.date}T${ex.time}`);
+                const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
+                const isPast = examEnd < now;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${globalIdx++}</td>
+                    <td><span class="clickable-name" onclick="showStaffSchedule('${staff.name}')">${staff.name}</span></td>
+                    <td>${staff.totalScore.toFixed(1)}</td>
+                    <td>${staff.taskCount}</td>
+                    <td style="text-align: right;">
+                        ${!isPast ? `<button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px;" onclick="takeOverDuty('${ex.id}', '${staff.id}')">Yerine Geç</button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
         });
     }
 
@@ -1035,6 +1048,11 @@ function renderExams() {
         const dayName = dayNames[dateObj.getDay()];
         const displayDate = ex.date.split("-").reverse().join(".") + " " + dayName;
 
+        const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
+            const s = DB.staff.find(staff => staff.id === pid);
+            return s ? s.name : '???';
+        }).join(', ');
+
         tr.innerHTML = `
             <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
             <td>
@@ -1050,7 +1068,7 @@ function renderExams() {
             <td>${ex.duration}</td>
             <td>x${ex.katsayi.toFixed(1)}</td>
             <td>${ex.score.toFixed(1)}</td>
-            <td><span class="clickable-name" onclick="showStaffSchedule('${ex.proctorName}')">${ex.proctorName}</span></td>
+            <td>${pNames}</td>
             <td>
                 <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; margin-right: 0.5rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
                 <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
@@ -1083,7 +1101,11 @@ function renderSchedule() {
                 proctors: []
             };
         }
-        groups[key].proctors.push(ex.proctorName);
+        const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
+            const s = DB.staff.find(staff => staff.id === pid);
+            return s ? s.name : '???';
+        });
+        groups[key].proctors.push(...pNames);
     });
 
     const scheduleList = Object.values(groups);
@@ -1229,8 +1251,14 @@ function showAddExamModal() {
             <input type="number" id="exam-duration" value="60" required>
         </div>
         <div class="form-group">
-            <label>Derslik / Mevcut</label>
-            <input type="text" id="exam-location" placeholder="Örn: Amfi 2">
+            <label>Gözetmen Ekle</label>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <select id="exam-proctor-select" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
+                <button type="button" class="btn-primary" onclick="addProctorToAddList()" style="padding:0 1.25rem;">Ekle</button>
+            </div>
+            <div id="add-proctor-list" style="display:grid; gap:8px; max-height:150px; overflow-y:auto; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--glass-border);">
+                <!-- Seçili gözetmenler buraya gelecek -->
+            </div>
         </div>
         <div id="add-suggestions" class="suggestion-area hidden">
             <h4>🤖 Akıllı Öneriler</h4>
@@ -1259,18 +1287,71 @@ function showAddExamModal() {
             date: document.getElementById('exam-date').value,
             time: document.getElementById('exam-time').value,
             duration: parseInt(document.getElementById('exam-duration').value),
-            proctorId: window.selectedProctorId // Kullanıcının seçtiği ID'yi ekle
+            proctorIds: window.tempSelectedProctors || []
         };
+
+        // Müsaitlik kontrolü (Seçili tüm hocalar için)
+        for (const pid of examData.proctorIds) {
+            const staff = DB.staff.find(s => s.id === pid);
+            if (staff && !isAvailable(staff.name, examData.date, examData.time, examData.duration)) {
+                if (!confirm(`${staff.name} bu saatte müsait değil! Yine de devam etmek istiyor musunuz?`)) return;
+            }
+        }
+
         addExam(examData);
         
-        // Atama sonrası seçimi tekrar temizle
-        window.selectedProctorId = null;
+        window.tempSelectedProctors = [];
         
         hideModal();
         renderExams();
         renderSchedule();
         renderDashboard();
     };
+
+    // Proctor selection setup
+    window.tempSelectedProctors = [];
+    const updateProctorSelect = () => {
+        const select = document.getElementById('exam-proctor-select');
+        select.innerHTML = `<option value="">Hoca Seçin...</option>` + DB.staff
+            .filter(s => !window.tempSelectedProctors.includes(s.id))
+            .sort((a,b) => a.name.localeCompare(b.name, 'tr'))
+            .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    };
+
+    window.addProctorToAddList = () => {
+        const select = document.getElementById('exam-proctor-select');
+        const id = parseInt(select.value);
+        if (id && !window.tempSelectedProctors.includes(id)) {
+            window.tempSelectedProctors.push(id);
+            renderTempProctorList();
+            updateProctorSelect();
+            updateAddSuggestions();
+        }
+    };
+
+    window.removeProctorFromAddList = (id) => {
+        window.tempSelectedProctors = window.tempSelectedProctors.filter(pid => pid !== id);
+        renderTempProctorList();
+        updateProctorSelect();
+        updateAddSuggestions();
+    };
+
+    const renderTempProctorList = () => {
+        const list = document.getElementById('add-proctor-list');
+        list.innerHTML = window.tempSelectedProctors.map(id => {
+            const staff = DB.staff.find(s => s.id === id);
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
+                    <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
+                    <button type="button" class="btn-icon" onclick="removeProctorFromAddList(${id})" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2);">🗑️</button>
+                </div>
+            `;
+        }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>';
+    };
+
+    updateProctorSelect();
+    renderTempProctorList();
+    updateAddSuggestions();
 }
 
 function hideModal() {
@@ -1320,16 +1401,57 @@ window.showEditExamModal = (id) => {
     document.getElementById('edit-exam-time').value = ex.time;
     document.getElementById('edit-exam-duration').value = ex.duration;
 
-    const proctorSelect = document.getElementById('edit-exam-proctor');
-    proctorSelect.innerHTML = DB.staff.map(s => 
-        `<option value="${s.id}" ${s.id === ex.proctorId ? 'selected' : ''}>${s.name}</option>`
-    ).join('');
+    // Initialize tempEditProctors with existing proctors
+    window.tempEditProctors = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+    
+    const updateEditProctorSelect = () => {
+        const select = document.getElementById('edit-exam-proctor-select');
+        select.innerHTML = `<option value="">Hoca Seçin...</option>` + DB.staff
+            .filter(s => !window.tempEditProctors.includes(s.id))
+            .sort((a,b) => a.name.localeCompare(b.name, 'tr'))
+            .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    };
+
+    window.renderEditProctorList = () => {
+        const list = document.getElementById('edit-proctor-list');
+        list.innerHTML = window.tempEditProctors.map(id => {
+            const staff = DB.staff.find(s => s.id === id);
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
+                    <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
+                    <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2);">🗑️</button>
+                </div>
+            `;
+        }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>';
+    };
+
+    window.addProctorToEditList = () => {
+        const select = document.getElementById('edit-exam-proctor-select');
+        const id = parseInt(select.value);
+        if (id && !window.tempEditProctors.includes(id)) {
+            window.tempEditProctors.push(id);
+            renderEditProctorList();
+            updateEditProctorSelect();
+            updateEditSuggestions();
+        }
+    };
+
+    window.removeProctorFromEditList = (id) => {
+        window.tempEditProctors = window.tempEditProctors.filter(pid => pid !== id);
+        renderEditProctorList();
+        updateEditProctorSelect();
+        updateEditSuggestions();
+    };
+
+    // Initial setup for proctor selection
+    updateEditProctorSelect();
+    renderEditProctorList();
 
     const updateEditSuggestions = () => {
         const d = document.getElementById('edit-exam-date').value;
         const t = document.getElementById('edit-exam-time').value;
         const dur = parseInt(document.getElementById('edit-exam-duration').value) || 60;
-        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, 'edit-exam-proctor');
+        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null); // null target select because we use list
     };
 
     // İlk açılışta ve değişimlerde önerileri güncelle
@@ -1352,14 +1474,16 @@ document.getElementById('edit-modal-form').onsubmit = (e) => {
         date: document.getElementById('edit-exam-date').value,
         time: document.getElementById('edit-exam-time').value,
         duration: parseInt(document.getElementById('edit-exam-duration').value),
-        proctorId: parseInt(document.getElementById('edit-exam-proctor').value)
+        proctorIds: window.tempEditProctors || []
     };
     
-    // Müsaitlik kontrolü
-    const targetProctor = DB.staff.find(s => s.id === data.proctorId);
-    if (targetProctor && !isAvailable(targetProctor.name, data.date, data.time, data.duration)) {
-        alert(`${targetProctor.name} bu tarihte ve saatte müsait değil! Lütfen başka birini seçin veya saati değiştirin.`);
-        return; // İşlemi durdur
+    // Müsaitlik kontrolü (Yeni eklenenler veya değişenler için)
+    for (const pid of data.proctorIds) {
+        const staff = DB.staff.find(s => s.id === pid);
+        // Eğer hoca zaten bu sınavda idiyse (ve tarih/saat değişmediyse) uyarı vermeyebiliriz ama genel kontrol en güvenlisi
+        if (staff && !isAvailable(staff.name, data.date, data.time, data.duration, id)) {
+            if (!confirm(`${staff.name} bu saatte müsait değil! Yine de devam etmek istiyor musunuz?`)) return;
+        }
     }
 
     updateExam(id, data);
@@ -1592,6 +1716,74 @@ window.showStaffSchedule = (staffName) => {
     }
     
     modal.classList.remove('hidden');
+
+    // --- MANUEL ATAMA (FEATURE 4.3) ---
+    const btnAssign = document.getElementById('btn-assign-substitute');
+    const currentUser = JSON.parse(sessionStorage.getItem('user'));
+    const isGuest = sessionStorage.getItem('isAdmin') === 'false' && currentUser;
+    
+    if (isGuest && staffName !== currentUser.name) {
+        const targetStaff = DB.staff.find(s => s.name === staffName);
+        if (targetStaff) {
+            btnAssign.style.display = 'block';
+            btnAssign.onclick = () => assignAsSubstitute(targetStaff.id, targetStaff.name, currentUser);
+        } else {
+            btnAssign.style.display = 'none';
+        }
+    } else {
+        btnAssign.style.display = 'none';
+    }
+};
+
+window.assignAsSubstitute = async function(targetStaffId, targetStaffName, currentUser) {
+    const myExams = DB.exams.filter(ex => {
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        const examDate = new Date(`${ex.date}T${ex.time}`);
+        return pIds.includes(currentUser.id) && examDate > new Date();
+    });
+
+    if (myExams.length === 0) {
+        alert("Üzerinizde devredilebilecek aktif bir görev bulunmuyor.");
+        return;
+    }
+
+    let selectedExam;
+    if (myExams.length === 1) {
+        selectedExam = myExams[0];
+        if (!confirm(`${selectedExam.name} (${selectedExam.date} ${selectedExam.time}) görevini ${targetStaffName} hocaya devretmek istiyor musunuz?`)) return;
+    } else {
+        const examOptions = myExams.map((ex, i) => `${i+1}-) ${ex.name} (${ex.date} ${ex.time})`).join('\n');
+        const choice = prompt(`Hangi görevi devretmek istiyorsunuz? (1-${myExams.length} arası rakam girin)\n\n${examOptions}`);
+        const idx = parseInt(choice) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= myExams.length) {
+            alert("Geçersiz seçim.");
+            return;
+        }
+        selectedExam = myExams[idx];
+    }
+
+    if (!isAvailable(targetStaffName, selectedExam.date, selectedExam.time, selectedExam.duration)) {
+        alert(`${targetStaffName} bu saatte müsait değil! Lütfen başka birini seçin.`);
+        return;
+    }
+
+    if (confirm("Atama işlemini başlatıyorum. Onaylıyor musunuz?")) {
+        const oldProctorIds = [...(selectedExam.proctorIds || [])];
+        const newProctorIds = oldProctorIds.filter(id => id !== currentUser.id);
+        newProctorIds.push(targetStaffId);
+        
+        const updateData = {
+            ...selectedExam,
+            proctorIds: newProctorIds
+        };
+        
+        updateExam(selectedExam.id, updateData);
+        alert("Görev başarıyla devredildi.");
+        hideIndividualModal();
+        renderExams();
+        renderSchedule();
+        renderDashboard();
+    }
 };
 
 window.approveSwapPeer = async function(requestId, staffId) {

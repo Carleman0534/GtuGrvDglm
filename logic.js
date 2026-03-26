@@ -126,7 +126,8 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) 
     const end = new Date(start.getTime() + (duration + 15) * 60000);
 
     const hasConflict = DB.exams.some(ex => {
-        if (ex.id === ignoreExamId) return false;
+        // Eğer bir examen düzenleniyorsa, o exameni çakışma kontrolünden muaf tut
+        if (ignoreExamId && String(ex.id) === String(ignoreExamId)) return false;
         if (ex.proctorId !== staffId) return false;
         if (ex.date !== date) return false;
 
