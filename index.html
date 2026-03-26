@@ -55,7 +55,6 @@
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff" class="admin-only">Personel</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
-                <button id="btn-requests" class="admin-only">İstekler <span id="request-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
                 <div id="cloud-status" class="cloud-status hidden" style="margin-left:auto; margin-right: 1.5rem;">
                     <span class="cloud-icon">☁️</span>
@@ -97,6 +96,7 @@
                     </div>
 
                     <div id="profile-marketplace-announcement" class="hidden"></div>
+                    <div id="profile-swap-proposals" class="hidden"></div>
                     <div class="profile-tabs">
                         <button class="tab-btn active" data-tab="active">Aktif Görevler</button>
                         <button class="tab-btn" data-tab="marketplace">Açık Görevler (Pazar Yeri)</button>
@@ -305,25 +305,14 @@
                             </table>
                         </div>
                     </div>
-                    <!-- Takas Talepleri Kartı (Hızlı Görünüm) -->
-                    <div id="card-swap-requests" class="card card-table card-large hidden admin-only" style="margin-bottom: 2rem; border-color: var(--accent-orange);">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--accent-orange); font-size: 0.875rem; text-transform: uppercase;">
-                            🕒 Bekleyen Takas Talepleri</h3>
-                        <div class="table-container">
-                            <table id="table-swap-requests-dashboard">
-                                <thead>
-                                    <tr>
-                                        <th>Sınav</th>
-                                        <th>Talep Eden</th>
-                                        <th>Tarih/Saat</th>
-                                        <th>İşlem</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+
+
+                    <div class="card-large" style="margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--primary); font-size: 0.875rem; text-transform: uppercase;">📊 Puan Dağılım Grafiği</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="score-distribution-chart"></canvas>
                         </div>
                     </div>
-
 
                     <div class="card-large">
                         <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Personel Görev Dağılım Detayları</h3>
@@ -510,34 +499,6 @@
                 </div>
             </section>
 
-            <!-- Takas Talepleri (Admin) Section -->
-            <section id="section-requests" class="content-section hidden admin-only">
-                <div class="section-header">
-                    <h2>Takas Talepleri Yönetimi</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Gözetmenlerden gelen takas ve görev devri isteklerini buradan yönetebilirsiniz.</p>
-                </div>
-                <div class="card-large">
-                    <div class="table-container">
-                        <table id="table-requests">
-                            <thead>
-                                <tr>
-                                    <th>Oluşturulma</th>
-                                    <th>Sınav</th>
-                                    <th>Devreden</th>
-                                    <th>Devralacak</th>
-                                    <th>Durum</th>
-                                    <th style="text-align: right;">İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir talep bulunmuyor.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
 
             <!-- Announcements Section -->
             <section id="section-announcements" class="content-section hidden">
@@ -1001,6 +962,52 @@
             </div>
             <div class="form-actions" style="margin-top:1.5rem;">
                 <button class="btn-secondary" style="width:100%;" onclick="document.getElementById('modal-manage-types').classList.add('hidden')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Direct Swap Modal -->
+    <div id="modal-direct-swap" class="modal hidden">
+        <div class="modal-content card-large" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Birebir Görev Takası Teklifi</h2>
+                <button class="close-modal" onclick="document.getElementById('modal-direct-swap').classList.add('hidden')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Değişmek istediğiniz hocayı ve onun hangi sınavıyla takas yapmak istediğinizi seçin.</p>
+                
+                <input type="hidden" id="direct-swap-my-exam-id">
+                
+                <div class="form-group">
+                    <label>Takas Yapılacak Hoca</label>
+                    <select id="direct-swap-target-proctor" style="width: 100%;">
+                        <option value="">Hoca Seçin...</option>
+                    </select>
+                </div>
+
+                <div id="direct-swap-target-exams-container" class="hidden" style="margin-top: 1.5rem;">
+                    <label>Hocanın Uygun Sınavları (Seçiniz)</label>
+                    <div id="direct-swap-exam-list" class="suggestion-list" style="max-height: 250px; overflow-y: auto; margin-top: 0.5rem; display: grid; gap: 10px;">
+                        <!-- Sınavlar buraya gelecek -->
+                    </div>
+                </div>
+
+                <div id="direct-swap-summary" class="hidden" style="margin-top: 1.5rem; padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 12px; border: 1px dashed var(--primary);">
+                    <p style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Teklif Özeti:</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong id="direct-swap-my-exam-name" style="color: var(--primary);">Sınavım</strong>
+                        </div>
+                        <div style="margin: 0 1rem; font-size: 1.2rem;">🔄</div>
+                        <div style="flex: 1; text-align: right;">
+                            <strong id="direct-swap-target-exam-name" style="color: var(--accent-orange);">Hocanın Sınavı</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('modal-direct-swap').classList.add('hidden')">İptal</button>
+                <button id="btn-confirm-direct-swap" class="btn-primary" disabled>Teklifi Gönder</button>
             </div>
         </div>
     </div>
