@@ -25,6 +25,37 @@
     --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Light Theme Overrides */
+body.light-theme {
+    --bg-main: radial-gradient(circle at top left, hsl(210, 20%, 98%), hsl(210, 20%, 94%));
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-glow: rgba(99, 102, 241, 0.1);
+    --text-primary: hsl(222, 47%, 12%);
+    --text-secondary: hsl(222, 20%, 40%);
+    --text-muted: hsl(215, 16%, 45%);
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .card-large, 
+body.light-theme .stat-card, 
+body.light-theme header,
+body.light-theme nav {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+body.light-theme .table-container,
+body.light-theme th {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+body.light-theme .logo h1 {
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
 /* Base Styles */
 * {
     margin: 0;
@@ -300,6 +331,28 @@ tr:hover td {
 
 .btn-primary:active {
     transform: translateY(0);
+}
+
+.btn-theme-toggle {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: var(--transition-smooth);
+    margin-left: 1rem;
+}
+
+.btn-theme-toggle:hover {
+    background: var(--primary);
+    color: white;
+    transform: rotate(15deg);
 }
 
 .btn-secondary {
@@ -991,4 +1044,64 @@ table {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* Audit Log Category Badges */
+.category-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.cat-admin {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.cat-user {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.cat-system {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Table Style for Audit Log */
+#table-audit {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+#table-audit th {
+    text-align: left;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+#table-audit td {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1rem;
+    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+#table-audit td:first-child {
+    border-left: 1px solid var(--glass-border);
+    border-radius: 12px 0 0 12px;
+}
+
+#table-audit td:last-child {
+    border-right: 1px solid var(--glass-border);
+    border-radius: 0 12px 12px 0;
 }

@@ -60,7 +60,7 @@ let DB = {
     exams: [],
     constraints: {},
     requests: [],
-    logs: [],
+    auditLogs: [],
     examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
     announcements: [],
     courseLecturers: {
@@ -141,19 +141,25 @@ let DB = {
 /**
  * İşlem Günlüğü (Logging)
  */
-function logAction(type, message, details = {}) {
-    if (!DB.logs) DB.logs = [];
+function logAction(category, action, details = "") {
+    if (!DB.auditLogs) DB.auditLogs = [];
+    
+    // Stringify details if it's an object for simple display
+    const detailsStr = (typeof details === 'object') ? JSON.stringify(details) : String(details);
+
     const logEntry = {
         id: Date.now(),
-        timestamp: new Date().toISOString(),
-        user: localStorage.getItem('myStaffName') || "Sistem",
-        type,
-        message,
-        details
+        timestamp: new Date().toLocaleString('tr-TR'),
+        category: category, // 'admin', 'user', 'system'
+        action: action,     // 'Takas', 'Atama', 'Düzenleme'
+        details: detailsStr
     };
-    DB.logs.push(logEntry);
-    // Logları son 100 işlemle sınırla
-    if (DB.logs.length > 100) DB.logs.shift();
+    
+    DB.auditLogs.unshift(logEntry); // En yeni en üstte
+    if (DB.auditLogs.length > 500) DB.auditLogs.pop(); // Maksimum 500 kayıt
+    
+    // Local storage'a kaydet (saveToLocalStorage içinden zaten çağrılıyor olabilir ama garantiye alalım)
+    localStorage.setItem(DB_KEY, JSON.stringify(DB));
 }
 function getKatsayi(date) {
     const day = date.getDay();
@@ -333,6 +339,7 @@ function autoResolveConflicts() {
     });
 
     saveToLocalStorage();
+    logAction('admin', 'Otomatik Çakışma Çözme', `${resolvedCount} çakışma giderildi, ${skippedCount} uygun yedek bulunamadı.`);
     return { resolved: resolvedCount, skipped: skippedCount };
 }
 
@@ -383,6 +390,7 @@ function addExam(examData) {
     });
 
     saveToLocalStorage();
+    logAction('admin', 'Sınav Ekleme', `${newExam.name} (${newExam.date}) sınavı sisteme eklendi.`);
     return newExam;
 }
 
@@ -426,6 +434,7 @@ function updateExam(id, newData) {
         });
         
         saveToLocalStorage();
+        logAction('admin', 'Sınav Güncelleme', `${newData.name} sınav bilgileri güncellendi.`);
     }
 }
 

@@ -9,6 +9,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
@@ -55,7 +58,9 @@
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff" class="admin-only">Personel</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
+                <button id="btn-audit" class="admin-only">📜 İşlem Geçmişi</button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
+                <button id="btn-theme-toggle" class="btn-theme-toggle" title="Temayı Değiştir">🌓</button>
                 <div id="cloud-status" class="cloud-status hidden" style="margin-left:auto; margin-right: 1.5rem;">
                     <span class="cloud-icon">☁️</span>
                     <span id="cloud-status-text">Eşitlendi</span>
@@ -237,7 +242,8 @@
                         <button id="id-restore-system" class="btn-primary admin-only" style="background:#6b7280;">📂 Geri Yükle</button>
                         <button id="btn-reset-exams" class="btn-primary admin-only" style="background:#f59e0b;">🧹 Programı Sıfırla (Puanlar Kalsın)</button>
                         <button id="btn-resolve-conflicts" class="btn-primary admin-only" style="background:#ef4444;">⚠️ Çakışmaları Otomatik Çöz</button>
-                        <button id="btn-export-dashboard" class="btn-primary" style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-export-dashboard" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-dashboard-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                         <button id="btn-github-sync" class="btn-primary" style="background:#6366f1;">🔗 GitHub Kod Üret</button>
                     </div>
                 </div>
@@ -363,7 +369,8 @@
                         <input type="text" id="staff-search" placeholder="🔍 Personel İsmi Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                         <button class="btn-primary admin-only" id="btn-add-staff">+ Yeni Personel</button>
                         <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42;">Excel’den İçe Aktar</button>
-                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-staff-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -390,9 +397,16 @@
                         <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
                         <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#4f46e5;">✨ Taslak Yükle</button>
-                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745;">Resim İndir</button>
-                    </div>
+                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-exams-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                 </div>
+                </div>
+
+                <div class="profile-tabs" style="margin-bottom: 1.5rem;">
+                    <button class="tab-btn active" id="btn-exam-tab-active" onclick="switchExamTab('active')">Aktif Sınavlar</button>
+                    <button class="tab-btn" id="btn-exam-tab-archive" onclick="switchExamTab('archive')">Arşiv</button>
+                </div>
+
                 <div class="table-container">
                     <table id="table-exams">
                         <thead>
@@ -421,7 +435,8 @@
                     <h2>Genel Sınav Programı</h2>
                     <div style="display:flex; gap:10px;">
                         <button id="btn-export-schedule-excel" class="btn-primary" style="background:#1d6f42;">Excel İndir</button>
-                        <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-schedule-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                     </div>
                 </div>
 
@@ -499,6 +514,28 @@
                 </div>
             </section>
 
+            <!-- Audit Log Section -->
+            <section id="section-audit" class="content-section hidden admin-only">
+                <div class="section-header">
+                    <h2>📜 İşlem Geçmişi (Audit Log)</h2>
+                    <button id="btn-clear-audit" class="btn-secondary admin-only" style="color: var(--accent-red);">Geçmişi Temizle</button>
+                </div>
+                <div class="card-large">
+                    <div class="table-container">
+                        <table id="table-audit">
+                            <thead>
+                                <tr>
+                                    <th>Zaman</th>
+                                    <th>Kategori</th>
+                                    <th>İşlem</th>
+                                    <th>Detaylar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
             <!-- Announcements Section -->
             <section id="section-announcements" class="content-section hidden">

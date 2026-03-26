@@ -43,10 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ password })
             });
             const result = await response.json();
-
+ 
             if (result.success) {
-                // Şifreyi sessionStorage'a kaydet (Sadece bu oturumda, backend'e yazma işlemlerinde kullanılacak)
+                // Şifreyi sessionStorage'a kaydet
                 sessionStorage.setItem('userPassword', password);
+                logAction('system', 'Giriş', `${result.role === 'admin' ? 'Yönetici' : 'Hoca'} girişi yapıldı.`);
                 finishLogin(result.role === 'admin');
             } else {
                 loginError.classList.remove('hidden');
@@ -95,6 +96,10 @@ async function initApp() {
 
     if (!DB.announcements) {
         DB.announcements = [];
+    }
+
+    if (!DB.auditLogs) {
+        DB.auditLogs = [];
     }
     
     // Varsayılan/Zorunlu duyuruları kontrol et ve eksikse ekle
@@ -199,6 +204,7 @@ async function initApp() {
     }
 
     initUI();
+    applyTheme(); // Theme on load
     renderProfile();
     updateRequestBadge(); // Update badge on load
     updateAnnouncementBadge(); // New announcement badge
@@ -215,6 +221,7 @@ const navButtons = {
     availability: document.getElementById('btn-availability'),
     requests: document.getElementById('btn-requests'),
     profile: document.getElementById('btn-profile'),
+    audit: document.getElementById('btn-audit'),
     announcements: document.getElementById('btn-announcements')
 };
 
@@ -226,6 +233,7 @@ const sections = {
     availability: document.getElementById('section-availability'),
     requests: document.getElementById('section-requests'),
     profile: document.getElementById('section-profile'),
+    audit: document.getElementById('section-audit'),
     announcements: document.getElementById('section-announcements')
 };
 
@@ -264,6 +272,7 @@ Object.entries(navButtons).forEach(([key, btn]) => {
             loadFromDataJSON().then(() => renderSwapRequests());
         }
         if (key === 'profile') renderProfile();
+        if (key === 'audit') renderAuditLogs();
         if (key === 'announcements') {
             renderAnnouncements();
             markAnnouncementsAsRead();
@@ -272,6 +281,15 @@ Object.entries(navButtons).forEach(([key, btn]) => {
 });
 
 let currentSort = { key: 'date', dir: 'asc' };
+let currentExamTab = 'active';
+
+window.switchExamTab = (tab) => {
+    currentExamTab = tab;
+    // Update tab buttons
+    document.getElementById('btn-exam-tab-active')?.classList.toggle('active', tab === 'active');
+    document.getElementById('btn-exam-tab-archive')?.classList.toggle('active', tab === 'archive');
+    renderExams();
+};
 
 function initUI() {
     document.getElementById('btn-add-exam').addEventListener('click', showAddExamModal);
@@ -281,6 +299,28 @@ function initUI() {
     });
     document.getElementById('btn-add-staff').addEventListener('click', showAddStaffModal);
     document.getElementById('btn-modal-cancel').addEventListener('click', hideModal);
+
+    // PDF Export Listeners
+    document.getElementById('btn-export-dashboard-pdf')?.addEventListener('click', () => exportToPDF('table-duty-breakdown', 'Dashboard Puan Dağılımı'));
+    document.getElementById('btn-export-staff-pdf')?.addEventListener('click', () => exportToPDF('table-staff', 'Personel Listesi'));
+    document.getElementById('btn-export-exams-pdf')?.addEventListener('click', () => exportToPDF('table-exams', 'Sınav Listesi'));
+    document.getElementById('btn-export-schedule-pdf')?.addEventListener('click', () => {
+        const activeTab = document.getElementById('tab-gen-btn-active').classList.contains('active') ? 'table-schedule' : 'table-archive-general';
+        const title = activeTab === 'table-schedule' ? 'Genel Sınav Programı' : 'Arşiv Sınav Programı';
+        exportToPDF(activeTab, title);
+    });
+
+    // Theme Toggle
+    document.getElementById('btn-theme-toggle')?.addEventListener('click', toggleTheme);
+
+    // Audit Log Clear
+    document.getElementById('btn-clear-audit')?.addEventListener('click', () => {
+        if (confirm('Tüm işlem geçmişi silinecektir. Emin misiniz?')) {
+            DB.auditLogs = [];
+            saveToLocalStorage();
+            renderAuditLogs();
+        }
+    });
     
     // Choice Modal Listeners
     document.getElementById('btn-choice-no')?.addEventListener('click', () => {
@@ -1004,6 +1044,7 @@ window.takeOverDuty = async function(examId, oldProctorId) {
         console.log("Görev devralma başarılı, sunucuya kaydediliyor...");
         await saveToBackend();
         
+        logAction('user', 'Görev Devralma', `${exam.name} görevi ${oldProctor.name}'dan ${newProctor.name}'a devredildi.`);
         alert(`✅ Başarılı!\n${exam.name} görevi ${newProctor.name} hocaya başarıyla devredildi.`);
         document.getElementById('modal-exam-detail').classList.add('hidden');
 
@@ -1088,17 +1129,35 @@ function renderExams() {
         return 0;
     });
 
+    const now = new Date();
     const conflicts = getConflicts();
     const locConflicts = getLocationConflicts();
 
     const filteredExams = sortedExams.filter(ex => {
+        // Archiving filter
+        const examDateStr = ex.date || "";
+        const examTimeStr = ex.time || "00:00";
+        const examDate = new Date(`${examDateStr}T${examTimeStr}`);
+        const examEnd = new Date(examDate.getTime() + (ex.duration || 60) * 60000);
+        const isPast = examEnd < now;
+
+        if (currentExamTab === 'active' && isPast) return false;
+        if (currentExamTab === 'archive' && !isPast) return false;
+
+        // Search filter
         if (!searchTerm) return true;
+        
+        const name = (ex.name || "").toLowerCase();
+        const lecturer = (ex.lecturer || "").toLowerCase();
+        
         const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
-            const s = DB.staff.find(staff => staff.id === pid);
+            if (!pid) return '';
+            const s = DB.staff.find(staff => String(staff.id) === String(pid));
             return s ? s.name.toLowerCase() : '';
         }).join(' ');
-        return ex.name.toLowerCase().includes(searchTerm) || 
-               ex.lecturer.toLowerCase().includes(searchTerm) || 
+
+        return name.includes(searchTerm) || 
+               lecturer.includes(searchTerm) || 
                pNames.includes(searchTerm);
     });
 
@@ -1139,8 +1198,25 @@ function renderExams() {
             <td>${pNames}</td>
             <td style="display: flex; gap: 8px; justify-content: flex-end;">
                  ${conflicts.has(ex.id) ? `<button class="btn-primary" onclick="quickFixConflict(${ex.id})" title="Otomatik Çöz" style="padding: 0.45rem; background: var(--accent-orange); border-radius: 6px;"><span class="icon" style="margin:0; font-size: 0.9rem;">🧙‍♂️</span></button>` : ''}
-                 ${(ex.proctorIds || [ex.proctorId]).map(pid => String(pid)).includes(localStorage.getItem('myStaffId')) ? 
-                   `<button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>` : ''}
+                 ${(() => {
+                     const myStaffId = localStorage.getItem('myStaffId');
+                     const hasRequest = (DB.requests || []).find(r => 
+                         String(r.examId) === String(ex.id) && 
+                         String(r.initiatorId) === String(myStaffId) && 
+                         ['pending', 'pending_peer'].includes(r.status)
+                     );
+                     if (hasRequest) {
+                         return `<button class="btn-delete" onclick="cancelSwapRequest(${hasRequest.id})" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
+                     }
+                     const isMe = (ex.proctorIds || [ex.proctorId]).map(pid => String(pid)).includes(myStaffId);
+                     if (isMe) {
+                         return `
+                            <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                            <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: #8b5cf6;"><span class="icon" style="margin:0;">📢</span></button>
+                         `;
+                     }
+                     return '';
+                 })()}
                  <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
                  <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
             </td>
@@ -1509,6 +1585,7 @@ window.deleteExam = (id) => {
         }
         DB.exams.splice(exIndex, 1);
         saveToLocalStorage();
+        logAction('admin', 'Sınav Silme', `${ex.name} sınavı sistemden silindi.`);
         renderExams();
         renderSchedule();
         renderDashboard(); // Update dashboard scores
@@ -1803,15 +1880,18 @@ function showAddStaffModal() {
         };
         DB.staff.push(newStaff);
         saveToLocalStorage();
+        logAction('admin', 'Personel Ekleme', `${newStaff.name} personel listesine eklendi.`);
         hideModal();
         renderStaff();
     };
 }
 
 window.deleteStaff = (id) => {
-    if (confirm('Bu personeli silmek istediğinize emin misiniz?')) {
+    const staff = DB.staff.find(s => s.id === id);
+    if (staff && confirm(`${staff.name} kişisini silmek istediğinize emin misiniz?`)) {
         DB.staff = DB.staff.filter(s => s.id !== id);
         saveToLocalStorage();
+        logAction('admin', 'Personel Silme', `${staff.name} sistemden silindi.`);
         renderStaff();
     }
 };
@@ -1868,19 +1948,24 @@ window.showStaffSchedule = (staffName) => {
             const tdAction = document.createElement('td');
             tdAction.style.textAlign = 'right';
             
+            const isMe = String(ex.proctorId) === String(localStorage.getItem('myStaffId')) || 
+                         (ex.proctorIds || []).map(pid => String(pid)).includes(localStorage.getItem('myStaffId'));
+
             if (activeReq) {
+                const isInitiator = String(activeReq.initiatorId) === String(localStorage.getItem('myStaffId'));
                 const statusLabels = {
                     'pending': '<span class="status-badge status-pending" style="font-size:0.6rem;">Açık Talep</span>',
-                    'accepted_waiting_approval': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>'
+                    'accepted_waiting_approval': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>',
+                    'pending_peer': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>'
                 };
-                tdAction.innerHTML = `${statusLabels[activeReq.status]} <span class="badge active">Görevli</span>`;
-            } else {
-                const isMe = String(ex.proctorId) === String(localStorage.getItem('myStaffId')) || 
-                             (ex.proctorIds || []).map(pid => String(pid)).includes(localStorage.getItem('myStaffId'));
-                
                 tdAction.innerHTML = `
-                    ${isMe ? `<button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.35rem 0.6rem; font-size: 0.7rem; margin-right: 5px;"><span class="icon" style="margin:0;">🔄</span></button>` : ''}
-                    <button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazım</button>
+                    ${isInitiator ? `<button class="btn-delete" onclick="cancelSwapRequest(${activeReq.id})" title="Talebi İptal Et" style="padding: 0.35rem 0.6rem; font-size: 0.7rem; margin-right: 5px;"><span class="icon" style="margin:0;">🚫</span></button>` : ''}
+                    ${statusLabels[activeReq.status] || ''} <span class="badge active">Görevli</span>
+                `;
+            } else {
+                tdAction.innerHTML = `
+                    ${isMe ? `<button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.35rem 0.6rem; border-size: 0.7rem; margin-right: 5px;"><span class="icon" style="margin:0;">🔄</span></button>` : ''}
+                    ${isMe ? `<button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazım</button>` : ''}
                     <span class="badge active">Görevli</span>
                 `;
             }
@@ -2550,8 +2635,20 @@ window.renderProfile = function() {
                     <td>${ex.duration} dk</td>
                     <td><span class="score-tag">+${ex.score}</span></td>
                     <td style="display: flex; gap: 5px;">
-                        <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
-                        <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
+                        ${(() => {
+                            const hasRequest = (DB.requests || []).find(r => 
+                                String(r.examId) === String(ex.id) && 
+                                String(r.initiatorId) === String(myStaffId) && 
+                                ['pending', 'pending_peer'].includes(r.status)
+                            );
+                            if (hasRequest) {
+                                return `<button class="btn-delete" onclick="cancelSwapRequest(${hasRequest.id})" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
+                            }
+                            return `
+                                <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                                <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
+                            `;
+                        })()}
                     </td>
                 </tr>
             `;
@@ -2848,7 +2945,7 @@ window.initiateOpenSwap = function(examId) {
     const exam = DB.exams.find(e => e.id == examId);
     if (!exam) return;
 
-    if (confirm(`${exam.name} sınavı için yerinize birini aramak istiyor musunuz? Bu talep uygun diğer hocalara görünecektir.`)) {
+    if (confirm(`${exam.name} sınavı için yerinize birini aramak istediğinize emin misiniz? Bu talep diğer hocalara görünecektir.`)) {
         const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
         
         const newReq = {
@@ -3002,7 +3099,7 @@ window.acceptOpenRequest = async function(requestId) {
         req.receiverName = toStaff.name;
         req.toApproved = true;
 
-        logAction('SWAP_COMPLETED', `${toStaff.name}, ${req.initiatorName}'in pazar yeri talebini anında devraldı.`, { requestId });
+        logAction('user', 'Açık Talep Kabulü', `${toStaff.name}, ${req.initiatorName}'in ${req.examName} görevini devraldı.`);
         
         saveToLocalStorage();
         
@@ -3094,6 +3191,22 @@ window.openTypeManager = () => {
 /**
  * DIRECT SWAP (BİREBİR TAKAS) MANTIĞI
  */
+
+window.cancelSwapRequest = function(requestId) {
+    if (confirm("Bu talebi iptal etmek istediğinize emin misiniz?")) {
+        const reqIndex = DB.requests.findIndex(r => String(r.id) === String(requestId));
+        if (reqIndex > -1) {
+            const req = DB.requests[reqIndex];
+            DB.requests.splice(reqIndex, 1);
+            logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName} için açtığı talebi iptal etti.`);
+            saveToLocalStorage();
+            renderExams();
+            renderProfile();
+            updateMarketplaceBadge();
+            alert("✓ Talep başarıyla iptal edildi.");
+        }
+    }
+};
 
 window.initiateDirectSwap = function(myExamId) {
     const myStaffId = localStorage.getItem('myStaffId');
@@ -3246,6 +3359,7 @@ window.acceptDirectSwap = async function(requestId) {
         req.updatedAt = new Date().toISOString();
 
         saveToLocalStorage();
+        logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sınavlarını takas etti.`);
         alert("✅ Takas işlemi başarıyla tamamlandı!");
         
         if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
@@ -3337,6 +3451,8 @@ window.batchAutoAssign = async function() {
 
         saveToLocalStorage();
         if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        
+        logAction('admin', 'Toplu Atama', `${assignedCount} unassigned sınava otomatik gözetmen atandı.`);
         
         renderExams();
         renderDashboard();
@@ -3445,3 +3561,115 @@ window.renderDashboard = function() {
     if (typeof originalRenderDashboard === 'function') originalRenderDashboard();
     setTimeout(renderScoreChart, 200);
 };
+
+// --- NEW FEATURES: AUDIT LOG, PDF EXPORT, THEME ---
+
+/**
+ * Audit Log Arayüzünü Render Etme
+ */
+function renderAuditLogs() {
+    const tbody = document.querySelector('#table-audit tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (!DB.auditLogs || DB.auditLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz işlem kaydı bulunmuyor.</td></tr>';
+        return;
+    }
+    
+    DB.auditLogs.forEach(log => {
+        const tr = document.createElement('tr');
+        
+        // Kategoriye göre renk atama
+        let catColor = 'var(--text-muted)';
+        if (log.category === 'admin') catColor = 'var(--primary)';
+        if (log.category === 'user') catColor = 'var(--accent-green)';
+        
+        tr.innerHTML = `
+            <td style="font-size: 0.8rem; white-space: nowrap;">${log.timestamp}</td>
+            <td><span class="badge" style="background: rgba(255,255,255,0.05); color: ${catColor}; border: 1px solid ${catColor}44; padding: 2px 8px;">${log.category}</span></td>
+            <td style="font-weight: 700;">${log.action}</td>
+            <td style="color: var(--text-secondary); font-size: 0.85rem;">${log.details}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * PDF Olarak Dışa Aktar (jsPDF & AutoTable)
+ */
+function exportToPDF(tableId, title) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4'); // Yatay format
+    
+    // Title
+    doc.setFontSize(18);
+    doc.setTextColor(40);
+    doc.text(title, 14, 22);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Oluşturulma Tarihi: ${new Date().toLocaleString('tr-TR')}`, 14, 30);
+
+    const table = document.getElementById(tableId);
+    if (!table) {
+        alert('Tablo bulunamadı!');
+        return;
+    }
+
+    // AutoTable
+    doc.autoTable({
+        html: `#${tableId}`,
+        startY: 35,
+        theme: 'grid',
+        styles: {
+            fontSize: 8,
+            cellPadding: 3,
+            valign: 'middle'
+        },
+        headStyles: {
+            fillColor: [99, 102, 241], // Primary color
+            textColor: 255,
+            fontSize: 9,
+            fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+            fillColor: [245, 247, 250]
+        },
+        didParseCell: function (data) {
+            // Remove emojis or icons if they cause issues in PDF
+            if (data.section === 'body' && typeof data.cell.text === 'string') {
+                data.cell.text = data.cell.text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+            }
+        }
+    });
+
+    const filename = `${title.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    doc.save(filename);
+}
+
+/**
+ * Tema Kontrolü
+ */
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-theme');
+    const toggleBtn = document.getElementById('btn-theme-toggle');
+    if (toggleBtn) {
+        toggleBtn.textContent = isLight ? '☀️' : '🌓';
+    }
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+function applyTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const toggleBtn = document.getElementById('btn-theme-toggle');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        if (toggleBtn) toggleBtn.textContent = '☀️';
+    } else {
+        document.body.classList.remove('light-theme');
+        if (toggleBtn) toggleBtn.textContent = '🌓';
+    }
+}
