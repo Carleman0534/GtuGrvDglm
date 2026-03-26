@@ -317,6 +317,28 @@ tr:hover td {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
 }
+.cloud-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--accent-green);
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    animation: fadeIn 0.3s ease;
+}
+
+.cloud-status.syncing {
+    color: var(--accent-orange);
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.cloud-status.hidden {
+    display: none;
+}
 
 /* Badges */
 .badge {
@@ -879,5 +901,94 @@ table {
     }
     .login-card {
         padding: 2rem;
+    }
+}
+/* Profile Marketplace Announcement Banner */
+#profile-marketplace-announcement {
+    margin-bottom: 2rem;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    animation: slideDownIn 0.5s ease-out forwards;
+}
+
+#profile-marketplace-announcement.hidden {
+    display: none !important;
+}
+
+.marketplace-notice-content {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    color: white;
+}
+
+.marketplace-notice-icon {
+    font-size: 1.75rem;
+    background: rgba(99, 102, 241, 0.2);
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+}
+
+.marketplace-notice-text h4 {
+    margin: 0 0 4px 0;
+    color: var(--primary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+}
+
+.marketplace-notice-text p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.marketplace-notice-text b {
+    color: var(--accent-green);
+}
+
+.marketplace-notice-btn {
+    background: var(--primary);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+    box-shadow: var(--glow-shadow);
+}
+
+.marketplace-notice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+    background: var(--secondary);
+}
+
+@keyframes slideDownIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

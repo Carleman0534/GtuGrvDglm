@@ -338,19 +338,21 @@ function autoResolveConflicts() {
 
 
 function addExam(examData) {
-    let proctor = null;
+    let proctors = [];
     
-    // Eğer kullanıcı manuel bir gözetmen seçtiyse onu al
-    if (examData.proctorId) {
-        proctor = DB.staff.find(s => s.id === examData.proctorId);
+    if (examData.proctorIds && examData.proctorIds.length > 0) {
+        proctors = DB.staff.filter(s => examData.proctorIds.includes(s.id));
+    } else if (examData.proctorId) {
+        const p = DB.staff.find(s => s.id === examData.proctorId);
+        if (p) proctors = [p];
     }
     
-    // Manuel seçim yoksa veya seçilen hoca bulunamadıysa algoritmaya bırak
-    if (!proctor) {
-        proctor = findBestProctor(examData.date, examData.time, examData.duration);
+    if (proctors.length === 0) {
+        const best = findBestProctor(examData.date, examData.time, examData.duration);
+        if (best) proctors = [best];
     }
 
-    if (!proctor) {
+    if (proctors.length === 0) {
         alert("Bu tarih ve saatte müsait bir gözetmen bulunamadı!");
         return;
     }
@@ -365,18 +367,20 @@ function addExam(examData) {
         lecturer: examData.lecturer || "-",
         capacity: examData.capacity || "-",
         location: examData.location || "Belirtilmedi",
-        proctorId: proctor.id,
-        proctorName: proctor.name,
+        proctorIds: proctors.map(p => p.id),
+        proctorId: proctors[0].id,
+        proctorName: proctors.map(p => p.name).join(', '),
         score: score,
         katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`))
     };
 
     DB.exams.push(newExam);
     
-    // Personel puanını güncelle
-    const staffMember = DB.staff.find(s => s.id === proctor.id);
-    staffMember.totalScore += score;
-    staffMember.taskCount += 1;
+    // Personel puanlarını güncelle
+    proctors.forEach(p => {
+        p.totalScore = parseFloat((p.totalScore + score).toFixed(2));
+        p.taskCount = (p.taskCount || 0) + 1;
+    });
 
     saveToLocalStorage();
     return newExam;
@@ -388,37 +392,38 @@ function updateExam(id, newData) {
 
     const oldExam = DB.exams[exIndex];
     
-    // Yükü eski gözetmenden düş
-    const oldStaff = DB.staff.find(s => s.id === oldExam.proctorId);
-    if (oldStaff) {
-        oldStaff.totalScore -= oldExam.score;
-        oldStaff.taskCount -= 1;
-    }
+    // Yükü eski gözetmenlerden düş
+    const oldPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
+    oldPIds.forEach(pid => {
+        const s = DB.staff.find(staff => staff.id === pid);
+        if (s) {
+            s.totalScore = Math.max(0, parseFloat((s.totalScore - oldExam.score).toFixed(2)));
+            s.taskCount = Math.max(0, s.taskCount - 1);
+        }
+    });
 
-    // Yeni puan hesapla ve Gözetmeni bul
+    // Yeni puan hesapla
     const newScore = calculateScore(new Date(`${newData.date}T${newData.time}`), newData.duration);
-    const newStaff = DB.staff.find(s => s.id === newData.proctorId);
+    const newPIds = newData.proctorIds || (newData.proctorId ? [newData.proctorId] : []);
+    const newProctors = DB.staff.filter(s => newPIds.includes(s.id));
 
-    if (newStaff) {
-        newStaff.totalScore += newScore;
-        newStaff.taskCount += 1;
-        
+    if (newProctors.length > 0) {
         // Sınavı güncelle
         DB.exams[exIndex] = {
             ...oldExam,
-            name: newData.name,
-            type: newData.type || oldExam.type || "Vize",
-            lecturer: newData.lecturer || "-",
-            capacity: newData.capacity || "-",
-            location: newData.location || "Belirtilmedi",
-            date: newData.date,
-            time: newData.time,
-            duration: newData.duration,
-            proctorId: newStaff.id,
-            proctorName: newStaff.name,
+            ...newData,
+            proctorIds: newPIds,
+            proctorId: newPIds[0],
+            proctorName: newProctors.map(p => p.name).join(', '),
             score: newScore,
             katsayi: getKatsayi(new Date(`${newData.date}T${newData.time}`))
         };
+
+        // Yükü yeni gözetmenlere ekle
+        newProctors.forEach(p => {
+            p.totalScore = parseFloat((p.totalScore + newScore).toFixed(2));
+            p.taskCount = (p.taskCount || 0) + 1;
+        });
         
         saveToLocalStorage();
     }
@@ -428,12 +433,19 @@ const API_URL = API_BASE_URL + "/api/data";
 
 async function saveToBackend() {
     console.log("Sunucuya kaydediliyor...", API_URL);
+    const statusDiv = document.getElementById('cloud-status');
+    const statusText = document.getElementById('cloud-status-text');
+    
+    if (statusDiv) {
+        statusDiv.classList.remove('hidden');
+        statusDiv.classList.add('syncing');
+        if (statusText) statusText.textContent = "Eşitleniyor...";
+    }
+
     try {
         const payload = JSON.stringify(DB);
         const secret = sessionStorage.getItem('userPassword') || '';
         
-        // Header değerleri sadece ISO-8859-1 (latin1) karakterleri içerebilir.
-        // Şifre Türkçe karakter içeriyorsa fetch hata verir. Bu yüzden Base64 ile gönderiyoruz.
         const encodedSecret = btoa(unescape(encodeURIComponent(secret)));
 
         const response = await fetch(API_URL, {
@@ -450,7 +462,22 @@ async function saveToBackend() {
             throw new Error(err.error || `Sunucu hatası: ${response.status}`);
         }
         console.log("Sunucuya başarıyla kaydedildi. Talep sayısı:", (DB.requests || []).length);
+        
+        if (statusDiv) {
+            statusDiv.classList.remove('syncing');
+            if (statusText) statusText.textContent = "Bulutla Eşitlendi";
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 3000);
+        }
     } catch (e) {
+        if (statusDiv) {
+            statusDiv.classList.remove('syncing');
+            if (statusText) {
+                statusText.textContent = "Bağlantı Hatası";
+                statusText.style.color = "var(--accent-red)";
+            }
+        }
         console.error("Backend kayit hatasi DETAY:", {
             error: e,
             message: e.message,

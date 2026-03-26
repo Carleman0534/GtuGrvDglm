@@ -49,7 +49,7 @@
                 <h1>Gözetmenlik <span>Katsayı Sistemi</span></h1>
             </div>
             <nav>
-                <button id="btn-profile" class="active">👤 Profilim</button>
+                <button id="btn-profile" class="active">👤 Profilim <span id="marketplace-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-dashboard">Panel</button>
                 <button id="btn-schedule">Sınav Programı</button>
                 <button id="btn-exams">Sınavlar</button>
@@ -57,6 +57,10 @@
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
                 <button id="btn-requests" class="admin-only">İstekler <span id="request-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
+                <div id="cloud-status" class="cloud-status hidden" style="margin-left:auto; margin-right: 1.5rem;">
+                    <span class="cloud-icon">☁️</span>
+                    <span id="cloud-status-text">Eşitlendi</span>
+                </div>
             </nav>
         </header>
 
@@ -92,6 +96,7 @@
                         </div>
                     </div>
 
+                    <div id="profile-marketplace-announcement" class="hidden"></div>
                     <div class="profile-tabs">
                         <button class="tab-btn active" data-tab="active">Aktif Görevler</button>
                         <button class="tab-btn" data-tab="marketplace">Açık Görevler (Pazar Yeri)</button>
@@ -278,6 +283,28 @@
                 </div>
 
                 <div id="dashboard-export-container" style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
+                    <!-- Pazar Yeri (Açık Görevler) Hızlı Görünüm - TÜM KULLANICILAR İÇİN -->
+                    <div id="card-marketplace-dashboard" class="card card-table card-large hidden" style="margin-bottom: 2rem; border-color: var(--accent-green);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                            <h3 style="margin:0; color: var(--accent-green); font-size: 0.875rem; text-transform: uppercase;">
+                                🛒 Açık Görevler (Pazar Yeri)</h3>
+                            <button class="btn-secondary" onclick="document.getElementById('btn-profile').click(); document.querySelector('#section-profile .tab-btn[data-tab=\'marketplace\']').click();" style="font-size:0.75rem; padding: 5px 10px;">Tümünü Gör</button>
+                        </div>
+                        <div class="table-container">
+                            <table id="table-marketplace-dashboard">
+                                <thead>
+                                    <tr>
+                                        <th>Sınav</th>
+                                        <th>Tarih</th>
+                                        <th>Saat</th>
+                                        <th>Puan</th>
+                                        <th>İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
                     <!-- Takas Talepleri Kartı (Hızlı Görünüm) -->
                     <div id="card-swap-requests" class="card card-table card-large hidden admin-only" style="margin-bottom: 2rem; border-color: var(--accent-orange);">
                         <h3 style="margin-bottom: 1.5rem; color: var(--accent-orange); font-size: 0.875rem; text-transform: uppercase;">
@@ -341,12 +368,13 @@
 
             <!-- Staff Section -->
             <section id="section-staff" class="content-section hidden admin-only">
-                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                     <h2>Personel Listesi</h2>
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
+                        <input type="text" id="staff-search" placeholder="🔍 Personel İsmi Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                         <button class="btn-primary admin-only" id="btn-add-staff">+ Yeni Personel</button>
-                        <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42; margin-left: 10px;">Excel’den İçe Aktar</button>
-                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745; margin-left: 10px;">Resim İndir</button>
+                        <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42;">Excel’den İçe Aktar</button>
+                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745;">Resim İndir</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -366,12 +394,14 @@
 
             <!-- Exams Section -->
             <section id="section-exams" class="content-section hidden">
-                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                     <h2>Sınav Listesi</h2>
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
+                        <input type="text" id="exam-search" placeholder="🔍 Sınav veya Gözetmen Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
+                        <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
-                        <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#6366f1; margin-left: 10px;">✨ Taslak Liste Yükle (Otomatik Ata)</button>
-                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745; margin-left: 10px;">Resim İndir</button>
+                        <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#4f46e5;">✨ Taslak Yükle</button>
+                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745;">Resim İndir</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -796,6 +826,12 @@
                             <!-- Seçili gözetmenler buraya gelecek -->
                         </div>
                     </div>
+
+                    <div id="edit-suggestions" class="suggestion-area hidden">
+                        <h4>🤖 Akıllı Öneriler</h4>
+                        <div id="edit-suggestion-list" class="suggestion-list"></div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="document.getElementById('edit-modal').classList.add('hidden')">İptal</button>
                         <button type="submit" class="btn-primary">Güncelle</button>
