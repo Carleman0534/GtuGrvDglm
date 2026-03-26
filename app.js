@@ -94,14 +94,58 @@ async function initApp() {
     }
 
     if (!DB.announcements) {
-        DB.announcements = [
-            {
-                id: Date.now(),
-                text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
-                isImportant: true,
-                updatedAt: new Date().toISOString()
-            }
-        ];
+        DB.announcements = [];
+    }
+    
+    // Varsayılan/Zorunlu duyuruları kontrol et ve eksikse ekle
+    const defaultAnnouncements = [
+        {
+            id: 1,
+            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
+            isImportant: true,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 2,
+            text: "### 📢 DUYURU 2: Müsaitlik ve Kısıt Girişi\n\nSistemin doğru çalışabilmesi için müsait olmadığınız gün ve saatleri girmeniz önemlidir.\n\n👉 Kendi müsait olmadığınız saatleri sistem üzerinden girebilirsiniz.\n\nBu bilgiler:\n- Size uygun görevlerin belirlenmesinde\n- Yerine geçme önerilerinin doğru yapılmasında\n\naktif olarak kullanılacaktır.",
+            isImportant: false,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 3,
+            text: "### 📢 DUYURU 3: Akıllı Eşleştirme Sistemi\n\nSistem, yerine geçecek kişileri rastgele değil, belirli kriterlere göre akıllı şekilde önerir.\n\nDeğerlendirme kriterleri:\n- Müsaitlik durumu\n- Toplam görev sayısı (adaletli dağılım)\n- Aynı gün içindeki görev yoğunluğu\n\nBu sayede görev dağılımı daha dengeli ve adil hale getirilir.",
+            isImportant: false,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 4,
+            text: "### 📢 DUYURU 4: Bildirim ve Onay Süreci\n\nYer değiştirme süreci aşağıdaki şekilde ilerler:\n1. Talep oluşturulur\n2. Uygun kişilere bildirim gider\n3. Bir kullanıcı talebi kabul eder\n4. Son onay görev sahibi tarafından verilir\n\nTüm süreç sistem üzerinden takip edilebilir.",
+            isImportant: false,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 5,
+            text: "### 📢 DUYURU 5: Önemli Bilgilendirme\n\n- Aynı görev için yalnızca bir aktif talep oluşturabilirsiniz\n- Talebiniz sonuçlandığında sistem sizi bilgilendirir\n- Onay vermediğiniz sürece görev değişimi gerçekleşmez",
+            isImportant: true,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 6,
+            text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak üstlenebilir. (Yönetici onayı gerektirir)\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\nBu sistem, hem acil durumlarda gözetmen bulmayı hızlandırır hem de gönüllü olarak ek görev almak isteyen hocalarımıza şeffaf bir liste sunar.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
+            isImportant: true,
+            updatedAt: new Date().toISOString()
+        }
+    ];
+
+    defaultAnnouncements.forEach(def => {
+        if (!DB.announcements.some(a => a.id === def.id)) {
+            DB.announcements.push(def);
+        }
+    });
+
+    // Sınav Türleri Başlatma
+    if (!DB.examTypes || !Array.isArray(DB.examTypes) || DB.examTypes.length === 0) {
+        DB.examTypes = ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'];
     }
 
     if (!DB.templates) {
@@ -111,7 +155,7 @@ async function initApp() {
     }
 
     initUI();
-    renderDashboard();
+    renderProfile();
     updateRequestBadge(); // Update badge on load
     updateAnnouncementBadge(); // New announcement badge
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
@@ -124,7 +168,6 @@ const navButtons = {
     exams: document.getElementById('btn-exams'),
     staff: document.getElementById('btn-staff'),
     availability: document.getElementById('btn-availability'),
-    constraints: document.getElementById('btn-constraints'),
     requests: document.getElementById('btn-requests'),
     profile: document.getElementById('btn-profile'),
     announcements: document.getElementById('btn-announcements')
@@ -136,7 +179,6 @@ const sections = {
     exams: document.getElementById('section-exams'),
     staff: document.getElementById('section-staff'),
     availability: document.getElementById('section-availability'),
-    constraints: document.getElementById('section-constraints'),
     requests: document.getElementById('section-requests'),
     profile: document.getElementById('section-profile'),
     announcements: document.getElementById('section-announcements')
@@ -147,12 +189,13 @@ Object.entries(navButtons).forEach(([key, btn]) => {
     if (!btn) return;
     btn.addEventListener('click', () => {
         // Update Buttons
-        Object.values(navButtons).forEach(b => b.classList.remove('active'));
+        Object.values(navButtons).forEach(b => { if(b) b.classList.remove('active'); });
         btn.classList.add('active');
 
         // Update Sections
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-        if (btn.classList.contains('admin-only') && !isAdmin) {
+        if ((btn.classList.contains('admin-only') && !isAdmin) || 
+            (btn.classList.contains('user-only') && isAdmin)) {
             // Yetkisiz erişim girişimi
             sections.dashboard.classList.remove('hidden');
             navButtons.dashboard.classList.add('active');
@@ -160,7 +203,7 @@ Object.entries(navButtons).forEach(([key, btn]) => {
             return;
         }
 
-        Object.values(sections).forEach(s => s.classList.add('hidden'));
+        Object.values(sections).forEach(s => { if(s) s.classList.add('hidden'); });
         if (sections[key]) sections[key].classList.remove('hidden');
 
         if (key === 'dashboard') renderDashboard();
@@ -187,6 +230,10 @@ let currentSort = { key: 'date', dir: 'asc' };
 
 function initUI() {
     document.getElementById('btn-add-exam').addEventListener('click', showAddExamModal);
+    document.getElementById('btn-manage-types')?.addEventListener('click', () => {
+        document.getElementById('modal-manage-types').classList.remove('hidden');
+        renderExamTypesList();
+    });
     document.getElementById('btn-add-staff').addEventListener('click', showAddStaffModal);
     document.getElementById('btn-modal-cancel').addEventListener('click', hideModal);
     
@@ -216,14 +263,17 @@ function initUI() {
     });
 
     // Profile Tab Listeners
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    document.querySelectorAll('#section-profile .tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.getAttribute('data-tab');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#section-profile .tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
-            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('#section-profile .tab-pane').forEach(p => p.classList.add('hidden'));
+            const pane = document.getElementById(`tab-${tabId}`);
+            if (pane) pane.classList.remove('hidden');
+
+            if (tabId === 'marketplace') renderMarketplace();
         });
     });
 
@@ -239,16 +289,6 @@ function initUI() {
         }
     });
 
-    // Profile Tab Switching
-    document.querySelectorAll('#section-profile .tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            document.querySelectorAll('#section-profile .tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('#section-profile .tab-pane').forEach(p => p.classList.add('hidden'));
-            btn.classList.add('active');
-            document.getElementById(`tab-${tab}`).classList.remove('hidden');
-        });
-    });
 
     // Profile Constraint Listeners
     document.getElementById('profile-constraint-type')?.addEventListener('change', (e) => {
@@ -670,10 +710,22 @@ function renderDashboard() {
     });
 
     // Stats
-    document.getElementById('stat-total-exams').textContent = DB.exams.length;
-    document.getElementById('stat-total-staff').textContent = DB.staff.length;
+    const totalExamsElem = document.getElementById('stat-total-exams');
+    const totalStaffElem = document.getElementById('stat-total-staff');
+    const avgScoreElem = document.getElementById('stat-avg-score');
+
+    if (totalExamsElem) totalExamsElem.textContent = DB.exams.length;
+    if (totalStaffElem) totalStaffElem.textContent = DB.staff.length;
+    
     const avg = DB.staff.length ? DB.staff.reduce((a, b) => a + b.totalScore, 0) / DB.staff.length : 0;
-    document.getElementById('stat-avg-score').textContent = avg.toFixed(1);
+    if (avgScoreElem) avgScoreElem.textContent = avg.toFixed(1);
+
+    // Çakışma sayısı
+    const conflictElem = document.getElementById('stat-conflicts');
+    if (conflictElem) {
+        const conflicts = getConflicts();
+        conflictElem.textContent = conflicts.size;
+    }
 
     // Grafigi Guncelle (KALDIRILDI)
 }
@@ -984,6 +1036,7 @@ function renderExams() {
         const displayDate = ex.date.split("-").reverse().join(".") + " " + dayName;
 
         tr.innerHTML = `
+            <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
             <td>
                 <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span>
                 ${conflicts.has(ex.id) ? '<span class="conflict-warning">⚠️ Zaman Çakışması!</span>' : ''}
@@ -1017,10 +1070,11 @@ function renderSchedule() {
 
     const groups = {};
     DB.exams.forEach(ex => {
-        const key = `${ex.name}_${ex.date}_${ex.time}_${ex.location}`;
+        const key = `${ex.type}_${ex.name}_${ex.date}_${ex.time}_${ex.location}`;
         if (!groups[key]) {
             groups[key] = {
                 id: ex.id,
+                type: ex.type,
                 name: ex.name,
                 date: ex.date,
                 time: ex.time,
@@ -1091,8 +1145,11 @@ function renderSchedule() {
 
         tr.innerHTML = `
             <td>
-                <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')"><strong>${ex.name}</strong></span>
-                ${isConflict ? '<span class="conflict-warning">⚠️ Gözetmen Çakışması!</span>' : ''}
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span>
+                    <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')"><strong>${ex.name}</strong></span>
+                    ${isConflict ? '<span class="conflict-warning">⚠️ Gözetmen Çakışması!</span>' : ''}
+                </div>
             </td>
             <td class="${isLocConflict ? 'location-conflict' : ''}">
                 ${ex.location}
@@ -1147,6 +1204,19 @@ function showAddExamModal() {
     
     fields.innerHTML = `
         <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <label style="margin:0;">Sınav Türü</label>
+                <button type="button" class="btn-icon" onclick="openTypeManager()" style="font-size:0.8rem; padding:2px 5px; opacity:0.7;">⚙️ Yönet</button>
+            </div>
+            <select id="exam-type" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                ${(DB.examTypes || []).map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Sınav/Ders Adı</label>
+            <input type="text" id="exam-name" placeholder="Örn: Matematik I" required>
+        </div>
+        <div class="form-group">
             <label>Sınav Tarihi</label>
             <input type="date" id="exam-date" required>
         </div>
@@ -1157,10 +1227,6 @@ function showAddExamModal() {
         <div class="form-group">
             <label>Süre (Dakika)</label>
             <input type="number" id="exam-duration" value="60" required>
-        </div>
-        <div class="form-group">
-            <label>Ders Adı</label>
-            <input type="text" id="exam-name" placeholder="Örn: Matematik-I" required>
         </div>
         <div class="form-group">
             <label>Derslik / Mevcut</label>
@@ -1186,15 +1252,16 @@ function showAddExamModal() {
 
     document.getElementById('modal-form').onsubmit = (e) => {
         e.preventDefault();
-        const data = {
+        const examData = {
+            type: document.getElementById('exam-type').value,
+            name: document.getElementById('exam-name').value,
+            location: document.getElementById('exam-location').value,
             date: document.getElementById('exam-date').value,
             time: document.getElementById('exam-time').value,
             duration: parseInt(document.getElementById('exam-duration').value),
-            name: document.getElementById('exam-name').value,
-            location: document.getElementById('exam-location').value,
             proctorId: window.selectedProctorId // Kullanıcının seçtiği ID'yi ekle
         };
-        addExam(data);
+        addExam(examData);
         
         // Atama sonrası seçimi tekrar temizle
         window.selectedProctorId = null;
@@ -1232,6 +1299,21 @@ window.showEditExamModal = (id) => {
     if (!ex) return;
 
     document.getElementById('edit-exam-id').value = ex.id;
+    
+    // Header'da yönetim butonu ekle (opsiyonel ama tutarlılık için)
+    const typeLabelContainer = document.querySelector('#edit-modal .form-group:first-child');
+    if (typeLabelContainer) {
+         typeLabelContainer.style.position = 'relative';
+         // Eğer zaten buton yoksa ekleyelim (burada select'in üstündeki label'ı bulup yanına koyuyoruz)
+         // Not: Index.html'de sabit durabilir veya burada dinamik ekletebiliriz.
+         // En iyisi index.html'de label yanına butonu koymak.
+    }
+
+    const typeSelect = document.getElementById('edit-exam-type');
+    typeSelect.innerHTML = (DB.examTypes || []).map(t => 
+        `<option value="${t}" ${t === ex.type ? 'selected' : ''}>${t}</option>`
+    ).join('');
+    
     document.getElementById('edit-exam-name').value = ex.name;
     document.getElementById('edit-exam-location').value = ex.location || '';
     document.getElementById('edit-exam-date').value = ex.date;
@@ -1264,6 +1346,7 @@ document.getElementById('edit-modal-form').onsubmit = (e) => {
     e.preventDefault();
     const id = parseFloat(document.getElementById('edit-exam-id').value);
     const data = {
+        type: document.getElementById('edit-exam-type').value,
         name: document.getElementById('edit-exam-name').value,
         location: document.getElementById('edit-exam-location').value,
         date: document.getElementById('edit-exam-date').value,
@@ -1437,8 +1520,9 @@ window.showStaffSchedule = (staffName) => {
         const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
         
         tr.innerHTML = `
-            <td><strong>${ex.name}</strong></td>
-            <td>${ex.location || '-'}</td>
+            <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
+            <td style="font-weight: 600;">${ex.name}</td>
+            <td>${ex.location}</td>
             <td>${dateStr}</td>
             <td>${ex.time}</td>
             <td>${ex.duration} dk</td>
@@ -1448,8 +1532,23 @@ window.showStaffSchedule = (staffName) => {
         if (examEnd < now) {
             tbodyArchive.appendChild(tr);
         } else {
+            const activeReq = (DB.requests || []).find(r => r.examId == ex.id && ['pending', 'accepted_waiting_approval'].includes(r.status));
+            
             const tdAction = document.createElement('td');
-            tdAction.innerHTML = `<span class="badge active">Görevli</span>`;
+            tdAction.style.textAlign = 'right';
+            
+            if (activeReq) {
+                const statusLabels = {
+                    'pending': '<span class="status-badge status-pending" style="font-size:0.6rem;">Açık Talep</span>',
+                    'accepted_waiting_approval': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>'
+                };
+                tdAction.innerHTML = `${statusLabels[activeReq.status]} <span class="badge active">Görevli</span>`;
+            } else {
+                tdAction.innerHTML = `
+                    <button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazım</button>
+                    <span class="badge active">Görevli</span>
+                `;
+            }
             tr.appendChild(tdAction);
             tbodyActive.appendChild(tr);
         }
@@ -1534,6 +1633,29 @@ function hideIndividualModal() {
 /**
  * Bireysel Program Modalında Sekme Değiştirme
  */
+window.switchIndividualTab = function(tab) {
+    // Butonları güncelle
+    const btnActive = document.getElementById('tab-btn-active');
+    const btnArchive = document.getElementById('tab-btn-archive');
+    
+    if (btnActive && btnArchive) {
+        btnActive.classList.remove('active');
+        btnArchive.classList.remove('active');
+        if (tab === 'active') btnActive.classList.add('active');
+        else btnArchive.classList.add('active');
+    }
+
+    // Panelleri güncelle
+    const paneActive = document.getElementById('tab-content-active');
+    const paneArchive = document.getElementById('tab-content-archive');
+
+    if (paneActive && paneArchive) {
+        paneActive.classList.remove('active');
+        paneArchive.classList.remove('active');
+        if (tab === 'active') paneActive.classList.add('active');
+        else paneArchive.classList.add('active');
+    }
+};
 
 /**
  * UI Öneri Listesini Güncelle
@@ -1708,6 +1830,9 @@ window.showSwapModal = function(examId, forceInitiatorId = null) {
 
     receiverSelect.addEventListener('change', checkSwapConflict);
     checkSwapConflict();
+
+    // Akıllı Önerileri Tetikle (Feature 4.1)
+    updateSuggestionsUI(exam.date, exam.time, exam.duration, 'swap-suggestions', 'swap-suggestion-list', exam.id, 'swap-receiver-select');
 
     document.getElementById('modal-swap').classList.remove('hidden');
 };
@@ -2061,9 +2186,10 @@ window.renderProfile = function() {
             `;
         });
 
-        // Takvimi varsayılan olarak güncelle
-        renderProfileAnnouncements();
+        // Takvim ve diğer verileri güncelle
         renderProfileConstraints();
+        renderMarketplace();
+        renderInitiatorApprovals();
     }
 };
 
@@ -2088,6 +2214,11 @@ function renderAnnouncements() {
         if (text.includes('{{AVAIL_LINK}}')) {
             text = text.replace('{{AVAIL_LINK}}', '#');
             text = text.replace(/\[(.*?)\]\(#\)/g, '<button class="btn-primary" style="padding: 8px 16px; font-size: 0.8rem; margin-top: 10px;" onclick="goToProfileAvailability()">$1</button>');
+        }
+        
+        if (text.includes('{{MARKET_LINK}}')) {
+            text = text.replace('{{MARKET_LINK}}', '#');
+            text = text.replace(/\[(.*?)\]\(#\)/g, '<button class="btn-primary" style="padding: 8px 16px; font-size: 0.8rem; margin-top: 10px;" onclick="goToProfileMarketplace()">$1</button>');
         }
         
         const date = new Date(ann.updatedAt).toLocaleString('tr-TR');
@@ -2183,52 +2314,6 @@ window.deleteAnnouncement = function(id) {
     }
 }
 
-function renderProfileAnnouncements() {
-    const container = document.getElementById('profile-announcements');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (!DB.announcements || DB.announcements.length === 0) {
-        return; // Profilde boşa yer kaplamasın
-    }
-
-    // En güncel 3 duyuruyu göster (veya hepsini)
-    const sorted = [...DB.announcements].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-    sorted.forEach(ann => {
-        let text = ann.text || "";
-        text = text.replace(/\n/g, '<br>');
-        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        text = text.replace(/### (.*?)(<br>|$)/g, '<h5>$1</h5>');
-        
-        // Özel Link: Müsaitlik Girişi
-        if (text.includes('{{AVAIL_LINK}}')) {
-            text = text.replace('{{AVAIL_LINK}}', '#');
-            text = text.replace(/\[(.*?)\]\(#\)/g, '<button class="btn-primary" style="padding: 6px 12px; font-size: 0.75rem; margin-top: 8px; background:var(--primary);" onclick="goToProfileAvailability()">$1</button>');
-        }
-        
-        const date = new Date(ann.updatedAt).toLocaleDateString('tr-TR');
-
-        const div = document.createElement('div');
-        div.className = `card-large ${ann.isImportant ? 'important' : ''}`;
-        div.style.padding = '1.5rem';
-        div.style.background = ann.isImportant ? 'rgba(239, 68, 68, 0.05)' : 'rgba(99, 102, 241, 0.05)';
-        div.style.border = ann.isImportant ? '1px solid rgba(239, 68, 68, 0.3)' : '1px dashed rgba(99, 102, 241, 0.3)';
-        div.style.borderRadius = '20px';
-        div.style.fontSize = '0.9rem';
-
-        let badge = ann.isImportant ? '<span class="important-badge" style="background:var(--accent-red); margin-right:8px;">ÖNEMLİ</span>' : '';
-
-        div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
-                <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">${badge} Duyuru • ${date}</span>
-            </div>
-            <div style="color:var(--text-secondary); line-height:1.5;">${text}</div>
-        `;
-        container.appendChild(div);
-    });
-}
 
 function updateAnnouncementBadge() {
     const badge = document.getElementById('announcement-badge');
@@ -2358,11 +2443,260 @@ window.handleProfileConstraintDelete = function(name, idx) {
     }
 }
 
+window.initiateOpenSwap = function(examId) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        alert("Lütfen önce profilinizden kimliğinizi seçin.");
+        return;
+    }
+
+    // Aktif talep kontrolü
+    const existing = (DB.requests || []).find(r => r.examId == examId && ['pending', 'accepted_waiting_approval'].includes(r.status));
+    if (existing) {
+        alert("Bu görev için zaten aktif bir yer değiştirme talebiniz bulunuyor.");
+        return;
+    }
+
+    const exam = DB.exams.find(e => e.id == examId);
+    if (!exam) return;
+
+    if (confirm(`${exam.name} sınavı için yerinize birini aramak istiyor musunuz? Bu talep uygun diğer hocalara görünecektir.`)) {
+        const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+        
+        const newReq = {
+            id: Date.now(),
+            examId: exam.id,
+            examName: exam.name,
+            examDate: exam.date,
+            examTime: exam.time,
+            initiatorId: staff.id,
+            initiatorName: staff.name,
+            receiverId: null,
+            receiverName: "Açık Talep",
+            status: 'pending', // Spec: pending
+            fromApproved: true,
+            toApproved: false,
+            createdAt: new Date().toISOString()
+        };
+
+        if (!DB.requests) DB.requests = [];
+        DB.requests.push(newReq);
+        logAction('SWAP_INITIATED', `${staff.name}, ${exam.name} için yer değiştirme talebi açtı.`, { examId });
+        saveToLocalStorage();
+        alert("Talebiniz oluşturuldu. Uygun gözetmenler 'Açık Görevler' sekmesinden kabul edebilir.");
+        renderProfile();
+    }
+};
+
+window.renderMarketplace = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const tbody = document.querySelector('#profile-table-marketplace tbody');
+    if (!tbody || !myStaffId) return;
+
+    tbody.innerHTML = '';
+    const myStaffIdNum = parseInt(myStaffId);
+
+    // Açık talepleri bul (pending ve receiverId null)
+    // Filtreleme: Kullanıcı tarafından reddedilmiş (gizlenmiş) talepleri çıkar
+    const dismissedKey = `dismissed_requests_${myStaffId}`;
+    const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+
+    const openRequests = (DB.requests || [])
+        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
+        .filter(r => !dismissedIds.includes(r.id));
+
+    if (openRequests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Şu an için uygun açık görev bulunmuyor.</td></tr>';
+        return;
+    }
+
+    openRequests.forEach(req => {
+        const exam = DB.exams.find(e => e.id == req.examId);
+        if (!exam) return;
+
+        // Kullanıcı bu saatte müsait mi?
+        const isFree = isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration);
+        
+        if (isFree) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${req.examName}</strong><br><small>${req.initiatorName} tarafından bırakıldı</small></td>
+                <td>${req.examDate.split("-").reverse().join(".")}</td>
+                <td>${req.examTime}</td>
+                <td>${exam.duration} dk</td>
+                <td><span class="score-tag">+${exam.score || 0}</span></td>
+                <td style="text-align:right; display: flex; gap: 5px; justify-content: flex-end;">
+                    <button class="btn-primary" onclick="acceptOpenRequest(${req.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--accent-green);">Görevi Al</button>
+                    <button class="btn-delete" onclick="dismissMarketplaceRequest(${req.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Reddet</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+    });
+
+    if (tbody.children.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Müsait olduğunuz bir açık görev bulunmuyor.</td></tr>';
+    }
+};
+
+window.dismissMarketplaceRequest = function(requestId) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+
+    const dismissedKey = `dismissed_requests_${myStaffId}`;
+    const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+    
+    if (!dismissedIds.includes(requestId)) {
+        dismissedIds.push(requestId);
+        localStorage.setItem(dismissedKey, JSON.stringify(dismissedIds));
+    }
+    
+    renderMarketplace();
+};
+
+window.acceptOpenRequest = function(requestId) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const req = DB.requests.find(r => r.id === requestId);
+    if (!req) return;
+
+    // Race condition kontrolü
+    if (req.status !== 'pending') {
+        alert("Üzgünüz, bu görev az önce başkası tarafından kabul edildi veya iptal edildi.");
+        renderProfile();
+        return;
+    }
+
+    if (confirm("Bu görevi devralmak istediğinize emin misiniz? Devreden kişinin onayı gerekecektir.")) {
+        req.receiverId = staff.id;
+        req.receiverName = staff.name;
+        req.status = 'accepted_waiting_approval';
+        logAction('SWAP_ACCEPTED', `${staff.name}, ${req.initiatorName}'in talebini kabul etti.`, { requestId });
+        saveToLocalStorage();
+        alert("Talebiniz iletildi. Görevi devreden kişi onayladığında işlem tamamlanacaktır.");
+        renderProfile();
+    }
+};
+
+window.renderInitiatorApprovals = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const section = document.getElementById('initiator-approval-section');
+    const list = document.getElementById('initiator-approval-list');
+    if (!section || !list || !myStaffId) return;
+
+    const myApprovals = (DB.requests || []).filter(r => String(r.initiatorId) === String(myStaffId) && r.status === 'accepted_waiting_approval');
+
+    if (myApprovals.length > 0) {
+        section.classList.remove('hidden');
+        list.innerHTML = myApprovals.map(r => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:10px;">
+                <div style="font-size:0.85rem;">
+                    <strong>${r.examName}</strong><br>
+                    <span style="color:var(--text-muted)">${r.receiverName} görevini devralmayı kabul etti. Onaylıyor musunuz?</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-primary" onclick="confirmOpenRequest(${r.id})" style="background:#10b981; padding:0.4rem 0.8rem; font-size:0.75rem;">✅ Onayla</button>
+                    <button class="btn-delete" onclick="rejectOpenRequest(${r.id})" style="padding:0.4rem 0.8rem; font-size:0.75rem;">❌ Reddet</button>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        section.classList.add('hidden');
+    }
+};
+
+window.confirmOpenRequest = async function(requestId) {
+    const req = DB.requests.find(r => r.id === requestId);
+    if (!req) return;
+
+    if (confirm(`${req.receiverName} hocanın devralmasını kesin olarak onaylıyor musunuz?`)) {
+        req.toApproved = true;
+        req.status = 'pending_admin'; // Admin son imzayı atsın
+        logAction('SWAP_CONFIRMED', `${req.initiatorName}, ${req.receiverName}'i onayladı.`, { requestId });
+        saveToLocalStorage();
+        alert("✓ Onaylandı. Değişiklik son bir kontrol için yöneticiye iletildi.");
+        renderProfile();
+        updateRequestBadge();
+    }
+};
+
+window.rejectOpenRequest = function(requestId) {
+    const req = DB.requests.find(r => r.id === requestId);
+    if (!req) return;
+
+    if (confirm("Bu hocanın kabulünü reddetmek istediğinize emin misiniz? Talebiniz tekrar açık hale gelecektir.")) {
+        req.receiverId = null;
+        req.receiverName = "Açık Talep";
+        req.status = 'pending';
+        logAction('SWAP_REJECTED', `${req.initiatorName}, ${req.receiverName}'i reddetti (Talep tekrar açıldı).`, { requestId });
+        saveToLocalStorage();
+        renderProfile();
+    }
+};
+
 window.goToProfileAvailability = function() {
     // 1. Profil sekmesine geç
     document.getElementById('btn-profile').click();
     
-    // 2. Müsaitlik tabına geç
+    // 2. Kısıt Ayarlarım tabına geç
     const availTabBtn = document.querySelector('#section-profile .tab-btn[data-tab="availability"]');
     if (availTabBtn) availTabBtn.click();
-}
+};
+
+window.goToProfileMarketplace = function() {
+    // 1. Profil sekmesine geç
+    document.getElementById('btn-profile').click();
+    
+    // 2. Pazar Yeri tabına geç
+    const marketTabBtn = document.querySelector('#section-profile .tab-btn[data-tab="marketplace"]');
+    if (marketTabBtn) marketTabBtn.click();
+};
+
+window.openTypeManager = () => {
+    document.getElementById('modal-manage-types').classList.remove('hidden');
+    renderExamTypesList();
+};
+
+window.renderExamTypesList = () => {
+    const list = document.getElementById('exam-types-list');
+    if(!list) return;
+    list.innerHTML = (DB.examTypes || []).map(t => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:8px; border:1px solid var(--glass-border);">
+            <span style="font-size:0.9rem;">${t}</span>
+            <button class="btn-icon" onclick="deleteExamType('${t}')" style="color:#ef4444; border:none; background:none; cursor:pointer; font-size:1.1rem; filter:grayscale(1) brightness(2);">🗑️</button>
+        </div>
+    `).join('');
+
+    // Mevcut açık modal'lardaki dropdown'ları tazele
+    const addTypeSelect = document.getElementById('exam-type');
+    if (addTypeSelect) {
+        addTypeSelect.innerHTML = (DB.examTypes || []).map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+    const editTypeSelect = document.getElementById('edit-exam-type');
+    if (editTypeSelect) {
+        editTypeSelect.innerHTML = (DB.examTypes || []).map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+};
+
+window.addExamType = async () => {
+    const input = document.getElementById('new-exam-type-input');
+    const type = input.value.trim();
+    if (type && !DB.examTypes.includes(type)) {
+        DB.examTypes.push(type);
+        saveToLocalStorage();
+        renderExamTypesList();
+        input.value = '';
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+    }
+};
+
+window.deleteExamType = async (type) => {
+    if (confirm(`"${type}" türünü silmek istediğinize emin misiniz?`)) {
+        DB.examTypes = DB.examTypes.filter(t => t !== type);
+        saveToLocalStorage();
+        renderExamTypesList();
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+    }
+};

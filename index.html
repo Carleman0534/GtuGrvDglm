@@ -49,13 +49,12 @@
                 <h1>Gözetmenlik <span>Katsayı Sistemi</span></h1>
             </div>
             <nav>
-                <button id="btn-profile">👤 Profilim</button>
-                <button id="btn-dashboard" class="active">Panel</button>
+                <button id="btn-profile" class="active">👤 Profilim</button>
+                <button id="btn-dashboard">Panel</button>
                 <button id="btn-schedule">Sınav Programı</button>
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff" class="admin-only">Personel</button>
-                <button id="btn-availability" class="admin-only">Müsaitlik</button>
-                <button id="btn-constraints" class="admin-only">Kısıt Yönetimi</button>
+                <button id="btn-availability" class="user-only">Müsaitlik</button>
                 <button id="btn-requests" class="admin-only">İstekler <span id="request-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
             </nav>
@@ -63,7 +62,7 @@
 
         <main id="main-content">
             <!-- Profile Section -->
-            <section id="section-profile" class="content-section hidden">
+            <section id="section-profile" class="content-section">
                 <div id="profile-identity-setup" class="card-large identity-setup hidden" style="text-align: center; max-width: 500px; margin: 4rem auto;">
                     <div style="font-size: 5rem; margin-bottom: 2rem; filter: drop-shadow(0 0 15px var(--primary));">👤</div>
                     <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Profilinizi Kurun</h2>
@@ -92,12 +91,10 @@
                             </div>
                         </div>
                     </div>
-                    <div id="profile-announcements" class="profile-announcements-container" style="margin-bottom: 2.5rem; display: grid; gap: 1rem;">
-                        <!-- Duyurular buraya gelecek -->
-                    </div>
 
                     <div class="profile-tabs">
                         <button class="tab-btn active" data-tab="active">Aktif Görevler</button>
+                        <button class="tab-btn" data-tab="marketplace">Açık Görevler (Pazar Yeri)</button>
                         <button class="tab-btn" data-tab="archive">Arşiv</button>
                         <button class="tab-btn user-only" data-tab="availability">Kısıt Ayarlarım</button>
                     </div>
@@ -115,6 +112,7 @@
                                                 <th>Saat</th>
                                                 <th>Süre</th>
                                                 <th>Puan</th>
+                                                <th style="text-align:right;">İşlem</th>
                                             </tr>
                                         </thead>
                                         <tbody></tbody>
@@ -122,6 +120,26 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="tab-marketplace" class="tab-pane hidden">
+                            <div class="card card-table">
+                                <div class="table-container">
+                                    <table id="profile-table-marketplace">
+                                        <thead>
+                                            <tr>
+                                                <th>Ders / Sınav</th>
+                                                <th>Tarih</th>
+                                                <th>Saat</th>
+                                                <th>Süre</th>
+                                                <th>Puan</th>
+                                                <th style="text-align:right;">İşlem</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
                         <div id="tab-archive" class="tab-pane hidden">
                             <div class="card card-table">
                                 <div class="table-container">
@@ -206,7 +224,7 @@
             </section>
 
             <!-- Dashboard Section -->
-            <section id="section-dashboard" class="content-section">
+            <section id="section-dashboard" class="content-section hidden">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
                     <h2>Puan Dağılımı ve Sıralama</h2>
                     <div style="display:flex; gap:10px;">
@@ -244,6 +262,10 @@
                                 <div style="font-weight: 800; color: var(--accent-red);">2.5x</div>
                             </div>
                         </div>
+                    </div>
+                    <div class="stat-card admin-only">
+                        <h3>Sınav Sayısı</h3>
+                        <p id="stat-total-exams">0</p>
                     </div>
                     <div class="stat-card admin-only">
                         <h3>Personel Sayısı</h3>
@@ -356,6 +378,7 @@
                     <table id="table-exams">
                         <thead>
                             <tr>
+                                <th class="sortable" data-sort="type">Tür <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="name">Ders / Sınav <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="location">Derslik / Mevcut <span class="sort-icon"></span></th>
                                 <th class="sortable" data-sort="date">Tarih <span class="sort-icon"></span></th>
@@ -394,6 +417,7 @@
                         <table id="table-schedule">
                             <thead>
                                 <tr>
+                                    <th>Tür</th>
                                     <th>Ders / Sınav</th>
                                     <th>Derslik / Yer</th>
                                     <th>Tarih</th>
@@ -414,6 +438,7 @@
                         <table id="table-archive-general">
                             <thead>
                                 <tr>
+                                    <th>Tür</th>
                                     <th>Ders / Sınav</th>
                                     <th>Derslik / Yer</th>
                                     <th>Tarih</th>
@@ -430,7 +455,7 @@
             </section>
 
             <!-- Müsaitlik Takvimi Section -->
-            <section id="section-availability" class="content-section hidden admin-only">
+            <section id="section-availability" class="content-section hidden user-only">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
                     <h2>Gözetmen Müsaitlik Takvimi</h2>
                     <div style="display: flex; align-items: center; gap: 12px;">
@@ -605,10 +630,22 @@
 
                     <!-- Aktif Görevler Tablosu -->
                     <div id="tab-content-active" class="tab-content active">
+                        <!-- İkili Onay Bildirimleri -->
+                        <div id="peer-approval-section" class="hidden" style="margin-bottom: 20px; border: 1px solid var(--accent-orange); border-radius: 12px; padding: 15px; background: rgba(245, 158, 11, 0.05);">
+                            <h4 style="margin-top:0; color:var(--accent-orange); font-size:0.9rem; margin-bottom:10px;">🔔 Size Gelen Takas Talepleri</h4>
+                            <div id="peer-approval-list"></div>
+                        </div>
+
+                        <div id="initiator-approval-section" class="hidden" style="margin-bottom: 20px; border: 1px solid var(--accent-green); border-radius: 12px; padding: 15px; background: rgba(16, 185, 129, 0.05);">
+                            <h4 style="margin-top:0; color:var(--accent-green); font-size:0.9rem; margin-bottom:10px;">✅ Onayınızı Bekleyen Talepleriniz</h4>
+                            <div id="initiator-approval-list"></div>
+                        </div>
+
                         <div class="table-container">
                             <table id="table-individual-schedule">
                                 <thead>
                                     <tr>
+                                        <th>Tür</th>
                                         <th>Ders / Sınav</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
@@ -628,6 +665,7 @@
                             <table id="table-archive-schedule">
                                 <thead>
                                     <tr>
+                                        <th>Tür</th>
                                         <th>Ders / Sınav</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
@@ -702,6 +740,13 @@
                 <h2>Sınav Düzenle</h2>
                 <form id="edit-modal-form">
                     <input type="hidden" id="edit-exam-id">
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <label style="margin:0;">Sınav Türü</label>
+                            <button type="button" class="btn-icon" onclick="openTypeManager()" style="font-size:0.8rem; padding:2px 5px; opacity:0.7;">⚙️ Yönet</button>
+                        </div>
+                        <select id="edit-exam-type" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
+                    </div>
                     <div class="form-group">
                         <label>Ders / Sınav Adı</label>
                         <input type="text" id="edit-exam-name" required>
@@ -803,6 +848,10 @@
                     </div>
                 </div>
 
+                <div id="swap-suggestions" class="suggestion-area hidden" style="margin-bottom: 1.5rem;">
+                    <h4>🤖 Akıllı Öneriler</h4>
+                    <div id="swap-suggestion-list" class="suggestion-list"></div>
+                </div>
                 <div class="form-group" style="margin-top: 1.5rem;">
                     <label style="color: #94a3b8; font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem; display: block;">Kimin Yerine Gözetmen Olacak? (Devreden)</label>
                     <select id="swap-initiator-select" required style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.875rem; border-radius: 12px; color: white;"></select>
@@ -865,6 +914,32 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <button id="btn-staff-select-confirm" class="btn-primary" style="padding: 1rem; border-radius: 12px;">Onayla</button>
                 <button id="btn-staff-select-cancel" class="btn-secondary" style="padding: 1rem; border-radius: 12px;">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sınav Türleri Yönetim Modalı -->
+    <div id="modal-manage-types" class="modal hidden admin-only">
+        <div class="modal-content" style="max-width: 450px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0;">Sınav Türlerini Yönet</h2>
+                <button class="btn-icon" onclick="document.getElementById('modal-manage-types').classList.add('hidden')">✖</button>
+            </div>
+            <div class="card-large" style="padding:1.5rem; margin-bottom:1.5rem;">
+                <h3 style="font-size:0.9rem; margin-bottom:1rem; color:var(--text-muted);">Yeni Tür Ekle</h3>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="new-exam-type-input" placeholder="Örn: Quiz, Sözlü..." style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.75rem; border-radius:8px; color:white;">
+                    <button class="btn-primary" onclick="addExamType()" style="padding:0 1.5rem;">Ekle</button>
+                </div>
+            </div>
+            <div class="card-large" style="padding:1.5rem; max-height:300px; overflow-y:auto;">
+                <h3 style="font-size:0.9rem; margin-bottom:1rem; color:var(--text-muted);">Mevcut Türler</h3>
+                <div id="exam-types-list" style="display:grid; gap:8px;">
+                    <!-- Türler buraya gelecek -->
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top:1.5rem;">
+                <button class="btn-secondary" style="width:100%;" onclick="document.getElementById('modal-manage-types').classList.add('hidden')">Kapat</button>
             </div>
         </div>
     </div>

@@ -21,15 +21,42 @@ let DB = {
     staff: [],
     exams: [],
     constraints: {},
+    requests: [],
+    logs: [],
+    examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
     announcements: [
         {
             id: Date.now(),
-            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
+            text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak üstlenebilir. (Yönetici onayı gerektirir)\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\nBu sistem, hem acil durumlarda gözetmen bulmayı hızlandırır hem de gönüllü olarak ek görev almak isteyen hocalarımıza şeffaf bir liste sunar.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
+        },
+        {
+            id: Date.now() - 1000,
+            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\ Yeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
+            isImportant: false,
+            updatedAt: new Date(Date.now() - 1000).toISOString()
         }
     ]
 };
+
+/**
+ * İşlem Günlüğü (Logging)
+ */
+function logAction(type, message, details = {}) {
+    if (!DB.logs) DB.logs = [];
+    const logEntry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        user: localStorage.getItem('myStaffName') || "Sistem",
+        type,
+        message,
+        details
+    };
+    DB.logs.push(logEntry);
+    // Logları son 100 işlemle sınırla
+    if (DB.logs.length > 100) DB.logs.shift();
+}
 function getKatsayi(date) {
     const day = date.getDay();
     const hour = date.getHours();
@@ -234,6 +261,7 @@ function addExam(examData) {
     const newExam = {
         ...examData,
         id: Date.now(),
+        type: examData.type || "Vize",
         location: examData.location || "Belirtilmedi",
         proctorId: proctor.id,
         proctorName: proctor.name,
@@ -277,6 +305,7 @@ function updateExam(id, newData) {
         DB.exams[exIndex] = {
             ...oldExam,
             name: newData.name,
+            type: newData.type || oldExam.type || "Vize",
             location: newData.location || "Belirtilmedi",
             date: newData.date,
             time: newData.time,
@@ -453,34 +482,15 @@ function getLocationConflicts() {
 function getRecommendedProctors(date, time, duration, currentExamId = null) {
     if (!date || !time) return [];
 
-    // 1. Müsait olanları filtrele
-    const availableStaff = DB.staff.filter(s => {
-        // Genel müsaitlik kontrolü (Kendi kısıtları + Çakışma)
-        const ok = isAvailable(s.name, date, time, duration);
-        if (!ok) return false;
+    // 1. Müsait olanları filtrele (Hem kısıt hem de çakışma)
+    const availableStaff = DB.staff.filter(s => 
+        isProctorTrulyFree(s.id, date, time, duration, currentExamId)
+    );
 
-        // Mevcut sınavlar arasındaki çakışma kontrolü (Kendi ID'si hariç)
-        const start = new Date(`${date}T${time}`);
-        const end = new Date(start.getTime() + (duration + 15) * 60000);
-
-        const hasConflict = DB.exams.some(ex => {
-            if (ex.id === currentExamId) return false; // Düzenlediğimiz sınavı sayma
-            if (ex.proctorId !== s.id) return false;
-            if (ex.date !== date) return false;
-
-            const exStart = new Date(`${ex.date}T${ex.time}`);
-            const exEnd = new Date(exStart.getTime() + (ex.duration + 15) * 60000);
-
-            return (start < exEnd && end > exStart);
-        });
-
-        return !hasConflict;
-    });
-
-    // 2. Puana göre sırala ve ilk 3'ü dön
+    // 2. Puana göre sırala ve ilk 5'i dön
     return availableStaff
         .sort((a, b) => a.totalScore - b.totalScore)
-        .slice(0, 3);
+        .slice(0, 5);
 }
 
 
