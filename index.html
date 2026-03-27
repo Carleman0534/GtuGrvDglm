@@ -9,6 +9,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
@@ -49,14 +52,19 @@
                 <h1>Gözetmenlik <span>Katsayı Sistemi</span></h1>
             </div>
             <nav>
-                <button id="btn-profile" class="active">👤 Profilim</button>
+                <button id="btn-profile" class="active">👤 Profilim <span id="marketplace-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-dashboard">Panel</button>
                 <button id="btn-schedule">Sınav Programı</button>
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff" class="admin-only">Personel</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
-                <button id="btn-requests" class="admin-only">İstekler <span id="request-badge" class="badge-count hidden">0</span></button>
+                <button id="btn-audit" class="admin-only">📜 İşlem Geçmişi</button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
+                <button id="btn-theme-toggle" class="btn-theme-toggle" title="Temayı Değiştir">🌓</button>
+                <div id="cloud-status" class="cloud-status hidden" style="margin-left:auto; margin-right: 1.5rem;">
+                    <span class="cloud-icon">☁️</span>
+                    <span id="cloud-status-text">Eşitlendi</span>
+                </div>
             </nav>
         </header>
 
@@ -69,13 +77,6 @@
                     <p style="color: var(--text-secondary); margin-bottom: 2.5rem;">Sistemin sizi tanıması için lütfen listeden isminizi seçin.</p>
                     <div class="form-group" style="margin-bottom: 2.5rem;">
                         <select id="profile-setup-dropdown"></select>
-                    </div>
-                    <div id="profile-setup-password-info" class="hidden" style="margin-bottom: 1.5rem; text-align: left;">
-                        <div class="form-group">
-                            <label>Profil Şifresi</label>
-                            <input type="password" id="profile-setup-password" placeholder="Şifrenizi Girin">
-                            <p id="profile-password-error" class="login-error hidden" style="margin-top: 5px;">Hatalı şifre!</p>
-                        </div>
                     </div>
                     <button id="btn-save-identity" class="btn-primary" style="width: 100%; justify-content: center; padding: 1.25rem;">Profilime Git</button>
                 </div>
@@ -94,14 +95,13 @@
                                     <span class="stat-label">📅 Görev Sayısı</span>
                                     <span id="profile-stat-tasks" class="stat-value">0</span>
                                 </div>
-                                <div style="display:flex; flex-direction:column; gap:5px; align-self: flex-end;">
-                                    <button id="btn-change-identity" class="btn-secondary" style="font-size: 0.7rem; padding: 6px 12px; border-radius: 10px;">Kimliği Değiştir</button>
-                                    <button id="btn-set-profile-password" class="btn-secondary" style="font-size: 0.7rem; padding: 6px 12px; border-radius: 10px; background: rgba(99, 102, 241, 0.1);">🔑 Şifre İşlemleri</button>
-                                </div>
+                                <button id="btn-change-identity" class="btn-secondary" style="font-size: 0.7rem; padding: 6px 12px; border-radius: 10px; align-self: flex-end; margin-bottom: 5px;">Kimliği Değiştir</button>
                             </div>
                         </div>
                     </div>
 
+                    <div id="profile-marketplace-announcement" class="hidden"></div>
+                    <div id="profile-swap-proposals" class="hidden"></div>
                     <div class="profile-tabs">
                         <button class="tab-btn active" data-tab="active">Aktif Görevler</button>
                         <button class="tab-btn" data-tab="marketplace">Açık Görevler (Pazar Yeri)</button>
@@ -242,7 +242,8 @@
                         <button id="id-restore-system" class="btn-primary admin-only" style="background:#6b7280;">📂 Geri Yükle</button>
                         <button id="btn-reset-exams" class="btn-primary admin-only" style="background:#f59e0b;">🧹 Programı Sıfırla (Puanlar Kalsın)</button>
                         <button id="btn-resolve-conflicts" class="btn-primary admin-only" style="background:#ef4444;">⚠️ Çakışmaları Otomatik Çöz</button>
-                        <button id="btn-export-dashboard" class="btn-primary" style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-export-dashboard" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-dashboard-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                         <button id="btn-github-sync" class="btn-primary" style="background:#6366f1;">🔗 GitHub Kod Üret</button>
                     </div>
                 </div>
@@ -288,17 +289,21 @@
                 </div>
 
                 <div id="dashboard-export-container" style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
-                    <!-- Takas Talepleri Kartı (Hızlı Görünüm) -->
-                    <div id="card-swap-requests" class="card card-table card-large hidden admin-only" style="margin-bottom: 2rem; border-color: var(--accent-orange);">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--accent-orange); font-size: 0.875rem; text-transform: uppercase;">
-                            🕒 Bekleyen Takas Talepleri</h3>
+                    <!-- Pazar Yeri (Açık Görevler) Hızlı Görünüm - TÜM KULLANICILAR İÇİN -->
+                    <div id="card-marketplace-dashboard" class="card card-table card-large hidden" style="margin-bottom: 2rem; border-color: var(--accent-green);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                            <h3 style="margin:0; color: var(--accent-green); font-size: 0.875rem; text-transform: uppercase;">
+                                🛒 Açık Görevler (Pazar Yeri)</h3>
+                            <button class="btn-secondary" onclick="document.getElementById('btn-profile').click(); document.querySelector('#section-profile .tab-btn[data-tab=\'marketplace\']').click();" style="font-size:0.75rem; padding: 5px 10px;">Tümünü Gör</button>
+                        </div>
                         <div class="table-container">
-                            <table id="table-swap-requests-dashboard">
+                            <table id="table-marketplace-dashboard">
                                 <thead>
                                     <tr>
                                         <th>Sınav</th>
-                                        <th>Talep Eden</th>
-                                        <th>Tarih/Saat</th>
+                                        <th>Tarih</th>
+                                        <th>Saat</th>
+                                        <th>Puan</th>
                                         <th>İşlem</th>
                                     </tr>
                                 </thead>
@@ -307,6 +312,13 @@
                         </div>
                     </div>
 
+
+                    <div class="card-large" style="margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--primary); font-size: 0.875rem; text-transform: uppercase;">📊 Puan Dağılım Grafiği</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="score-distribution-chart"></canvas>
+                        </div>
+                    </div>
 
                     <div class="card-large">
                         <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Personel Görev Dağılım Detayları</h3>
@@ -351,12 +363,14 @@
 
             <!-- Staff Section -->
             <section id="section-staff" class="content-section hidden admin-only">
-                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                     <h2>Personel Listesi</h2>
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
+                        <input type="text" id="staff-search" placeholder="🔍 Personel İsmi Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                         <button class="btn-primary admin-only" id="btn-add-staff">+ Yeni Personel</button>
-                        <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42; margin-left: 10px;">Excel’den İçe Aktar</button>
-                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745; margin-left: 10px;">Resim İndir</button>
+                        <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42;">Excel’den İçe Aktar</button>
+                        <button id="btn-export-staff" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-staff-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -376,14 +390,23 @@
 
             <!-- Exams Section -->
             <section id="section-exams" class="content-section hidden">
-                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                     <h2>Sınav Listesi</h2>
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
+                        <input type="text" id="exam-search" placeholder="🔍 Sınav veya Gözetmen Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
+                        <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
-                        <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#6366f1; margin-left: 10px;">✨ Taslak Liste Yükle (Otomatik Ata)</button>
-                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745; margin-left: 10px;">Resim İndir</button>
-                    </div>
+                        <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#4f46e5;">✨ Taslak Yükle</button>
+                        <button id="btn-export-exams" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-exams-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                 </div>
+                </div>
+
+                <div class="profile-tabs" style="margin-bottom: 1.5rem;">
+                    <button class="tab-btn active" id="btn-exam-tab-active" onclick="switchExamTab('active')">Aktif Sınavlar</button>
+                    <button class="tab-btn" id="btn-exam-tab-archive" onclick="switchExamTab('archive')">Arşiv</button>
+                </div>
+
                 <div class="table-container">
                     <table id="table-exams">
                         <thead>
@@ -412,7 +435,8 @@
                     <h2>Genel Sınav Programı</h2>
                     <div style="display:flex; gap:10px;">
                         <button id="btn-export-schedule-excel" class="btn-primary" style="background:#1d6f42;">Excel İndir</button>
-                        <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">Resim İndir</button>
+                        <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
+                        <button id="btn-export-schedule-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                     </div>
                 </div>
 
@@ -490,30 +514,24 @@
                 </div>
             </section>
 
-            <!-- Takas Talepleri (Admin) Section -->
-            <section id="section-requests" class="content-section hidden admin-only">
+            <!-- Audit Log Section -->
+            <section id="section-audit" class="content-section hidden admin-only">
                 <div class="section-header">
-                    <h2>Takas Talepleri Yönetimi</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Gözetmenlerden gelen takas ve görev devri isteklerini buradan yönetebilirsiniz.</p>
+                    <h2>📜 İşlem Geçmişi (Audit Log)</h2>
+                    <button id="btn-clear-audit" class="btn-secondary admin-only" style="color: var(--accent-red);">Geçmişi Temizle</button>
                 </div>
                 <div class="card-large">
                     <div class="table-container">
-                        <table id="table-requests">
+                        <table id="table-audit">
                             <thead>
                                 <tr>
-                                    <th>Oluşturulma</th>
-                                    <th>Sınav</th>
-                                    <th>Devreden</th>
-                                    <th>Devralacak</th>
-                                    <th>Durum</th>
-                                    <th style="text-align: right;">İşlem</th>
+                                    <th>Zaman</th>
+                                    <th>Kategori</th>
+                                    <th>İşlem</th>
+                                    <th>Detaylar</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir talep bulunmuyor.</td>
-                                </tr>
-                            </tbody>
+                            <tbody></tbody>
                         </table>
                     </div>
                 </div>
@@ -806,34 +824,14 @@
                             <!-- Seçili gözetmenler buraya gelecek -->
                         </div>
                     </div>
+
+                    <div id="edit-suggestions" class="suggestion-area hidden">
+                        <h4>🤖 Akıllı Öneriler</h4>
+                        <div id="edit-suggestion-list" class="suggestion-list"></div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="document.getElementById('edit-modal').classList.add('hidden')">İptal</button>
-                        <button type="submit" class="btn-primary">Güncelle</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Şifre Belirleme Modalı -->
-        <div id="modal-set-password" class="modal hidden">
-            <div class="modal-content" style="max-width: 400px; padding: 2rem;">
-                <h2 style="margin-bottom: 1.5rem;">Şifre Belirle</h2>
-                <form id="form-set-password">
-                    <div class="form-group">
-                        <label>Yeni Şifre</label>
-                        <input type="password" id="new-profile-password" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Yeni Şifre (Tekrar)</label>
-                        <input type="password" id="confirm-profile-password" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-set-password').classList.add('hidden')">İptal</button>
-                        <button type="submit" class="btn-primary">Kaydet</button>
-                    </div>
-                </form>
-            </div>
-        </div>
                         <button type="submit" class="btn-primary">Güncelle</button>
                     </div>
                 </form>
@@ -1001,6 +999,52 @@
             </div>
             <div class="form-actions" style="margin-top:1.5rem;">
                 <button class="btn-secondary" style="width:100%;" onclick="document.getElementById('modal-manage-types').classList.add('hidden')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Direct Swap Modal -->
+    <div id="modal-direct-swap" class="modal hidden">
+        <div class="modal-content card-large" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Birebir Görev Takası Teklifi</h2>
+                <button class="close-modal" onclick="document.getElementById('modal-direct-swap').classList.add('hidden')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Değişmek istediğiniz hocayı ve onun hangi sınavıyla takas yapmak istediğinizi seçin.</p>
+                
+                <input type="hidden" id="direct-swap-my-exam-id">
+                
+                <div class="form-group">
+                    <label>Takas Yapılacak Hoca</label>
+                    <select id="direct-swap-target-proctor" style="width: 100%;">
+                        <option value="">Hoca Seçin...</option>
+                    </select>
+                </div>
+
+                <div id="direct-swap-target-exams-container" class="hidden" style="margin-top: 1.5rem;">
+                    <label>Hocanın Uygun Sınavları (Seçiniz)</label>
+                    <div id="direct-swap-exam-list" class="suggestion-list" style="max-height: 250px; overflow-y: auto; margin-top: 0.5rem; display: grid; gap: 10px;">
+                        <!-- Sınavlar buraya gelecek -->
+                    </div>
+                </div>
+
+                <div id="direct-swap-summary" class="hidden" style="margin-top: 1.5rem; padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 12px; border: 1px dashed var(--primary);">
+                    <p style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Teklif Özeti:</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong id="direct-swap-my-exam-name" style="color: var(--primary);">Sınavım</strong>
+                        </div>
+                        <div style="margin: 0 1rem; font-size: 1.2rem;">🔄</div>
+                        <div style="flex: 1; text-align: right;">
+                            <strong id="direct-swap-target-exam-name" style="color: var(--accent-orange);">Hocanın Sınavı</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('modal-direct-swap').classList.add('hidden')">İptal</button>
+                <button id="btn-confirm-direct-swap" class="btn-primary" disabled>Teklifi Gönder</button>
             </div>
         </div>
     </div>

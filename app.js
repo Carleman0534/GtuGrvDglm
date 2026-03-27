@@ -43,10 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ password })
             });
             const result = await response.json();
-
+ 
             if (result.success) {
-                // Şifreyi sessionStorage'a kaydet (Sadece bu oturumda, backend'e yazma işlemlerinde kullanılacak)
+                // Şifreyi sessionStorage'a kaydet
                 sessionStorage.setItem('userPassword', password);
+                logAction('system', 'Giriş', `${result.role === 'admin' ? 'Yönetici' : 'Hoca'} girişi yapıldı.`);
                 finishLogin(result.role === 'admin');
             } else {
                 loginError.classList.remove('hidden');
@@ -81,9 +82,8 @@ async function initApp() {
     // Tüm eski yamalar (v2-v20) kaldırıldı. Veriler artık backend'deki data.json'dan geliyor.
     // Eski yama kodları gereksizdir çünkü data.json zaten tüm düzeltmeleri içermektedir.
 
-    // Initialize DB.requests and DB.constraints if not present
+    // Initialize DB.requests if not present
     if (!DB.requests) DB.requests = [];
-    if (!DB.constraints) DB.constraints = {};
     // Migration: Old single announcement to new announcements array
     if (DB.announcement && !DB.announcements) {
         DB.announcements = [{
@@ -97,18 +97,16 @@ async function initApp() {
     if (!DB.announcements) {
         DB.announcements = [];
     }
+
+    if (!DB.auditLogs) {
+        DB.auditLogs = [];
+    }
     
     // Varsayılan/Zorunlu duyuruları kontrol et ve eksikse ekle
     const defaultAnnouncements = [
         {
-            id: 8,
-            text: "### 🚀 Matematik Bölümü Sınav Gözetmenlik Sistemi Yayında!\n\nDeğerli hocalarımız ve araştırma görevlilerimiz, sistemimiz Matematik Bölümü'nün ihtiyaçlarına göre tamamen güncellenmiştir. Öne çıkan yenilikler:\n\n1.  **Hoca ve Ders Eşleşmesi**: Sınav isimlerine göre dersi veren hocalar artık otomatik olarak atanmaktadır.\n2.  **Güncel Personel Listesi**: Matematik Bölümü akademik kadrosu ve araştırma görevlileri sisteme tanımlanmıştır.\n3.  **Akıllı Hizalama**: Tablo görünümü ve sütunlar, karmaşıklığı önlemek adına optimize edilmiştir.\n4.  **Yeni Sınav Girişi**: Sınav eklerken hoca isimlerini listeden seçebilir veya ders adını yazarak sistemin otomatik önermesini sağlayabilirsiniz.\n5.  **Takas Sistemi**: 'Bireysel Program' kısmından 'Yerime Biri Lazım' butonu ile görev devri talebi oluşturabilirsiniz.\n\nİyi çalışmalar dileriz.",
-            isImportant: true,
-            updatedAt: new Date().toISOString()
-        },
-        {
             id: 1,
-            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Önemli:** Tarih bazlı kısıtlar, ulaşım veya seyahat durumlarında da kullanılabilir.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
+            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
@@ -126,32 +124,48 @@ async function initApp() {
         },
         {
             id: 4,
-            text: "### 📢 DUYURU 4: Bildirim ve Onay Süreci\n\nYer değiştirme süreci aşağıdaki şekilde ilerler:\n1. Talep oluşturulur\n2. Uygun kişilere bildirim gider\n3. Bir kullanıcı talebi kabul eder\n4. Son onay görev sahibi tarafından verilir\n\nTüm süreç sistem üzerinden takip edilebilir.",
+            text: "### 📢 DUYURU 4: Bildirim ve Devralma Süreci\n\nPazar yeri süreci artık daha hızlı:\n1. Talep oluşturulur\n2. Uygun kişilere bildirim gider\n3. Bir kullanıcı talebi kabul eder\n4. İşlem anında gerçekleşir ve puanlar güncellenir\n\nTüm süreç profilinizden takip edilebilir.",
             isImportant: false,
             updatedAt: new Date().toISOString()
         },
         {
             id: 5,
-            text: "### 📢 DUYURU 5: Önemli Bilgilendirme\n\n- Aynı görev için yalnızca bir aktif talep oluşturabilirsiniz\n- Talebiniz sonuçlandığında sistem sizi bilgilendirir\n- Onay vermediğiniz sürece görev değişimi gerçekleşmez",
+            text: "### 📢 DUYURU 5: Önemli Bilgilendirme\n\n- Aynı görev için yalnızca bir aktif talep oluşturabilirsiniz\n- Pazar yerinden alınan görevler anında kesinleşir\n- Kendi oluşturduğunuz talepleri dilediğiniz zaman iptal edebilirsiniz",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 6,
-            text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak üstlenebilir. (Yönetici onayı gerektirir)\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\nBu sistem, hem acil durumlarda gözetmen bulmayı hızlandırır hem de gönüllü olarak ek görev almak isteyen hocalarımıza şeffaf bir liste sunar.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
+            text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak anında üstlenebilir.\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 7,
-            text: "### 📢 Manuel Yerine Atama Hakkında\n\nSistem üzerinden otomatik talep oluşturmanın yanı sıra, dilerseniz yerinize geçecek kişiyi manuel olarak da seçebilirsiniz.\n\nBunun için:\n\n**Personel listesi üzerinden**\nveya\n**Sistem içinde ilgili kişinin adına tıklayarak**\n\n“Yerine Ata” seçeneğini kullanabilirsiniz.\n\nSeçtiğiniz kişinin müsait olması durumunda atama işlemini başlatabilirsiniz. Uygun olmayan kişiler için sistem sizi otomatik olarak bilgilendirecektir.",
+            text: "### 📢 Manuel Yerine Atama Hakkında\n\nSistem üzerinden otomatik talep oluşturmanın yanı sıra, dilerseniz yerinize geçecek kişiyi manuel olarak da seçebilirsiniz.\n\nBunun için:\n\n**Personel listesi üzerinden**\nveya\n**Sistem içinde ilgili kişinin adına tıklayarak**\n\n“Yerine Ata” seçeneğini kullanabilirsiniz.\n\nSeçtiğiniz kişinin müsait olması durumunda atama işlemini başlatabilirsiniz.",
+            isImportant: true,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 8,
+            text: "### 🛒 Pazar Yeri Süreç Güncellemesi\n\nArtık pazar yerinden (\"Açık Görevler\") bir görev devralmak çok daha kolay! Bir görevi kabul ettiğinizde, devreden kişinin onayına gerek kalmadan işlem anında gerçekleşecek ve görev profilinize eklenecektir.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
+            isImportant: true,
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 9,
+            text: "### 🔄 Önemli: Takas ve Devir Süreci Güncellendi!\n\nArtık gözetmenler arasındaki görev takasları ve devirleri için **yönetici onayı gerekmemektedir.**\n\nİşleyiş:\n1. Diğer hoca ile anlaştığınızda (Direct Swap) veya Pazar Yeri'nden bir görev aldığınızda işlem **anında** gerçekleşir.\n2. Puanlar ve görev listeleri otomatik olarak güncellenir.\n3. Süreci hızlandırmak için yönetici bekleme aşaması tamamen kaldırılmıştır.\n\nİyi görevler dileriz.",
             isImportant: true,
             updatedAt: new Date().toISOString()
         }
     ];
 
     defaultAnnouncements.forEach(def => {
-        if (!DB.announcements.some(a => a.id === def.id)) {
+        const existingIdx = DB.announcements.findIndex(a => a.id === def.id);
+        if (existingIdx !== -1) {
+            // Mevcut duyuruyu güncelle (Örn: Onay süreci kısımları değiştiği için)
+            DB.announcements[existingIdx] = def;
+        } else {
             DB.announcements.push(def);
         }
     });
@@ -190,9 +204,11 @@ async function initApp() {
     }
 
     initUI();
+    applyTheme(); // Theme on load
     renderProfile();
     updateRequestBadge(); // Update badge on load
     updateAnnouncementBadge(); // New announcement badge
+    updateMarketplaceBadge(); // Marketplace badge
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
 }
 
@@ -205,6 +221,7 @@ const navButtons = {
     availability: document.getElementById('btn-availability'),
     requests: document.getElementById('btn-requests'),
     profile: document.getElementById('btn-profile'),
+    audit: document.getElementById('btn-audit'),
     announcements: document.getElementById('btn-announcements')
 };
 
@@ -216,6 +233,7 @@ const sections = {
     availability: document.getElementById('section-availability'),
     requests: document.getElementById('section-requests'),
     profile: document.getElementById('section-profile'),
+    audit: document.getElementById('section-audit'),
     announcements: document.getElementById('section-announcements')
 };
 
@@ -254,6 +272,7 @@ Object.entries(navButtons).forEach(([key, btn]) => {
             loadFromDataJSON().then(() => renderSwapRequests());
         }
         if (key === 'profile') renderProfile();
+        if (key === 'audit') renderAuditLogs();
         if (key === 'announcements') {
             renderAnnouncements();
             markAnnouncementsAsRead();
@@ -262,6 +281,15 @@ Object.entries(navButtons).forEach(([key, btn]) => {
 });
 
 let currentSort = { key: 'date', dir: 'asc' };
+let currentExamTab = 'active';
+
+window.switchExamTab = (tab) => {
+    currentExamTab = tab;
+    // Update tab buttons
+    document.getElementById('btn-exam-tab-active')?.classList.toggle('active', tab === 'active');
+    document.getElementById('btn-exam-tab-archive')?.classList.toggle('active', tab === 'archive');
+    renderExams();
+};
 
 function initUI() {
     document.getElementById('btn-add-exam').addEventListener('click', showAddExamModal);
@@ -271,6 +299,28 @@ function initUI() {
     });
     document.getElementById('btn-add-staff').addEventListener('click', showAddStaffModal);
     document.getElementById('btn-modal-cancel').addEventListener('click', hideModal);
+
+    // PDF Export Listeners
+    document.getElementById('btn-export-dashboard-pdf')?.addEventListener('click', () => exportToPDF('table-duty-breakdown', 'Dashboard Puan Dağılımı'));
+    document.getElementById('btn-export-staff-pdf')?.addEventListener('click', () => exportToPDF('table-staff', 'Personel Listesi'));
+    document.getElementById('btn-export-exams-pdf')?.addEventListener('click', () => exportToPDF('table-exams', 'Sınav Listesi'));
+    document.getElementById('btn-export-schedule-pdf')?.addEventListener('click', () => {
+        const activeTab = document.getElementById('tab-gen-btn-active').classList.contains('active') ? 'table-schedule' : 'table-archive-general';
+        const title = activeTab === 'table-schedule' ? 'Genel Sınav Programı' : 'Arşiv Sınav Programı';
+        exportToPDF(activeTab, title);
+    });
+
+    // Theme Toggle
+    document.getElementById('btn-theme-toggle')?.addEventListener('click', toggleTheme);
+
+    // Audit Log Clear
+    document.getElementById('btn-clear-audit')?.addEventListener('click', () => {
+        if (confirm('Tüm işlem geçmişi silinecektir. Emin misiniz?')) {
+            DB.auditLogs = [];
+            saveToLocalStorage();
+            renderAuditLogs();
+        }
+    });
     
     // Choice Modal Listeners
     document.getElementById('btn-choice-no')?.addEventListener('click', () => {
@@ -283,31 +333,10 @@ function initUI() {
     });
 
     // Profile Setup Listeners
-    document.getElementById('profile-setup-dropdown')?.addEventListener('change', (e) => {
-        const staffId = parseInt(e.target.value);
-        const staff = DB.staff.find(s => s.id === staffId);
-        const passwordInfo = document.getElementById('profile-setup-password-info');
-        if (staff && staff.password) {
-            passwordInfo.classList.remove('hidden');
-        } else {
-            passwordInfo.classList.add('hidden');
-        }
-        document.getElementById('profile-password-error').classList.add('hidden');
-    });
-
     document.getElementById('btn-save-identity')?.addEventListener('click', () => {
         const dropdown = document.getElementById('profile-setup-dropdown');
-        const staffId = parseInt(dropdown.value);
-        const staff = DB.staff.find(s => s.id === staffId);
-        
-        if (staff) {
-            if (staff.password) {
-                const passwordInput = document.getElementById('profile-setup-password');
-                if (passwordInput.value !== staff.password) {
-                    document.getElementById('profile-password-error').classList.remove('hidden');
-                    return;
-                }
-            }
+        const staffId = dropdown.value;
+        if (staffId) {
             localStorage.setItem('myStaffId', staffId);
             renderProfile();
         }
@@ -675,51 +704,13 @@ function initUI() {
     }
 
     // Announcement Listeners
-    document.getElementById('btn-add-announcement')?.addEventListener('click', () => showEditAnnouncementModal(null));
-    document.getElementById('form-edit-announcement')?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        saveToLocalStorage();
-        saveToServer();
-        document.getElementById('modal-edit-announcement').classList.add('hidden');
-    });
+    document.getElementById('btn-add-announcement')?.addEventListener('click', () => editAnnouncement(null));
+    document.getElementById('form-edit-announcement')?.addEventListener('submit', handleAnnouncementSubmit);
 
-    // Profil Şifre İşlemleri
-    document.getElementById('btn-set-profile-password')?.addEventListener('click', () => {
-        document.getElementById('modal-set-password').classList.remove('hidden');
-        document.getElementById('new-profile-password').value = '';
-        document.getElementById('confirm-profile-password').value = '';
-    });
-
-    document.getElementById('form-set-password')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newPass = document.getElementById('new-profile-password').value;
-        const confirmPass = document.getElementById('confirm-profile-password').value;
-
-        if (newPass !== confirmPass) {
-            alert("Şifreler uyuşmuyor!");
-            return;
-        }
-
-        const myStaffId = localStorage.getItem('myStaffId');
-        const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-        
-        if (staff) {
-            staff.password = newPass;
-            saveToLocalStorage();
-            
-            if (sessionStorage.getItem('isAdmin') === 'true') {
-                try {
-                    await saveToBackend();
-                    alert("✓ Profil şifreniz başarıyla sunucuya kaydedildi.");
-                } catch (err) {
-                    console.error("Backend sync failed:", err);
-                }
-            } else {
-                alert("✓ Profil şifreniz bu tarayıcıya kaydedildi.\n(Misafir modunda olduğunuz için sunucu eşitlemesi yapılmadı)");
-            }
-            document.getElementById('modal-set-password').classList.add('hidden');
-        }
-    });
+    // --- Phase 3: Batch Assignment & Search ---
+    document.getElementById('btn-batch-assign')?.addEventListener('click', window.batchAutoAssign);
+    document.getElementById('exam-search')?.addEventListener('input', renderExams);
+    document.getElementById('staff-search')?.addEventListener('input', renderStaff);
 }
 
 
@@ -823,7 +814,8 @@ function renderDashboard() {
         conflictElem.textContent = conflicts.size;
     }
 
-    // Grafigi Guncelle (KALDIRILDI)
+    // Pazar Yeri (Açık Görevler) Panel Kartını Güncelle
+    renderMarketplaceDashboard();
 }
 
 /**
@@ -900,7 +892,6 @@ function addConstraint() {
         newConstraint.date = `${parts[1]}-${parts[2]}`;
     }
 
-    if (!DB.constraints) DB.constraints = {};
     if (!DB.constraints[staffName]) DB.constraints[staffName] = [];
     DB.constraints[staffName].push(newConstraint);
 
@@ -1053,6 +1044,7 @@ window.takeOverDuty = async function(examId, oldProctorId) {
         console.log("Görev devralma başarılı, sunucuya kaydediliyor...");
         await saveToBackend();
         
+        logAction('user', 'Görev Devralma', `${exam.name} görevi ${oldProctor.name}'dan ${newProctor.name}'a devredildi.`);
         alert(`✅ Başarılı!\n${exam.name} görevi ${newProctor.name} hocaya başarıyla devredildi.`);
         document.getElementById('modal-exam-detail').classList.add('hidden');
 
@@ -1105,7 +1097,10 @@ window.showStaffSelectModal = function(message) {
 
 function renderExams() {
     const tbody = document.querySelector('#table-exams tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
+
+    const searchTerm = document.getElementById('exam-search')?.value.toLowerCase() || '';
 
     // Sıralama oklarını güncelle
     document.querySelectorAll('.sortable').forEach(th => {
@@ -1134,10 +1129,39 @@ function renderExams() {
         return 0;
     });
 
+    const now = new Date();
     const conflicts = getConflicts();
     const locConflicts = getLocationConflicts();
 
-    sortedExams.forEach(ex => {
+    const filteredExams = sortedExams.filter(ex => {
+        // Archiving filter
+        const examDateStr = ex.date || "";
+        const examTimeStr = ex.time || "00:00";
+        const examDate = new Date(`${examDateStr}T${examTimeStr}`);
+        const examEnd = new Date(examDate.getTime() + (ex.duration || 60) * 60000);
+        const isPast = examEnd < now;
+
+        if (currentExamTab === 'active' && isPast) return false;
+        if (currentExamTab === 'archive' && !isPast) return false;
+
+        // Search filter
+        if (!searchTerm) return true;
+        
+        const name = (ex.name || "").toLowerCase();
+        const lecturer = (ex.lecturer || "").toLowerCase();
+        
+        const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
+            if (!pid) return '';
+            const s = DB.staff.find(staff => String(staff.id) === String(pid));
+            return s ? s.name.toLowerCase() : '';
+        }).join(' ');
+
+        return name.includes(searchTerm) || 
+               lecturer.includes(searchTerm) || 
+               pNames.includes(searchTerm);
+    });
+
+    filteredExams.forEach(ex => {
         const tr = document.createElement('tr');
         if (conflicts.has(ex.id)) {
             tr.classList.add('conflict-row');
@@ -1172,9 +1196,29 @@ function renderExams() {
             <td>x${ex.katsayi.toFixed(1)}</td>
             <td>${ex.score.toFixed(1)}</td>
             <td>${pNames}</td>
-            <td>
-                <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; margin-right: 0.5rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
-                <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
+            <td style="display: flex; gap: 8px; justify-content: flex-end;">
+                 ${conflicts.has(ex.id) ? `<button class="btn-primary" onclick="quickFixConflict(${ex.id})" title="Otomatik Çöz" style="padding: 0.45rem; background: var(--accent-orange); border-radius: 6px;"><span class="icon" style="margin:0; font-size: 0.9rem;">🧙‍♂️</span></button>` : ''}
+                 ${(() => {
+                     const myStaffId = localStorage.getItem('myStaffId');
+                     const hasRequest = (DB.requests || []).find(r => 
+                         String(r.examId) === String(ex.id) && 
+                         String(r.initiatorId) === String(myStaffId) && 
+                         ['pending', 'pending_peer'].includes(r.status)
+                     );
+                     if (hasRequest) {
+                         return `<button class="btn-delete" onclick="cancelSwapRequest(${hasRequest.id})" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
+                     }
+                     const isMe = (ex.proctorIds || [ex.proctorId]).map(pid => String(pid)).includes(myStaffId);
+                     if (isMe) {
+                         return `
+                            <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                            <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: #8b5cf6;"><span class="icon" style="margin:0;">📢</span></button>
+                         `;
+                     }
+                     return '';
+                 })()}
+                 <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
+                 <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -1398,6 +1442,10 @@ function showAddExamModal() {
             <input type="number" id="exam-duration" value="60" required>
         </div>
         <div class="form-group">
+            <label>Derslik / Yer Bilgisi</label>
+            <input type="text" id="exam-location" placeholder="Örn: Amfi 2">
+        </div>
+        <div class="form-group">
             <label>Gözetmen Ekle</label>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <select id="exam-proctor-select" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
@@ -1537,6 +1585,7 @@ window.deleteExam = (id) => {
         }
         DB.exams.splice(exIndex, 1);
         saveToLocalStorage();
+        logAction('admin', 'Sınav Silme', `${ex.name} sınavı sistemden silindi.`);
         renderExams();
         renderSchedule();
         renderDashboard(); // Update dashboard scores
@@ -1655,6 +1704,16 @@ window.showEditExamModal = (id) => {
     updateEditProctorSelect();
     renderEditProctorList();
 
+    const updateEditSuggestions = () => {
+        const d = document.getElementById('edit-exam-date').value;
+        const t = document.getElementById('edit-exam-time').value;
+        const dur = parseInt(document.getElementById('edit-exam-duration').value) || 60;
+        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null); // null target select because we use list
+    };
+
+    updateEditSuggestions();
+
+    // Attach listeners once (we should ideally move these out, but for now just fix the reference)
     document.getElementById('edit-exam-date').addEventListener('change', updateEditSuggestions);
     document.getElementById('edit-exam-time').addEventListener('change', updateEditSuggestions);
     document.getElementById('edit-exam-duration').addEventListener('input', updateEditSuggestions);
@@ -1679,26 +1738,12 @@ window.showEditExamModal = (id) => {
         }
     });
 
-    const updateEditSuggestions = () => {
-        const d = document.getElementById('edit-exam-date').value;
-        const t = document.getElementById('edit-exam-time').value;
-        const dur = parseInt(document.getElementById('edit-exam-duration').value) || 60;
-        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null); // null target select because we use list
-    };
-
-    // İlk açılışta ve değişimlerde önerileri güncelle
-    updateEditSuggestions();
-
-    document.getElementById('edit-exam-date').addEventListener('change', updateEditSuggestions);
-    document.getElementById('edit-exam-time').addEventListener('change', updateEditSuggestions);
-    document.getElementById('edit-exam-duration').addEventListener('input', updateEditSuggestions);
-
     document.getElementById('edit-modal').classList.remove('hidden');
 };
 
 document.getElementById('edit-modal-form').onsubmit = (e) => {
     e.preventDefault();
-    const id = parseFloat(document.getElementById('edit-exam-id').value);
+    const id = parseInt(document.getElementById('edit-exam-id').value);
     const data = {
         type: document.getElementById('edit-exam-type').value,
         name: document.getElementById('edit-exam-name').value,
@@ -1796,7 +1841,10 @@ function renderStaff() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    DB.staff.forEach(s => {
+    const searchTerm = document.getElementById('staff-search')?.value.toLowerCase() || '';
+    const filteredStaff = DB.staff.filter(s => s.name.toLowerCase().includes(searchTerm));
+
+    filteredStaff.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>
@@ -1832,15 +1880,18 @@ function showAddStaffModal() {
         };
         DB.staff.push(newStaff);
         saveToLocalStorage();
+        logAction('admin', 'Personel Ekleme', `${newStaff.name} personel listesine eklendi.`);
         hideModal();
         renderStaff();
     };
 }
 
 window.deleteStaff = (id) => {
-    if (confirm('Bu personeli silmek istediğinize emin misiniz?')) {
+    const staff = DB.staff.find(s => s.id === id);
+    if (staff && confirm(`${staff.name} kişisini silmek istediğinize emin misiniz?`)) {
         DB.staff = DB.staff.filter(s => s.id !== id);
         saveToLocalStorage();
+        logAction('admin', 'Personel Silme', `${staff.name} sistemden silindi.`);
         renderStaff();
     }
 };
@@ -1897,15 +1948,24 @@ window.showStaffSchedule = (staffName) => {
             const tdAction = document.createElement('td');
             tdAction.style.textAlign = 'right';
             
+            const isMe = String(ex.proctorId) === String(localStorage.getItem('myStaffId')) || 
+                         (ex.proctorIds || []).map(pid => String(pid)).includes(localStorage.getItem('myStaffId'));
+
             if (activeReq) {
+                const isInitiator = String(activeReq.initiatorId) === String(localStorage.getItem('myStaffId'));
                 const statusLabels = {
                     'pending': '<span class="status-badge status-pending" style="font-size:0.6rem;">Açık Talep</span>',
-                    'accepted_waiting_approval': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>'
+                    'accepted_waiting_approval': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>',
+                    'pending_peer': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>'
                 };
-                tdAction.innerHTML = `${statusLabels[activeReq.status]} <span class="badge active">Görevli</span>`;
+                tdAction.innerHTML = `
+                    ${isInitiator ? `<button class="btn-delete" onclick="cancelSwapRequest(${activeReq.id})" title="Talebi İptal Et" style="padding: 0.35rem 0.6rem; font-size: 0.7rem; margin-right: 5px;"><span class="icon" style="margin:0;">🚫</span></button>` : ''}
+                    ${statusLabels[activeReq.status] || ''} <span class="badge active">Görevli</span>
+                `;
             } else {
                 tdAction.innerHTML = `
-                    <button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazım</button>
+                    ${isMe ? `<button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.35rem 0.6rem; border-size: 0.7rem; margin-right: 5px;"><span class="icon" style="margin:0;">🔄</span></button>` : ''}
+                    ${isMe ? `<button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazım</button>` : ''}
                     <span class="badge active">Görevli</span>
                 `;
             }
@@ -2026,16 +2086,40 @@ window.approveSwapPeer = async function(requestId, staffId) {
     const req = DB.requests.find(r => r.id === requestId);
     if (!req) return;
 
+    // Direct swap desteği ekle (Eğer yanlışlıkla buradan gelirse)
+    if (req.type === 'direct_swap') {
+        return acceptDirectSwap(requestId);
+    }
+
     if (req.receiverId === staffId) {
         req.toApproved = true;
-        req.status = 'pending_admin'; // Her iki taraf da onayladığı için admin'e gitsin
-        saveToLocalStorage();
-        alert("Takas talebini onayladınız. Yönetici onayı bekleniyor.");
+        
+        // BİREBİR TAKAS falan değilse (initiatorId ve examId varsa)
+        const exam = DB.exams.find(e => String(e.id) === String(req.examId));
+        const fromStaff = DB.staff.find(s => s.id == req.initiatorId);
+        const toStaff = DB.staff.find(s => s.id == staffId);
+
+        if (exam && fromStaff && toStaff) {
+            fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
+            fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+            
+            toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
+            toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+
+            exam.proctorId = toStaff.id;
+            exam.proctorName = toStaff.name;
+            if (!exam.proctorIds) exam.proctorIds = [toStaff.id];
+            else {
+                const idx = exam.proctorIds.indexOf(fromStaff.id);
+                if (idx !== -1) exam.proctorIds[idx] = toStaff.id;
+            }
+
+            req.status = 'approved';
+            saveToLocalStorage();
+            alert("✅ Görev devri işlemini onayladınız. Değişiklik anında kaydedildi.");
+        }
         
         const staff = DB.staff.find(s => s.id === staffId);
-        if (staff) showStaffSchedule(staff.name);
-        
-        updateRequestBadge();
         if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
     }
 };
@@ -2050,7 +2134,6 @@ window.rejectSwapPeer = async function(requestId) {
     const receiver = DB.staff.find(s => s.id === req.receiverId);
     if (receiver) showStaffSchedule(receiver.name);
 
-    updateRequestBadge();
     if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
 };
 
@@ -2317,12 +2400,9 @@ window.submitSwapForm = async function() {
             document.getElementById('modal-swap').classList.add('hidden');
 
             renderDashboard();
-            updateRequestBadge();
-            
-            // Veriyi sunucuya kaydet
-            console.log("Talep oluşturuldu, sunucuya gönderiliyor...");
             await saveToBackend();
-            alert("Takas talebiniz başarıyla oluşturuldu ve sunucuya kaydedildi.");
+        } else {
+            alert("Takas gerçekleştirilemedi: Sınav bulunamadı.");
         }
     } catch (err) {
         console.error("Takas gönderme hatası:", err);
@@ -2330,205 +2410,128 @@ window.submitSwapForm = async function() {
     }
 };
 
-function createSwapRequest(examId, fromId, toId) {
-    const exam = DB.exams.find(e => String(e.id) === String(examId));
-    if (!exam) return false;
+/**
+ * MARKETPLACE BADGE
+ */
 
-    if (!DB.requests) DB.requests = [];
-
-    const fromStaff = DB.staff.find(s => String(s.id) === String(fromId));
-    const toStaff = toId ? DB.staff.find(s => String(s.id) === String(toId)) : null;
-
-    const newReq = {
-        id: Date.now(),
-        examId: examId,
-        examName: exam.name,
-        examDate: exam.date,
-        examTime: exam.time,
-        initiatorId: fromId,
-        initiatorName: fromStaff ? fromStaff.name : "Bilinmiyor",
-        receiverId: toId,
-        receiverName: toStaff ? toStaff.name : "Açık Talep (Yönetici Atasın)",
-        status: 'pending_admin', // Sözel teyit alındığı için direkt admin'e gidiyor
-        fromApproved: true,
-        toApproved: true, // Sözel onay alındığı varsayılıyor
-        createdAt: new Date().toISOString()
-    };
-
-    DB.requests.push(newReq);
-    saveToLocalStorage();
-    return true;
-}
-
-window.renderSwapRequests = function() {
-    const tbody = document.querySelector('#table-requests tbody');
-    const dashboardTbody = document.querySelector('#table-swap-requests-dashboard tbody');
-    const dashboardCard = document.getElementById('card-swap-requests');
-    
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    if (dashboardTbody) dashboardTbody.innerHTML = '';
-
-    const requests = DB.requests || [];
-    const pendingRequests = requests.filter(r => r.status === 'pending_admin');
-
-    // Dashboard kartı görünürlüğü
-    if (dashboardCard) {
-        if (pendingRequests.length > 0 && sessionStorage.getItem('isAdmin') === 'true') {
-            dashboardCard.classList.remove('hidden');
-        } else {
-            dashboardCard.classList.add('hidden');
-        }
-    }
-
-    if (requests.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir talep bulunmuyor.</td></tr>';
-    } else {
-        requests.sort((a,b) => b.id - a.id).forEach(req => {
-            const tr = document.createElement('tr');
-            const dateStr = req.createdAt ? new Date(req.createdAt).toLocaleString('tr-TR') : '-';
-            
-            tr.innerHTML = `
-                <td>${dateStr}</td>
-                <td><strong>${req.examName}</strong><br><small>${req.examDate} ${req.examTime}</small></td>
-                <td>${req.initiatorName}</td>
-                <td>${req.receiverName}</td>
-                <td><span class="status-badge status-${req.status.replace('_','-')}">${formatStatus(req.status)}</span></td>
-                <td style="text-align:right;">
-                    ${req.status === 'pending_admin' ? `
-                        <button class="btn-primary" onclick="openConfirmSwapModal(${req.id})" style="background:#10b981; padding:0.4rem 0.8rem; font-size:0.75rem; margin-right:5px;">Onayla</button>
-                        <button class="btn-delete" onclick="processSwap(${req.id}, false)" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Reddet</button>
-                    ` : '-'}
-                </td>
-            `;
-            tbody.appendChild(tr);
-
-            // Dashboard tablosuna da ekle (Sadece bekleyenler)
-            if (dashboardTbody && req.status === 'pending_admin') {
-                const dTr = document.createElement('tr');
-                dTr.innerHTML = `
-                    <td>${req.examName}</td>
-                    <td>${req.initiatorName} → ${req.receiverName}</td>
-                    <td>${req.examDate} ${req.examTime}</td>
-                    <td>
-                        <button class="btn-primary" onclick="openConfirmSwapModal(${req.id})" style="background:#10b981; padding:0.3rem 0.6rem; font-size:0.7rem;">Onayla</button>
-                    </td>
-                `;
-                dashboardTbody.appendChild(dTr);
-            }
-        });
-    }
-};
-
-function formatStatus(status) {
-    const map = {
-        'pending_admin': 'Bekliyor',
-        'approved': 'Onaylandı',
-        'rejected': 'Reddedildi'
-    };
-    return map[status] || status;
-}
-
-window.updateRequestBadge = function() {
-    const badge = document.getElementById('request-badge');
+window.updateMarketplaceBadge = function() {
+    const badge = document.getElementById('marketplace-badge');
     if (!badge) return;
-    const count = (DB.requests || []).filter(r => r.status === 'pending_admin').length;
-    if (count > 0 && sessionStorage.getItem('isAdmin') === 'true') {
-        badge.textContent = count;
+    
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        badge.classList.add('hidden');
+        return;
+    }
+
+    const myStaffIdNum = parseInt(myStaffId);
+    const dismissedKey = `dismissed_requests_${myStaffId}`;
+    const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+
+    const openCount = (DB.requests || [])
+        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
+        .filter(r => !dismissedIds.includes(r.id))
+        .length;
+
+    if (openCount > 0) {
+        badge.textContent = openCount;
         badge.classList.remove('hidden');
     } else {
         badge.classList.add('hidden');
     }
+    updateProfileMarketplaceAnnouncement();
 };
 
-window.openConfirmSwapModal = function(requestId) {
-    const req = DB.requests.find(r => r.id === requestId);
-    if (!req) return;
-
-    const exam = DB.exams.find(e => e.id == req.examId);
-    if (!exam) return;
-
-    document.getElementById('swap-request-id-confirm').value = requestId;
-    document.getElementById('swap-confirm-exam-name').textContent = req.examName;
-    document.getElementById('swap-confirm-from-staff').textContent = req.initiatorName;
+window.renderMarketplaceDashboard = function() {
+    const card = document.getElementById('card-marketplace-dashboard');
+    const tbody = document.querySelector('#table-marketplace-dashboard tbody');
+    if (!tbody || !card) return;
     
-    const select = document.getElementById('swap-confirm-to-select');
-    const staffOptions = DB.staff
-        .filter(s => s.id !== req.initiatorId)
-        .map(s => `<option value="${s.id}">${s.name} (${s.totalScore.toFixed(1)} P.)</option>`).join('');
-    select.innerHTML = `<option value="">Hoca Seçin...</option>` + staffOptions;
-    
-    if (req.receiverId) {
-        select.value = req.receiverId;
-    }
-
-    const checkConfirmConflict = () => {
-        const toId = parseInt(select.value);
-        const warnDiv = document.getElementById('swap-confirm-warning');
-        if (!toId) { warnDiv.classList.add('hidden'); return; }
-        const staff = DB.staff.find(s => s.id === toId);
-        const isFree = staff ? isAvailable(staff.name, exam.date, exam.time, exam.duration, exam.id) : true;
-        warnDiv.classList.toggle('hidden', isFree);
-    };
-
-    select.addEventListener('change', checkConfirmConflict);
-    checkConfirmConflict();
-
-    document.getElementById('modal-confirm-swap').classList.remove('hidden');
-};
-
-window.processSwap = async function(requestId, approve) {
-    const req = DB.requests.find(r => r.id === requestId);
-    if (!req) return;
-
-    if (!approve) {
-        req.status = 'rejected';
-        saveToLocalStorage();
-        renderSwapRequests();
-        updateRequestBadge();
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        card.classList.add('hidden');
         return;
     }
 
-    const toId = parseInt(document.getElementById('swap-confirm-to-select').value);
-    if (!toId) {
-        alert("Lütfen devralacak hocayı seçin.");
+    const myStaffIdNum = parseInt(myStaffId);
+    const dismissedKey = `dismissed_requests_${myStaffId}`;
+    const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+
+    const openRequests = (DB.requests || [])
+        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
+        .filter(r => !dismissedIds.includes(r.id));
+
+    if (openRequests.length === 0) {
+        card.classList.add('hidden');
         return;
     }
 
-    const exam = DB.exams.find(e => e.id == req.examId);
-    const fromStaff = DB.staff.find(s => s.id == req.initiatorId);
-    const toStaff = DB.staff.find(s => s.id == toId);
-
-    if (exam && fromStaff && toStaff) {
-        // Puan Güncelleme
-        fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
-        fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
-        
-        toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
-        toStaff.taskCount = (toStaff.taskCount || 0) + 1;
-
-        // Sınavı Güncelle (Gerekirse tüm alanları güncelle)
-        exam.proctorId = toStaff.id;
-        exam.proctorName = toStaff.name;
-
-        req.status = 'approved';
-        req.receiverId = toStaff.id;
-        req.receiverName = toStaff.name;
-
-        saveToLocalStorage();
-        document.getElementById('modal-confirm-swap').classList.add('hidden');
-        
-        renderSwapRequests();
-        updateRequestBadge();
-        renderDashboard();
-        renderExams();
-        renderSchedule();
-        
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
-        alert("Takas işlemi başarıyla onaylandı ve puanlar güncellendi.");
-    }
+    card.classList.remove('hidden');
+    tbody.innerHTML = '';
+    openRequests.forEach(req => {
+        const exam = DB.exams.find(e => e.id == req.examId);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${req.examName}</strong></td>
+            <td>${req.examDate.split('-').reverse().join('.')}</td>
+            <td>${req.examTime}</td>
+            <td><span class="score-tag">+${exam ? exam.score : 0}</span></td>
+            <td style="text-align:right;">
+                <button class="btn-primary" onclick="goToProfileMarketplace()" style="padding: 0.3rem 0.6rem; font-size: 0.7rem; background: var(--accent-green);">İncele</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
 };
+
+window.updateProfileMarketplaceAnnouncement = function() {
+    const banner = document.getElementById('profile-marketplace-announcement');
+    if (!banner) return;
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const myStaffIdNum = parseInt(myStaffId);
+    const dismissedKey = `dismissed_requests_${myStaffId}`;
+    const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+
+    // Kullanıcının müsait olduğu açık talepleri bul
+    const openRequests = (DB.requests || [])
+        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
+        .filter(r => !dismissedIds.includes(r.id));
+
+    // Müsaitlik kontrolü yapılmış olanları filtrele (renderMarketplace mantığı gibi)
+    const availableRequests = openRequests.filter(req => {
+        const exam = DB.exams.find(e => e.id == req.examId);
+        return exam && isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration);
+    });
+
+    if (availableRequests.length === 0) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    // En yakın/güncel olanı göster
+    const req = availableRequests[0];
+    const exam = DB.exams.find(e => e.id == req.examId);
+    const formattedDate = req.examDate.split('-').reverse().join('.');
+
+    banner.innerHTML = `
+        <div class="marketplace-notice-content">
+            <div class="marketplace-notice-icon">🛒</div>
+            <div class="marketplace-notice-text">
+                <h4>Pazar Yeri Duyurusu</h4>
+                <p><b>${req.examName}</b> (${formattedDate} - ${req.examTime}) görevi için yer aranıyor. Devralmak isterseniz <b>Açık Görevler</b> sekmesine göz atabilirsiniz.</p>
+            </div>
+        </div>
+        <button class="marketplace-notice-btn" onclick="document.querySelector('.tab-btn[data-tab=\'marketplace\']').click()">İncele</button>
+    `;
+    banner.classList.remove('hidden');
+};
+
 
 window.showChoiceModal = function(message) {
     return new Promise((resolve) => {
@@ -2571,6 +2574,41 @@ window.renderProfile = function() {
             return;
         }
 
+        // Gelen Takas Tekliflerini Göster
+        const incomingSwaps = (DB.requests || []).filter(r => r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id));
+        const swapNotice = document.getElementById('profile-swap-proposals');
+        if (swapNotice) {
+            if (incomingSwaps.length > 0) {
+                swapNotice.classList.remove('hidden');
+                swapNotice.innerHTML = `
+                    <div style="background: rgba(139, 92, 246, 0.15); border: 1px solid var(--primary); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">🔄</span> Yeni Takas Teklifi
+                        </h4>
+                        ${incomingSwaps.map(r => {
+                            const myExam = DB.exams.find(e => String(e.id) === String(r.receiverExamId));
+                            const hisExam = DB.exams.find(e => String(e.id) === String(r.initiatorExamId));
+                            return `
+                                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size: 0.9rem;">
+                                        <strong>${r.initiatorName}</strong> hoca, 
+                                        <span style="color: var(--accent-orange);">${hisExam ? hisExam.name : '???'}</span> sınavı ile 
+                                        sizin <span style="color: var(--primary);">${myExam ? myExam.name : '???'}</span> sınavınızı takas etmek istiyor.
+                                    </div>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button class="btn-primary" onclick="acceptDirectSwap(${r.id})" style="background: var(--accent-green); padding: 0.4rem 0.8rem; font-size: 0.8rem;">Kabul Et</button>
+                                        <button class="btn-delete" onclick="rejectDirectSwap(${r.id})" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Reddet</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            } else {
+                swapNotice.classList.add('hidden');
+            }
+        }
+
         // Header Bilgileri
         document.getElementById('profile-name').textContent = staff.name;
         document.getElementById('profile-stat-score').textContent = staff.totalScore;
@@ -2596,6 +2634,22 @@ window.renderProfile = function() {
                     <td>${ex.time}</td>
                     <td>${ex.duration} dk</td>
                     <td><span class="score-tag">+${ex.score}</span></td>
+                    <td style="display: flex; gap: 5px;">
+                        ${(() => {
+                            const hasRequest = (DB.requests || []).find(r => 
+                                String(r.examId) === String(ex.id) && 
+                                String(r.initiatorId) === String(myStaffId) && 
+                                ['pending', 'pending_peer'].includes(r.status)
+                            );
+                            if (hasRequest) {
+                                return `<button class="btn-delete" onclick="cancelSwapRequest(${hasRequest.id})" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
+                            }
+                            return `
+                                <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                                <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
+                            `;
+                        })()}
+                    </td>
                 </tr>
             `;
         });
@@ -2617,7 +2671,8 @@ window.renderProfile = function() {
         // Takvim ve diğer verileri güncelle
         renderProfileConstraints();
         renderMarketplace();
-        renderInitiatorApprovals();
+        updateMarketplaceBadge();
+        updateProfileMarketplaceAnnouncement();
     }
 };
 
@@ -2715,6 +2770,7 @@ async function handleAnnouncementSubmit(e) {
         const ann = DB.announcements.find(a => String(a.id) === String(id));
         if (ann) {
             ann.text = text;
+            ann.isImportant = isImportant;
             ann.updatedAt = new Date().toISOString();
         }
     } else {
@@ -2722,6 +2778,7 @@ async function handleAnnouncementSubmit(e) {
         DB.announcements.push({
             id: Date.now(),
             text: text,
+            isImportant: isImportant,
             updatedAt: new Date().toISOString()
         });
     }
@@ -2853,7 +2910,6 @@ function handleProfileConstraintAdd() {
         newConstraint.date = `${parts[1]}-${parts[2]}`; // MM-DD formatı logic.js uyumlu
     }
 
-    if (!DB.constraints) DB.constraints = {};
     if (!DB.constraints[staff.name]) DB.constraints[staff.name] = [];
     DB.constraints[staff.name].push(newConstraint);
 
@@ -2889,7 +2945,7 @@ window.initiateOpenSwap = function(examId) {
     const exam = DB.exams.find(e => e.id == examId);
     if (!exam) return;
 
-    if (confirm(`${exam.name} sınavı için yerinize birini aramak istiyor musunuz? Bu talep uygun diğer hocalara görünecektir.`)) {
+    if (confirm(`${exam.name} sınavı için yerinize birini aramak istediğinize emin misiniz? Bu talep diğer hocalara görünecektir.`)) {
         const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
         
         const newReq = {
@@ -2914,6 +2970,7 @@ window.initiateOpenSwap = function(examId) {
         saveToLocalStorage();
         alert("Talebiniz oluşturuldu. Uygun gözetmenler 'Açık Görevler' sekmesinden kabul edebilir.");
         renderProfile();
+        updateMarketplaceBadge();
     }
 };
 
@@ -2981,9 +3038,10 @@ window.dismissMarketplaceRequest = function(requestId) {
     }
     
     renderMarketplace();
+    updateMarketplaceBadge();
 };
 
-window.acceptOpenRequest = function(requestId) {
+window.acceptOpenRequest = async function(requestId) {
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
     if (!staff) return;
@@ -2998,41 +3056,63 @@ window.acceptOpenRequest = function(requestId) {
         return;
     }
 
-    if (confirm("Bu görevi devralmak istediğinize emin misiniz? Devreden kişinin onayı gerekecektir.")) {
-        req.receiverId = staff.id;
-        req.receiverName = staff.name;
-        req.status = 'accepted_waiting_approval';
-        logAction('SWAP_ACCEPTED', `${staff.name}, ${req.initiatorName}'in talebini kabul etti.`, { requestId });
+    const exam = DB.exams.find(e => e.id == req.examId);
+    if (!exam) return;
+
+    if (confirm(`"${req.examName}" görevini devralmak istediğinize emin misiniz? İşlem anında gerçekleşecektir.`)) {
+        const fromStaff = DB.staff.find(s => s.id == req.initiatorId);
+        const toStaff = staff;
+
+        // Puan ve Görev Sayısı Güncelleme
+        if (fromStaff) {
+            fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
+            fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+        }
+        
+        toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
+        toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+
+        // Sınavı Güncelle
+        if (!exam.proctorIds) exam.proctorIds = [exam.proctorId];
+        
+        // Initiator'ı bul ve değiştir
+        const idx = exam.proctorIds.indexOf(req.initiatorId);
+        if (idx !== -1) {
+            exam.proctorIds[idx] = toStaff.id;
+        } else {
+            // Eğer val bir şekilde yoksa (eski data?), listeye ekle veya yer değiştir
+            exam.proctorIds = [toStaff.id];
+        }
+        
+        // proctorId (ana sorumlu) eğer değişen kişi ise onu da güncelle
+        if (exam.proctorId === req.initiatorId) {
+            exam.proctorId = toStaff.id;
+        }
+
+        // İsimleri güncelle
+        const allProctors = DB.staff.filter(s => exam.proctorIds.includes(s.id));
+        exam.proctorName = allProctors.map(p => p.name).join(', ');
+
+        // Talebi Güncelle
+        req.status = 'approved';
+        req.receiverId = toStaff.id;
+        req.receiverName = toStaff.name;
+        req.toApproved = true;
+
+        logAction('user', 'Açık Talep Kabulü', `${toStaff.name}, ${req.initiatorName}'in ${req.examName} görevini devraldı.`);
+        
         saveToLocalStorage();
-        alert("Talebiniz iletildi. Görevi devreden kişi onayladığında işlem tamamlanacaktır.");
+        
+        // Admin modundaysa sunucuya kaydet
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        
+        alert("✓ Görev başarıyla devralındı ve puanlar güncellendi.");
+        
         renderProfile();
-    }
-};
-
-window.renderInitiatorApprovals = function() {
-    const myStaffId = localStorage.getItem('myStaffId');
-    const section = document.getElementById('initiator-approval-section');
-    const list = document.getElementById('initiator-approval-list');
-    if (!section || !list || !myStaffId) return;
-
-    const myApprovals = (DB.requests || []).filter(r => String(r.initiatorId) === String(myStaffId) && r.status === 'accepted_waiting_approval');
-
-    if (myApprovals.length > 0) {
-        section.classList.remove('hidden');
-        list.innerHTML = myApprovals.map(r => `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:10px;">
-                <div style="font-size:0.85rem;">
-                    <strong>${r.examName}</strong><br>
-                    <span style="color:var(--text-muted)">${r.receiverName} görevini devralmayı kabul etti. Onaylıyor musunuz?</span>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn-primary" onclick="confirmOpenRequest(${r.id})" style="background:#10b981; padding:0.4rem 0.8rem; font-size:0.75rem;">✅ Onayla</button>
-                    <button class="btn-delete" onclick="rejectOpenRequest(${r.id})" style="padding:0.4rem 0.8rem; font-size:0.75rem;">❌ Reddet</button>
-                </div>
-            </div>
-        `).join('');
-    } else {
-        section.classList.add('hidden');
+        updateMarketplaceBadge();
+        renderDashboard();
+        renderExams();
+        renderSchedule();
     }
 };
 
@@ -3040,14 +3120,34 @@ window.confirmOpenRequest = async function(requestId) {
     const req = DB.requests.find(r => r.id === requestId);
     if (!req) return;
 
-    if (confirm(`${req.receiverName} hocanın devralmasını kesin olarak onaylıyor musunuz?`)) {
+    if (confirm(`${req.receiverName} hocaya görevi devretmek istediğinize emin misiniz? İşlem anında gerçekleşecektir.`)) {
         req.toApproved = true;
-        req.status = 'pending_admin'; // Admin son imzayı atsın
-        logAction('SWAP_CONFIRMED', `${req.initiatorName}, ${req.receiverName}'i onayladı.`, { requestId });
-        saveToLocalStorage();
-        alert("✓ Onaylandı. Değişiklik son bir kontrol için yöneticiye iletildi.");
-        renderProfile();
-        updateRequestBadge();
+        
+        const exam = DB.exams.find(e => e.id == req.examId);
+        const fromStaff = DB.staff.find(s => s.id == req.initiatorId);
+        const toStaff = DB.staff.find(s => s.id == req.receiverId);
+
+        if (exam && fromStaff && toStaff) {
+            fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
+            fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+            
+            toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
+            toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+
+            exam.proctorId = toStaff.id;
+            exam.proctorName = toStaff.name;
+            if (!exam.proctorIds) exam.proctorIds = [toStaff.id];
+            else {
+                const idx = exam.proctorIds.indexOf(fromStaff.id);
+                if (idx !== -1) exam.proctorIds[idx] = toStaff.id;
+            }
+
+            req.status = 'approved';
+            logAction('SWAP_CONFIRMED', `${req.initiatorName}, ${req.receiverName}'i onayladı (Anında gerçekleşti).`, { requestId });
+            saveToLocalStorage();
+            alert("✓ Onaylandı. Görev devri anında gerçekleşti ve puanlar güncellendi.");
+            renderProfile();
+        }
     }
 };
 
@@ -3086,6 +3186,201 @@ window.goToProfileMarketplace = function() {
 window.openTypeManager = () => {
     document.getElementById('modal-manage-types').classList.remove('hidden');
     renderExamTypesList();
+};
+
+/**
+ * DIRECT SWAP (BİREBİR TAKAS) MANTIĞI
+ */
+
+window.cancelSwapRequest = function(requestId) {
+    if (confirm("Bu talebi iptal etmek istediğinize emin misiniz?")) {
+        const reqIndex = DB.requests.findIndex(r => String(r.id) === String(requestId));
+        if (reqIndex > -1) {
+            const req = DB.requests[reqIndex];
+            DB.requests.splice(reqIndex, 1);
+            logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName} için açtığı talebi iptal etti.`);
+            saveToLocalStorage();
+            renderExams();
+            renderProfile();
+            updateMarketplaceBadge();
+            alert("✓ Talep başarıyla iptal edildi.");
+        }
+    }
+};
+
+window.initiateDirectSwap = function(myExamId) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return alert("Lütfen önce profilinizden kimliğinizi seçin.");
+
+    const myExam = DB.exams.find(e => String(e.id) === String(myExamId));
+    if (!myExam) return;
+
+    document.getElementById('direct-swap-my-exam-id').value = myExamId;
+    document.getElementById('direct-swap-my-exam-name').textContent = `${myExam.name} (${myExam.date})`;
+    
+    // Hoca listesini doldur (kendim hariç)
+    const targetSelect = document.getElementById('direct-swap-target-proctor');
+    targetSelect.innerHTML = '<option value="">Hoca Seçin...</option>' + 
+        DB.staff.filter(s => String(s.id) !== String(myStaffId))
+               .sort((a,b) => a.name.localeCompare(b.name, 'tr'))
+               .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+    // Reset modal state
+    document.getElementById('direct-swap-target-exams-container').classList.add('hidden');
+    document.getElementById('direct-swap-summary').classList.add('hidden');
+    document.getElementById('btn-confirm-direct-swap').disabled = true;
+
+    document.getElementById('modal-direct-swap').classList.remove('hidden');
+
+    // Change listener
+    targetSelect.onchange = () => {
+        const targetId = targetSelect.value;
+        if (!targetId) {
+            document.getElementById('direct-swap-target-exams-container').classList.add('hidden');
+            return;
+        }
+        renderDirectSwapTargetExams(targetId);
+    };
+};
+
+window.renderDirectSwapTargetExams = function(targetStaffId) {
+    const container = document.getElementById('direct-swap-target-exams-container');
+    const list = document.getElementById('direct-swap-exam-list');
+    
+    // Hocanın aktif sınavlarını bul
+    const now = new Date();
+    const targetExams = DB.exams.filter(e => String(e.proctorId) === String(targetStaffId) && new Date(e.date) >= now);
+
+    if (targetExams.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">Bu hocanın aktif görevi bulunmuyor.</p>';
+    } else {
+        list.innerHTML = targetExams.map(ex => `
+            <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, '${ex.name}', '${ex.date}')">
+                <div style="font-weight: 600;">${ex.name}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${ex.date} - ${ex.time}</div>
+            </div>
+        `).join('');
+    }
+    container.classList.remove('hidden');
+};
+
+window.selectDirectSwapTargetExam = function(examId, name, date) {
+    window.selectedDirectSwapTargetExamId = examId;
+    document.getElementById('direct-swap-target-exam-name').textContent = `${name} (${date})`;
+    document.getElementById('direct-swap-summary').classList.remove('hidden');
+    document.getElementById('btn-confirm-direct-swap').disabled = false;
+    
+    // Highlight selected
+    document.querySelectorAll('#direct-swap-exam-list .suggestion-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+};
+
+document.getElementById('btn-confirm-direct-swap').onclick = async function() {
+    const myExamId = document.getElementById('direct-swap-my-exam-id').value;
+    const targetStaffId = document.getElementById('direct-swap-target-proctor').value;
+    const targetExamId = window.selectedDirectSwapTargetExamId;
+    const myStaffId = localStorage.getItem('myStaffId');
+
+    if (!myExamId || !targetStaffId || !targetExamId) return;
+
+    const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    const targetStaff = DB.staff.find(s => String(s.id) === String(targetStaffId));
+    const myExam = DB.exams.find(e => e.id == myExamId);
+    const targetExam = DB.exams.find(e => e.id == targetExamId);
+
+    if (confirm(`${targetStaff.name} hocaya birebir takas teklifi göndermek istediğinize emin misiniz?`)) {
+        if (!DB.requests) DB.requests = [];
+        
+        DB.requests.push({
+            id: Date.now(),
+            type: 'direct_swap',
+            initiatorId: parseInt(myStaffId),
+            initiatorName: myStaff.name,
+            initiatorExamId: parseInt(myExamId),
+            receiverId: parseInt(targetStaffId),
+            receiverName: targetStaff.name,
+            receiverExamId: parseInt(targetExamId),
+            status: 'pending_peer',
+            createdAt: new Date().toISOString()
+        });
+
+        saveToLocalStorage();
+        alert("Takas teklifiniz iletildi. Hocanın onaylaması bekleniyor.");
+        document.getElementById('modal-direct-swap').classList.add('hidden');
+        renderProfile();
+    }
+};
+
+window.acceptDirectSwap = async function(requestId) {
+    const req = DB.requests.find(r => String(r.id) === String(requestId));
+    if (!req) return;
+
+    const myExam = DB.exams.find(e => String(e.id) === String(req.receiverExamId));
+    const hisExam = DB.exams.find(e => String(e.id) === String(req.initiatorExamId));
+    const myStaff = DB.staff.find(s => s.id == req.receiverId);
+    const hisStaff = DB.staff.find(s => s.id == req.initiatorId);
+
+    if (!myExam || !hisExam || !myStaff || !hisStaff) return alert("Veri hatası oluştu.");
+
+    if (confirm(`${hisStaff.name} ile görevi takas etmeyi onaylıyor musunuz?`)) {
+        // PUAN GÜNCELLEME
+        // Benim eski sınavımı ondan çıkar, onun sınavını bana ekle demiyoruz. 
+        // Birebir değişim: MyExam onun oluyor, HisExam benim oluyor.
+        
+        // 1. Benim puanımdan benim eski sınavımı düş, onun sınavını ekle
+        myStaff.totalScore = parseFloat((myStaff.totalScore - myExam.score + hisExam.score).toFixed(2));
+        
+        // 2. Onun puanından onun sınavını düş, benimkini ekle
+        hisStaff.totalScore = parseFloat((hisStaff.totalScore - hisExam.score + myExam.score).toFixed(2));
+
+        // 3. Görev sayıları değişmez (1 verildi 1 alındı)
+
+        // 4. Sınavların Gözetmenlerini Değiştir
+        // MyExam -> hisStaff
+        myExam.proctorId = hisStaff.id;
+        myExam.proctorName = hisStaff.name;
+        if (myExam.proctorIds) {
+            const idx = myExam.proctorIds.indexOf(req.receiverId);
+            if (idx !== -1) myExam.proctorIds[idx] = hisStaff.id;
+            else myExam.proctorIds = [hisStaff.id];
+        }
+
+        // HisExam -> myStaff
+        hisExam.proctorId = myStaff.id;
+        hisExam.proctorName = myStaff.name;
+        if (hisExam.proctorIds) {
+            const idx = hisExam.proctorIds.indexOf(req.initiatorId);
+            if (idx !== -1) hisExam.proctorIds[idx] = myStaff.id;
+            else hisExam.proctorIds = [myStaff.id];
+        }
+
+        // 5. Talebi Güncelle
+        req.status = 'approved';
+        req.updatedAt = new Date().toISOString();
+
+        saveToLocalStorage();
+        logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sınavlarını takas etti.`);
+        alert("✅ Takas işlemi başarıyla tamamlandı!");
+        
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        
+        renderProfile();
+        renderDashboard();
+        renderExams();
+        renderSchedule();
+    }
+};
+
+window.rejectDirectSwap = async function(requestId) {
+    const req = DB.requests.find(r => String(r.id) === String(requestId));
+    if (!req) return;
+
+    if (confirm("Bu takas teklifini reddetmek istediğinize emin misiniz?")) {
+        req.status = 'rejected';
+        saveToLocalStorage();
+        renderProfile();
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+    }
 };
 
 window.renderExamTypesList = () => {
@@ -3129,3 +3424,252 @@ window.deleteExamType = async (type) => {
         if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
     }
 };
+window.batchAutoAssign = async function() {
+    const unassignedExams = DB.exams.filter(ex => !ex.proctorId && (!ex.proctorIds || ex.proctorIds.length === 0));
+    if (unassignedExams.length === 0) {
+        alert("Atama yapılacak gözetmensiz sınav bulunamadı.");
+        return;
+    }
+
+    if (confirm(`${unassignedExams.length} adet sınava otomatik gözetmen atansın mı?`)) {
+        let assignedCount = 0;
+        unassignedExams.forEach(ex => {
+            const best = findBestProctor(ex.date, ex.time, ex.duration);
+            if (best) {
+                ex.proctorId = best.id;
+                ex.proctorIds = [best.id];
+                ex.proctorName = best.name;
+                
+                const score = calculateScore(new Date(`${ex.date}T${ex.time}`), ex.duration);
+                ex.score = score;
+                
+                best.totalScore = parseFloat((best.totalScore + score).toFixed(2));
+                best.taskCount = (best.taskCount || 0) + 1;
+                assignedCount++;
+            }
+        });
+
+        saveToLocalStorage();
+        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        
+        logAction('admin', 'Toplu Atama', `${assignedCount} unassigned sınava otomatik gözetmen atandı.`);
+        
+        renderExams();
+        renderDashboard();
+        renderStaff();
+        alert(`✓ ${assignedCount} sınava başarıyla atama yapıldı.`);
+    }
+};
+
+window.quickFixConflict = async function(examId) {
+    const exam = DB.exams.find(e => e.id === examId);
+    if (!exam) return;
+
+    if (confirm(`${exam.name} sınavı için çakışmayı otomatik gidermek istiyor musunuz? Uygun en iyi gözetmen atanacaktır.`)) {
+        // Eski gözetmen puanlarını düş (Multi-proctor desteğiyle)
+        const oldPIds = exam.proctorIds || [exam.proctorId];
+        oldPIds.forEach(pid => {
+            const s = DB.staff.find(staff => staff.id === pid);
+            if (s) {
+                s.totalScore = Math.max(0, parseFloat((s.totalScore - exam.score).toFixed(2)));
+                s.taskCount = Math.max(0, s.taskCount - 1);
+            }
+        });
+
+        // Yeni gözetmen bul
+        const best = findBestProctor(exam.date, exam.time, exam.duration, exam.id);
+        if (best) {
+            exam.proctorId = best.id;
+            exam.proctorIds = [best.id];
+            exam.proctorName = best.name;
+            
+            best.totalScore = parseFloat((best.totalScore + exam.score).toFixed(2));
+            best.taskCount = (best.taskCount || 0) + 1;
+
+            saveToLocalStorage();
+            if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+
+            renderExams();
+            renderDashboard();
+            renderStaff();
+            renderSchedule();
+            alert(`✓ ${best.name} başarıyla atandı.`);
+        } else {
+            // Eski gözetmenleri geri al (yetersiz yedek)
+            oldPIds.forEach(pid => {
+                const s = DB.staff.find(staff => staff.id === pid);
+                if (s) {
+                    s.totalScore = parseFloat((s.totalScore + exam.score).toFixed(2));
+                    s.taskCount = (s.taskCount || 0) + 1;
+                }
+            });
+            alert("⚠️ Uygun yedek gözetmen bulunamadı!");
+        }
+    }
+};
+
+/**
+ * DASHBOARD PUAN GRAFİĞİ
+ */
+window.renderScoreChart = function() {
+    const ctx = document.getElementById('score-distribution-chart');
+    if (!ctx || !window.Chart) return;
+
+    if (window.myScoreChart) window.myScoreChart.destroy();
+
+    const sortedStaff = [...DB.staff].sort((a,b) => b.totalScore - a.totalScore);
+    const labels = sortedStaff.map(s => s.name);
+    const scores = sortedStaff.map(s => s.totalScore);
+
+    window.myScoreChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Toplam Puan',
+                data: scores,
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: '#6366f1',
+                borderWidth: 1,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+};
+
+// Hook into dashboard rendering
+const originalRenderDashboard = window.renderDashboard;
+window.renderDashboard = function() {
+    if (typeof originalRenderDashboard === 'function') originalRenderDashboard();
+    setTimeout(renderScoreChart, 200);
+};
+
+// --- NEW FEATURES: AUDIT LOG, PDF EXPORT, THEME ---
+
+/**
+ * Audit Log Arayüzünü Render Etme
+ */
+function renderAuditLogs() {
+    const tbody = document.querySelector('#table-audit tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (!DB.auditLogs || DB.auditLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz işlem kaydı bulunmuyor.</td></tr>';
+        return;
+    }
+    
+    DB.auditLogs.forEach(log => {
+        const tr = document.createElement('tr');
+        
+        // Kategoriye göre renk atama
+        let catColor = 'var(--text-muted)';
+        if (log.category === 'admin') catColor = 'var(--primary)';
+        if (log.category === 'user') catColor = 'var(--accent-green)';
+        
+        tr.innerHTML = `
+            <td style="font-size: 0.8rem; white-space: nowrap;">${log.timestamp}</td>
+            <td><span class="badge" style="background: rgba(255,255,255,0.05); color: ${catColor}; border: 1px solid ${catColor}44; padding: 2px 8px;">${log.category}</span></td>
+            <td style="font-weight: 700;">${log.action}</td>
+            <td style="color: var(--text-secondary); font-size: 0.85rem;">${log.details}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * PDF Olarak Dışa Aktar (jsPDF & AutoTable)
+ */
+function exportToPDF(tableId, title) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4'); // Yatay format
+    
+    // Title
+    doc.setFontSize(18);
+    doc.setTextColor(40);
+    doc.text(title, 14, 22);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Oluşturulma Tarihi: ${new Date().toLocaleString('tr-TR')}`, 14, 30);
+
+    const table = document.getElementById(tableId);
+    if (!table) {
+        alert('Tablo bulunamadı!');
+        return;
+    }
+
+    // AutoTable
+    doc.autoTable({
+        html: `#${tableId}`,
+        startY: 35,
+        theme: 'grid',
+        styles: {
+            fontSize: 8,
+            cellPadding: 3,
+            valign: 'middle'
+        },
+        headStyles: {
+            fillColor: [99, 102, 241], // Primary color
+            textColor: 255,
+            fontSize: 9,
+            fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+            fillColor: [245, 247, 250]
+        },
+        didParseCell: function (data) {
+            // Remove emojis or icons if they cause issues in PDF
+            if (data.section === 'body' && typeof data.cell.text === 'string') {
+                data.cell.text = data.cell.text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+            }
+        }
+    });
+
+    const filename = `${title.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    doc.save(filename);
+}
+
+/**
+ * Tema Kontrolü
+ */
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-theme');
+    const toggleBtn = document.getElementById('btn-theme-toggle');
+    if (toggleBtn) {
+        toggleBtn.textContent = isLight ? '☀️' : '🌓';
+    }
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+function applyTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const toggleBtn = document.getElementById('btn-theme-toggle');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        if (toggleBtn) toggleBtn.textContent = '☀️';
+    } else {
+        document.body.classList.remove('light-theme');
+        if (toggleBtn) toggleBtn.textContent = '🌓';
+    }
+}

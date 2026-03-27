@@ -25,6 +25,37 @@
     --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Light Theme Overrides */
+body.light-theme {
+    --bg-main: radial-gradient(circle at top left, hsl(210, 20%, 98%), hsl(210, 20%, 94%));
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-glow: rgba(99, 102, 241, 0.1);
+    --text-primary: hsl(222, 47%, 12%);
+    --text-secondary: hsl(222, 20%, 40%);
+    --text-muted: hsl(215, 16%, 45%);
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .card-large, 
+body.light-theme .stat-card, 
+body.light-theme header,
+body.light-theme nav {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+body.light-theme .table-container,
+body.light-theme th {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+body.light-theme .logo h1 {
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
 /* Base Styles */
 * {
     margin: 0;
@@ -302,6 +333,28 @@ tr:hover td {
     transform: translateY(0);
 }
 
+.btn-theme-toggle {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: var(--transition-smooth);
+    margin-left: 1rem;
+}
+
+.btn-theme-toggle:hover {
+    background: var(--primary);
+    color: white;
+    transform: rotate(15deg);
+}
+
 .btn-secondary {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--glass-border);
@@ -316,6 +369,28 @@ tr:hover td {
 .btn-secondary:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
+}
+.cloud-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--accent-green);
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    animation: fadeIn 0.3s ease;
+}
+
+.cloud-status.syncing {
+    color: var(--accent-orange);
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.cloud-status.hidden {
+    display: none;
 }
 
 /* Badges */
@@ -759,14 +834,6 @@ table {
     z-index: 9999;
 }
 
-.login-error {
-    color: var(--accent-red);
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-top: 1rem;
-    animation: fadeIn 0.3s ease-out;
-}
-
 .login-container {
     display: flex;
     gap: 2rem;
@@ -888,4 +955,153 @@ table {
     .login-card {
         padding: 2rem;
     }
+}
+/* Profile Marketplace Announcement Banner */
+#profile-marketplace-announcement {
+    margin-bottom: 2rem;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    animation: slideDownIn 0.5s ease-out forwards;
+}
+
+#profile-marketplace-announcement.hidden {
+    display: none !important;
+}
+
+.marketplace-notice-content {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    color: white;
+}
+
+.marketplace-notice-icon {
+    font-size: 1.75rem;
+    background: rgba(99, 102, 241, 0.2);
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+}
+
+.marketplace-notice-text h4 {
+    margin: 0 0 4px 0;
+    color: var(--primary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+}
+
+.marketplace-notice-text p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.marketplace-notice-text b {
+    color: var(--accent-green);
+}
+
+.marketplace-notice-btn {
+    background: var(--primary);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+    box-shadow: var(--glow-shadow);
+}
+
+.marketplace-notice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+    background: var(--secondary);
+}
+
+@keyframes slideDownIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Audit Log Category Badges */
+.category-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.cat-admin {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.cat-user {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.cat-system {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Table Style for Audit Log */
+#table-audit {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+#table-audit th {
+    text-align: left;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+#table-audit td {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1rem;
+    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+#table-audit td:first-child {
+    border-left: 1px solid var(--glass-border);
+    border-radius: 12px 0 0 12px;
+}
+
+#table-audit td:last-child {
+    border-right: 1px solid var(--glass-border);
+    border-radius: 0 12px 12px 0;
 }

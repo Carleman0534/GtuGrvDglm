@@ -60,7 +60,7 @@ let DB = {
     exams: [],
     constraints: {},
     requests: [],
-    logs: [],
+    auditLogs: [],
     examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
     announcements: [],
     courseLecturers: {
@@ -141,19 +141,25 @@ let DB = {
 /**
  * İşlem Günlüğü (Logging)
  */
-function logAction(type, message, details = {}) {
-    if (!DB.logs) DB.logs = [];
+function logAction(category, action, details = "") {
+    if (!DB.auditLogs) DB.auditLogs = [];
+    
+    // Stringify details if it's an object for simple display
+    const detailsStr = (typeof details === 'object') ? JSON.stringify(details) : String(details);
+
     const logEntry = {
         id: Date.now(),
-        timestamp: new Date().toISOString(),
-        user: localStorage.getItem('myStaffName') || "Sistem",
-        type,
-        message,
-        details
+        timestamp: new Date().toLocaleString('tr-TR'),
+        category: category, // 'admin', 'user', 'system'
+        action: action,     // 'Takas', 'Atama', 'Düzenleme'
+        details: detailsStr
     };
-    DB.logs.push(logEntry);
-    // Logları son 100 işlemle sınırla
-    if (DB.logs.length > 100) DB.logs.shift();
+    
+    DB.auditLogs.unshift(logEntry); // En yeni en üstte
+    if (DB.auditLogs.length > 500) DB.auditLogs.pop(); // Maksimum 500 kayıt
+    
+    // Local storage'a kaydet (saveToLocalStorage içinden zaten çağrılıyor olabilir ama garantiye alalım)
+    localStorage.setItem(DB_KEY, JSON.stringify(DB));
 }
 function getKatsayi(date) {
     const day = date.getDay();
@@ -333,24 +339,27 @@ function autoResolveConflicts() {
     });
 
     saveToLocalStorage();
+    logAction('admin', 'Otomatik Çakışma Çözme', `${resolvedCount} çakışma giderildi, ${skippedCount} uygun yedek bulunamadı.`);
     return { resolved: resolvedCount, skipped: skippedCount };
 }
 
 
 function addExam(examData) {
-    let proctor = null;
+    let proctors = [];
     
-    // Eğer kullanıcı manuel bir gözetmen seçtiyse onu al
-    if (examData.proctorId) {
-        proctor = DB.staff.find(s => s.id === examData.proctorId);
+    if (examData.proctorIds && examData.proctorIds.length > 0) {
+        proctors = DB.staff.filter(s => examData.proctorIds.includes(s.id));
+    } else if (examData.proctorId) {
+        const p = DB.staff.find(s => s.id === examData.proctorId);
+        if (p) proctors = [p];
     }
     
-    // Manuel seçim yoksa veya seçilen hoca bulunamadıysa algoritmaya bırak
-    if (!proctor) {
-        proctor = findBestProctor(examData.date, examData.time, examData.duration);
+    if (proctors.length === 0) {
+        const best = findBestProctor(examData.date, examData.time, examData.duration);
+        if (best) proctors = [best];
     }
 
-    if (!proctor) {
+    if (proctors.length === 0) {
         alert("Bu tarih ve saatte müsait bir gözetmen bulunamadı!");
         return;
     }
@@ -365,20 +374,23 @@ function addExam(examData) {
         lecturer: examData.lecturer || "-",
         capacity: examData.capacity || "-",
         location: examData.location || "Belirtilmedi",
-        proctorId: proctor.id,
-        proctorName: proctor.name,
+        proctorIds: proctors.map(p => p.id),
+        proctorId: proctors[0].id,
+        proctorName: proctors.map(p => p.name).join(', '),
         score: score,
         katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`))
     };
 
     DB.exams.push(newExam);
     
-    // Personel puanını güncelle
-    const staffMember = DB.staff.find(s => s.id === proctor.id);
-    staffMember.totalScore += score;
-    staffMember.taskCount += 1;
+    // Personel puanlarını güncelle
+    proctors.forEach(p => {
+        p.totalScore = parseFloat((p.totalScore + score).toFixed(2));
+        p.taskCount = (p.taskCount || 0) + 1;
+    });
 
     saveToLocalStorage();
+    logAction('admin', 'Sınav Ekleme', `${newExam.name} (${newExam.date}) sınavı sisteme eklendi.`);
     return newExam;
 }
 
@@ -388,39 +400,41 @@ function updateExam(id, newData) {
 
     const oldExam = DB.exams[exIndex];
     
-    // Yükü eski gözetmenden düş
-    const oldStaff = DB.staff.find(s => s.id === oldExam.proctorId);
-    if (oldStaff) {
-        oldStaff.totalScore -= oldExam.score;
-        oldStaff.taskCount -= 1;
-    }
+    // Yükü eski gözetmenlerden düş
+    const oldPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
+    oldPIds.forEach(pid => {
+        const s = DB.staff.find(staff => staff.id === pid);
+        if (s) {
+            s.totalScore = Math.max(0, parseFloat((s.totalScore - oldExam.score).toFixed(2)));
+            s.taskCount = Math.max(0, s.taskCount - 1);
+        }
+    });
 
-    // Yeni puan hesapla ve Gözetmeni bul
+    // Yeni puan hesapla
     const newScore = calculateScore(new Date(`${newData.date}T${newData.time}`), newData.duration);
-    const newStaff = DB.staff.find(s => s.id === newData.proctorId);
+    const newPIds = newData.proctorIds || (newData.proctorId ? [newData.proctorId] : []);
+    const newProctors = DB.staff.filter(s => newPIds.includes(s.id));
 
-    if (newStaff) {
-        newStaff.totalScore += newScore;
-        newStaff.taskCount += 1;
-        
+    if (newProctors.length > 0) {
         // Sınavı güncelle
         DB.exams[exIndex] = {
             ...oldExam,
-            name: newData.name,
-            type: newData.type || oldExam.type || "Vize",
-            lecturer: newData.lecturer || "-",
-            capacity: newData.capacity || "-",
-            location: newData.location || "Belirtilmedi",
-            date: newData.date,
-            time: newData.time,
-            duration: newData.duration,
-            proctorId: newStaff.id,
-            proctorName: newStaff.name,
+            ...newData,
+            proctorIds: newPIds,
+            proctorId: newPIds[0],
+            proctorName: newProctors.map(p => p.name).join(', '),
             score: newScore,
             katsayi: getKatsayi(new Date(`${newData.date}T${newData.time}`))
         };
+
+        // Yükü yeni gözetmenlere ekle
+        newProctors.forEach(p => {
+            p.totalScore = parseFloat((p.totalScore + newScore).toFixed(2));
+            p.taskCount = (p.taskCount || 0) + 1;
+        });
         
         saveToLocalStorage();
+        logAction('admin', 'Sınav Güncelleme', `${newData.name} sınav bilgileri güncellendi.`);
     }
 }
 
@@ -428,12 +442,19 @@ const API_URL = API_BASE_URL + "/api/data";
 
 async function saveToBackend() {
     console.log("Sunucuya kaydediliyor...", API_URL);
+    const statusDiv = document.getElementById('cloud-status');
+    const statusText = document.getElementById('cloud-status-text');
+    
+    if (statusDiv) {
+        statusDiv.classList.remove('hidden');
+        statusDiv.classList.add('syncing');
+        if (statusText) statusText.textContent = "Eşitleniyor...";
+    }
+
     try {
         const payload = JSON.stringify(DB);
         const secret = sessionStorage.getItem('userPassword') || '';
         
-        // Header değerleri sadece ISO-8859-1 (latin1) karakterleri içerebilir.
-        // Şifre Türkçe karakter içeriyorsa fetch hata verir. Bu yüzden Base64 ile gönderiyoruz.
         const encodedSecret = btoa(unescape(encodeURIComponent(secret)));
 
         const response = await fetch(API_URL, {
@@ -450,7 +471,22 @@ async function saveToBackend() {
             throw new Error(err.error || `Sunucu hatası: ${response.status}`);
         }
         console.log("Sunucuya başarıyla kaydedildi. Talep sayısı:", (DB.requests || []).length);
+        
+        if (statusDiv) {
+            statusDiv.classList.remove('syncing');
+            if (statusText) statusText.textContent = "Bulutla Eşitlendi";
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 3000);
+        }
     } catch (e) {
+        if (statusDiv) {
+            statusDiv.classList.remove('syncing');
+            if (statusText) {
+                statusText.textContent = "Bağlantı Hatası";
+                statusText.style.color = "var(--accent-red)";
+            }
+        }
         console.error("Backend kayit hatasi DETAY:", {
             error: e,
             message: e.message,
@@ -461,28 +497,7 @@ async function saveToBackend() {
     }
 }
 
-function loadFromLocalStorage() {
-    console.log("Lokal veriler yükleniyor...");
-    const saved = localStorage.getItem(DB_KEY);
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            // Sadece gerçekten bir DB objesi ise yükle
-            if (parsed && Array.isArray(parsed.staff)) {
-                DB = parsed;
-                console.log("Lokal veriler başarıyla yüklendi (Versiyon: " + (DB.version || 0) + ")");
-            }
-        } catch (e) {
-            console.error("Lokal veri okuma hatası:", e);
-        }
-    }
-}
-
 function saveToLocalStorage() {
-    // Versiyonu artır (Senkronizasyon için)
-    if (typeof DB.version === 'undefined') DB.version = 0;
-    DB.version++;
-    
     // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için
     localStorage.setItem(DB_KEY, JSON.stringify(DB));
     
@@ -493,53 +508,47 @@ function saveToLocalStorage() {
 }
 
 async function loadFromDataJSON() {
+    // Yerel kısıtları kaybetmemek için önce localStorage'dan alalım
+    let localConstraints = null;
     try {
-        // --- KRİTİK: Önce lokal veriyi yükle (Kullanıcının yaptığı son değişiklikleri kaybetmemek için) ---
-        loadFromLocalStorage();
+        const saved = localStorage.getItem(DB_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            localConstraints = parsed.constraints;
+        }
+    } catch(e) {
+        console.warn("Yerel kısıtlar okunamadı:", e);
+    }
 
+    try {
         console.log("Veriler sunucudan yükleniyor...", API_URL);
         const response = await fetch(API_URL + '?t=' + new Date().getTime());
         if (!response.ok) throw new Error(`Ağ hatası: ${response.status}`);
         const data = await response.json();
         
         if (data && typeof data === 'object' && Array.isArray(data.staff)) {
-            // Sunucudaki veri bendekinden eski mi? (Versiyon kontrolü)
-            if (DB.version > (data.version || 0)) {
-                console.log("Lokal veriler sunucudakinden daha güncel, senkronizasyon bekleniyor.");
-                // Eğer adminsek sunucuya bendekini yükleyebiliriz ama şimdilik sadece merge yapalım
+            // Preserve hardcoded lecturers and Math-focused staff if missing in loaded data
+            if (!data.lecturers || data.lecturers.length === 0) {
+                data.lecturers = DB.lecturers;
+            }
+            if (!data.courseLecturers) {
+                data.courseLecturers = DB.courseLecturers;
+            }
+            
+            // KRİTİK: Eğer yerel kısıtlar varsa ve biz bir kullanıcıysak, yerel kısıtlarımızı koruyalım
+            // Çünkü guest modunda sunucuya kayıt yapılamıyor, refresh sonrası silinmemeli.
+            if (localConstraints) {
+                const myStaffId = localStorage.getItem('myStaffId');
+                const me = data.staff.find(s => String(s.id) === String(myStaffId));
+                if (me && localConstraints[me.name]) {
+                    if (!data.constraints) data.constraints = {};
+                    data.constraints[me.name] = localConstraints[me.name];
+                    console.log(`Yerel kısıtlar (${me.name}) geri yüklendi.`);
+                }
             }
 
-            // Merge server data into local DB structure to preserve personal constraints/requests
-            const localConstraints = DB.constraints || {};
-            const localRequests = DB.requests || [];
-            const localVersion = DB.version || 0;
-            
             DB = data;
-            if (typeof DB.version === 'undefined') DB.version = 0;
-            
-            // Eğer bendeki versiyon daha yüksekse onu koru (veya en yükseğini al)
-            DB.version = Math.max(localVersion, DB.version);
-
-            if (!DB.constraints) DB.constraints = {};
-            // If local has constraints for someone that are missing or shorter on server, preserve them
-            for (let staffName in localConstraints) {
-                if (!DB.constraints[staffName] || 
-                    (Array.isArray(localConstraints[staffName]) && 
-                     localConstraints[staffName].length > (DB.constraints[staffName].length || 0))) {
-                    DB.constraints[staffName] = localConstraints[staffName];
-                }
-            }
-            
-            if (!DB.requests) DB.requests = [];
-            // Merge requests (simple append if missing by ID)
-            localRequests.forEach(req => {
-                if (!DB.requests.find(r => r.id === req.id)) {
-                    DB.requests.push(req);
-                }
-            });
-            
-            if (!DB.announcements) DB.announcements = []; 
-            
+            if (!DB.requests) DB.requests = []; // Eksikse başlat
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
             console.log("Veriler başarıyla yüklendi.");
