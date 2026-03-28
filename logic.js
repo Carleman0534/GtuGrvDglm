@@ -394,45 +394,55 @@ function addExam(examData) {
     return newExam;
 }
 
-function updateExam(id, newData) {
-    const exIndex = DB.exams.findIndex(e => e.id === id);
-    if (exIndex === -1) return;
-
+function updateExam(id, newData, skipSave = false) {
+    const exIndex = DB.exams.findIndex(e => String(e.id) === String(id));
+    if (exIndex === -1) {
+        console.error('updateExam: Sınav bulunamadı! id=', id);
+        return;
+    }
     const oldExam = DB.exams[exIndex];
     
-    // Yükü eski gözetmenlerden düş
-    const oldPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
-    oldPIds.forEach(pid => {
-        const s = DB.staff.find(staff => staff.id === pid);
-        if (s) {
-            s.totalScore = Math.max(0, parseFloat((s.totalScore - oldExam.score).toFixed(2)));
-            s.taskCount = Math.max(0, s.taskCount - 1);
-        }
-    });
-
     // Yeni puan hesapla
     const newScore = calculateScore(new Date(`${newData.date}T${newData.time}`), newData.duration);
-    const newPIds = newData.proctorIds || (newData.proctorId ? [newData.proctorId] : []);
+    const newPIds = newData.proctorIds && newData.proctorIds.length > 0
+        ? newData.proctorIds
+        : (oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []));
     const newProctors = DB.staff.filter(s => newPIds.includes(s.id));
 
-    if (newProctors.length > 0) {
-        // Sınavı güncelle
-        DB.exams[exIndex] = {
-            ...oldExam,
-            ...newData,
-            proctorIds: newPIds,
-            proctorId: newPIds[0],
-            proctorName: newProctors.map(p => p.name).join(', '),
-            score: newScore,
-            katsayi: getKatsayi(new Date(`${newData.date}T${newData.time}`))
-        };
+    // Gözetmen değiştiyse eski puanları düş, yeni puanları ekle
+    const oldPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
+    const proctorChanged = JSON.stringify(oldPIds.slice().sort()) !== JSON.stringify(newPIds.slice().sort());
+    const dateTimeChanged = oldExam.date !== newData.date || oldExam.time !== newData.time || oldExam.duration !== newData.duration;
 
-        // Yükü yeni gözetmenlere ekle
+    if (proctorChanged || dateTimeChanged) {
+        // Eski gözetmenden puanı çıkar (oldExam.score string gelmiş olabilir, parseFloat çek)
+        const oldScore = parseFloat(oldExam.score || 0);
+        oldPIds.forEach(pid => {
+            const s = DB.staff.find(staff => staff.id === pid);
+            if (s) {
+                s.totalScore = Math.max(0, parseFloat((s.totalScore - oldScore).toFixed(2)));
+                s.taskCount = Math.max(0, s.taskCount - 1);
+            }
+        });
+        // Yeni gözetmene puan ekle
         newProctors.forEach(p => {
             p.totalScore = parseFloat((p.totalScore + newScore).toFixed(2));
             p.taskCount = (p.taskCount || 0) + 1;
         });
-        
+    }
+
+    // Sınavı her durumda güncelle (gözetmen yoksa eski gözetmeni koru)
+    DB.exams[exIndex] = {
+        ...oldExam,
+        ...newData,
+        proctorIds: newPIds,
+        proctorId: newPIds[0] || oldExam.proctorId,
+        proctorName: newProctors.length > 0 ? newProctors.map(p => p.name).join(', ') : oldExam.proctorName,
+        score: newScore,
+        katsayi: getKatsayi(new Date(`${newData.date}T${newData.time}`))
+    };
+
+    if (!skipSave) {
         saveToLocalStorage();
         logAction('admin', 'Sınav Güncelleme', `${newData.name} sınav bilgileri güncellendi.`);
     }

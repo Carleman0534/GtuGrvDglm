@@ -1820,28 +1820,40 @@ window.showEditExamModal = (id) => {
     updateEditProctorSelect();
     renderEditProctorList();
 
+    // Listener birikimini önlemek için flag kullan — cloneNode yerine
+    const dateEl = document.getElementById('edit-exam-date');
+    const timeEl = document.getElementById('edit-exam-time');
+    const durEl  = document.getElementById('edit-exam-duration');
+    const nameEl = document.getElementById('edit-exam-name');
+
+    // Değerleri direkt set et (cloneNode ile kayıp yaşanmaz)
+    dateEl.value = ex.date;
+    timeEl.value = ex.time;
+    durEl.value  = ex.duration;
+    nameEl.value = ex.name;
+
     const updateEditSuggestions = () => {
-        const d = document.getElementById('edit-exam-date').value;
-        const t = document.getElementById('edit-exam-time').value;
+        const d   = document.getElementById('edit-exam-date').value;
+        const t   = document.getElementById('edit-exam-time').value;
         const dur = parseInt(document.getElementById('edit-exam-duration').value) || 60;
-        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null); // null target select because we use list
+        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null);
     };
 
-    updateEditSuggestions();
+    // Her açılışta listener'ları temizle ve yeniden ekle (flag ile)
+    if (dateEl._editHandler)  dateEl.removeEventListener('change', dateEl._editHandler);
+    if (timeEl._editHandler)  timeEl.removeEventListener('change', timeEl._editHandler);
+    if (durEl._editHandler)   durEl.removeEventListener('input',  durEl._editHandler);
+    if (nameEl._editHandler)  nameEl.removeEventListener('input',  nameEl._editHandler);
 
-    // Attach listeners once (we should ideally move these out, but for now just fix the reference)
-    document.getElementById('edit-exam-date').addEventListener('change', updateEditSuggestions);
-    document.getElementById('edit-exam-time').addEventListener('change', updateEditSuggestions);
-    document.getElementById('edit-exam-duration').addEventListener('input', updateEditSuggestions);
-
-    // --- LECTURER AUTO-SUGGESTION FOR EDIT ---
-    document.getElementById('edit-exam-name').addEventListener('input', (e) => {
+    dateEl._editHandler = () => updateEditSuggestions();
+    timeEl._editHandler = () => updateEditSuggestions();
+    durEl._editHandler  = () => updateEditSuggestions();
+    nameEl._editHandler = (e) => {
         const val = e.target.value.trim();
         const lecturerName = DB.courseLecturers[val];
         if (lecturerName) {
             const selectL = document.getElementById('edit-exam-lecturer');
             if (selectL) selectL.value = lecturerName;
-
             const staff = DB.staff.find(s => s.name.includes(lecturerName));
             if (staff && !window.tempEditProctors.includes(staff.id)) {
                 if (confirm(`Bu dersin hocası ${staff.name} olarak görünüyor. Gözetmen olarak eklemek ister misiniz?`)) {
@@ -1852,30 +1864,49 @@ window.showEditExamModal = (id) => {
                 }
             }
         }
-    });
+    };
 
+    dateEl.addEventListener('change', dateEl._editHandler);
+    timeEl.addEventListener('change', timeEl._editHandler);
+    durEl.addEventListener('input',   durEl._editHandler);
+    nameEl.addEventListener('input',  nameEl._editHandler);
+
+    updateEditSuggestions();
     document.getElementById('edit-modal').classList.remove('hidden');
 };
 
-document.getElementById('edit-modal-form').onsubmit = (e) => {
+document.getElementById('edit-modal-form').onsubmit = async (e) => {
     e.preventDefault();
-    const id = parseInt(document.getElementById('edit-exam-id').value);
+    // ID'yi string olarak al — parseInt büyük Date.now() değerlerinde precision kaybı yaratır
+    const id = document.getElementById('edit-exam-id').value;
+
+    // tempEditProctors boşsa mevcut sınavın gözetmenlerini koru
+    const currentExam = DB.exams.find(ex => String(ex.id) === String(id));
+    const proctorIds = (window.tempEditProctors && window.tempEditProctors.length > 0)
+        ? window.tempEditProctors
+        : (currentExam ? (currentExam.proctorIds || (currentExam.proctorId ? [currentExam.proctorId] : [])) : []);
+
+    const durationVal = parseInt(document.getElementById('edit-exam-duration').value);
+    if (!durationVal || durationVal <= 0) {
+        alert('Lütfen geçerli bir süre (dakika) giriniz!');
+        return;
+    }
+
     const data = {
-        type: document.getElementById('edit-exam-type').value,
-        name: document.getElementById('edit-exam-name').value,
-        lecturer: document.getElementById('edit-exam-lecturer').value,
-        capacity: document.getElementById('edit-exam-capacity').value,
-        location: document.getElementById('edit-exam-location').value,
-        date: document.getElementById('edit-exam-date').value,
-        time: document.getElementById('edit-exam-time').value,
-        duration: parseInt(document.getElementById('edit-exam-duration').value),
-        proctorIds: window.tempEditProctors || []
+        type:       document.getElementById('edit-exam-type').value,
+        name:       document.getElementById('edit-exam-name').value,
+        lecturer:   document.getElementById('edit-exam-lecturer').value,
+        capacity:   document.getElementById('edit-exam-capacity').value,
+        location:   document.getElementById('edit-exam-location').value,
+        date:       document.getElementById('edit-exam-date').value,
+        time:       document.getElementById('edit-exam-time').value,
+        duration:   durationVal,
+        proctorIds: proctorIds
     };
-    
-    // Müsaitlik kontrolü (Yeni eklenenler veya değişenler için)
+
+    // Müsaitlik kontrolü
     for (const pid of data.proctorIds) {
         const staff = DB.staff.find(s => s.id === pid);
-        // Eğer hoca zaten bu sınavda idiyse (ve tarih/saat değişmediyse) uyarı vermeyebiliriz ama genel kontrol en güvenlisi
         if (staff && !isAvailable(staff.name, data.date, data.time, data.duration, id)) {
             if (!confirm(`${staff.name} bu saatte müsait değil! Yine de devam etmek istiyor musunuz?`)) return;
         }
@@ -1886,17 +1917,15 @@ document.getElementById('edit-modal-form').onsubmit = (e) => {
     renderExams();
     renderSchedule();
     renderDashboard();
+    await saveToBackend();
 };
 
+
 window.showEditScheduleModal = (name, date, time, location) => {
-    // Sınav Programı listesindeki öğeyi düzenlerken aynı saate/isime sahip TÜM sınavları bul
     const groupExams = DB.exams.filter(e => e.name === name && e.date === date && e.time === time);
     if(groupExams.length === 0) return;
 
-    // Herhangi birini baz alarak form verilerini doldur
     const baseEx = groupExams[0];
-    
-    // Düzenleme alanını normal edit modal üzerinden yürütelim ancak proctor seçimi olmadan, genel değişiklik.
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
     document.getElementById('modal-title').textContent = "Program/Yer Düzenle (" + baseEx.name + ")";
@@ -1918,37 +1947,41 @@ window.showEditScheduleModal = (name, date, time, location) => {
             <label>Saat</label>
             <input type="time" id="sch-exam-time" value="${baseEx.time}" required>
         </div>
+        <div class="form-group">
+            <label>Süre (Dakika)</label>
+            <input type="number" id="sch-exam-duration" value="${baseEx.duration}" required>
+        </div>
     `;
     modal.classList.remove('hidden');
 
-    document.getElementById('modal-form').onsubmit = (e) => {
+    document.getElementById('modal-form').onsubmit = async (e) => {
         e.preventDefault();
         
         const newName = document.getElementById('sch-exam-name').value;
         const newLocation = document.getElementById('sch-exam-location').value;
         const newDate = document.getElementById('sch-exam-date').value;
         const newTime = document.getElementById('sch-exam-time').value;
+        const newDuration = parseInt(document.getElementById('sch-exam-duration').value) || 60;
 
         // O gruba ait tüm kayıtları güncelle
-        groupExams.forEach(ex => {
-            const exIndex = DB.exams.findIndex(e => e.id === ex.id);
-            if(exIndex > -1){
-                DB.exams[exIndex].name = newName;
-                DB.exams[exIndex].location = newLocation;
-                DB.exams[exIndex].date = newDate;
-                DB.exams[exIndex].time = newTime;
-                
-                // puan katsayısını tarihe/saate göre tekrar güncelle
-                DB.exams[exIndex].katsayi = getKatsayi(new Date(`${newDate}T${newTime}`));
-                // (Gözetmen vs silmiyoruz, sadece bilgileri güncelliyoruz)
-            }
-        });
+        for (const ex of groupExams) {
+            updateExam(ex.id, {
+                name: newName,
+                location: newLocation,
+                date: newDate,
+                time: newTime,
+                duration: newDuration
+            }, true); // skipSave = true
+        }
 
-        saveToLocalStorage();
+        saveToLocalStorage(); // Tek seferde kaydet
+        logAction('admin', 'Sınav Programı Güncelleme', `${newName} grubundaki ${groupExams.length} sınav güncellendi.`);
+        
         hideModal();
         renderExams();
         renderSchedule();
         renderDashboard();
+        await saveToBackend();
     };
 };
 
