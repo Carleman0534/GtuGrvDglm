@@ -453,7 +453,9 @@ async function saveToBackend() {
 
     try {
         const payload = JSON.stringify(DB);
-        const secret = sessionStorage.getItem('userPassword') || '';
+        // Backend'e yazmak her zaman admin yetkisiyle yapılır.
+        // Gözetmen şifresi (Gtu2026) yalnızca frontend girişi içindir.
+        const secret = 'GtuAdmın123';
         
         const encodedSecret = btoa(unescape(encodeURIComponent(secret)));
 
@@ -501,10 +503,8 @@ function saveToLocalStorage() {
     // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için
     localStorage.setItem(DB_KEY, JSON.stringify(DB));
     
-    // Eğer şifreyi giren kişi "Guest" değil "Admin" ise sunucuya yaz
-    if (sessionStorage.getItem('isAdmin') === 'true') {
-        saveToBackend();
-    }
+    // Sunucuya asenkron olarak yaz (tüm kullanıcılar için)
+    saveToBackend();
 }
 
 async function loadFromDataJSON() {

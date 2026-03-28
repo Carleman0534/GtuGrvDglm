@@ -15,31 +15,18 @@
 </head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
-        <div class="login-container" style="display: flex; gap: 2rem; max-width: 900px; width: 90%; perspective: 1000px;">
-            <!-- Hoca Portalı -->
-            <div class="login-card hoca-portal" style="flex: 1; border-top: 4px solid var(--accent-green);">
-                <div class="login-header">
-                    <span class="login-icon" style="background: rgba(34, 197, 94, 0.2); color: var(--accent-green);">👨‍🏫</span>
-                    <h2>Gözetmen Portalı</h2>
-                    <p>Sınav programınızı görüntülemek ve profilinizi yönetmek için girin.</p>
+        <div class="login-container" style="max-width: 420px; width: 90%;">
+            <!-- Tek Kart Giriş -->
+            <div class="login-card" style="border-top: 4px solid var(--primary); padding: 2.5rem 2rem;">
+                <div class="login-header" style="margin-bottom: 2rem;">
+                    <span class="login-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-size: 1.75rem; width: 72px; height: 72px; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">🔒</span>
+                    <h2 style="font-size: 1.4rem; text-align: center; margin-bottom: 0.5rem;">Gözetmenlik Sistemi</h2>
+                    <p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">Lütfen devam etmek için şifreyi girin</p>
                 </div>
                 <div class="login-form">
-                    <button id="btn-guest-login" class="btn-primary" style="width: 100%; margin-top: 1rem; background: linear-gradient(135deg, var(--accent-green), #15803d);">Misafir Olarak Giriş Yap</button>
-                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center;">Şifre gerektirmez. Sadece izleme ve profil yönetimi yetkisine sahip olursunuz.</p>
-                </div>
-            </div>
-
-            <!-- Yönetici Portalı -->
-            <div class="login-card admin-portal" style="flex: 1; border-top: 4px solid var(--primary);">
-                <div class="login-header">
-                    <span class="login-icon" style="background: rgba(99, 102, 241, 0.2); color: var(--primary);">🛡️</span>
-                    <h2>Yönetici Portalı</h2>
-                    <p>Sınav atamaları ve sistem yönetimi için yetkili girişi.</p>
-                </div>
-                <div class="login-form">
-                    <input type="password" id="login-password" placeholder="Yönetici Şifresi" autofocus style="margin-bottom: 1rem;">
-                    <button id="btn-login" class="btn-primary" style="width: 100%;">Şifreyle Giriş Yap</button>
-                    <p id="login-error" class="login-error hidden">Hatalı şifre, lütfen tekrar deneyin.</p>
+                    <input type="password" id="login-password" placeholder="Şifre" autofocus style="margin-bottom: 1rem; width: 100%; text-align: center; letter-spacing: 0.1em;">
+                    <button id="btn-login" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem;">Giriş Yap</button>
+                    <p id="login-error" class="login-error hidden" style="text-align: center; margin-top: 0.75rem;">Hatalı şifre, lütfen tekrar deneyin.</p>
                 </div>
             </div>
         </div>

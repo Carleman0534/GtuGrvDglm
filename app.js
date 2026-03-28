@@ -8,8 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const appWrapper = document.getElementById('app-wrapper');
     const loginPassInput = document.getElementById('login-password');
     const btnLogin = document.getElementById('btn-login');
-    const btnGuestLogin = document.getElementById('btn-guest-login');
     const loginError = document.getElementById('login-error');
+
+    // Şifreler (frontend yerel kontrolü)
+    const ADMIN_PASSWORD = 'GtuAdmın123';
+    const GOZETMEN_PASSWORD = 'Gtu2026';
 
     const finishLogin = async (isAdmin) => {
         sessionStorage.setItem('isLoggedIn', 'true');
@@ -34,39 +37,30 @@ document.addEventListener('DOMContentLoaded', () => {
         appWrapper.style.display = 'none';
     }
 
-    const handleLogin = async () => {
+    const handleLogin = () => {
         const password = loginPassInput.value;
-        try {
-            const response = await fetch(API_BASE_URL + '/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
-            const result = await response.json();
- 
-            if (result.success) {
-                // Şifreyi sessionStorage'a kaydet
-                sessionStorage.setItem('userPassword', password);
-                logAction('system', 'Giriş', `${result.role === 'admin' ? 'Yönetici' : 'Hoca'} girişi yapıldı.`);
-                finishLogin(result.role === 'admin');
-            } else {
-                loginError.classList.remove('hidden');
-                loginPassInput.value = '';
-                loginPassInput.focus();
-            }
-        } catch (e) {
-            alert('Sunucuya bağlanılamadı! Backend çalışıyor mu?');
-            console.error('Login hatası:', e);
+
+        if (password === ADMIN_PASSWORD) {
+            // Yönetici girişi
+            sessionStorage.setItem('userPassword', password);
+            logAction('system', 'Giriş', 'Yönetici girişi yapıldı.');
+            if (loginError) loginError.classList.add('hidden');
+            finishLogin(true);
+        } else if (password === GOZETMEN_PASSWORD) {
+            // Gözetmen girişi
+            sessionStorage.setItem('userPassword', password);
+            logAction('system', 'Giriş', 'Gözetmen girişi yapıldı.');
+            if (loginError) loginError.classList.add('hidden');
+            finishLogin(false);
+        } else {
+            // Hatalı şifre
+            if (loginError) loginError.classList.remove('hidden');
+            loginPassInput.value = '';
+            loginPassInput.focus();
         }
     };
 
     if (btnLogin) btnLogin.addEventListener('click', handleLogin);
-    
-    if (btnGuestLogin) {
-        btnGuestLogin.addEventListener('click', () => {
-            finishLogin(false); // Admin=false
-        });
-    }
     
     if (loginPassInput) {
         loginPassInput.addEventListener('keypress', (e) => {
@@ -2120,7 +2114,7 @@ window.approveSwapPeer = async function(requestId, staffId) {
         }
         
         const staff = DB.staff.find(s => s.id === staffId);
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
     }
 };
 
@@ -2134,7 +2128,7 @@ window.rejectSwapPeer = async function(requestId) {
     const receiver = DB.staff.find(s => s.id === req.receiverId);
     if (receiver) showStaffSchedule(receiver.name);
 
-    if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+    await saveToBackend();
 };
 
 function hideIndividualModal() {
@@ -2576,16 +2570,21 @@ window.renderProfile = function() {
 
         // Gelen Takas Tekliflerini Göster
         const incomingSwaps = (DB.requests || []).filter(r => r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id));
+        const validSwaps = incomingSwaps.filter(r => {
+            return DB.exams.some(e => String(e.id) === String(r.receiverExamId)) && 
+                   DB.exams.some(e => String(e.id) === String(r.initiatorExamId));
+        });
+
         const swapNotice = document.getElementById('profile-swap-proposals');
         if (swapNotice) {
-            if (incomingSwaps.length > 0) {
+            if (validSwaps.length > 0) {
                 swapNotice.classList.remove('hidden');
                 swapNotice.innerHTML = `
                     <div style="background: rgba(139, 92, 246, 0.15); border: 1px solid var(--primary); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
                         <h4 style="color: var(--primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 1.2rem;">🔄</span> Yeni Takas Teklifi
                         </h4>
-                        ${incomingSwaps.map(r => {
+                        ${validSwaps.map(r => {
                             const myExam = DB.exams.find(e => String(e.id) === String(r.receiverExamId));
                             const hisExam = DB.exams.find(e => String(e.id) === String(r.initiatorExamId));
                             return `
@@ -3104,7 +3103,7 @@ window.acceptOpenRequest = async function(requestId) {
         saveToLocalStorage();
         
         // Admin modundaysa sunucuya kaydet
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
         
         alert("✓ Görev başarıyla devralındı ve puanlar güncellendi.");
         
@@ -3255,7 +3254,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
         list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">Bu hocanın aktif görevi bulunmuyor.</p>';
     } else {
         list.innerHTML = targetExams.map(ex => `
-            <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, '${ex.name}', '${ex.date}')">
+            <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, \`${ex.name.replace(/`/g, '')}\`, '${ex.date}', this)">
                 <div style="font-weight: 600;">${ex.name}</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted);">${ex.date} - ${ex.time}</div>
             </div>
@@ -3264,7 +3263,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
     container.classList.remove('hidden');
 };
 
-window.selectDirectSwapTargetExam = function(examId, name, date) {
+window.selectDirectSwapTargetExam = function(examId, name, date, element) {
     window.selectedDirectSwapTargetExamId = examId;
     document.getElementById('direct-swap-target-exam-name').textContent = `${name} (${date})`;
     document.getElementById('direct-swap-summary').classList.remove('hidden');
@@ -3272,42 +3271,59 @@ window.selectDirectSwapTargetExam = function(examId, name, date) {
     
     // Highlight selected
     document.querySelectorAll('#direct-swap-exam-list .suggestion-item').forEach(el => el.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    if (element) {
+        element.classList.add('active');
+    } else if (typeof event !== 'undefined' && event.currentTarget) {
+        event.currentTarget.classList.add('active'); // Fallback
+    }
 };
 
 document.getElementById('btn-confirm-direct-swap').onclick = async function() {
-    const myExamId = document.getElementById('direct-swap-my-exam-id').value;
-    const targetStaffId = document.getElementById('direct-swap-target-proctor').value;
-    const targetExamId = window.selectedDirectSwapTargetExamId;
-    const myStaffId = localStorage.getItem('myStaffId');
+    try {
+        const myExamId = document.getElementById('direct-swap-my-exam-id').value;
+        const targetStaffId = document.getElementById('direct-swap-target-proctor').value;
+        const targetExamId = window.selectedDirectSwapTargetExamId;
+        const myStaffId = localStorage.getItem('myStaffId');
 
-    if (!myExamId || !targetStaffId || !targetExamId) return;
+        if (!myExamId || !targetStaffId || !targetExamId) {
+            alert("Lütfen karşı tarafın sınavını seçiniz.");
+            return;
+        }
 
-    const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
-    const targetStaff = DB.staff.find(s => String(s.id) === String(targetStaffId));
-    const myExam = DB.exams.find(e => e.id == myExamId);
-    const targetExam = DB.exams.find(e => e.id == targetExamId);
+        const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+        const targetStaff = DB.staff.find(s => String(s.id) === String(targetStaffId));
+        const myExam = DB.exams.find(e => String(e.id) === String(myExamId));
+        const targetExam = DB.exams.find(e => String(e.id) === String(targetExamId));
 
-    if (confirm(`${targetStaff.name} hocaya birebir takas teklifi göndermek istediğinize emin misiniz?`)) {
-        if (!DB.requests) DB.requests = [];
-        
-        DB.requests.push({
-            id: Date.now(),
-            type: 'direct_swap',
-            initiatorId: parseInt(myStaffId),
-            initiatorName: myStaff.name,
-            initiatorExamId: parseInt(myExamId),
-            receiverId: parseInt(targetStaffId),
-            receiverName: targetStaff.name,
-            receiverExamId: parseInt(targetExamId),
-            status: 'pending_peer',
-            createdAt: new Date().toISOString()
-        });
+        if (!myStaff || !targetStaff || !myExam || !targetExam) {
+            alert("Kayıt bulunamadı. Lütfen sayfayı yenileyin.");
+            return;
+        }
 
-        saveToLocalStorage();
-        alert("Takas teklifiniz iletildi. Hocanın onaylaması bekleniyor.");
-        document.getElementById('modal-direct-swap').classList.add('hidden');
-        renderProfile();
+        if (confirm(`${targetStaff.name} hocaya birebir takas teklifi göndermek istediğinize emin misiniz?`)) {
+            if (!DB.requests) DB.requests = [];
+            
+            DB.requests.push({
+                id: Date.now(),
+                type: 'direct_swap',
+                initiatorId: parseInt(myStaffId),
+                initiatorName: myStaff.name,
+                initiatorExamId: Number(myExamId),
+                receiverId: parseInt(targetStaffId),
+                receiverName: targetStaff.name,
+                receiverExamId: Number(targetExamId),
+                status: 'pending_peer',
+                createdAt: new Date().toISOString()
+            });
+
+            saveToLocalStorage();
+            alert("Takas teklifiniz iletildi. Hocanın onaylaması bekleniyor.");
+            document.getElementById('modal-direct-swap').classList.add('hidden');
+            renderProfile();
+        }
+    } catch(err) {
+        alert("Teklif Gönderilirken Hata: " + err.message);
+        console.error("Direct swap error:", err);
     }
 };
 
@@ -3320,7 +3336,13 @@ window.acceptDirectSwap = async function(requestId) {
     const myStaff = DB.staff.find(s => s.id == req.receiverId);
     const hisStaff = DB.staff.find(s => s.id == req.initiatorId);
 
-    if (!myExam || !hisExam || !myStaff || !hisStaff) return alert("Veri hatası oluştu.");
+    if (!myExam || !hisExam || !myStaff || !hisStaff) {
+        req.status = 'rejected';
+        saveToLocalStorage();
+        alert("Eski veri veya uyumsuz sınav hatası oluştu, bu hatalı talep iptal edildi.");
+        renderProfile();
+        return;
+    }
 
     if (confirm(`${hisStaff.name} ile görevi takas etmeyi onaylıyor musunuz?`)) {
         // PUAN GÜNCELLEME
@@ -3362,7 +3384,7 @@ window.acceptDirectSwap = async function(requestId) {
         logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sınavlarını takas etti.`);
         alert("✅ Takas işlemi başarıyla tamamlandı!");
         
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
         
         renderProfile();
         renderDashboard();
@@ -3379,7 +3401,7 @@ window.rejectDirectSwap = async function(requestId) {
         req.status = 'rejected';
         saveToLocalStorage();
         renderProfile();
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
     }
 };
 
@@ -3412,7 +3434,7 @@ window.addExamType = async () => {
         saveToLocalStorage();
         renderExamTypesList();
         input.value = '';
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
     }
 };
 
@@ -3421,7 +3443,7 @@ window.deleteExamType = async (type) => {
         DB.examTypes = DB.examTypes.filter(t => t !== type);
         saveToLocalStorage();
         renderExamTypesList();
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
     }
 };
 window.batchAutoAssign = async function() {
@@ -3450,7 +3472,7 @@ window.batchAutoAssign = async function() {
         });
 
         saveToLocalStorage();
-        if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+        await saveToBackend();
         
         logAction('admin', 'Toplu Atama', `${assignedCount} unassigned sınava otomatik gözetmen atandı.`);
         
@@ -3487,7 +3509,7 @@ window.quickFixConflict = async function(examId) {
             best.taskCount = (best.taskCount || 0) + 1;
 
             saveToLocalStorage();
-            if (sessionStorage.getItem('isAdmin') === 'true') await saveToBackend();
+            await saveToBackend();
 
             renderExams();
             renderDashboard();
