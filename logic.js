@@ -444,6 +444,8 @@ async function saveToBackend() {
     console.log("Sunucuya kaydediliyor...", API_URL);
     const statusDiv = document.getElementById('cloud-status');
     const statusText = document.getElementById('cloud-status-text');
+    // Gözetmen modunda (admin değilse) hata alertleri gösterme
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
     
     if (statusDiv) {
         statusDiv.classList.remove('hidden');
@@ -454,7 +456,7 @@ async function saveToBackend() {
     try {
         const payload = JSON.stringify(DB);
         // Backend'e yazmak her zaman admin yetkisiyle yapılır.
-        // Gözetmen şifresi (Gtu2026) yalnızca frontend girişi içindir.
+        // Gözetmen şifresi (Gtu2026 vb.) yalnızca frontend girişi içindir.
         const secret = 'GtuAdmın123';
         
         const encodedSecret = btoa(unescape(encodeURIComponent(secret)));
@@ -485,9 +487,11 @@ async function saveToBackend() {
         if (statusDiv) {
             statusDiv.classList.remove('syncing');
             if (statusText) {
-                statusText.textContent = "Bağlantı Hatası";
-                statusText.style.color = "var(--accent-red)";
+                statusText.textContent = isAdmin ? "Bağlantı Hatası" : "";
+                if (isAdmin) statusText.style.color = "var(--accent-red)";
             }
+            // Gözetmen modunda hata göstergeci gizle
+            if (!isAdmin) statusDiv.classList.add('hidden');
         }
         console.error("Backend kayit hatasi DETAY:", {
             error: e,
@@ -495,7 +499,11 @@ async function saveToBackend() {
             stack: e.stack,
             apiUrl: API_URL
         });
-        alert("🚨 Veriler sunucuya kaydedilemedi!\n" + e.message);
+        // Sadece admin modunda alert göster
+        if (isAdmin) {
+            alert("🚨 Veriler sunucuya kaydedilemedi!\n" + e.message);
+        }
+        // Gözetmen modunda sessizce devam et (veriler localStorage'a zaten kaydedildi)
     }
 }
 

@@ -61,11 +61,32 @@
                 <div id="profile-identity-setup" class="card-large identity-setup hidden" style="text-align: center; max-width: 500px; margin: 4rem auto;">
                     <div style="font-size: 5rem; margin-bottom: 2rem; filter: drop-shadow(0 0 15px var(--primary));">👤</div>
                     <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Profilinizi Kurun</h2>
-                    <p style="color: var(--text-secondary); margin-bottom: 2.5rem;">Sistemin sizi tanıması için lütfen listeden isminizi seçin.</p>
-                    <div class="form-group" style="margin-bottom: 2.5rem;">
+                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Kişisel şifrenizle giriş yapın ya da listeden isminizi seçin.</p>
+
+                    <!-- Şifreli Giriş -->
+                    <div style="margin-bottom: 1.25rem;">
+                        <div style="position: relative;">
+                            <input type="password" id="profile-password-login" placeholder="🔑 Kişisel şifreniz..."
+                                style="width: 100%; background: rgba(99,102,241,0.08); border: 1.5px solid rgba(99,102,241,0.35); padding: 0.9rem 1rem; border-radius: 12px; color: white; font-family: inherit; font-size: 1rem; text-align: center; letter-spacing: 0.1em; box-sizing: border-box;">
+                        </div>
+                        <button id="btn-profile-password-login" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.9rem; margin-top: 0.6rem; background: linear-gradient(135deg, var(--primary), #4f46e5);">
+                            🔓 Şifreyle Giriş Yap
+                        </button>
+                        <p id="profile-password-error" class="login-error hidden" style="margin-top: 0.5rem;">Geçersiz şifre! Lütfen tekrar deneyin.</p>
+                    </div>
+
+                    <!-- Ayraç -->
+                    <div style="display: flex; align-items: center; gap: 1rem; margin: 1.25rem 0; color: var(--text-muted); font-size: 0.8rem;">
+                        <div style="flex:1; height:1px; background: var(--glass-border);"></div>
+                        <span>veya listeden seçin</span>
+                        <div style="flex:1; height:1px; background: var(--glass-border);"></div>
+                    </div>
+
+                    <!-- Dropdown Seçimi -->
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
                         <select id="profile-setup-dropdown"></select>
                     </div>
-                    <button id="btn-save-identity" class="btn-primary" style="width: 100%; justify-content: center; padding: 1.25rem;">Profilime Git</button>
+                    <button id="btn-save-identity" class="btn-primary" style="width: 100%; justify-content: center; padding: 1.1rem; background: linear-gradient(135deg, var(--accent-green), #15803d);">Profilime Git</button>
                 </div>
 
                 <div id="profile-main-content" class="profile-container hidden">
@@ -89,6 +110,8 @@
 
                     <div id="profile-marketplace-announcement" class="hidden"></div>
                     <div id="profile-swap-proposals" class="hidden"></div>
+                    <!-- Kişisel şifre ayarlama bölümü (JS tarafından doldurulur) -->
+                    <div id="profile-password-section"></div>
                     <div class="profile-tabs">
                         <button class="tab-btn active" data-tab="active">Aktif Görevler</button>
                         <button class="tab-btn" data-tab="marketplace">Açık Görevler (Pazar Yeri)</button>
@@ -1032,6 +1055,22 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="document.getElementById('modal-direct-swap').classList.add('hidden')">İptal</button>
                 <button id="btn-confirm-direct-swap" class="btn-primary" disabled>Teklifi Gönder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Takas Şifre Onay Modalı -->
+    <div id="modal-swap-confirm-password" class="modal hidden">
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔐</div>
+            <h2 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Kimliğinizi Doğrulayın</h2>
+            <p id="swap-confirm-desc" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Bu işlemi onaylamak için kişisel şifrenizi girin.</p>
+            <input type="password" id="swap-confirm-pass-input" placeholder="Şifreniz"
+                style="width: 100%; text-align: center; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 10px; color: white; font-family: inherit; font-size: 1rem; letter-spacing: 0.1em; margin-bottom: 0.75rem;">
+            <p id="swap-confirm-error" class="login-error hidden" style="margin-bottom: 0.75rem;">Hatalı şifre!</p>
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-swap-confirm-cancel" class="btn-secondary" style="flex: 1;">İptal</button>
+                <button id="btn-swap-confirm-ok" class="btn-primary" style="flex: 1; background: var(--accent-green);">✓ Onayla</button>
             </div>
         </div>
     </div>
