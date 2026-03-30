@@ -301,7 +301,8 @@ const navButtons = {
     requests: document.getElementById('btn-requests'),
     profile: document.getElementById('btn-profile'),
     audit: document.getElementById('btn-audit'),
-    announcements: document.getElementById('btn-announcements')
+    announcements: document.getElementById('btn-announcements'),
+    timeline: document.getElementById('btn-timeline')
 };
 
 const sections = {
@@ -313,7 +314,8 @@ const sections = {
     requests: document.getElementById('section-requests'),
     profile: document.getElementById('section-profile'),
     audit: document.getElementById('section-audit'),
-    announcements: document.getElementById('section-announcements')
+    announcements: document.getElementById('section-announcements'),
+    timeline: document.getElementById('section-timeline')
 };
 
 // Navigation
@@ -356,11 +358,15 @@ Object.entries(navButtons).forEach(([key, btn]) => {
             renderAnnouncements();
             markAnnouncementsAsRead();
         }
+        if (key === 'timeline') {
+            renderMonthlyCalendar();
+        }
     });
 });
 
 let currentSort = { key: 'date', dir: 'asc' };
 let currentExamTab = 'active';
+let currentTimelineDate = new Date().toISOString().split('T')[0];
 
 window.switchExamTab = (tab) => {
     currentExamTab = tab;
@@ -828,6 +834,62 @@ function initUI() {
     document.getElementById('exam-search')?.addEventListener('input', renderExams);
     document.getElementById('staff-search')?.addEventListener('input', renderStaff);
     document.getElementById('schedule-search')?.addEventListener('input', renderSchedule);
+
+    // Timeline Listeners
+    const timelineDateInput = document.getElementById('timeline-date-input');
+    if (timelineDateInput) {
+        timelineDateInput.value = currentTimelineDate;
+        timelineDateInput.addEventListener('change', (e) => {
+            currentTimelineDate = e.target.value;
+            renderTimeline();
+        });
+    }
+
+    document.getElementById('btn-timeline-prev')?.addEventListener('click', () => {
+        const d = new Date(currentTimelineDate);
+        d.setMonth(d.getMonth() - 1);
+        currentTimelineDate = d.toISOString().split('T')[0];
+        renderMonthlyCalendar();
+    });
+
+    document.getElementById('btn-timeline-next')?.addEventListener('click', () => {
+        const d = new Date(currentTimelineDate);
+        d.setMonth(d.getMonth() + 1);
+        currentTimelineDate = d.toISOString().split('T')[0];
+        renderMonthlyCalendar();
+    });
+
+    document.getElementById('btn-close-daily-detail')?.addEventListener('click', () => {
+        document.getElementById('modal-daily-detail').classList.add('hidden');
+    });
+
+    // Notification Listeners
+    document.getElementById('btn-notifications')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleNotifPanel();
+    });
+
+    document.addEventListener('click', (e) => {
+        const panel = document.getElementById('notif-panel');
+        const btn = document.getElementById('btn-notifications');
+        if (panel && !panel.classList.contains('hidden') && !panel.contains(e.target) && !btn.contains(e.target)) {
+            panel.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('btn-clear-notifs')?.addEventListener('click', () => {
+        const panel = document.getElementById('notif-panel');
+        if (panel) panel.classList.add('hidden');
+    });
+
+    // İlk kurulumda veya güncellemede bildirimleri sıfırla (User'ın isteği üzerine)
+    const isReset = localStorage.getItem('notifReset_v2');
+    if (!isReset) {
+        localStorage.setItem('lastNotifCheck', Date.now());
+        localStorage.setItem('notifReset_v2', 'true');
+    }
+
+    updateNotifBadge();
 }
 
 
@@ -2737,9 +2799,340 @@ window.showChoiceModal = function(message) {
 };
 
 /**
+ * En Sık Beraber Görev Yaptığım Arkadaşlarımı Hesapla ve Render Et
+ */
+function renderCollaborators() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+
+    const collaboratorsMap = {}; // staffId -> count
+    
+    // Tüm sınavları tara (aktif + arşiv)
+    DB.exams.forEach(ex => {
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        const pIdsStr = pIds.map(id => String(id));
+        
+        if (pIdsStr.includes(String(myStaffId))) {
+            pIdsStr.forEach(pid => {
+                if (pid !== String(myStaffId)) {
+                    collaboratorsMap[pid] = (collaboratorsMap[pid] || 0) + 1;
+                }
+            });
+        }
+    });
+
+    const collaboratorsList = Object.entries(collaboratorsMap)
+        .map(([id, count]) => {
+            const staff = DB.staff.find(s => String(s.id) === String(id));
+            if (!staff) return null;
+            return { staff, count };
+        })
+        .filter(c => c !== null)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5); // İlk 5 arkadaş
+
+    const container = document.getElementById('profile-collaborators-section');
+    const listEl = document.getElementById('profile-collaborators-list');
+    
+    if (!container || !listEl) return;
+
+    if (collaboratorsList.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    listEl.innerHTML = collaboratorsList.map(c => {
+        const names = c.staff.name.split(' ');
+        const initials = (names[0][0] + (names.length > 1 ? names[names.length - 1][0] : '')).toUpperCase();
+        
+        let funTag = "🤝";
+        let funTitle = "Ekip Üyesi";
+        
+        if (c.count >= 5) { funTag = "🔥"; funTitle = "Ayrılmaz Parça"; }
+        else if (c.count >= 3) { funTag = "⭐"; funTitle = "Yılmaz İkili"; }
+        else if (c.count >= 2) { funTag = "💪"; funTitle = "Sıkı Dost"; }
+
+        return `
+            <div class="collaborator-card" onclick="showStaffSchedule('${c.staff.name.replace(/'/g, "\\'")}')">
+                <div class="collaborator-fun-tag">${funTag}</div>
+                <div class="collaborator-avatar">${initials}</div>
+                <span class="collaborator-name" title="${c.staff.name}">${c.staff.name}</span>
+                <span class="collaborator-title">${funTitle}</span>
+                <div class="collaborator-count">${c.count} Ortak Görev</div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Kişisel Mottoyu İşle
+ */
+function renderMotto(staff) {
+    const mottoEl = document.getElementById('profile-motto');
+    if (!mottoEl) return;
+    mottoEl.textContent = staff.motto || "Gözetmenlik bir sanattır...";
+}
+
+window.editMotto = async function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const newMotto = prompt("Yeni mottonuzu girin:", staff.motto || "");
+    if (newMotto !== null) {
+        staff.motto = newMotto.trim() || "";
+        saveToLocalStorage();
+        renderMotto(staff);
+        await saveToBackend();
+    }
+};
+
+window.suggestJoke = async function() {
+    const joke = prompt("Gözetmenlik ile ilgili komik bir anınızı veya esprinizi paylaşın:\n(Bu şaka tüm hocalarla paylaşılacaktır)");
+    if (!joke || joke.trim().length < 5) {
+        if (joke !== null) alert("Lütfen biraz daha uzun bir şaka girin.");
+        return;
+    }
+
+    if (!DB.customJokes) DB.customJokes = [];
+    DB.customJokes.push(joke.trim());
+    
+    saveToLocalStorage();
+    alert("✅ Teşekkürler! Şakanız başarıyla kaydedildi ve havuza eklendi.");
+    renderDailyJoke(true); // Hemen göster
+    await saveToBackend();
+};
+
+/**
+ * Günün Motivasyonu ve Şakasını Render Et
+ */
+function renderDailyJoke(isNew = false) {
+    const jokeEl = document.getElementById('profile-daily-joke');
+    if (!jokeEl) return;
+
+    const hardcodedJokes = [
+        "Sessizlik en büyük silahtır (Ama öğrencilere karşı değil, kendimize karşı!)",
+        "Gözetmenlikte 3S kuralı: Sev, Sabret, Sessiz ol.",
+        "Eğer kalem sesi gelmiyorsa, ya herkes bitirmiştir ya da kimse bilmiyordur.",
+        "Optik form doldurmanın meditasyon olduğunu keşfettim.",
+        "Cebimde fazladan silgi taşımak, süper kahraman pelerini taşımak gibi.",
+        "Gözetmenlik: Oturarak yorulmanın zirvesidir.",
+        "Silgi tozundan küçük bir heykel yapmaya başladım, 3 vize sonra sergi açacağım.",
+        "Sınavda gezmek, adım sayarımı en çok mutlu eden aktivite.",
+        "Bir gözetmenin en büyük dramı: Kendi getirdiği suyun sınavın ortasında bitmesidir.",
+        "Öğrenci: 'Hocam ek kağıt alabilir miyim?' - Ben: 'Tabii, ağaçlar bizim için var...'",
+        "Sınav bitimine 5 dakika kala gelen o derin sessizlik ve ardından gelen kağıt hışırtısı senfonisi...",
+        "Gözetmenlik yaparken kafamda kurduğum senaryolarla 3 sezonluk dizi çekerdim.",
+        "Sınav salonuna girdiğimde kendimi bir orkestra şefi gibi hissediyorum ama tek enstrümanımız kalem sesleri.",
+        "Gözetmenlikte en zor an: Sessizce hapşırmaya çalışmak.",
+        "Gözetmenlikte sabır, optik formu yırtmayan öğrenciyi beklemektir.",
+        "Sınavın bitmesine 30 saniye kala kalemini açan o umutlu öğrenci... Seni seviyoruz.",
+        "Kendi kendine konuşan öğrenciye 'sessiz ol' demek istemek ama aslında ne dediğini merak etmek...",
+        "Sınavda en çok yorulan yerimiz gözlerimiz (ve hayal gücümüz).",
+        "Bir gözetmen atasözü der ki: 'Herkes kendi kağıdına!'",
+        "Sınav süresi bittiğinde kağıdı vermeyen öğrenciyle bakışmak; batıda düello, doğuda dramdır.",
+        "Ad-soyad yazmayı unutan öğrenci, gizli kahramanımızdır.",
+        "Gözetmenlik: 60 dakikalık bir sessiz sinema performansıdır.",
+        "Sınav salonuna girerken telefonunuzu kapatmayı unutmayın, yoksa zil sesiyle tüm motivasyon dağılır (Tecrübeyle sabit).",
+        "Sınav kağıdındaki o tek boşluk... Oraya şiir yazasım geliyor bazen.",
+        "Gözetmen arkadaşımla göz göze geldiğimizde kurduğumuz telepatik iletişim: 'Su istiyorlar mı?'",
+        "Sınavda uyuyan öğrenciye kıyamayıp 2 dakika sonra uyandırmak: Bir gözetmen şefkati.",
+        "Kopya çekmeye çalışan öğrencinin o kendine has boyun hareketleri... Koreografiye 10 puan!",
+        "Silgi sesleri: Başarısızlığın değil, düzeltmenin ve umudun sesidir.",
+        "Gözetmenlik, akademik sabrın en sah halidir.",
+        "Sınav kağıdını verirken 'Hocam çok zordu' diyen öğrenciye 'Haklısın' deyip geçmek...",
+        "Gözetmenlikte en büyük lüks: Rahat bir sandalyedir.",
+        "Sınav çıkışında dağıtılan şekerlerin tadı, sadece gözetmenlere özel bir ödüldür.",
+        "Sınavda kağıdını 10. dakikada teslim eden o dahi ya da umutsuz arkadaş...",
+        "Gözetmenlik, bir sessizlik senfonisidir ve şefi sizsiniz."
+    ];
+
+    const jokes = [...hardcodedJokes, ...(DB.customJokes || [])];
+
+    if (isNew) {
+        let currentIdx = jokes.indexOf(jokeEl.textContent.trim());
+        let nextIdx = Math.floor(Math.random() * jokes.length);
+        while (nextIdx === currentIdx) nextIdx = Math.floor(Math.random() * jokes.length); 
+        jokeEl.textContent = `"${jokes[nextIdx]}"`;
+    } else {
+        const rand = Math.floor(Math.random() * jokes.length);
+        jokeEl.textContent = `"${jokes[rand]}"`;
+    }
+}
+
+/**
+ * Başarı Rozetlerini Hesapla
+ */
+function calculateAchievements(myStaffId) {
+    const exams = DB.exams.filter(ex => {
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        return pIds.map(id => String(id)).includes(String(myStaffId));
+    });
+
+    const now = new Date();
+    const completedExams = exams.filter(ex => {
+        const examEnd = new Date(`${ex.date}T${ex.time}`).getTime() + (ex.duration || 60) * 60000;
+        return examEnd < now.getTime();
+    });
+
+    return [
+        {
+            id: 'early_bird',
+            name: 'Erken Kalkan',
+            icon: '🌅',
+            desc: '3+ sabah sınavına (09:30 ve öncesi) katıldınız.',
+            isUnlocked: completedExams.filter(ex => ex.time <= "09:30").length >= 3
+        },
+        {
+            id: 'night_owl',
+            name: 'Gece Kuşu',
+            icon: '🦉',
+            desc: '3+ akşam sınavına (17:00 ve sonrası) katıldınız.',
+            isUnlocked: completedExams.filter(ex => ex.time >= "17:00").length >= 3
+        },
+        {
+            id: 'helper',
+            name: 'Yardımsever',
+            icon: '🛡️',
+            desc: 'Başkalarından gelen 3+ takas talebini kabul ettiniz.',
+            isUnlocked: (DB.requests || []).filter(r => r.status === 'approved' && String(r.receiverId) === String(myStaffId)).length >= 3
+        },
+        {
+            id: 'weekend',
+            name: 'Hafta Sonu Savaşçısı',
+            icon: '🏔️',
+            desc: 'Hafta sonu 2+ sınav görevini başarıyla tamamladınız.',
+            isUnlocked: completedExams.filter(ex => {
+                const day = new Date(ex.date).getDay();
+                return day === 0 || day === 6;
+            }).length >= 2
+        },
+        {
+            id: 'marathon',
+            name: 'Maratoncu',
+            icon: '📚',
+            desc: 'Toplam gözetmenlik süreniz 500 dakikayı aştı.',
+            isUnlocked: completedExams.reduce((sum, ex) => sum + (ex.duration || 60), 0) >= 500
+        },
+        {
+            id: 'task_master',
+            name: 'Görev Adamı',
+            icon: '🎯',
+            desc: 'Sistemde toplam 5+ görevi başarıyla tamamladınız.',
+            isUnlocked: completedExams.length >= 5
+        }
+    ];
+}
+
+/**
+ * Başarı Rozetlerini Render Et
+ */
+function renderAchievements() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const container = document.getElementById('profile-achievements-list');
+    const countEl = document.getElementById('achievement-count');
+    if (!container || !myStaffId) return;
+
+    const achievements = calculateAchievements(myStaffId);
+    const unlockedCount = achievements.filter(a => a.isUnlocked).length;
+
+    if (countEl) countEl.textContent = `${unlockedCount}/${achievements.length} Rozet`;
+    
+    container.innerHTML = achievements.map(a => `
+        <div class="achievement-badge ${a.isUnlocked ? 'unlocked' : 'locked'}">
+            <span class="achievement-icon">${a.icon}</span>
+            <span class="achievement-name">${a.name}</span>
+            <div class="achievement-desc">
+                <strong>${a.name}</strong>
+                ${a.desc}
+                ${a.isUnlocked ? '<br><span style="color:var(--accent-green); font-size:0.65rem; margin-top:5px; display:block;">✔️ Kazanıldı</span>' : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Rütbe Detaylarını Al
+ */
+function getRankDetails(taskCount) {
+    if (taskCount >= 50) return { name: "Efsane", color: "#f87171", threshold: "∞", next: 50 };
+    if (taskCount >= 30) return { name: "Usta", color: "#fbbf24", threshold: 50, next: 30 };
+    if (taskCount >= 15) return { name: "Kıdemli", color: "#34d399", threshold: 30, next: 15 };
+    if (taskCount >= 5)  return { name: "Tecrübeli", color: "#60a5fa", threshold: 15, next: 5 };
+    return { name: "Acemi", color: "#9ca3af", threshold: 5, next: 0 };
+}
+
+/**
+ * Seviye ve İlerleme Çubuğunu Render Et
+ */
+function renderLevelSystem(staff) {
+    const taskCount = staff.taskCount || 0;
+    const rank = getRankDetails(taskCount);
+    
+    const badge = document.getElementById('profile-rank-badge');
+    const levelLabel = document.getElementById('profile-level-label');
+    const xpLabel = document.getElementById('profile-xp-label');
+    const xpFill = document.getElementById('profile-xp-fill');
+    
+    if (badge) {
+        badge.textContent = rank.name;
+        badge.style.background = `linear-gradient(135deg, ${rank.color} 0%, #6366f1 100%)`;
+    }
+    
+    if (levelLabel) {
+        const level = taskCount < 5 ? 1 : 
+                      taskCount < 15 ? 2 : 
+                      taskCount < 30 ? 3 : 
+                      taskCount < 50 ? 4 : 5;
+        levelLabel.textContent = `Seviye ${level}`;
+    }
+    
+    if (xpLabel && xpFill) {
+        if (rank.threshold === "∞") {
+            xpLabel.textContent = `${taskCount} Görev (Max)`;
+            xpFill.style.width = "100%";
+        } else {
+            const currentXP = taskCount - rank.next;
+            const targetXP = rank.threshold - rank.next;
+            const percent = (currentXP / targetXP) * 100;
+            xpLabel.textContent = `${taskCount}/${rank.threshold} Görev`;
+            xpFill.style.width = `${percent}%`;
+        }
+    }
+}
+
+/**
+ * Kişisel Notları Render Et
+ */
+function renderQuickNotes(staff) {
+    const notesInput = document.getElementById('profile-notes-input');
+    if (notesInput) {
+        notesInput.value = staff.notes || "";
+    }
+}
+
+/**
+ * Kişisel Notları Kaydet
+ */
+window.saveQuickNotes = async function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const notesInput = document.getElementById('profile-notes-input');
+    if (notesInput) {
+        staff.notes = notesInput.value;
+        saveToLocalStorage();
+    }
+};
+
+/**
  * Profil Sayfasını Yönet
  */
 window.renderProfile = function() {
+    renderCollaborators();
+    renderAchievements();
     const myStaffId = localStorage.getItem('myStaffId');
     const setupSection = document.getElementById('profile-identity-setup');
     const mainSection = document.getElementById('profile-main-content');
@@ -2770,6 +3163,11 @@ window.renderProfile = function() {
             renderProfile();
             return;
         }
+
+        renderLevelSystem(staff);
+        renderQuickNotes(staff);
+        renderMotto(staff);
+        renderDailyJoke();
 
         // Gelen Takas Tekliflerini Göster
         const incomingSwaps = (DB.requests || []).filter(r => r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id));
@@ -3994,3 +4392,342 @@ function applyTheme() {
         if (toggleBtn) toggleBtn.textContent = '🌓';
     }
 }
+
+/**
+ * GÖRSEL SINAV ÇİZELGESİ (TIMELINE) MANTIĞI
+ */
+
+function renderTimeline() {
+    const container = document.getElementById('timeline-container');
+    if (!container) return;
+
+    // Sınavları tarihe göre filtrele
+    const exams = DB.exams.filter(ex => ex.date === currentTimelineDate);
+    
+    if (exams.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:5rem; color:var(--text-muted);">
+            <div style="font-size:3rem; margin-bottom:1rem;">📅</div>
+            <p>Bu tarihte (${currentTimelineDate.split('-').reverse().join('.')}) kayıtlı sınav bulunmuyor.</p>
+        </div>`;
+        return;
+    }
+
+    // Odalara göre grupla
+    const roomGroups = {};
+    exams.forEach(ex => {
+        const loc = ex.location || "Belirsiz";
+        if (!roomGroups[loc]) roomGroups[loc] = [];
+        roomGroups[loc].push(ex);
+    });
+
+    const startHour = 8;
+    const endHour = 21;
+    const totalHours = endHour - startHour;
+
+    const timeToPx = (timeStr) => {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(':').map(Number);
+        const totalMinutes = (h - startHour) * 60 + (m || 0);
+        const percent = (totalMinutes / (totalHours * 60)) * 100;
+        return Math.max(0, Math.min(100, percent));
+    };
+
+    let html = `<div class="timeline-grid">`;
+    
+    // Saat Başlıkları
+    html += `<div class="timeline-header-hours">`;
+    for (let i = startHour; i <= endHour; i++) {
+        html += `<div class="hour-mark">${String(i).padStart(2, '0')}:00</div>`;
+    }
+    html += `</div>`;
+
+    // "Şimdi" İşaretçisi
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (currentTimelineDate === todayStr) {
+        const currentHour = now.getHours();
+        const currentMin = now.getMinutes();
+        if (currentHour >= startHour && currentHour < endHour) {
+            const left = timeToPx(`${currentHour}:${currentMin}`);
+            html += `<div class="timeline-now-marker" style="left: calc(180px + ${left}%)"></div>`;
+        }
+    }
+
+    // Satırlar (Derslikler)
+    Object.entries(roomGroups).forEach(([room, roomExams]) => {
+        html += `<div class="timeline-row">
+            <div class="timeline-room-label">
+                <div class="room-name">${room}</div>
+                <div class="room-capacity">${roomExams.length} Sınav</div>
+            </div>
+            <div class="timeline-content-area">`;
+        
+        roomExams.forEach(ex => {
+            const left = timeToPx(ex.time);
+            const width = (ex.duration / (totalHours * 60)) * 100;
+            
+            // Sınav türüne göre renkler
+            let blockStyle = "";
+            if (ex.type === 'Final') blockStyle = "background: linear-gradient(135deg, #ef4444, #b91c1c);";
+            else if (ex.type === 'Bütünleme') blockStyle = "background: linear-gradient(135deg, #f59e0b, #d97706);";
+            
+            html += `
+                <div class="timeline-block" 
+                     style="left: ${left}%; width: ${width}%; ${blockStyle}" 
+                     onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')">
+                    <div class="exam-name">${ex.name}</div>
+                    <div class="exam-info">${ex.time} (${ex.duration} dk)</div>
+                </div>
+            `;
+        });
+
+        html += `</div></div>`;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+/**
+ * BİLDİRİM MERKEZİ MANTIĞI
+ */
+
+function toggleNotifPanel() {
+    const panel = document.getElementById('notif-panel');
+    if (!panel) return;
+
+    const isHidden = panel.classList.toggle('hidden');
+    const badge = document.getElementById('notif-badge');
+
+    if (!isHidden) {
+        renderNotifications();
+        // Panel açıldığında tüm bildirimleri görülmüş say (Badge'i gizle ve süreyi kaydet)
+        setTimeout(() => {
+            localStorage.setItem('lastNotifCheck', Date.now());
+            updateNotifBadge();
+        }, 500);
+    }
+}
+
+function getNotifications() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const notifs = [];
+
+    // 1. Duyurular ÇIKARTILDI (User isteği)
+    
+    // 2. Takas Talepleri ve Pazar Yeri (Marketplace) Güncellemeleri
+    if (myStaffId) {
+        // Pazar Yerindeki Açık Görevler (Initiator ben değilsem ve sınav bitmediyse)
+        const openMarketplace = (DB.requests || []).filter(r => 
+            r.status === 'open' && 
+            String(r.initiatorId) !== String(myStaffId)
+        );
+
+        openMarketplace.forEach(req => {
+            notifs.push({
+                type: 'marketplace',
+                title: 'Açık Görev',
+                message: `Pazar yerinde yeni bir görev var: "${req.examName}"`,
+                time: req.timestamp,
+                icon: '🛒'
+            });
+        });
+
+        // Takas Taleplerim ve Bana Gelenler
+        const myRequests = (DB.requests || []).filter(r => 
+            (String(r.initiatorId) === String(myStaffId) || String(r.peerId) === String(myStaffId)) && 
+            r.status !== 'open'
+        );
+
+        myRequests.forEach(req => {
+            const isInitiator = String(req.initiatorId) === String(myStaffId);
+            let msg = "";
+            let icon = "🔄";
+
+            if (req.status === 'approved') {
+                msg = `"${req.examName}" takas talebi onaylandı!`;
+                icon = "✅";
+            } else if (req.status === 'rejected') {
+                msg = `"${req.examName}" takas talebi reddedildi.`;
+                icon = "❌";
+            } else if (req.status === 'pending_peer' && !isInitiator) {
+                msg = `Size yeni bir takas teklifi geldi: "${req.examName || 'Bilinmeyen Sınav'}"`;
+                icon = "📩";
+            }
+
+            if (msg) {
+                notifs.push({
+                    type: 'request',
+                    title: 'Takas Güncellemesi',
+                    message: msg,
+                    time: req.updatedAt || (req.timestamp + 1),
+                    icon: icon
+                });
+            }
+        });
+
+        // 3. Yaklaşan Sınavlar (Sonraki 48 saat içindeki sınavlar)
+        const now = Date.now();
+        const futureLimit = now + (48 * 60 * 60 * 1000);
+        DB.exams.filter(ex => String(ex.proctorId) === String(myStaffId)).forEach(ex => {
+            const exDate = new Date(`${ex.date}T${ex.time}`).getTime();
+            if (exDate > now && exDate < futureLimit) {
+                notifs.push({
+                    type: 'exam',
+                    title: 'Yaklaşan Görev',
+                    message: `Hatırlatma: "${ex.name}" sınavı yaklaşıyor (${ex.date} ${ex.time})`,
+                    time: exDate - 1, // Sınavın tam vaktinden bir saniye önce olsun ki listede üstte görünsün
+                    icon: '⏳'
+                });
+            }
+        });
+    }
+
+    // Tarihe göre yeniden eskiye sırala
+    return notifs.sort((a,b) => b.time - a.time);
+}
+
+function renderNotifications() {
+    const list = document.getElementById('notif-list');
+    if (!list) return;
+
+    const notifs = getNotifications();
+    const lastCheck = parseInt(localStorage.getItem('lastNotifCheck') || '0');
+
+    if (notifs.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem;">Henüz bildirim yok.</div>`;
+        return;
+    }
+
+    list.innerHTML = notifs.map(n => {
+        const isNew = n.time > lastCheck;
+        const timeStr = formatRelativeTime(n.time);
+        
+        return `
+            <div class="notif-item ${isNew ? 'unread' : ''}">
+                <div class="notif-icon">${n.icon}</div>
+                <div class="notif-content">
+                    <div class="notif-message"><strong>${n.title}</strong>: ${n.message}</div>
+                    <div class="notif-time">${timeStr}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateNotifBadge() {
+    const badge = document.getElementById('notif-badge');
+    const bell = document.getElementById('btn-notifications');
+    if (!badge || !bell) return;
+
+    const notifs = getNotifications();
+    const lastCheck = parseInt(localStorage.getItem('lastNotifCheck') || '0');
+    // Sadece görülmemiş bildirimlerin sayısını al
+    const newCount = notifs.filter(n => n.time > lastCheck).length;
+
+    if (newCount > 0) {
+        badge.textContent = newCount > 9 ? '9+' : newCount;
+        badge.classList.remove('hidden');
+        bell.classList.add('pulse-animation');
+    } else {
+        badge.classList.add('hidden');
+        bell.classList.remove('pulse-animation');
+    }
+}
+
+function formatRelativeTime(timestamp) {
+    const diff = Date.now() - timestamp;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days} gün önce`;
+    if (hours > 0) return `${hours} saat önce`;
+    if (mins > 0) return `${mins} dk önce`;
+    return 'Az önce';
+}
+
+/**
+ * AYLIK TAKVİM MANTIĞI
+ */
+
+function renderMonthlyCalendar() {
+    const container = document.getElementById('calendar-container');
+    const label = document.getElementById('calendar-month-year');
+    const subLabel = document.getElementById('calendar-date-label');
+    if (!container || !label) return;
+
+    const d = new Date(currentTimelineDate);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    label.textContent = `${monthNames[month]} ${year}`;
+    if (subLabel) subLabel.textContent = `${monthNames[month]} ayı genel sınav dağılımı`;
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Monday = 0, ..., Sunday = 6
+    const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+
+    let html = `
+        <div class="calendar-grid">
+            <div class="calendar-weekday">Pzt</div>
+            <div class="calendar-weekday">Sal</div>
+            <div class="calendar-weekday">Çar</div>
+            <div class="calendar-weekday">Per</div>
+            <div class="calendar-weekday">Cum</div>
+            <div class="calendar-weekday">Cmt</div>
+            <div class="calendar-weekday">Paz</div>
+    `;
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Padding (Last Month)
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    for (let i = startOffset - 1; i >= 0; i--) {
+        html += `<div class="calendar-day other-month">
+            <div class="day-number">${prevMonthDays - i}</div>
+        </div>`;
+    }
+
+    // Days (Current Month)
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
+        const dayExams = DB.exams.filter(ex => ex.date === dateStr);
+
+        html += `
+            <div class="calendar-day ${isToday ? 'today' : ''}" onclick="showDailyTimeline('${dateStr}')">
+                <div class="day-number">${day}</div>
+                <div class="calendar-exam-list">
+                    ${dayExams.slice(0, 3).map(ex => `
+                        <div class="calendar-exam-item" style="${ex.type === 'Final' ? 'background:var(--accent-red)' : ''}">
+                            ${ex.time} ${ex.name}
+                        </div>
+                    `).join('')}
+                    ${dayExams.length > 3 ? `<div style="font-size:0.6rem; color:var(--text-muted); margin-top:2px;">+${dayExams.length - 3} Sınav Daha</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+function showDailyTimeline(dateStr) {
+    currentTimelineDate = dateStr;
+    const modal = document.getElementById('modal-daily-detail');
+    const title = document.getElementById('daily-detail-title');
+    if (modal && title) {
+        title.innerHTML = `📅 ${dateStr.split('-').reverse().join('.')} Tarihli Detaylı Çizelge`;
+        modal.classList.remove('hidden');
+        renderTimeline();
+    }
+}
+
+
+

@@ -42,12 +42,29 @@
                 <button id="btn-profile" class="active">👤 Profilim <span id="marketplace-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-dashboard">Panel</button>
                 <button id="btn-schedule">Sınav Programı</button>
+                <button id="btn-timeline">Sınav Takvimi</button>
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff" class="admin-only">Personel</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
                 <button id="btn-audit" class="admin-only">📜 İşlem Geçmişi</button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-theme-toggle" class="btn-theme-toggle" title="Temayı Değiştir">🌓</button>
+                <div style="position: relative; display: flex; align-items: center;">
+                    <button id="btn-notifications" class="btn-theme-toggle" title="Bildirimler" style="margin-left: 0.5rem; position: relative;">
+                        🔔
+                        <span id="notif-badge" class="badge-count hidden" style="position: absolute; top: -5px; right: -5px; font-size: 0.6rem; padding: 2px 5px;">0</span>
+                    </button>
+                    <!-- Notification Panel -->
+                    <div id="notif-panel" class="notif-panel hidden">
+                        <div class="notif-header">
+                            <h3>Bildirimler</h3>
+                            <button id="btn-clear-notifs" style="background:none; border:none; color:var(--primary); font-size:0.75rem; cursor:pointer; font-weight:700;">Hepsini Gör</button>
+                        </div>
+                        <div id="notif-list" class="notif-list">
+                            <!-- JS ile doldurulacak -->
+                        </div>
+                    </div>
+                </div>
                 <div id="cloud-status" class="cloud-status hidden" style="margin-left:auto; margin-right: 1.5rem;">
                     <span class="cloud-icon">☁️</span>
                     <span id="cloud-status-text">Eşitlendi</span>
@@ -93,7 +110,23 @@
                     <div class="profile-header">
                         <div id="profile-avatar" class="profile-avatar">??</div>
                         <div class="profile-info">
-                            <h1 id="profile-name">Yükleniyor...</h1>
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 0.5rem;">
+                                <h1 id="profile-name" style="margin: 0;">Yükleniyor...</h1>
+                                <span id="profile-rank-badge" class="rank-badge">Acemi</span>
+                            </div>
+                            <div id="profile-xp-container" style="margin-bottom: 1rem; max-width: 300px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 5px;">
+                                    <span id="profile-level-label">Level 1</span>
+                                    <span id="profile-xp-label">0/5 Görev</span>
+                                </div>
+                                <div class="xp-bar-bg">
+                                    <div id="profile-xp-fill" class="xp-bar-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div id="profile-motto-container" style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px;">
+                                <span id="profile-motto" class="profile-motto" title="Tıkla ve deganştir">"Gözetmenlik bir sanattır..."</span>
+                                <button onclick="editMotto()" class="btn-icon" style="font-size: 0.8rem; opacity: 0.5;">✏️</button>
+                            </div>
                             <div class="profile-stats">
                                 <div class="stat-item">
                                     <span class="stat-label">🏆 Toplam Puan</span>
@@ -106,6 +139,52 @@
                                 <button id="btn-change-identity" class="btn-secondary" style="font-size: 0.7rem; padding: 6px 12px; border-radius: 10px; align-self: flex-end; margin-bottom: 5px;">Kimliği Değiştir</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- En Sık Beraber Görev Yaptığım Arkadaşlarım (Squad) -->
+                    <div id="profile-collaborators-section" class="profile-collaborators-container hidden" style="margin-bottom: 2rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <h3 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); margin: 0;">🚀 En Sık Beraber Görev Yaptığım Arkadaşlarım</h3>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 20px; border: 1px solid var(--glass-border);">Ekibim</span>
+                        </div>
+                        <div id="profile-collaborators-list" class="collaborators-grid">
+                            <!-- JS ile doldurulacak -->
+                        </div>
+                    </div>
+
+                    <!-- Başarı Rozetleri (Achievements) -->
+                    <div id="profile-achievements-section" style="margin-bottom: 2.5rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+                            <h3 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); margin: 0;">🏅 Başarı Rozetlerim</h3>
+                            <span id="achievement-count" style="font-size: 0.75rem; color: var(--accent-green); background: rgba(16, 185, 129, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.2);">0/6 Rozet</span>
+                        </div>
+                        <div id="profile-achievements-list" class="achievements-grid">
+                            <!-- JS ile doldurulacak -->
+                        </div>
+                    </div>
+
+                    <!-- Günün Motivasyonu & Gözetmen Şakaları -->
+                    <div id="profile-joke-section" class="profile-joke-card" style="margin-bottom: 2rem;">
+                         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem;">
+                            <span style="font-size: 1.5rem;">🎭</span>
+                            <h4 style="margin: 0; font-size: 0.85rem; color: var(--primary); text-transform: uppercase; letter-spacing: 0.1em;">Gözetmen Günlüğü & Motivasyon</h4>
+                         </div>
+                         <p id="profile-daily-joke" style="font-size: 1.1rem; font-style: italic; color: #fff; line-height: 1.6; margin: 0;">"Sessizlik en büyük silahtır..."</p>
+                         <div style="position: absolute; top: 1.5rem; right: 1.5rem; display: flex; gap: 10px;">
+                            <button onclick="suggestJoke()" class="btn-icon" style="opacity: 0.5; font-size: 1rem;" title="Şaka Öner">✍️</button>
+                            <button onclick="renderDailyJoke(true)" class="btn-icon" style="opacity: 0.5; font-size: 1rem;" title="Başka Bir Tane Göster">🔄</button>
+                         </div>
+                    </div>
+
+                    <!-- Kişisel Not Defteri -->
+                    <div id="profile-notes-section" class="profile-notes-card" style="margin-bottom: 2rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <h4 style="margin: 0; font-size: 0.85rem; color: var(--primary); text-transform: uppercase; letter-spacing: 0.1em;">📝 Kişisel Not Defteri</h4>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">Sadece siz görebilirsiniz</span>
+                        </div>
+                        <textarea id="profile-notes-input" placeholder="Sınavlar ile ilgili notlarınızı buraya yazabilirsiniz... (Örn: Amfi 2 klima sorunu)" 
+                            oninput="saveQuickNotes()"
+                            style="width: 100%; min-height: 120px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; color: white; padding: 1rem; font-family: inherit; font-size: 0.9rem; resize: vertical; outline: none; transition: border-color 0.3s ease;"></textarea>
                     </div>
 
                     <div id="profile-marketplace-announcement" class="hidden"></div>
@@ -505,6 +584,41 @@
                     </div>
                 </div>
             </section>
+            
+            <!-- Timeline/Calendar Section -->
+            <section id="section-timeline" class="content-section hidden">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h2>Aylık Sınav Takvimi</h2>
+                        <p id="calendar-date-label" style="color: var(--text-muted); font-size: 0.875rem;">Yükleniyor...</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.2); padding: 8px 16px; border-radius: 16px; border: 1px solid var(--glass-border);">
+                        <button id="btn-timeline-prev" class="btn-icon" style="background:none; border:none; color:white; cursor:pointer; font-size:1.2rem;">◀</button>
+                        <span id="calendar-month-year" style="color:white; font-family:inherit;font-size:1rem; font-weight:700; min-width:120px; text-align:center;">Mart 2025</span>
+                        <button id="btn-timeline-next" class="btn-icon" style="background:none; border:none; color:white; cursor:pointer; font-size:1.2rem;">▶</button>
+                        <input type="date" id="timeline-date-input" style="display:none;">
+                    </div>
+                </div>
+
+                <div class="card-large" style="padding: 1.5rem; overflow: hidden; background: rgba(0,0,0,0.3);">
+                    <div id="calendar-container" class="calendar-container">
+                        <!-- JS ile doldurulacak -->
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Daily Detail Modal -->
+            <div id="modal-daily-detail" class="modal hidden">
+                <div class="modal-content" style="max-width: 95vw; width: 1200px;">
+                    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+                        <h2 id="daily-detail-title">Günlük Sınav Çizelgesi</h2>
+                        <button id="btn-close-daily-detail" class="btn-icon" style="font-size:1.5rem; background:none; border:none; color:white; cursor:pointer;">&times;</button>
+                    </div>
+                    <div id="timeline-container" class="timeline-container">
+                        <!-- JS ile doldurulacak (Horizontal Timeline) -->
+                    </div>
+                </div>
+            </div>
 
             <!-- Müsaitlik Takvimi Section -->
             <section id="section-availability" class="content-section hidden user-only">
