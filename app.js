@@ -827,6 +827,7 @@ function initUI() {
     document.getElementById('btn-batch-assign')?.addEventListener('click', window.batchAutoAssign);
     document.getElementById('exam-search')?.addEventListener('input', renderExams);
     document.getElementById('staff-search')?.addEventListener('input', renderStaff);
+    document.getElementById('schedule-search')?.addEventListener('input', renderSchedule);
 }
 
 
@@ -1374,6 +1375,20 @@ function renderSchedule() {
     });
 
     const scheduleList = Object.values(groups);
+    
+    // Search filter
+    const searchTerm = document.getElementById('schedule-search')?.value.toLowerCase() || '';
+    let filteredSchedule = scheduleList;
+    if (searchTerm) {
+        filteredSchedule = scheduleList.filter(ex => {
+            const nameMatch = (ex.name || "").toLowerCase().includes(searchTerm);
+            const lecturerMatch = (ex.lecturer || "").toLowerCase().includes(searchTerm);
+            const proctorMatch = (ex.proctors || []).some(p => p.toLowerCase().includes(searchTerm));
+            const locationMatch = (ex.location || "").toLowerCase().includes(searchTerm);
+            return nameMatch || lecturerMatch || proctorMatch || locationMatch;
+        });
+    }
+
     const conflicts = getConflicts();
     const locConflicts = getLocationConflicts();
     const now = new Date();
@@ -1385,7 +1400,7 @@ function renderSchedule() {
         return 0;
     }
 
-    scheduleList.sort((a, b) => {
+    filteredSchedule.sort((a, b) => {
         const ya = getYear(a.name);
         const yb = getYear(b.name);
         if (ya !== yb) return ya - yb;
@@ -1395,7 +1410,7 @@ function renderSchedule() {
     let currentYearActive = -1;
     let currentYearArchive = -1;
 
-    scheduleList.forEach(ex => {
+    filteredSchedule.forEach(ex => {
         const y = getYear(ex.name);
         const examDate = new Date(`${ex.date}T${ex.time}`);
         const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
@@ -2824,7 +2839,7 @@ window.renderProfile = function() {
         activeExams.forEach(ex => {
             activeBody.innerHTML += `
                 <tr>
-                    <td><strong>${ex.name}</strong></td>
+                    <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
                     <td><span class="badge-location">${ex.location || '-'}</span></td>
                     <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
@@ -2856,7 +2871,7 @@ window.renderProfile = function() {
         archiveExams.forEach(ex => {
             archiveBody.innerHTML += `
                 <tr>
-                    <td>${ex.name}</td>
+                    <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
                     <td>${ex.location || '-'}</td>
                     <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
