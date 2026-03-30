@@ -2577,9 +2577,18 @@ window.updateMarketplaceBadge = function() {
     const dismissedKey = `dismissed_requests_${myStaffId}`;
     const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
 
+    const now = new Date();
     const openCount = (DB.requests || [])
-        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
-        .filter(r => !dismissedIds.includes(r.id))
+        .filter(r => {
+            if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
+            if (dismissedIds.includes(r.id)) return false;
+            // Geçmiş sınavları gösterme
+            const exam = DB.exams.find(e => String(e.id) === String(r.examId));
+            if (!exam) return false;
+            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
+            return examEnd >= now;
+        })
         .length;
 
     if (openCount > 0) {
@@ -2606,9 +2615,18 @@ window.renderMarketplaceDashboard = function() {
     const dismissedKey = `dismissed_requests_${myStaffId}`;
     const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
 
+    const now = new Date();
     const openRequests = (DB.requests || [])
-        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
-        .filter(r => !dismissedIds.includes(r.id));
+        .filter(r => {
+            if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
+            if (dismissedIds.includes(r.id)) return false;
+            // Geçmiş sınavları gösterme
+            const exam = DB.exams.find(e => String(e.id) === String(r.examId));
+            if (!exam) return false;
+            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
+            return examEnd >= now;
+        });
 
     if (openRequests.length === 0) {
         card.classList.add('hidden');
@@ -2647,10 +2665,19 @@ window.updateProfileMarketplaceAnnouncement = function() {
     const dismissedKey = `dismissed_requests_${myStaffId}`;
     const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
 
+    const now = new Date();
     // Kullanıcının müsait olduğu açık talepleri bul
     const openRequests = (DB.requests || [])
-        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
-        .filter(r => !dismissedIds.includes(r.id));
+        .filter(r => {
+            if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
+            if (dismissedIds.includes(r.id)) return false;
+            // Geçmiş sınavları gösterme
+            const exam = DB.exams.find(e => String(e.id) === String(r.examId));
+            if (!exam) return false;
+            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
+            return examEnd >= now;
+        });
 
     // Müsaitlik kontrolü yapılmış olanları filtrele (renderMarketplace mantığı gibi)
     const availableRequests = openRequests.filter(req => {
@@ -2780,8 +2807,17 @@ window.renderProfile = function() {
         // Görevleri listele
         const myExams = DB.exams.filter(e => String(e.proctorId) === String(myStaffId));
         const now = new Date();
-        const activeExams = myExams.filter(e => new Date(e.date) >= now).sort((a,b) => a.date.localeCompare(b.date));
-        const archiveExams = myExams.filter(e => new Date(e.date) < now).sort((a,b) => b.date.localeCompare(a.date));
+        const activeExams = myExams.filter(e => {
+            const examDate = new Date(`${e.date}T${e.time}`);
+            const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
+            return examEnd >= now;
+        }).sort((a,b) => a.date.localeCompare(b.date));
+
+        const archiveExams = myExams.filter(e => {
+            const examDate = new Date(`${e.date}T${e.time}`);
+            const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
+            return examEnd < now;
+        }).sort((a,b) => b.date.localeCompare(a.date));
 
         const activeBody = document.querySelector('#profile-table-active tbody');
         activeBody.innerHTML = '';
@@ -2790,6 +2826,7 @@ window.renderProfile = function() {
                 <tr>
                     <td><strong>${ex.name}</strong></td>
                     <td><span class="badge-location">${ex.location || '-'}</span></td>
+                    <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
                     <td>${ex.time}</td>
                     <td>${ex.duration} dk</td>
@@ -2821,6 +2858,7 @@ window.renderProfile = function() {
                 <tr>
                     <td>${ex.name}</td>
                     <td>${ex.location || '-'}</td>
+                    <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
                     <td>${ex.time}</td>
                     <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
@@ -3215,9 +3253,18 @@ window.renderMarketplace = function() {
     const dismissedKey = `dismissed_requests_${myStaffId}`;
     const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
 
+    const now = new Date();
     const openRequests = (DB.requests || [])
-        .filter(r => r.status === 'pending' && r.receiverId === null && r.initiatorId !== myStaffIdNum)
-        .filter(r => !dismissedIds.includes(r.id));
+        .filter(r => {
+            if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
+            if (dismissedIds.includes(r.id)) return false;
+            // Geçmiş sınavları gösterme
+            const exam = DB.exams.find(e => String(e.id) === String(r.examId));
+            if (!exam) return false;
+            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
+            return examEnd >= now;
+        });
 
     if (openRequests.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Şu an için uygun açık görev bulunmuyor.</td></tr>';
