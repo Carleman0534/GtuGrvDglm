@@ -541,14 +541,6 @@
 
                 <!-- Aktif Program Tablosu -->
                 <div id="tab-gen-content-active" class="tab-content active">
-                    <div id="lecturer-filter-container" style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: none; align-items: center; gap: 15px;">
-                        <label style="font-size: 0.9rem; color: var(--primary); font-weight: 600; white-space: nowrap;">👤 Programı Filtrele:</label>
-                        <select id="schedule-lecturer-filter" style="flex: 1; max-width: 400px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                            <option value="">Tüm Hocalar / Dersler</option>
-                        </select>
-                        <p style="margin:0; font-size: 0.75rem; color: var(--text-muted); opacity: 0.8;">* Sadece kendi sınavlarınızı görmek için isminizi seçin.</p>
-                    </div>
-
                     <div class="table-container">
                         <table id="table-schedule">
                             <thead>
@@ -794,7 +786,6 @@
                     <!-- Sekme Menüsü -->
                     <div class="modal-tabs">
                         <button id="tab-btn-active" class="modal-tab-btn active" onclick="switchIndividualTab('active')">Aktif Görevler</button>
-                        <button id="tab-btn-notifications" class="modal-tab-btn" onclick="switchIndividualTab('notifications')">Bildirimler <span id="profile-notif-badge" class="badge-count hidden">0</span></button>
                         <button id="tab-btn-archive" class="modal-tab-btn" onclick="switchIndividualTab('archive')">Arşiv (Geçmiş Görevler)</button>
                     </div>
 
@@ -828,16 +819,6 @@
                                 </thead>
                                 <tbody></tbody>
                             </table>
-                        </div>
-                    </div>
-
-                    <!-- Bildirimler Bölümü -->
-                    <div id="tab-content-notifications" class="tab-content">
-                        <div id="profile-notif-list" style="max-height: 400px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--glass-border);">
-                            <div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem;">Henüz bildirim yok.</div>
-                        </div>
-                        <div style="text-align: right; margin-top: 15px;">
-                            <button class="btn-secondary" onclick="markAllNotificationsAsRead()" style="font-size: 0.75rem; padding: 8px 15px; border-radius: 8px;">Tümünü Okundu Say</button>
                         </div>
                     </div>
 
@@ -919,7 +900,7 @@
         </div>
 
         <!-- Floating Modal for Editing Exams -->
-        <div id="edit-modal" class="modal hidden">
+        <div id="edit-modal" class="modal hidden admin-only">
             <div class="modal-content">
                 <h2>Sınav Düzenle</h2>
                 <form id="edit-modal-form">

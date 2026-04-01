@@ -155,10 +155,6 @@ async function initApp() {
     if (!DB.auditLogs) {
         DB.auditLogs = [];
     }
-
-    if (!DB.notifications) {
-        DB.notifications = [];
-    }
     
     // Varsayılan/Zorunlu duyuruları kontrol et ve eksikse ekle
     const defaultAnnouncements = [
@@ -926,49 +922,6 @@ function initUI() {
     }
 
     updateNotifBadge();
-    renderLecturerFilter();
-}
-
-function addNotification(staffId, title, message, examId = null) {
-    if (!DB.notifications) DB.notifications = [];
-    DB.notifications.push({
-        id: Date.now() + Math.random(),
-        staffId: parseInt(staffId),
-        title: title,
-        message: message,
-        examId: examId,
-        timestamp: Date.now(),
-        isRead: false
-    });
-    saveToLocalStorage();
-    updateNotifBadge();
-}
-
-function renderLecturerFilter() {
-    const filterContainer = document.getElementById('lecturer-filter-container');
-    const filterSelect = document.getElementById('schedule-lecturer-filter');
-    if (!filterContainer || !filterSelect) return;
-
-    // Sadece Hoca Girişinde veya Admin modunda göster
-    const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
-    const isAdminMode = sessionStorage.getItem('isAdmin') === 'true';
-
-    if (isLecturerMode || isAdminMode) {
-        filterContainer.style.display = 'flex';
-        
-        // Benzersiz hoca isimlerini al
-        const lecturerNames = [...new Set(DB.exams.map(ex => ex.lecturer).filter(l => l && l !== "-"))].sort();
-        
-        const currentVal = filterSelect.value;
-        filterSelect.innerHTML = `<option value="">Tüm Hocalar / Dersler</option>` + 
-            lecturerNames.map(name => `<option value="${name}" ${name === currentVal ? 'selected' : ''}>${name}</option>`).join('');
-
-        filterSelect.onchange = () => {
-            renderSchedule();
-        };
-    } else {
-        filterContainer.style.display = 'none';
-    }
 }
 
 
@@ -1226,7 +1179,6 @@ window.showExamDetail = function(examName, date, time, location) {
                 const examDate = new Date(`${ex.date}T${ex.time}`);
                 const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
                 const isPast = examEnd < now;
-                const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -1458,14 +1410,25 @@ function renderExams() {
             <td style="display: flex; gap: 8px; justify-content: flex-end;">
                  ${conflicts.has(ex.id) ? `<button class="btn-primary" onclick="quickFixConflict(${ex.id})" title="Otomatik Çöz" style="padding: 0.45rem; background: var(--accent-orange); border-radius: 6px;"><span class="icon" style="margin:0; font-size: 0.9rem;">🧙‍♂️</span></button>` : ''}
                  ${(() => {
-                     const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+                     const myStaffId = localStorage.getItem('myStaffId');
+                     const hasRequest = (DB.requests || []).find(r => 
+                         String(r.examId) === String(ex.id) && 
+                         String(r.initiatorId) === String(myStaffId) && 
+                         ['pending', 'pending_peer'].includes(r.status)
+                     );
+                     if (hasRequest) {
+                         return `<button class="btn-delete" onclick="cancelSwapRequest(${hasRequest.id})" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
+                     }
                      const isMe = (ex.proctorIds || [ex.proctorId]).map(pid => String(pid)).includes(myStaffId);
-                     const isLecturer = sessionStorage.getItem('isLecturer') === 'true';
-                     if (isAdmin || isMe || isLecturer) {
-                         return `<button class="btn-secondary" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>`;
+                     if (isMe) {
+                         return `
+                            <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                            <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: #8b5cf6;"><span class="icon" style="margin:0;">📢</span></button>
+                         `;
                      }
                      return '';
                  })()}
+                 <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
                  <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
             </td>
         `;
@@ -1509,16 +1472,9 @@ function renderSchedule() {
     
     // Search filter
     const searchTerm = document.getElementById('schedule-search')?.value.toLowerCase() || '';
-    const lecturerFilter = document.getElementById('schedule-lecturer-filter')?.value || '';
-    
     let filteredSchedule = scheduleList;
-
-    if (lecturerFilter) {
-        filteredSchedule = filteredSchedule.filter(ex => ex.lecturer === lecturerFilter);
-    }
-
     if (searchTerm) {
-        filteredSchedule = filteredSchedule.filter(ex => {
+        filteredSchedule = scheduleList.filter(ex => {
             const nameMatch = (ex.name || "").toLowerCase().includes(searchTerm);
             const lecturerMatch = (ex.lecturer || "").toLowerCase().includes(searchTerm);
             const proctorMatch = (ex.proctors || []).some(p => p.toLowerCase().includes(searchTerm));
@@ -1598,25 +1554,9 @@ function renderSchedule() {
             <td>${formatString}</td>
             <td>${ex.time}</td>
             <td>${ex.duration} dk</td>
-             <td class="proctor-list">${ex.proctors.join(', ')}</td>
+            <td class="proctor-list">${ex.proctors.join(', ')}</td>
             <td>
-                 ${(() => {
-                     const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-                     const isLecturer = sessionStorage.getItem('isLecturer') === 'true';
-                     const myStaffId = localStorage.getItem('myStaffId');
-                     // Bu hoca bu gruptaki herhangi bir sınavda gözetmen mi?
-                     const relatedGroupExams = DB.exams.filter(ge => 
-                        ge.name === ex.name && ge.date === ex.date && ge.time === ex.time
-                     );
-                     const isMyExam = relatedGroupExams.some(ge => 
-                        (ge.proctorIds || [ge.proctorId]).map(pid => String(pid)).includes(myStaffId)
-                     );
-
-                     if (isAdmin || isLecturer || isMyExam) {
-                         return `<button class="btn-secondary" onclick="showEditScheduleModal('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>`;
-                     }
-                     return '';
-                 })()}
+                 <button class="btn-secondary admin-only" onclick="showEditScheduleModal('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
             </td>
         `;
         targetTbody.appendChild(tr);
@@ -2006,35 +1946,6 @@ window.showEditExamModal = (id) => {
         const t   = document.getElementById('edit-exam-time').value;
         const dur = parseInt(document.getElementById('edit-exam-duration').value) || 60;
         updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null);
-        
-        // --- ÇATIŞMA KONTROLÜ (GELİŞMİŞ) ---
-        const conflictArea = document.getElementById('edit-suggestions');
-        const proctorIds = window.tempEditProctors || [];
-        if (proctorIds.length > 0 && d && t) {
-            let conflictsFound = [];
-            proctorIds.forEach(pid => {
-                const staff = DB.staff.find(s => s.id === pid);
-                if (staff) {
-                    // isAvailable fonksionunu kullanarak mevcut sınavları kontrol et
-                    if (!isAvailable(staff.name, d, t, dur, ex.id)) {
-                        conflictsFound.push(staff.name);
-                    }
-                }
-            });
-
-            if (conflictsFound.length > 0) {
-                const warningDiv = document.createElement('div');
-                warningDiv.style = "margin-top:10px; padding:10px; background:rgba(239,68,68,0.1); border:1px solid #ef4444; border-radius:8px; color:#fca5a5; font-size:0.8rem;";
-                warningDiv.innerHTML = `⚠️ <strong>Çakışma Uyarısı:</strong><br>${conflictsFound.join(', ')} bu saatte/sürede başka görevle çakışıyor!`;
-                
-                const list = document.getElementById('edit-suggestion-list');
-                if (list) {
-                    // Eğer liste gizliyse göster
-                    conflictArea.classList.remove('hidden');
-                    list.appendChild(warningDiv);
-                }
-            }
-        }
     };
 
     // Her açılışta listener'ları temizle ve yeniden ekle (flag ile)
@@ -2069,31 +1980,6 @@ window.showEditExamModal = (id) => {
     durEl.addEventListener('input',   durEl._editHandler);
     nameEl.addEventListener('input',  nameEl._editHandler);
 
-    // Kısıtlama: Admin değilse süreci daralt
-    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-    if (!isAdmin) {
-        document.getElementById('edit-exam-type').disabled = true;
-        document.getElementById('edit-exam-name').disabled = true;
-        document.getElementById('edit-exam-lecturer').disabled = true;
-        document.getElementById('edit-exam-capacity').disabled = true;
-        document.getElementById('edit-exam-date').disabled = true;
-        document.getElementById('edit-exam-time').disabled = true;
-        document.getElementById('edit-exam-proctor-select').disabled = true;
-        document.querySelector('#edit-modal label[for="edit-exam-proctor-select"]')?.nextElementSibling?.querySelector('button')?.classList.add('hidden');
-        
-        // Modal başlığını güncelle
-        document.querySelector('#edit-modal h2').textContent = "Sınav Düzenle (Lecturer/Staff Mode)";
-    } else {
-        document.getElementById('edit-exam-type').disabled = false;
-        document.getElementById('edit-exam-name').disabled = false;
-        document.getElementById('edit-exam-lecturer').disabled = false;
-        document.getElementById('edit-exam-capacity').disabled = false;
-        document.getElementById('edit-exam-date').disabled = false;
-        document.getElementById('edit-exam-time').disabled = false;
-        document.getElementById('edit-exam-proctor-select').disabled = false;
-        document.querySelector('#edit-modal h2').textContent = "Sınav Düzenle";
-    }
-
     updateEditSuggestions();
     document.getElementById('edit-modal').classList.remove('hidden');
 };
@@ -2105,9 +1991,6 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
 
     // tempEditProctors boşsa mevcut sınavın gözetmenlerini koru
     const currentExam = DB.exams.find(ex => String(ex.id) === String(id));
-    const oldLocation = currentExam ? currentExam.location : "";
-    const oldDuration = currentExam ? currentExam.duration : 0;
-
     const proctorIds = (window.tempEditProctors && window.tempEditProctors.length > 0)
         ? window.tempEditProctors
         : (currentExam ? (currentExam.proctorIds || (currentExam.proctorId ? [currentExam.proctorId] : [])) : []);
@@ -2139,30 +2022,10 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
     }
 
     updateExam(id, data);
-
-    // Bildirim Gönder (Lokasyon veya Süre değiştiyse)
-    const isAdminFinal = sessionStorage.getItem('isAdmin') === 'true';
-    if (!isAdminFinal || (data.location !== oldLocation || data.duration !== oldDuration)) {
-        let changedFields = [];
-        if (data.location !== oldLocation) changedFields.push(`Yeni Yer: ${data.location}`);
-        if (data.duration !== oldDuration) changedFields.push(`Yeni Süre: ${data.duration} dk`);
-
-        if (changedFields.length > 0) {
-            data.proctorIds.forEach(pid => {
-                addNotification(pid, "Sınav Güncellemesi", `${data.name} sınavında değişiklik yapıldı. ${changedFields.join(', ')}`, id);
-            });
-        }
-    }
-
     document.getElementById('edit-modal').classList.add('hidden');
     renderExams();
     renderSchedule();
     renderDashboard();
-    
-    isAdminFinal = sessionStorage.getItem('isAdmin') === 'true';
-    const logRole = isAdminFinal ? 'admin' : 'lecturer';
-    logAction(logRole, 'Sınav Düzenleme', `${data.name} sınavı güncellendi (Süre: ${data.duration}, Yer: ${data.location}).`);
-    
     await saveToBackend();
 };
 
@@ -2200,20 +2063,6 @@ window.showEditScheduleModal = (name, date, time, location) => {
     `;
     modal.classList.remove('hidden');
 
-    // Kısıtlama: Admin değilse süreci daralt
-    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-    if (!isAdmin) {
-        document.getElementById('sch-exam-name').disabled = true;
-        document.getElementById('sch-exam-date').disabled = true;
-        document.getElementById('sch-exam-time').disabled = true;
-        document.getElementById('modal-title').textContent = "Program/Yer Düzenle (Lecturer/Staff Mode)";
-    } else {
-        document.getElementById('sch-exam-name').disabled = false;
-        document.getElementById('sch-exam-date').disabled = false;
-        document.getElementById('sch-exam-time').disabled = false;
-        document.getElementById('modal-title').textContent = "Program/Yer Düzenle (" + baseEx.name + ")";
-    }
-
     document.getElementById('modal-form').onsubmit = async (e) => {
         e.preventDefault();
         
@@ -2222,9 +2071,6 @@ window.showEditScheduleModal = (name, date, time, location) => {
         const newDate = document.getElementById('sch-exam-date').value;
         const newTime = document.getElementById('sch-exam-time').value;
         const newDuration = parseInt(document.getElementById('sch-exam-duration').value) || 60;
-
-        const oldLocation = baseEx.location || "";
-        const oldDuration = baseEx.duration;
 
         // O gruba ait tüm kayıtları güncelle
         for (const ex of groupExams) {
@@ -2235,20 +2081,10 @@ window.showEditScheduleModal = (name, date, time, location) => {
                 time: newTime,
                 duration: newDuration
             }, true); // skipSave = true
-
-            // Bildirim Gönder
-            if (newLocation !== oldLocation || newDuration !== oldDuration) {
-                const pIds = ex.proctorIds || [ex.proctorId];
-                pIds.forEach(pid => {
-                    addNotification(pid, "Program Güncellemesi", `${newName} sınav programı güncellendi. Yeni Yer: ${newLocation}, Süre: ${newDuration} dk`, ex.id);
-                });
-            }
         }
 
         saveToLocalStorage(); // Tek seferde kaydet
-        const isAdminFinal = sessionStorage.getItem('isAdmin') === 'true';
-        const logRole = isAdminFinal ? 'admin' : 'lecturer';
-        logAction(logRole, 'Sınav Programı Güncelleme', `${newName} grubundaki ${groupExams.length} sınav güncellendi (Süre: ${newDuration}, Yer: ${newLocation}).`);
+        logAction('admin', 'Sınav Programı Güncelleme', `${newName} grubundaki ${groupExams.length} sınav güncellendi.`);
         
         hideModal();
         renderExams();
@@ -2328,9 +2164,6 @@ window.showStaffSchedule = (staffName) => {
     
     // Sekme sıfırlama
     switchIndividualTab('active');
-    
-    // Bildirimleri Render Et
-    renderProfileNotifications(staffName);
     
     const tbodyActive = document.querySelector('#table-individual-schedule tbody');
     const tbodyArchive = document.querySelector('#table-archive-schedule tbody');
@@ -2573,83 +2406,23 @@ window.switchIndividualTab = function(tab) {
     // Butonları güncelle
     const btnActive = document.getElementById('tab-btn-active');
     const btnArchive = document.getElementById('tab-btn-archive');
-    const btnNotif = document.getElementById('tab-btn-notifications');
     
-    if (btnActive && btnArchive && btnNotif) {
+    if (btnActive && btnArchive) {
         btnActive.classList.remove('active');
         btnArchive.classList.remove('active');
-        btnNotif.classList.remove('active');
         if (tab === 'active') btnActive.classList.add('active');
-        else if (tab === 'archive') btnArchive.classList.add('active');
-        else if (tab === 'notifications') btnNotif.classList.add('active');
+        else btnArchive.classList.add('active');
     }
 
     // Panelleri güncelle
     const paneActive = document.getElementById('tab-content-active');
     const paneArchive = document.getElementById('tab-content-archive');
-    const paneNotif = document.getElementById('tab-content-notifications');
 
-    if (paneActive && paneArchive && paneNotif) {
+    if (paneActive && paneArchive) {
         paneActive.classList.remove('active');
         paneArchive.classList.remove('active');
-        paneNotif.classList.remove('active');
         if (tab === 'active') paneActive.classList.add('active');
-        else if (tab === 'archive') paneArchive.classList.add('active');
-        else if (tab === 'notifications') paneNotif.classList.add('active');
-    }
-};
-
-function renderProfileNotifications(staffName) {
-    const list = document.getElementById('profile-notif-list');
-    if (!list) return;
-
-    const staff = DB.staff.find(s => s.name === staffName);
-    if (!staff) return;
-
-    const myNotifs = (DB.notifications || []).filter(n => n.staffId === staff.id)
-        .sort((a,b) => b.timestamp - a.timestamp);
-
-    if (myNotifs.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.8rem;">Henüz bildirim yok.</div>`;
-        return;
-    }
-
-    list.innerHTML = myNotifs.map(n => `
-        <div class="notif-item ${n.isRead ? '' : 'unread'}" style="margin-bottom:10px; padding:12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid ${n.isRead ? 'var(--glass-border)' : 'var(--primary)'}">
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <strong style="color:var(--primary); font-size:0.85rem;">${n.title}</strong>
-                <span style="font-size:0.7rem; color:var(--text-muted);">${new Date(n.timestamp).toLocaleString('tr-TR')}</span>
-            </div>
-            <div style="font-size:0.85rem; color:white; line-height:1.4;">${n.message}</div>
-        </div>
-    `).join('');
-    
-    // Badge güncelle
-    const unreadCount = myNotifs.filter(n => !n.isRead).length;
-    const badge = document.getElementById('profile-notif-badge');
-    if (badge) {
-        if (unreadCount > 0) {
-            badge.textContent = unreadCount;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
-        }
-    }
-}
-
-window.markAllNotificationsAsRead = async function() {
-    const staffName = document.getElementById('individual-proctor-name').textContent;
-    const staff = DB.staff.find(s => s.name === staffName);
-    if (!staff) return;
-
-    if (DB.notifications) {
-        DB.notifications.forEach(n => {
-            if (n.staffId === staff.id) n.isRead = true;
-        });
-        saveToLocalStorage();
-        renderProfileNotifications(staffName);
-        updateNotifBadge();
-        await saveToBackend();
+        else paneArchive.classList.add('active');
     }
 };
 
@@ -4884,21 +4657,10 @@ function getNotifications() {
                     type: 'exam',
                     title: 'Yaklaşan Görev',
                     message: `Hatırlatma: "${ex.name}" sınavı yaklaşıyor (${ex.date} ${ex.time})`,
-                    time: exDate - 1,
+                    time: exDate - 1, // Sınavın tam vaktinden bir saniye önce olsun ki listede üstte görünsün
                     icon: '⏳'
                 });
             }
-        });
-
-        // 4. Manuel Bildirimler (DB.notifications)
-        (DB.notifications || []).filter(n => String(n.staffId) === String(myStaffId)).forEach(n => {
-            notifs.push({
-                type: 'manual',
-                title: n.title,
-                message: n.message,
-                time: n.timestamp,
-                icon: '📢'
-            });
         });
     }
 
