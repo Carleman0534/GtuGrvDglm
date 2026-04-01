@@ -899,6 +899,23 @@ table {
     display: none !important;
 }
 
+.lecturer-mode #btn-profile,
+.lecturer-mode #btn-dashboard,
+.lecturer-mode #btn-exams,
+.lecturer-mode #btn-staff,
+.lecturer-mode #btn-availability,
+.lecturer-mode #btn-audit,
+.lecturer-mode #btn-announcements,
+.lecturer-mode #btn-timeline,
+.lecturer-mode #btn-notifications {
+    display: none !important;
+}
+
+.lecturer-mode .admin-only,
+.lecturer-mode .user-only {
+    display: none !important;
+}
+
 /* Tab System for General Schedule and Modal-like structures */
 .tab-content {
     display: none;

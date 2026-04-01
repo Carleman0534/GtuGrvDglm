@@ -8,30 +8,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const appWrapper = document.getElementById('app-wrapper');
     const loginPassInput = document.getElementById('login-password');
     const btnLogin = document.getElementById('btn-login');
+    const btnLoginLecturer = document.getElementById('btn-login-lecturer');
     const loginError = document.getElementById('login-error');
 
     // Şifreler (frontend yerel kontrolü)
     const ADMIN_PASSWORD = 'GtuAdmın123';
     const GOZETMEN_PASSWORD = 'Gtu2026';
 
-    const finishLogin = async (isAdmin) => {
+    const finishLogin = async (isAdmin, isLecturer = false) => {
         sessionStorage.setItem('isLoggedIn', 'true');
         sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+        sessionStorage.setItem('isLecturer', isLecturer ? 'true' : 'false');
         
         if (!isAdmin) document.body.classList.add('guest-mode');
         else document.body.classList.remove('guest-mode');
 
         if (isAdmin) document.body.classList.add('admin-mode');
         else document.body.classList.remove('admin-mode');
+
+        if (isLecturer) {
+            document.body.classList.add('lecturer-mode');
+            // Ekran flashı (flicker) olmaması için login işlemi anında profile gizlenmeli
+            document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
+            const scheduleSec = document.getElementById('section-schedule');
+            if(scheduleSec) scheduleSec.classList.remove('hidden');
+        } else {
+            document.body.classList.remove('lecturer-mode');
+        }
         
         loginOverlay.classList.add('hidden');
         appWrapper.style.display = 'block';
         await initApp();
+        
+        if (isLecturer) {
+            const btnSchedule = document.getElementById('btn-schedule');
+            if (btnSchedule) btnSchedule.click();
+        }
     };
 
     // Oturum Kontrolü
     if (sessionStorage.getItem('isLoggedIn') === 'true') {
-        finishLogin(sessionStorage.getItem('isAdmin') === 'true');
+        finishLogin(sessionStorage.getItem('isAdmin') === 'true', sessionStorage.getItem('isLecturer') === 'true');
     } else {
         loginOverlay.classList.remove('hidden');
         appWrapper.style.display = 'none';
@@ -89,6 +106,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (btnLogin) btnLogin.addEventListener('click', handleLogin);
+
+    if (btnLoginLecturer) {
+        btnLoginLecturer.addEventListener('click', () => {
+            logAction('system', 'Giriş', 'Hoca girişi yapıldı (Sadece Program).');
+            if (loginError) loginError.classList.add('hidden');
+            finishLogin(false, true);
+        });
+    }
     
     if (loginPassInput) {
         loginPassInput.addEventListener('keypress', (e) => {
