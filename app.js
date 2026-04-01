@@ -263,6 +263,7 @@ async function initApp() {
     updateRequestBadge(); // Update badge on load
     updateAnnouncementBadge(); // New announcement badge
     updateMarketplaceBadge(); // Marketplace badge
+    updateNotificationBadge(); // Notification badge
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
 }
 
@@ -384,7 +385,10 @@ Object.entries(navButtons).forEach(([key, btn]) => {
         if (key === 'requests') {
             loadFromDataJSON().then(() => renderSwapRequests());
         }
-        if (key === 'profile') renderProfile();
+        if (key === 'profile') {
+            renderProfile();
+            updateNotificationBadge();
+        }
         if (key === 'audit') renderAuditLogs();
         if (key === 'announcements') {
             renderAnnouncements();
@@ -471,6 +475,7 @@ function initUI() {
 
         localStorage.setItem('myStaffId', staffId);
         renderProfile();
+        updateNotificationBadge();
     });
 
     // Profil Şifreli Giriş
@@ -485,6 +490,7 @@ function initUI() {
             localStorage.setItem('myStaffId', String(matched.id));
             if (errorEl) errorEl.classList.add('hidden');
             renderProfile();
+            updateNotificationBadge();
         } else {
             if (errorEl) errorEl.classList.remove('hidden');
             if (input) { input.value = ''; input.focus(); }
@@ -499,6 +505,7 @@ function initUI() {
     document.getElementById('btn-change-identity')?.addEventListener('click', () => {
         localStorage.removeItem('myStaffId');
         renderProfile();
+        updateNotificationBadge();
     });
 
     // Profile Tab Listeners
@@ -513,6 +520,10 @@ function initUI() {
             if (pane) pane.classList.remove('hidden');
 
             if (tabId === 'marketplace') renderMarketplace();
+            if (tabId === 'notifications') {
+                renderNotifications();
+                markNotificationsAsRead();
+            }
         });
     });
 
@@ -1747,6 +1758,7 @@ function showAddExamModal() {
         renderExams();
         renderSchedule();
         renderDashboard();
+        updateNotificationBadge();
     };
 
     // Proctor selection setup
@@ -2090,6 +2102,7 @@ window.showEditScheduleModal = (name, date, time, location) => {
         renderExams();
         renderSchedule();
         renderDashboard();
+        updateNotificationBadge();
         await saveToBackend();
     };
 };
@@ -2815,6 +2828,97 @@ window.updateProfileMarketplaceAnnouncement = function() {
         <button class="marketplace-notice-btn" onclick="document.querySelector('.tab-btn[data-tab=\'marketplace\']').click()">İncele</button>
     `;
     banner.classList.remove('hidden');
+};
+
+/**
+ * BİLDİRİM SİSTEMİ UI
+ */
+
+window.updateNotificationBadge = function() {
+    const badge = document.getElementById('notif-badge-profile');
+    if (!badge) return;
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId || !DB.notifications || !DB.notifications[myStaffId]) {
+        badge.classList.add('hidden');
+        badge.textContent = '0';
+        return;
+    }
+
+    const unreadCount = DB.notifications[myStaffId].filter(n => !n.isRead).length;
+
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+};
+
+window.renderNotifications = function() {
+    const tbody = document.querySelector('#profile-table-notifications tbody');
+    if (!tbody) return;
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Lütfen önce kimliğinizi seçin.</td></tr>';
+        return;
+    }
+
+    const notifs = (DB.notifications && DB.notifications[myStaffId]) ? DB.notifications[myStaffId] : [];
+
+    if (notifs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 3rem; color: var(--text-muted);">Henüz bildiriminiz bulunmuyor.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    notifs.forEach(n => {
+        const tr = document.createElement('tr');
+        tr.className = n.isRead ? 'notif-read' : 'notif-unread';
+        
+        const dateStr = new Date(n.createdAt).toLocaleString('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        tr.innerHTML = `
+            <td style="width: 50px; text-align: center;">
+                <span class="notif-icon-circle ${n.type}">
+                    ${n.type === 'new_assignment' ? '📅' : '📋'}
+                </span>
+            </td>
+            <td>
+                <div class="notif-msg">${n.message}</div>
+                <div class="notif-time">${dateStr}</div>
+            </td>
+            <td style="width: 100px; text-align: right;">
+                ${!n.isRead ? '<span class="unread-dot-pulse"></span>' : ''}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.markNotificationsAsRead = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId || !DB.notifications || !DB.notifications[myStaffId]) return;
+
+    let changed = false;
+    DB.notifications[myStaffId].forEach(n => {
+        if (!n.isRead) {
+            n.isRead = true;
+            changed = true;
+        }
+    });
+
+    if (changed) {
+        saveToLocalStorage();
+        updateNotificationBadge();
+    }
 };
 
 

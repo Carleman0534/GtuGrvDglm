@@ -61,6 +61,7 @@ let DB = {
     constraints: {},
     requests: [],
     auditLogs: [],
+    notifications: {}, // Personel bazlı bildirimler
     examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
     announcements: [],
     courseLecturers: {
@@ -389,6 +390,20 @@ function addExam(examData) {
         p.taskCount = (p.taskCount || 0) + 1;
     });
 
+    // GÖZETMENLERE BİLDİRİM GÖNDER (Yeni Görev)
+    if (!DB.notifications) DB.notifications = {};
+    const nowNotif = new Date().toISOString();
+    proctors.forEach(p => {
+        if (!DB.notifications[p.id]) DB.notifications[p.id] = [];
+        DB.notifications[p.id].unshift({
+            id: Date.now() + p.id,
+            message: `📅 Yeni Görev: "${newExam.name}" (${newExam.date} - ${newExam.time}) sınavına gözetmen olarak atandınız.`,
+            type: 'new_assignment',
+            createdAt: nowNotif,
+            isRead: false
+        });
+    });
+
     saveToLocalStorage();
     logAction('admin', 'Sınav Ekleme', `${newExam.name} (${newExam.date}) sınavı sisteme eklendi.`);
     return newExam;
@@ -431,6 +446,22 @@ function updateExam(id, newData, skipSave = false) {
         });
     }
 
+    // Değişiklik Kontrolü ve Bildirim Gönderimi
+    const changeLog = [];
+    if (oldExam.name !== newData.name) changeLog.push('name');
+    if (oldExam.date !== newData.date) changeLog.push('date');
+    if (oldExam.time !== newData.time) changeLog.push('time');
+    if (oldExam.duration !== newData.duration) changeLog.push('duration');
+    if (oldExam.location !== newData.location) changeLog.push('location');
+    if (oldExam.type !== newData.type) changeLog.push('type');
+    if (oldExam.lecturer !== newData.lecturer) changeLog.push('lecturer');
+    if (oldExam.capacity !== newData.capacity) changeLog.push('capacity');
+
+    if (changeLog.length > 0 || proctorChanged) {
+        const allAffected = new Set([...oldPIds, ...newPIds]);
+        sendExamChangeNotification(Array.from(allAffected), newData.name, changeLog);
+    }
+
     // Sınavı her durumda güncelle (gözetmen yoksa eski gözetmeni koru)
     DB.exams[exIndex] = {
         ...oldExam,
@@ -446,6 +477,51 @@ function updateExam(id, newData, skipSave = false) {
         saveToLocalStorage();
         logAction('admin', 'Sınav Güncelleme', `${newData.name} sınav bilgileri güncellendi.`);
     }
+}
+
+/**
+ * Gözetmenlere sınav değişikliği bildirimi gönder
+ */
+function sendExamChangeNotification(proctorIds, examName, changedFields) {
+    if (!DB.notifications) DB.notifications = {};
+    const now = new Date().toISOString();
+    
+    // Alan adlarını Türkçeleştir
+    const fieldMapping = {
+        'name': 'Sınav Adı',
+        'date': 'Tarih',
+        'time': 'Saat',
+        'duration': 'Süre',
+        'location': 'Yer/Derslik',
+        'type': 'Sınav Türü',
+        'lecturer': 'Dersi Veren',
+        'capacity': 'Kapasite'
+    };
+
+    let changeMsg = "Sınav bilgilerinde değişiklik yapıldı.";
+    if (changedFields.length > 0) {
+        const fieldsTr = changedFields.map(f => fieldMapping[f] || f).join(', ');
+        changeMsg = `Sınavın şu bilgileri güncellendi: ${fieldsTr}`;
+    }
+
+    const message = `📋 "${examName}" görevinde değişiklik: ${changeMsg}`;
+
+    proctorIds.forEach(pid => {
+        if (!DB.notifications[pid]) DB.notifications[pid] = [];
+        
+        DB.notifications[pid].unshift({
+            id: Date.now() + Math.random(),
+            message: message,
+            type: 'exam_change',
+            createdAt: now,
+            isRead: false
+        });
+
+        // Maksimum 50 bildirim sakla
+        if (DB.notifications[pid].length > 50) {
+            DB.notifications[pid].pop();
+        }
+    });
 }
 
 const API_URL = API_BASE_URL + "/api/data";
