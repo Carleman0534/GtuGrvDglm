@@ -41,8 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
         await initApp();
         
         if (isLecturer) {
-            const btnSchedule = document.getElementById('btn-schedule');
-            if (btnSchedule) btnSchedule.click();
+            // Olası event listener asenkron gecikmelerini aşmak için kısa bir gecikme ve fallback
+            setTimeout(() => {
+                const btnSchedule = document.getElementById('btn-schedule');
+                if (btnSchedule) btnSchedule.click();
+                
+                // Eğer click listener henüz bağlanmadıysa diye manuel çağır (fallback)
+                if (typeof switchGeneralScheduleTab === 'function') switchGeneralScheduleTab('active');
+                if (typeof renderSchedule === 'function') renderSchedule();
+            }, 50);
         }
     };
 
@@ -4343,19 +4350,54 @@ function renderAuditLogs() {
 /**
  * PDF Olarak Dışa Aktar (jsPDF & AutoTable)
  */
-function exportToPDF(tableId, title) {
+async function exportToPDF(tableId, title) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'mm', 'a4'); // Yatay format
+    
+    try {
+        // Türkçe destekleyen Roboto fontlarını çekip sanal dosya sistemine ekliyoruz
+        const [fontRes, boldRes] = await Promise.all([
+            fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf'),
+            fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf')
+        ]);
+        
+        if (fontRes.ok) {
+            const fontBuffer = await fontRes.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(fontBuffer);
+            for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+            doc.addFileToVFS('Roboto-Regular.ttf', window.btoa(binary));
+            doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+        }
+        if (boldRes.ok) {
+            const boldBuffer = await boldRes.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(boldBuffer);
+            for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+            doc.addFileToVFS('Roboto-Medium.ttf', window.btoa(binary));
+            doc.addFont('Roboto-Medium.ttf', 'Roboto', 'bold');
+        }
+        
+        doc.setFont('Roboto');
+    } catch (e) {
+        console.warn('Font yüklenemedi. Varsayılan font kullanılacak:', e);
+    }
+
+    // Emojileri temizleyen ama Türkçe karakterlere dokunmayan fonksiyon
+    const cleanStr = (str) => {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+    };
     
     // Title
     doc.setFontSize(18);
     doc.setTextColor(40);
-    doc.text(title, 14, 22);
+    doc.text(cleanStr(title), 14, 22);
     
     // Date
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Oluşturulma Tarihi: ${new Date().toLocaleString('tr-TR')}`, 14, 30);
+    doc.text(cleanStr(`Oluşturulma Tarihi: ${new Date().toLocaleString('tr-TR')}`), 14, 30);
 
     const table = document.getElementById(tableId);
     if (!table) {
@@ -4369,6 +4411,8 @@ function exportToPDF(tableId, title) {
         startY: 35,
         theme: 'grid',
         styles: {
+            font: 'Roboto', // Dinamik fontumuz
+            fontStyle: 'normal',
             fontSize: 8,
             cellPadding: 3,
             valign: 'middle'
@@ -4377,20 +4421,32 @@ function exportToPDF(tableId, title) {
             fillColor: [99, 102, 241], // Primary color
             textColor: 255,
             fontSize: 9,
-            fontStyle: 'bold'
+            font: 'Roboto',
+            fontStyle: 'bold' // Roboto-Medium çekecek
         },
         alternateRowStyles: {
             fillColor: [245, 247, 250]
         },
         didParseCell: function (data) {
-            // Remove emojis or icons if they cause issues in PDF
-            if (data.section === 'body' && typeof data.cell.text === 'string') {
-                data.cell.text = data.cell.text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+            // Harflere dokunmadan sadece emojileri temizle
+            if (data.cell && Array.isArray(data.cell.text)) {
+                data.cell.text = data.cell.text.map(cleanStr);
+            } else if (data.cell && typeof data.cell.text === 'string') {
+                data.cell.text = cleanStr(data.cell.text);
             }
         }
     });
 
-    const filename = `${title.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    // Sadece Dosya ismi için güvenlik amacıyla Türkçe karakter değiştirelim (indirilirken hata olmasın)
+    const replaceTRForFilename = (str) => {
+        const trMap = {
+            'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
+            'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
+        };
+        return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m]).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+    };
+
+    const filename = `${replaceTRForFilename(title).toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.pdf`;
     doc.save(filename);
 }
 
