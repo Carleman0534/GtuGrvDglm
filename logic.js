@@ -64,6 +64,7 @@ let DB = {
     notifications: {}, // Personel bazlı bildirimler
     examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
     announcements: [],
+    isDraftMode: false,
     courseLecturers: {
         "Introduction to Computing": "Dr. Öğr. Üyesi Hadi Alizadeh",
         "Analysis II": "Prof. Dr. Serkan SÜTLÜ",
@@ -233,7 +234,10 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) 
     const hasConflict = DB.exams.some(ex => {
         // Eğer bir examen düzenleniyorsa, o exameni çakışma kontrolünden muaf tut
         if (ignoreExamId && String(ex.id) === String(ignoreExamId)) return false;
-        if (ex.proctorId !== staffId) return false;
+        
+        // Multi-proctor desteği için hem proctorId hem proctorIds kontrolü
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        if (!pIds.includes(staffId)) return false;
         if (ex.date !== date) return false;
 
         const exStart = new Date(`${ex.date}T${ex.time}`);
@@ -344,6 +348,128 @@ function autoResolveConflicts() {
     return { resolved: resolvedCount, skipped: skippedCount };
 }
 
+/**
+ * AI DESTEKLİ OPTİMİZASYON (Sadece Atanmamış Sınavlar İçin)
+ * Atanmamış görevleri en adil şekilde dağıtır.
+ */
+function runGlobalOptimization() {
+    let assignedCount = 0;
+    let failCount = 0;
+
+    // Sadece gözetmeni atanmamış sınavları seç
+    const unassignedExams = DB.exams.filter(ex => !ex.proctorId && (!ex.proctorIds || ex.proctorIds.length === 0));
+
+    // Sınavları zorluk derecesine (puanına) göre büyükten küçüke sırala
+    const sortedExams = [...unassignedExams].sort((a, b) => {
+        const scoreA = calculateScore(new Date(`${a.date}T${a.time}`), a.duration);
+        const scoreB = calculateScore(new Date(`${b.date}T${b.time}`), b.duration);
+        return scoreB - scoreA;
+    });
+
+    // Her sınavı sırayla yerleştir
+    sortedExams.forEach(ex => {
+        const date = ex.date;
+        const time = ex.time;
+        const duration = ex.duration;
+
+        // Her personel için bir "Ceza Puanı" (Penalty Score) hesapla
+        const candidates = DB.staff.map(s => {
+            let penalty = s.totalScore;
+
+            // Kısıt kontrolü (Ağır ceza)
+            if (!isAvailable(s.name, date, time, duration)) {
+                penalty += 10000;
+            }
+
+            // Mevcut atamalarla çakışma (Ağır ceza)
+            const start = new Date(`${date}T${time}`);
+            const end = new Date(start.getTime() + (duration + 15) * 60000);
+            const hasOverlappingExam = DB.exams.some(e => {
+                if (!e.proctorIds || !e.proctorIds.includes(s.id)) {
+                    if (e.proctorId !== s.id) return false;
+                }
+                if (e.date !== date) return false;
+                const eStart = new Date(`${e.date}T${e.time}`);
+                const eEnd = new Date(eStart.getTime() + (e.duration + 15) * 60000);
+                return (start < eEnd && end > eStart);
+            });
+            if (hasOverlappingExam) penalty += 10000;
+
+            // Aynı gün görev cezası (Orta ceza - adalet için)
+            const sameDayCount = DB.exams.filter(e => e.date === date && (e.proctorIds?.includes(s.id) || e.proctorId === s.id)).length;
+            penalty += sameDayCount * 50;
+
+            // Görev sınırı cezası (Orta ceza)
+            if (s.taskCount >= GLOBAL_LIMITS.MAX_TASKS) penalty += 500;
+
+            return { staff: s, penalty: penalty };
+        });
+
+        // En düşük cezalı personeli seç
+        candidates.sort((a, b) => a.penalty - b.penalty);
+        const chosen = candidates[0];
+
+        if (chosen.penalty < 10000) {
+            const score = calculateScore(new Date(`${date}T${time}`), duration);
+            ex.proctorIds = [chosen.staff.id];
+            ex.proctorId = chosen.staff.id;
+            ex.proctorName = chosen.staff.name;
+            ex.score = score;
+            ex.katsayi = getKatsayi(new Date(`${date}T${time}`));
+            
+            chosen.staff.totalScore = parseFloat((chosen.staff.totalScore + score).toFixed(2));
+            chosen.staff.taskCount += 1;
+            assignedCount++;
+        } else {
+            failCount++;
+        }
+    });
+
+    saveToLocalStorage();
+    logAction('admin', 'AI Optimizasyon', `${assignedCount} atama yapıldı, ${failCount} atama başarısız.`);
+    return { assigned: assignedCount, failed: failCount };
+}
+
+/**
+ * TASLAK MODU VE YAYINLAMA
+ */
+function publishDraft() {
+    let affectedProctors = new Set();
+    let examCount = 0;
+
+    DB.exams.forEach(ex => {
+        if (ex.isDraft) {
+            ex.isDraft = false;
+            examCount++;
+            if (ex.proctorIds) {
+                ex.proctorIds.forEach(pid => affectedProctors.add(pid));
+            } else if (ex.proctorId) {
+                affectedProctors.add(ex.proctorId);
+            }
+        }
+    });
+
+    DB.isDraftMode = false;
+
+    // Toplu Bildirim Gönder
+    const now = new Date().toISOString();
+    affectedProctors.forEach(pid => {
+        if (!DB.notifications[pid]) DB.notifications[pid] = [];
+        DB.notifications[pid].unshift({
+            id: Date.now() + Math.random(),
+            message: `📢 Sınav programı yayınlandı! Toplam ${examCount} yeni/güncellenmiş görev programınıza eklendi.`,
+            type: 'publish_draft',
+            createdAt: now,
+            isRead: false
+        });
+    });
+
+    saveToLocalStorage();
+    logAction('admin', 'Taslak Yayınlama', `${examCount} sınav yayına alındı, ${affectedProctors.size} gözetmene toplu bildirim gitti.`);
+    return { examCount, proctorCount: affectedProctors.size };
+}
+
+
 
 function addExam(examData) {
     let proctors = [];
@@ -370,6 +496,7 @@ function addExam(examData) {
     const newExam = {
         ...examData,
         id: Date.now(),
+        isDraft: DB.isDraftMode, // EĞER TASLAK MODU AÇIKSA TASLAK OLARAK KAYDET
         type: examData.type || "Vize",
         name: examData.name || "İsimsiz Sınav",
         lecturer: examData.lecturer || "-",
@@ -417,8 +544,11 @@ function updateExam(id, newData, skipSave = false) {
     }
     const oldExam = DB.exams[exIndex];
     
-    // Yeni puan hesapla
-    const newScore = calculateScore(new Date(`${newData.date}T${newData.time}`), newData.duration);
+    // Yeni puan hesapla (Eksik veriler için mevcut sınav verilerini kullan)
+    const finalDate = newData.date || oldExam.date;
+    const finalTime = newData.time || oldExam.time;
+    const finalDuration = (newData.duration !== undefined) ? newData.duration : oldExam.duration;
+    const newScore = calculateScore(new Date(`${finalDate}T${finalTime}`), finalDuration);
     const newPIds = Array.isArray(newData.proctorIds)
         ? newData.proctorIds
         : (oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []));
@@ -428,6 +558,9 @@ function updateExam(id, newData, skipSave = false) {
     const oldPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
     const proctorChanged = JSON.stringify(oldPIds.slice().sort()) !== JSON.stringify(newPIds.slice().sort());
     const dateTimeChanged = oldExam.date !== newData.date || oldExam.time !== newData.time || oldExam.duration !== newData.duration;
+
+    // TASLAK MODUNDA DEĞİLSEK bildirim gönder, taslak modundaysak toplu gönderilecek
+    const shouldNotifyNow = !oldExam.isDraft && !DB.isDraftMode;
 
     if (proctorChanged || dateTimeChanged) {
         // Eski gözetmenden puanı çıkar (oldExam.score string gelmiş olabilir, parseFloat çek)
@@ -457,7 +590,7 @@ function updateExam(id, newData, skipSave = false) {
     if (newData.lecturer !== undefined && oldExam.lecturer !== newData.lecturer) changeLog.push('lecturer');
     if (newData.capacity !== undefined && oldExam.capacity !== newData.capacity) changeLog.push('capacity');
 
-    if (changeLog.length > 0 || proctorChanged) {
+    if ((changeLog.length > 0 || proctorChanged) && shouldNotifyNow) {
         const allAffected = new Set([...oldPIds, ...newPIds]);
         sendExamChangeNotification(Array.from(allAffected), newData.name, changeLog);
     }
@@ -844,5 +977,135 @@ function getDetailedStats() {
 // Global'e aç
 window.getDetailedStats = getDetailedStats;
 
+/**
+ * AKILLI TAKAS EŞLEŞTİRİCİ (MATCHMAKER)
+ * Bir hoca için "mükemmel" takas adaylarını bulur.
+ */
+function findSmartSwaps(myStaffId) {
+    if (!myStaffId) return [];
+    
+    const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!myStaff) return [];
+
+    const now = Date.now();
+
+    // Seçili personelin sınavlarını bul
+    const myExams = DB.exams.filter(ex => {
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        const isMyExam = pIds.includes(myStaff.id);
+        if (!isMyExam) return false;
+        
+        // Geçmiş sınavları ele (Sınavın bitiş saatini baz alıyoruz)
+        const examEnd = new Date(`${ex.date}T${ex.time}`).getTime() + (ex.duration || 60) * 60000;
+        return examEnd > now;
+    });
+    
+    // Sorunlu sınavları (kısıt ihlali olanlar) tespit et
+    const problematicExams = myExams.filter(ex => !isAvailable(myStaff.name, ex.date, ex.time, ex.duration));
+    
+    // Eğer sorunlu sınav varsa önce onları çözmeye çalış, yoksa tüm sınavları değerlendir
+    const targetExams = problematicExams.length > 0 ? problematicExams : myExams;
+
+    const matches = [];
+    const seenCombos = new Set(); // Aynı takas ikilisini tekrar ekleme
+
+    DB.exams.forEach(otherEx => {
+        // Geçmiş sınavları ele
+        const otherExamEnd = new Date(`${otherEx.date}T${otherEx.time}`).getTime() + (otherEx.duration || 60) * 60000;
+        if (otherExamEnd <= now) return;
+
+        // Kendi sınavım olmasın
+        const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
+        if (otherPids.includes(myStaff.id)) return;
+
+        // Karşı taraftaki her bir gözetmen için kontrol et
+        otherPids.forEach(otherPid => {
+            const otherStaff = DB.staff.find(s => s.id === otherPid);
+            if (!otherStaff) return;
+
+            targetExams.forEach(myEx => {
+                const comboKey = `${myEx.id}-${otherEx.id}-${otherStaff.id}`;
+                if (seenCombos.has(comboKey)) return;
+
+                // KARŞILIKLI UYGUNLUK KONTROLÜ:
+                // 1. Ben diğer hocanın sınavına gidebiliyor muyum? (Mevcut sınavımı bırakacağımı varsayarak)
+                const canIGoToOther = isProctorTrulyFree(myStaff.id, otherEx.date, otherEx.time, otherEx.duration, myEx.id);
+                
+                // 2. Diğer hoca benim sınavıma gelebiliyor mu? (Kendi sınavını bırakacağını varsayarak)
+                const canOtherGoToMine = isProctorTrulyFree(otherStaff.id, myEx.date, myEx.time, myEx.duration, otherEx.id);
+
+                if (canIGoToOther && canOtherGoToMine) {
+                    matches.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        myExam: myEx,
+                        otherExam: otherEx,
+                        otherStaff: otherStaff,
+                        priority: problematicExams.includes(myEx) ? 2 : 1, // Kısıt ihlali olanlar daha öncelikli
+                        reason: problematicExams.includes(myEx) ? "⚠️ Çakışma Çözümü" : "⚖️ Yük Dengeleme"
+                    });
+                    seenCombos.add(comboKey);
+                }
+            });
+        });
+    });
+
+    // Önce yüksek öncelikli (çakışma çözümü), sonra tarih olarak en yakın olanları getir
+    return matches.sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return a.myExam.date.localeCompare(b.myExam.date);
+    });
+}
+
+/**
+ * Akıllı Takas Talebi Oluştur
+ */
+function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
+    if (!DB.requests) DB.requests = [];
+
+    const myExam = DB.exams.find(e => String(e.id) === String(myExamId));
+    const otherExam = DB.exams.find(e => String(e.id) === String(otherExamId));
+    const me = DB.staff.find(s => String(s.id) === String(myStaffId));
+    const otherMember = DB.staff.find(s => String(s.id) === String(otherStaffId));
+
+    if (!myExam || !otherExam || !me || !otherMember) {
+        return { success: false, message: "Sınav veya personel bilgisi eksik!" };
+    }
+
+    const newRequest = {
+        id: Date.now(),
+        type: 'smart_swap',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        initiatorId: me.id,
+        receiverId: otherMember.id,
+        initiatorName: me.name, // UI'da görünmesi için eklendi
+        examId: myExam.id, // Benim devretmek istediğim
+        targetExamId: otherExam.id, // Karşıdan almak istediğim
+        message: `Akıllı Takas Teklifi: "${myExam.name}" görevimi senin "${otherExam.name}" görevinle değiştirmek istiyorum.`
+    };
+
+    DB.requests.push(newRequest);
+    
+    // Karşı tarafa bildirim gönder
+    if (!DB.notifications) DB.notifications = {};
+    if (!DB.notifications[otherMember.id]) DB.notifications[otherMember.id] = [];
+    DB.notifications[otherMember.id].unshift({
+        id: Date.now() + 1,
+        message: `🔄 **Akıllı Takas Teklifi:** ${me.name}, ${myExam.date} tarihindeki görevini seninle takas etmek istiyor.`,
+        type: 'smart_swap_request',
+        requestId: newRequest.id,
+        createdAt: new Date().toISOString(),
+        isRead: false
+    });
+
+    saveToLocalStorage();
+    logAction('user', 'Akıllı Takas Talebi', `${me.name} -> ${otherMember.name} (Sınavlar: ${myExam.name} ↔ ${otherExam.name})`);
+    
+    return { success: true, message: "Takas teklifi başarıyla gönderildi!" };
+}
+
+// Global'e aç
+window.findSmartSwaps = findSmartSwaps;
+window.requestSmartSwap = requestSmartSwap;
 
 // loadFromLocalStorage(); // Artık app.js içinden asenkron olarak çağrılıyor

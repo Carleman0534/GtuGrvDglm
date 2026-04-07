@@ -23,6 +23,10 @@
     --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.82);
     --glow-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
     --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Special States */
+    --draft-bg: hsla(245, 82%, 67%, 0.1);
+    --draft-border: hsla(245, 82%, 67%, 0.4);
 }
 
 /* Light Theme Overrides */
@@ -91,6 +95,11 @@ h1, h2, h3, h4 {
     0% { box-shadow: 0 0 5px var(--glass-glow); }
     50% { box-shadow: 0 0 20px var(--glass-glow); }
     100% { box-shadow: 0 0 5px var(--glass-glow); }
+}
+
+@keyframes draftBannerSlide {
+    0% { transform: translate(-50%, -100%); opacity: 0; }
+    100% { transform: translate(-50%, 0); opacity: 1; }
 }
 
 @keyframes profileEntrance {
@@ -768,6 +777,42 @@ tr:hover td {
     font-weight: 700;
     display: block;
     margin-top: 4px;
+}
+
+/* Draft Mode UI Elements */
+.draft-banner {
+    background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    padding: 0.8rem 2.5rem;
+    border-radius: 0 0 24px 24px;
+    font-weight: 700;
+    text-align: center;
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5000;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    animation: draftBannerSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-top: none;
+}
+
+.exam-row-draft {
+    background: var(--draft-bg) !important;
+    opacity: 0.9;
+}
+
+.exam-row-draft td {
+    border-bottom: 1px dashed var(--draft-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.exam-row-draft:hover td {
+    background: hsla(245, 82%, 67%, 0.15) !important;
 }
 
 /* Availability Table */

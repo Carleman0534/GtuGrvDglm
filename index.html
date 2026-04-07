@@ -190,6 +190,22 @@
 
                     <div id="profile-marketplace-announcement" class="hidden"></div>
                     <div id="profile-swap-proposals" class="hidden"></div>
+                    
+                    <!-- Kusursuz Takas (Smart Swaps) Önerileri -->
+                    <div id="profile-smart-swaps" class="card-large hidden" style="margin-bottom: 2rem; border: 1px solid #8b5cf666; background: rgba(139, 92, 246, 0.03);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+                            <h3 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; color: #a78bfa; margin: 0; display: flex; align-items: center; gap: 10px;">
+                                🤖 Kusursuz Takas Önerileri
+                            </h3>
+                            <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; font-size: 0.7rem; padding: 4px 10px; border-radius: 20px;">AI Destekli</span>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem;">
+                            Mevcut sınavlarınızla çakışan veya yükünüzü hafifletecek, her iki taraf için de uygun olan en iyi takas seçenekleri aşağıdadır:
+                        </p>
+                        <div id="smart-swaps-list" style="display: grid; gap: 12px;">
+                            <!-- JS ile doldurulacak -->
+                        </div>
+                    </div>
                     <!-- Kişisel şifre ayarlama bölümü (JS tarafından doldurulur) -->
                     <div id="profile-password-section"></div>
 
@@ -612,6 +628,7 @@
                         <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
                         <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#4f46e5;">✨ Taslak Yükle</button>
+                        <button id="btn-toggle-draft-mode" class="btn-primary admin-only" style="background:#64748b;">🛠️ Taslak Modu (Aç/Kapat)</button>
                         <button id="btn-export-exams" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
                         <button id="btn-export-exams-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
                 </div>

@@ -374,7 +374,70 @@ async function initApp() {
     updateNotificationBadge(); // Notification badge
     updateMessageBadge(); // Hoca mesajı rozeti
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
+    updateDraftBanner(); // Taslak Modu Banner'ı Güncelle
 }
+
+/**
+ * TASLAK MODU BANNER VE KONTROLLERİ
+ */
+function updateDraftBanner() {
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+    let banner = document.getElementById('draft-banner');
+
+    if (!DB.isDraftMode || !isAdmin) {
+        if (banner) banner.remove();
+        return;
+    }
+
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'draft-banner';
+        banner.className = 'draft-banner';
+        document.body.appendChild(banner);
+    }
+
+    banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:1.5rem;">🛠️</span>
+            <div>
+                <div style="font-size:0.9rem; font-weight:800; letter-spacing:0.05em;">TASLAK MODU AKTİF</div>
+                <div style="font-size:0.7rem; opacity:0.8; font-weight:500;">Yapılan atamalar hocalara bildirilmez.</div>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button onclick="handleAIButtonClick()" class="btn-primary" style="background:#8b5cf6; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(139, 92, 246, 0.4);">✨ AI Optimizasyon</button>
+            <button onclick="handlePublishDraft()" class="btn-primary" style="background:#10b981; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(16, 185, 129, 0.4);">🚀 Taslağı Yayınla</button>
+        </div>
+    `;
+}
+
+window.handleAIButtonClick = function() {
+    if (confirm("Atanmamış tüm sınavlar için AI destekli en adil dağıtım yapılacaktır. Onaylıyor musunuz?")) {
+        const res = runGlobalOptimization();
+        alert(`✅ Optimizasyon Tamamlandı!\n\n${res.assigned} sınav başarıyla atandı.\n${res.failed} sınav için uygun gözetmen bulunamadı.`);
+        renderDashboard();
+        renderExams();
+        renderSchedule();
+    }
+};
+
+window.handlePublishDraft = function() {
+    const draftCount = DB.exams.filter(e => e.isDraft).length;
+    if (draftCount === 0) {
+        alert("Yayına alınacak taslak sınav bulunamadı.");
+        return;
+    }
+
+    if (confirm(`${draftCount} adet sınav yayına alınacak ve ilgili gözetmenlere bildirim gönderilecektir. Devam edilsin mi?`)) {
+        const res = publishDraft();
+        alert(`🚀 Başarılı!\n\n${res.examCount} sınav yayına alındı.\n${res.proctorCount} gözetmene bildirim gönderildi.`);
+        updateDraftBanner();
+        renderDashboard();
+        renderExams();
+        renderSchedule();
+    }
+};
+
 
 /**
  * Takas onayı için şifre doğrulama yardımcısı.
@@ -802,6 +865,18 @@ function initUI() {
         });
     }
 
+    // Taslak Modu Toggle
+    document.getElementById('btn-toggle-draft-mode')?.addEventListener('click', () => {
+        DB.isDraftMode = !DB.isDraftMode;
+        saveToLocalStorage();
+        updateDraftBanner();
+        if (DB.isDraftMode) {
+            showToast("🛠️ Taslak Modu Açıldı. Atamalar gizli kalacak.", "success");
+        } else {
+            showToast("Taslak Modu Kapatıldı.", "success");
+        }
+    });
+
     const btnExportIndividual = document.getElementById('btn-export-individual-schedule');
     if (btnExportIndividual) {
         btnExportIndividual.addEventListener('click', () => {
@@ -915,7 +990,127 @@ function initUI() {
     // Aktarmayı Onayla
     const btnConfirm = document.getElementById('btn-confirm-import');
     if (btnConfirm) {
-        // ... (existing code)
+        btnConfirm.addEventListener('click', async () => {
+            const data = btnConfirm._importData;
+            if (!data || !data.rows || data.rows.length < 2) return;
+
+            const rows = data.rows;
+            const headers = rows[0].map(h => String(h).trim().toLowerCase());
+            
+            // Sütun indekslerini bul
+            const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k.toLowerCase())));
+
+            // Import Türü Belirle
+            const isStaffImport = getIdx(['isim', 'personel', 'ad soyad']) !== -1 && getIdx(['sınav', 'ders', 'tarih']) === -1;
+
+            let addedCount = 0;
+            let skipCount = 0;
+
+            if (isStaffImport) {
+                // --- Personel İçe Aktar ---
+                const nameIdx = getIdx(['isim', 'ad soyad', 'personel']);
+                
+                rows.slice(1).forEach(row => {
+                    const name = String(row[nameIdx] || "").trim();
+                    if (!name) return;
+
+                    const exists = DB.staff.find(s => s.name.toLowerCase() === name.toLowerCase());
+                    if (!exists) {
+                        const newId = DB.staff.length > 0 ? (Math.max(...DB.staff.map(s => s.id)) + 1) : 1;
+                        DB.staff.push({
+                            id: newId,
+                            name: name,
+                            totalScore: 0,
+                            taskCount: 0
+                        });
+                        addedCount++;
+                    } else {
+                        skipCount++;
+                    }
+                });
+                alert(`✅ ${addedCount} hoca sisteme eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer kayıt atlandı.)` : ''}`);
+            } else {
+                // --- Sınav İçe Aktar ---
+                const nameIdx = getIdx(['sınav', 'ders', 'name', 'exam']);
+                const dateIdx = getIdx(['tarih', 'date']);
+                const timeIdx = getIdx(['saat', 'time', 'vakit']);
+                const durIdx = getIdx(['süre', 'duration']);
+                const locIdx = getIdx(['yer', 'derslik', 'sınıf', 'location']);
+                const lectIdx = getIdx(['hoca', 'lecturer', 'öğretim']);
+                const proctIdx = getIdx(['gözetmen', 'proctor']);
+
+                rows.slice(1).forEach(row => {
+                    const name = String(row[nameIdx] || "").trim();
+                    const dateRaw = String(row[dateIdx] || "").trim();
+                    const timeRaw = String(row[timeIdx] || "").trim();
+                    
+                    if (!name || !dateRaw || !timeRaw) return;
+
+                    // Tarih Normalizasyonu (DD.MM.YYYY veya YYYY-MM-DD)
+                    let date = dateRaw;
+                    if (date.includes('.') || date.includes('/')) {
+                        const parts = date.split(/[./]/);
+                        if (parts[0].length === 4) date = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+                        else date = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+                    }
+
+                    // Saat Normalizasyonu (HH:MM veya HH.MM)
+                    let time = timeRaw.replace('.', ':');
+                    if (time.length === 4 && !time.includes(':')) time = time.slice(0,2) + ":" + time.slice(2);
+                    if (time.length === 5 && !time.includes(':')) time = time.replace('.', ':'); // fallback
+                    if (time.length === 4 && time.includes(':')) time = "0" + time;
+
+                    const duration = parseInt(row[durIdx]) || 60;
+                    const location = String(row[locIdx] || "").trim();
+                    const lecturer = String(row[lectIdx] || "").trim();
+                    const proctorName = String(row[proctIdx] || "").trim();
+
+                    const isDuplicate = DB.exams.some(ex => ex.name === name && ex.date === date && ex.time === time);
+                    if (!isDuplicate) {
+                        const score = calculateScore(new Date(`${date}T${time}`), duration);
+                        const katsayi = getKatsayi(new Date(`${date}T${time}`));
+                        
+                        const newExam = {
+                            id: Date.now() + Math.floor(Math.random() * 10000),
+                            name, date, time, duration, location, lecturer,
+                            score, katsayi,
+                            proctorIds: [],
+                            proctorId: null,
+                            proctorName: "",
+                            isDraft: DB.isDraftMode,
+                            createdAt: new Date().toISOString()
+                        };
+
+                        // Eğer gözetmen ismi varsa ata
+                        if (proctorName) {
+                            const staff = DB.staff.find(s => s.name.toLowerCase().includes(proctorName.toLowerCase()));
+                            if (staff) {
+                                newExam.proctorIds = [staff.id];
+                                newExam.proctorId = staff.id;
+                                newExam.proctorName = staff.name;
+                                staff.totalScore = parseFloat((staff.totalScore + score).toFixed(2));
+                                staff.taskCount++;
+                            }
+                        }
+
+                        DB.exams.push(newExam);
+                        addedCount++;
+                    } else {
+                        skipCount++;
+                    }
+                });
+                alert(`✅ ${addedCount} sınav başarıyla eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer kayıt atlandı.)` : ''}`);
+            }
+
+            saveToLocalStorage();
+            if (typeof saveToBackend === 'function') await saveToBackend();
+            
+            document.getElementById('modal-import').classList.add('hidden');
+            renderExams();
+            renderStaff();
+            renderSchedule();
+            renderDashboard();
+        });
     }
 
     // Announcement Listeners
@@ -1459,6 +1654,7 @@ function renderExams() {
 
     filteredExams.forEach(ex => {
         const tr = document.createElement('tr');
+        if (ex.isDraft) tr.classList.add('exam-row-draft');
         if (conflicts.has(ex.id)) {
             tr.classList.add('conflict-row');
         }
@@ -1573,6 +1769,7 @@ function renderSchedule() {
                 lecturer: ex.lecturer || "-",
                 capacity: ex.capacity || "-",
                 location: ex.location || "-",
+                isDraft: ex.isDraft,
                 proctors: []
             };
         }
@@ -1642,6 +1839,7 @@ function renderSchedule() {
         }
 
         const tr = document.createElement('tr');
+        if (ex.isDraft) tr.classList.add('exam-row-draft');
         const isConflict = DB.exams.some(e => e.name === ex.name && e.date === ex.date && e.time === ex.time && conflicts.has(e.id));
         if (isConflict) tr.classList.add('conflict-row');
 
@@ -3502,6 +3700,7 @@ window.saveQuickNotes = async function() {
 window.renderProfile = function() {
     renderCollaborators();
     renderAchievements();
+    renderSmartSwaps();
     const myStaffId = localStorage.getItem('myStaffId');
     const setupSection = document.getElementById('profile-identity-setup');
     const mainSection = document.getElementById('profile-main-content');
@@ -3537,36 +3736,49 @@ window.renderProfile = function() {
         renderQuickNotes(staff);
         renderMotto(staff);
         renderDailyJoke();
+        
+        // Şifre ayarlama bölümünü göster
+        renderPasswordSettings(staff);
 
         // Gelen Takas Tekliflerini Göster
-        const incomingSwaps = (DB.requests || []).filter(r => r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id));
-        const validSwaps = incomingSwaps.filter(r => {
-            return DB.exams.some(e => String(e.id) === String(r.receiverExamId)) && 
-                   DB.exams.some(e => String(e.id) === String(r.initiatorExamId));
-        });
+        const incomingSwaps = (DB.requests || []).filter(r => 
+            (r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id)) ||
+            (r.type === 'smart_swap' && r.status === 'pending' && String(r.receiverId) === String(staff.id))
+        );
 
         const swapNotice = document.getElementById('profile-swap-proposals');
         if (swapNotice) {
-            if (validSwaps.length > 0) {
+            if (incomingSwaps.length > 0) {
                 swapNotice.classList.remove('hidden');
                 swapNotice.innerHTML = `
                     <div style="background: rgba(139, 92, 246, 0.15); border: 1px solid var(--primary); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
                         <h4 style="color: var(--primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 1.2rem;">🔄</span> Yeni Takas Teklifi
+                            <span style="font-size: 1.2rem;">🔄</span> Yeni Takas Teklifleri
                         </h4>
-                        ${validSwaps.map(r => {
-                            const myExam = DB.exams.find(e => String(e.id) === String(r.receiverExamId));
-                            const hisExam = DB.exams.find(e => String(e.id) === String(r.initiatorExamId));
+                        ${incomingSwaps.map(r => {
+                            const isSmart = r.type === 'smart_swap';
+                            // direct_swap: receiverExamId, initiatorExamId
+                            // smart_swap: targetExamId, examId
+                            const myExamId = isSmart ? r.targetExamId : r.receiverExamId;
+                            const hisExamId = isSmart ? r.examId : r.initiatorExamId;
+
+                            const myExam = DB.exams.find(e => String(e.id) === String(myExamId));
+                            const hisExam = DB.exams.find(e => String(e.id) === String(hisExamId));
+                            
+                            const acceptFn = isSmart ? `acceptSmartSwap(${r.id})` : `acceptDirectSwap(${r.id})`;
+                            const rejectFn = isSmart ? `rejectSmartSwap(${r.id})` : `rejectDirectSwap(${r.id})`;
+
                             return `
                                 <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
                                     <div style="font-size: 0.9rem;">
-                                        <strong>${r.initiatorName}</strong> hoca, 
+                                        ${isSmart ? '<span style="background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-right: 8px; font-weight: 700;">AI ÖNERİSİ</span>' : ''}
+                                        <strong>${r.initiatorName || 'Hoca'}</strong>, 
                                         <span style="color: var(--accent-orange);">${hisExam ? hisExam.name : '???'}</span> sınavı ile 
                                         sizin <span style="color: var(--primary);">${myExam ? myExam.name : '???'}</span> sınavınızı takas etmek istiyor.
                                     </div>
                                     <div style="display: flex; gap: 10px;">
-                                        <button class="btn-primary" onclick="acceptDirectSwap(${r.id})" style="background: var(--accent-green); padding: 0.4rem 0.8rem; font-size: 0.8rem;">Kabul Et</button>
-                                        <button class="btn-delete" onclick="rejectDirectSwap(${r.id})" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Reddet</button>
+                                        <button class="btn-primary" onclick="${acceptFn}" style="background: var(--accent-green); padding: 0.4rem 0.8rem; font-size: 0.8rem;">Kabul Et</button>
+                                        <button class="btn-delete" onclick="${rejectFn}" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Reddet</button>
                                     </div>
                                 </div>
                             `;
@@ -4437,11 +4649,9 @@ window.updateExamDurationFromProfile = function(id) {
     if (newDur !== null) {
         const val = parseInt(newDur);
         if (!isNaN(val) && val > 0) {
-            ex.duration = val;
-            
-            // Kaydet
-            if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-            if (typeof saveToBackend === 'function') saveToBackend();
+            // Centralized update function (it handles score, proctor totals, and storage)
+            updateExam(id, { duration: val });
+            saveToBackend();
             
             showToast('Sınav süresi güncellendi.');
             renderProfile(); // Görüntüyü yenile
@@ -5972,6 +6182,188 @@ function clearMessageBadge() {
     const badge = document.getElementById('notif-badge-messages');
     if (badge) badge.classList.add('hidden');
 }
+
+/**
+ * AKILLI TAKAS GÖRÜNÜMÜ (Kusursuz Takas)
+ */
+window.renderSmartSwaps = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const container = document.getElementById('profile-smart-swaps');
+    const listEl = document.getElementById('smart-swaps-list');
+    if (!container || !listEl || !myStaffId) return;
+
+    const matches = findSmartSwaps(myStaffId);
+    if (matches.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    listEl.innerHTML = matches.slice(0, 5).map(m => `
+        <div class="suggestion-item" style="border-left: 4px solid ${m.priority === 2 ? '#ef4444' : '#8b5cf6'}; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px; border: 1px solid rgba(255,255,255,0.05);">
+            <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: ${m.priority === 2 ? '#f87171' : '#a78bfa'};">${m.reason}</span>
+                    <span style="opacity: 0.3;">•</span>
+                    <span>${m.myExam.name}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 5px; line-height: 1.4;">
+                    🔄 <strong>${m.otherStaff.name}</strong> hocanın <strong>${m.otherExam.name}</strong> (${m.otherExam.date.split('-').reverse().join('.')} ${m.otherExam.time}) sınavı ile takas edebilirsiniz. Her iki tarafın da programı bu takas için uygundur.
+                </div>
+            </div>
+            <button class="btn-primary" onclick="initiateSmartSwapProposal(${m.myExam.id}, ${m.otherStaff.id}, ${m.otherExam.id})" 
+                style="padding: 8px 16px; font-size: 0.75rem; background: ${m.priority === 2 ? '#ef4444' : '#6366f1'}; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Teklif Et</button>
+        </div>
+    `).join('');
+};
+
+window.initiateSmartSwapProposal = async function(myExamId, otherStaffId, otherExamId) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+
+    const res = requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId);
+    if (res.success) {
+        alert("✅ Başarılı!\n" + res.message);
+        renderProfile();
+        updateNotificationBadge();
+        await saveToBackend();
+    } else {
+        alert("❌ Hata: " + res.message);
+    }
+};
+
+/**
+ * Şifre Ayarlarını Render Et (Profil Güvenliği)
+ */
+function renderPasswordSettings(staff) {
+    const container = document.getElementById('profile-password-section');
+    if (!container) return;
+
+    if (!staff.staffPassword) {
+        container.innerHTML = `
+            <div class="card-large" style="margin-bottom: 2rem; border: 1px solid #f59e0b66; background: rgba(245, 158, 11, 0.03);">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
+                    <span style="font-size: 1.5rem;">🔒</span>
+                    <h4 style="margin: 0; font-size: 0.9rem; color: #f59e0b; text-transform: uppercase;">Profil Şifreleme</h4>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.25rem;">Hesabınızı güvene almak ve başkalarının profilinize erişmesini engellemek için bir giriş şifresi belirleyebilirsiniz.</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="password" id="new-staff-password" placeholder="Yeni Şifre..." style="flex:1; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                    <button class="btn-primary" onclick="setStaffPassword()" style="background: #f59e0b;">Şifreyi Kaydet</button>
+                </div>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="card-large" style="margin-bottom: 2rem; border: 1px solid #10b98166; background: rgba(16, 185, 129, 0.03);">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
+                    <span style="font-size: 1.5rem;">✅</span>
+                    <h4 style="margin: 0; font-size: 0.9rem; color: #10b981; text-transform: uppercase;">Hesabınız Güvende</h4>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Sistem şifreniz aktif. Şifrenizi değiştirmek veya kaldırmak için yönetici ile iletişime geçebilirsiniz.</p>
+            </div>
+        `;
+    }
+}
+
+window.setStaffPassword = async function() {
+    const input = document.getElementById('new-staff-password');
+    const pass = input ? input.value.trim() : '';
+    if (!pass) return alert("Lütfen bir şifre girin.");
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    if (confirm("Profilinizi bu şifre ile korumak istediğinize emin misiniz? Bir sonraki girişte bu şifre sorulacaktır.")) {
+        staff.staffPassword = pass;
+        saveToLocalStorage();
+        renderProfile();
+        await saveToBackend();
+        alert("✅ Şifreniz başarıyla kaydedildi.");
+    }
+};
+
+/**
+ * AKILLI TAKAS ONAYLAMA / REDDETME
+ */
+window.acceptSmartSwap = async function(requestId) {
+    const reqIndex = DB.requests.findIndex(r => String(r.id) === String(requestId));
+    if (reqIndex === -1) return;
+    const req = DB.requests[reqIndex];
+
+    const myExam = DB.exams.find(e => String(e.id) === String(req.targetExamId));
+    const hisExam = DB.exams.find(e => String(e.id) === String(req.examId));
+    const me = DB.staff.find(s => String(s.id) === String(req.receiverId));
+    const him = DB.staff.find(s => String(s.id) === String(req.initiatorId));
+
+    if (!myExam || !hisExam || !me || !him) {
+        alert("Hata: Sınav veya personel bilgisi bulunamadı!");
+        return;
+    }
+
+    if (confirm("Bu akıllı takas teklifini kabul etmek istiyor musunuz? Sınav görevleriniz karşılıklı olarak değiştirilecektir.")) {
+        // Puan ve görev sayılarını güncelle (Önce eskileri çıkar)
+        me.totalScore = Math.max(0, parseFloat((me.totalScore - myExam.score).toFixed(2)));
+        me.taskCount = Math.max(0, me.taskCount - 1);
+        
+        him.totalScore = Math.max(0, parseFloat((him.totalScore - hisExam.score).toFixed(2)));
+        him.taskCount = Math.max(0, him.taskCount - 1);
+
+        // Şimdi karşılıklı ata
+        myExam.proctorId = him.id;
+        myExam.proctorIds = [him.id];
+        myExam.proctorName = him.name;
+        
+        hisExam.proctorId = me.id;
+        hisExam.proctorIds = [me.id];
+        hisExam.proctorName = me.name;
+
+        // Yeni puanları ekle
+        me.totalScore = parseFloat((me.totalScore + hisExam.score).toFixed(2));
+        me.taskCount += 1;
+        
+        him.totalScore = parseFloat((him.totalScore + myExam.score).toFixed(2));
+        him.taskCount += 1;
+
+        // Talebi tamamlandı olarak işaretle ve kaldır
+        DB.requests.splice(reqIndex, 1);
+        
+        // Bildirim gönder
+        if (!DB.notifications[him.id]) DB.notifications[him.id] = [];
+        DB.notifications[him.id].unshift({
+            id: Date.now(),
+            message: `✅ **Takas Onaylandı:** ${me.name}, gönderdiğin akıllı takas teklifini kabul etti!`,
+            type: 'swap_approved',
+            createdAt: new Date().toISOString(),
+            isRead: false
+        });
+
+        saveToLocalStorage();
+        renderProfile();
+        updateNotifBadge();
+        await saveToBackend();
+        
+        alert("✅ Takas başarıyla gerçekleştirildi!");
+    }
+};
+
+window.rejectSmartSwap = async function(requestId) {
+    const reqIndex = DB.requests.findIndex(r => String(r.id) === String(requestId));
+    if (reqIndex === -1) return;
+    const req = DB.requests[reqIndex];
+
+    if (confirm("Bu takas teklifini reddetmek istediğinize emin misiniz?")) {
+        // Talebi kaldır
+        const removed = DB.requests.splice(reqIndex, 1)[0];
+        
+        saveToLocalStorage();
+        renderProfile();
+        updateNotifBadge();
+        await saveToBackend();
+        alert("✅ Teklif reddedildi.");
+    }
+};
 
 
 
