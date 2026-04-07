@@ -20,25 +20,61 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
         sessionStorage.setItem('isLecturer', isLecturer ? 'true' : 'false');
         
+        if (Object.keys(navButtons).length === 0) initNavigation();
+
+        window.showToast = function(message, type = 'success') {
+            let container = document.querySelector('.toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <div style="font-size: 1.25rem;">${type === 'success' ? '✅' : '⚠️'}</div>
+                <div style="font-weight: 500;">${message}</div>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 3000);
+            }, 3000);
+        };
+
+        const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
+        
+        // Hoca modunda her şeyi gizle, sadece programı ve yeni portalı göster
+        if (isLecturerMode) {
+            document.body.classList.add('lecturer-mode');
+            document.querySelectorAll('.lecturer-only').forEach(el => el.classList.remove('hidden'));
+            
+            // Başlangıçta Programı göster
+            Object.values(sections).forEach(s => { if(s) s.classList.add('hidden'); });
+            if (sections.schedule) sections.schedule.classList.remove('hidden');
+            Object.values(navButtons).forEach(b => { if(b) b.classList.remove('active'); });
+            if (navButtons.schedule) navButtons.schedule.classList.add('active');
+        } else {
+            document.body.classList.remove('lecturer-mode');
+            document.querySelectorAll('.lecturer-only').forEach(el => el.classList.add('hidden'));
+        }
+
         if (!isAdmin) document.body.classList.add('guest-mode');
         else document.body.classList.remove('guest-mode');
 
         if (isAdmin) document.body.classList.add('admin-mode');
         else document.body.classList.remove('admin-mode');
-
-        if (isLecturer) {
-            document.body.classList.add('lecturer-mode');
-            // Ekran flashı (flicker) olmaması için login işlemi anında profile gizlenmeli
-            document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
-            const scheduleSec = document.getElementById('section-schedule');
-            if(scheduleSec) scheduleSec.classList.remove('hidden');
-        } else {
-            document.body.classList.remove('lecturer-mode');
-        }
         
         loginOverlay.classList.add('hidden');
         appWrapper.style.display = 'block';
         await initApp();
+        
+        if (document.getElementById('btn-lecturer-portal')) {
+            // Buton zaten navButtons içinde olduğu için ayrıca listener eklemeye gerek yok, 
+            // yukarıdaki Object.entries(navButtons).forEach döngüsü bunu halledecek.
+        }
+
+        // Portal dropdown listeners moved to functions themselves or global scope for reliability
         
         if (isLecturer) {
             // Olası event listener asenkron gecikmelerini aşmak için kısa bir gecikme ve fallback
@@ -127,6 +163,78 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// UI Bileşenleri ve Navigasyon Yapısı
+const navButtons = {};
+const sections = {};
+let navigationInitialized = false;
+
+function initNavigation() {
+    if (navigationInitialized) return;
+    navigationInitialized = true;
+    navButtons.dashboard = document.getElementById('btn-dashboard');
+    navButtons.schedule = document.getElementById('btn-schedule');
+    navButtons.exams = document.getElementById('btn-exams');
+    navButtons.staff = document.getElementById('btn-staff');
+    navButtons.availability = document.getElementById('btn-availability');
+    navButtons.requests = document.getElementById('btn-requests');
+    navButtons.profile = document.getElementById('btn-profile');
+    navButtons.audit = document.getElementById('btn-audit');
+    navButtons.announcements = document.getElementById('btn-announcements');
+    navButtons.timeline = document.getElementById('btn-timeline');
+    navButtons.stats = document.getElementById('btn-stats');
+    navButtons.lecturerPortal = document.getElementById('btn-lecturer-portal');
+
+    sections.dashboard = document.getElementById('section-dashboard');
+    sections.schedule = document.getElementById('section-schedule');
+    sections.exams = document.getElementById('section-exams');
+    sections.staff = document.getElementById('section-staff');
+    sections.availability = document.getElementById('section-availability');
+    sections.requests = document.getElementById('section-requests');
+    sections.profile = document.getElementById('section-profile');
+    sections.audit = document.getElementById('section-audit');
+    sections.announcements = document.getElementById('section-announcements');
+    sections.timeline = document.getElementById('section-timeline');
+    sections.stats = document.getElementById('section-stats');
+    sections.lecturerPortal = document.getElementById('sec-lecturer-portal');
+
+    Object.entries(navButtons).forEach(([key, btn]) => {
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            // Update Buttons
+            Object.values(navButtons).forEach(b => { if(b) b.classList.remove('active'); });
+            btn.classList.add('active');
+
+            // Update Sections
+            const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+            if ((btn.classList.contains('admin-only') && !isAdmin) || 
+                (btn.classList.contains('user-only') && isAdmin)) {
+                // Yetkisiz erişim girişimi
+                if (sections.dashboard) sections.dashboard.classList.remove('hidden');
+                if (navButtons.dashboard) navButtons.dashboard.classList.add('active');
+                btn.classList.remove('active');
+                return;
+            }
+
+            Object.values(sections).forEach(s => { if(s) s.classList.add('hidden'); });
+            if (sections[key]) sections[key].classList.remove('hidden');
+
+            if (key === 'dashboard') renderDashboard();
+            if (key === 'schedule') renderSchedule();
+            if (key === 'exams') renderExams();
+            if (key === 'staff') renderStaff();
+            if (key === 'availability') renderAvailability();
+            if (key === 'constraints') renderConstraintsPage();
+            if (key === 'requests') loadFromDataJSON().then(() => renderSwapRequests());
+            if (key === 'profile') { renderProfile(); updateNotificationBadge(); }
+            if (key === 'audit') renderAuditLogs();
+            if (key === 'announcements') { renderAnnouncements(); markAnnouncementsAsRead(); }
+            if (key === 'timeline') renderMonthlyCalendar();
+            if (key === 'stats') renderStats();
+            if (key === 'lecturerPortal') loadLecturerPortalStaff();
+        });
+    });
+}
 
 async function initApp() {
     // Sitenin en güncel veriyi Backend API'den asenkron olarak okumasını bekliyoruz
@@ -256,6 +364,7 @@ async function initApp() {
         if (changed) saveToLocalStorage();
     }
 
+    initNavigation();
     initUI();
     applyTheme(); // Theme on load
     renderProfile();
@@ -324,84 +433,6 @@ function confirmWithPassword(description, staff) {
 }
 
 
-const navButtons = {
-    dashboard: document.getElementById('btn-dashboard'),
-    schedule: document.getElementById('btn-schedule'),
-    exams: document.getElementById('btn-exams'),
-    staff: document.getElementById('btn-staff'),
-    availability: document.getElementById('btn-availability'),
-    requests: document.getElementById('btn-requests'),
-    profile: document.getElementById('btn-profile'),
-    audit: document.getElementById('btn-audit'),
-    announcements: document.getElementById('btn-announcements'),
-    timeline: document.getElementById('btn-timeline'),
-    stats: document.getElementById('btn-stats')
-};
-
-const sections = {
-    dashboard: document.getElementById('section-dashboard'),
-    schedule: document.getElementById('section-schedule'),
-    exams: document.getElementById('section-exams'),
-    staff: document.getElementById('section-staff'),
-    availability: document.getElementById('section-availability'),
-    requests: document.getElementById('section-requests'),
-    profile: document.getElementById('section-profile'),
-    audit: document.getElementById('section-audit'),
-    announcements: document.getElementById('section-announcements'),
-    timeline: document.getElementById('section-timeline'),
-    stats: document.getElementById('section-stats')
-};
-
-// Navigation
-Object.entries(navButtons).forEach(([key, btn]) => {
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-        // Update Buttons
-        Object.values(navButtons).forEach(b => { if(b) b.classList.remove('active'); });
-        btn.classList.add('active');
-
-        // Update Sections
-        const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-        if ((btn.classList.contains('admin-only') && !isAdmin) || 
-            (btn.classList.contains('user-only') && isAdmin)) {
-            // Yetkisiz erişim girişimi
-            sections.dashboard.classList.remove('hidden');
-            navButtons.dashboard.classList.add('active');
-            btn.classList.remove('active');
-            return;
-        }
-
-        Object.values(sections).forEach(s => { if(s) s.classList.add('hidden'); });
-        if (sections[key]) sections[key].classList.remove('hidden');
-
-        if (key === 'dashboard') renderDashboard();
-        if (key === 'schedule') {
-            renderSchedule();
-        }
-        if (key === 'exams') renderExams();
-        if (key === 'staff') renderStaff();
-        if (key === 'availability') renderAvailability();
-        if (key === 'constraints') renderConstraintsPage();
-        if (key === 'requests') {
-            loadFromDataJSON().then(() => renderSwapRequests());
-        }
-        if (key === 'profile') {
-            renderProfile();
-            updateNotificationBadge();
-        }
-        if (key === 'audit') renderAuditLogs();
-        if (key === 'announcements') {
-            renderAnnouncements();
-            markAnnouncementsAsRead();
-        }
-        if (key === 'timeline') {
-            renderMonthlyCalendar();
-        }
-        if (key === 'stats') {
-            renderStats();
-        }
-    });
-});
 
 let currentSort = { key: 'date', dir: 'asc' };
 let currentExamTab = 'active';
@@ -1198,6 +1229,19 @@ window.showExamDetail = function(examName, date, time, location) {
             <div style="font-weight:700; font-size:1.1rem;">${loc || '-'}</div>
         </div>
     `;
+
+    // Hoca Notu Gösterimi
+    const noteContainer = document.getElementById('exam-detail-note-container');
+    const noteContent = document.getElementById('exam-detail-note-content');
+    if (noteContainer && noteContent) {
+        const firstNote = relatedExams.find(e => e.lecturerNote)?.lecturerNote;
+        if (firstNote && firstNote.trim() !== "") {
+            noteContent.textContent = firstNote;
+            noteContainer.classList.remove('hidden');
+        } else {
+            noteContainer.classList.add('hidden');
+        }
+    }
 
     tbody.innerHTML = '';
     if (relatedExams.length === 0) {
@@ -2015,6 +2059,7 @@ window.showEditExamModal = (id) => {
     document.getElementById('edit-exam-date').value = ex.date;
     document.getElementById('edit-exam-time').value = ex.time;
     document.getElementById('edit-exam-duration').value = ex.duration;
+    document.getElementById('edit-exam-note').value = ex.lecturerNote || '';
 
     // Initialize tempEditProctors with existing proctors
     window.tempEditProctors = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
@@ -2143,7 +2188,8 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
         date:       document.getElementById('edit-exam-date').value,
         time:       document.getElementById('edit-exam-time').value,
         duration:   durationVal,
-        proctorIds: proctorIds
+        proctorIds: proctorIds,
+        lecturerNote: document.getElementById('edit-exam-note').value
     };
 
     // Müsaitlik kontrolü
@@ -3617,6 +3663,7 @@ window.renderProfile = function() {
         updateProfileDashboard(staffIdNum);
         renderProfileChecklist(staffIdNum);
         renderResponsibleExamsTab(staffIdNum, staff);
+        renderLecturerExamsTab(staffIdNum, staff);
 
         // Şifre Ayarlama Bölümünü Render Et (sadece gözetmen modunda)
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
@@ -4047,10 +4094,17 @@ function renderResponsibleExamsTab(staffId, staff) {
     tbody.innerHTML = '';
 
     // Bu sekme artık "Proctor olarak atandığım sınavların hocalarından gelen mesajlar" olacak
+    const now = new Date();
     const myMessages = DB.exams
         .filter(ex => {
             const pIds = ex.proctorIds || [ex.proctorId];
-            return pIds.some(pid => String(pid) === String(staff.id));
+            const isMe = pIds.some(pid => String(pid) === String(staff.id));
+            if (!isMe) return false;
+
+            // Sınav bitmiş mi kontrolü (Sadece gelecek/aktif sınavları göster)
+            const exDate = new Date(`${ex.date}T${ex.time}`);
+            const exEnd = new Date(exDate.getTime() + (ex.duration || 60) * 60000);
+            return exEnd > now;
         })
         .sort((a, b) => (a.date + 'T' + a.time).localeCompare(b.date + 'T' + b.time));
 
@@ -4076,6 +4130,294 @@ function renderResponsibleExamsTab(staffId, staff) {
     });
 }
 
+/**
+ * HOCA PANELİ: Sorumlu Olduğum Dersler (Mesaj Gönder)
+ */
+function renderLecturerExamsTab(staffId, staff) {
+    const tbody = document.querySelector('#profile-table-lecturer-exams tbody');
+    if (!tbody || !staff) return;
+    tbody.innerHTML = '';
+
+    const lecturerExams = DB.exams
+        .filter(ex => ex.lecturer === staff.name)
+        .sort((a, b) => (a.date + 'T' + a.time).localeCompare(b.date + 'T' + b.time));
+
+    if (lecturerExams.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Henüz sorumlu olduğunuz ders sınavı bulunmuyor.</td></tr>`;
+        return;
+    }
+
+    lecturerExams.forEach(ex => {
+        const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
+            const s = DB.staff.find(st => String(st.id) === String(pid));
+            return s ? s.name : '???';
+        }).filter(n => n !== '???');
+        
+        const proctorsStr = pNames.length > 0 ? pNames.join(', ') : '<span style="color:var(--accent-orange);">Henüz atanmadı</span>';
+        const msg = ex.lecturerNote || '<span style="opacity:0.5;">Fikir/Not yok</span>';
+
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${ex.name}</strong></td>
+                <td style="font-size:0.85rem;">${proctorsStr}</td>
+                <td style="font-size:0.85rem;">${ex.date} <span style="opacity:0.6;">${ex.time}</span></td>
+                <td><span class="note-pill" style="background: rgba(34,197,94,0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; color: var(--accent-green); border: 1px solid rgba(34,197,94,0.2);">${msg}</span></td>
+                <td style="text-align:right;"><button class="btn-primary" onclick="openLecturerMessageModal(${ex.id})" style="font-size:0.75rem; padding:4px 8px; background:linear-gradient(135deg, var(--primary), #4f46e5);">Özel Not/Mesaj</button></td>
+            </tr>
+        `;
+    });
+}
+
+/**
+ * HOCA MESAJ MODALI FONKSİYONLARI
+ */
+window.openLecturerMessageModal = function(id) {
+    const ex = DB.exams.find(e => e.id === id);
+    if (!ex) return;
+
+    document.getElementById('lecturer-message-exam-id').value = id;
+    document.getElementById('lecturer-message-text').value = ex.lecturerNote || '';
+    
+    document.getElementById('lecturer-message-info').innerHTML = `
+        <strong>${ex.name}</strong><br>
+        <span style="font-size:0.8rem;">Tarih: ${ex.date} | Saat: ${ex.time}</span>
+    `;
+
+    document.getElementById('modal-lecturer-message').classList.remove('hidden');
+};
+
+window.closeLecturerMessageModal = function() {
+    document.getElementById('modal-lecturer-message').classList.add('hidden');
+};
+
+window.saveLecturerMessage = function() {
+    const id = parseInt(document.getElementById('lecturer-message-exam-id').value);
+    const text = document.getElementById('lecturer-message-text').value;
+    
+    const ex = DB.exams.find(e => e.id === id);
+    if (ex) {
+        ex.lecturerNote = text;
+        
+        // Kaydet
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof saveToBackend === 'function') saveToBackend();
+        
+        showToast('Mesajınız gözetmenlere iletildi.');
+        if (document.getElementById('lecturer-message-text')) {
+            document.getElementById('lecturer-message-text').value = '';
+        }
+        closeLecturerMessageModal();
+        
+        // Tabloları yenile
+        const myStaffId = localStorage.getItem('myStaffId');
+        const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+        renderLecturerExamsTab(myStaffId, staff);
+        renderResponsibleExamsTab(myStaffId, staff);
+        
+        // Eğer portal açıksa orayı da yenile
+        const portalSelect = document.getElementById('lecturer-portal-staff-select');
+        if (portalSelect && portalSelect.value) {
+            renderLecturerPortal(portalSelect.value);
+        }
+    }
+};
+
+/**
+ * HOCA PORTALI (Şifresiz Login Tarafı)
+ */
+function loadLecturerPortalStaff() {
+    const select = document.getElementById('lecturer-portal-staff-select');
+    if (!select) return;
+    
+    if (select.options.length > 1) return;
+
+    // DB.lecturers listesini kullan (Title + Name formatında)
+    const sortedLecturers = (DB.lecturers || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+    
+    select.innerHTML = '<option value="">Lütfen İsminizi Seçin...</option>' + 
+        sortedLecturers.map(l => {
+            const fullName = `${l.title} ${l.name}`;
+            return `<option value="${fullName}">${fullName}</option>`;
+        }).join('');
+}
+
+window.onLecturerPortalStaffChange = function(lecturerName) {
+    const courseGroup = document.getElementById('lecturer-portal-course-group');
+    const courseSelect = document.getElementById('lecturer-portal-course-select');
+    const editor = document.getElementById('lecturer-portal-editor');
+    const empty = document.getElementById('lecturer-portal-empty');
+
+    if (!lecturerName) {
+        if (courseGroup) courseGroup.classList.add('hidden');
+        if (editor) editor.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+
+    if (courseGroup) courseGroup.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    if (editor) editor.classList.add('hidden');
+
+    // Bu hocaya ait sınavları bul (Daha esnek bir isim eşleşmesi için trim ve toLocaleLowerCase('tr') kullanıyoruz)
+    const myExams = DB.exams.filter(ex => {
+        if (!ex.lecturer) return false;
+        
+        const normExLect = ex.lecturer.toLocaleLowerCase('tr').trim();
+        const normSelLect = lecturerName.toLocaleLowerCase('tr').trim();
+        
+        // Tam eşleşme veya birinin diğerini içermesi durumu
+        return normExLect === normSelLect || 
+               normExLect.includes(normSelLect) || 
+               normSelLect.includes(normExLect);
+    }).sort((a,b) => (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time));
+
+    courseSelect.innerHTML = '<option value="">Lütfen Ders Seçin...</option>';
+    
+    if (myExams.length > 0) {
+        courseSelect.innerHTML += '<option value="all-exams">★★★ TÜM SINAVLARIM / TÜM GÖZETMENLER ★★★</option>';
+        courseSelect.innerHTML += myExams.map(ex => `<option value="${ex.id}">${ex.name} (${ex.date} ${ex.time})</option>`).join('');
+    } else {
+        courseSelect.innerHTML = '<option value="">Adınıza kayıtlı ders bulunamadı.</option>';
+    }
+};
+
+window.onLecturerPortalCourseChange = function(examId) {
+    const lecturerName = document.getElementById('lecturer-portal-staff-select').value;
+    const editor = document.getElementById('lecturer-portal-editor');
+    const title = document.getElementById('lecturer-portal-course-title');
+    const details = document.getElementById('lecturer-portal-course-details');
+    const textarea = document.getElementById('lecturer-portal-note');
+    const proctorsEl = document.getElementById('lecturer-portal-proctors');
+    const proctorsContainer = document.getElementById('lecturer-portal-proctors-container');
+    const saveStatus = document.getElementById('lecturer-portal-save-status');
+
+    if (!examId) {
+        if (editor) editor.classList.add('hidden');
+        return;
+    }
+
+    if (editor) editor.classList.remove('hidden');
+    if (saveStatus) saveStatus.classList.add('hidden');
+
+    if (examId === 'all-exams') {
+        const myExams = DB.exams.filter(ex => {
+            if (!ex.lecturer) return false;
+            return ex.lecturer.toLocaleLowerCase('tr').trim().includes(lecturerName.toLocaleLowerCase('tr').trim()) ||
+                   lecturerName.toLocaleLowerCase('tr').trim().includes(ex.lecturer.toLocaleLowerCase('tr').trim());
+        });
+
+        title.textContent = "🚀 Tüm Sınavlarım (Toplu Mesaj)";
+        details.innerHTML = `<span style="color:var(--accent-orange);">Bu alana yazacağınız not, aşağıda listelenen tüm sınavlarınıza ve görevli gözetmenlere iletilecektir.</span>`;
+        
+        // Tüm gözetmenleri topla (tekil hoca isimleri)
+        const allPids = [];
+        myExams.forEach(ex => {
+            (ex.proctorIds || [ex.proctorId]).forEach(pid => {
+                if (pid && !allPids.includes(String(pid))) allPids.push(String(pid));
+            });
+        });
+
+        const pNames = allPids.map(pid => {
+            const s = DB.staff.find(st => String(st.id) === String(pid));
+            return s ? s.name : null;
+        }).filter(Boolean).sort();
+
+        if (proctorsEl) {
+            proctorsEl.innerHTML = pNames.length > 0 
+                ? pNames.map(n => `<div style="margin-bottom:2px;">• ${n}</div>`).join('') 
+                : '<span style="color:var(--accent-orange); opacity:0.7;">Atanmış gözetmen bulunamadı</span>';
+        }
+        
+        // Eğer tüm sınavların notu aynıysa onu getir, farklıysa boş bırak veya ilkini getir
+        const firstNote = myExams.length > 0 ? (myExams[0].lecturerNote || '') : '';
+        const allSame = myExams.every(ex => (ex.lecturerNote || '') === firstNote);
+        textarea.value = allSame ? firstNote : "";
+        textarea.placeholder = "Tüm sınavlarınıza ortak bir not iletmek için buraya yazın...";
+
+    } else {
+        const exam = DB.exams.find(e => String(e.id) === String(examId));
+        if (!exam) return;
+
+        title.textContent = exam.name;
+        details.innerHTML = `📅 ${exam.date} &nbsp; 🕒 ${exam.time} &nbsp; 📍 ${exam.location || ''}`;
+        
+        const pNames = (exam.proctorIds || [exam.proctorId]).map(pid => {
+            if (!pid) return null;
+            const s = DB.staff.find(st => String(st.id) === String(pid));
+            return s ? s.name : null;
+        }).filter(Boolean);
+
+        if (proctorsEl) {
+            proctorsEl.innerHTML = pNames.length > 0 
+                ? pNames.map(n => `<div style="margin-bottom:2px;">• ${n}</div>`).join('') 
+                : '<span style="color:var(--accent-orange); opacity:0.7;">Henüz atanmadı</span>';
+        }
+
+        textarea.value = exam.lecturerNote || '';
+        textarea.placeholder = "Sınav gözetmenlerine iletmek istediğiniz notu buraya yazın...";
+    }
+};
+
+window.saveLecturerPortalNote = async function() {
+    const lecturerName = document.getElementById('lecturer-portal-staff-select').value;
+    const courseSelect = document.getElementById('lecturer-portal-course-select');
+    const textarea = document.getElementById('lecturer-portal-note');
+    const saveStatus = document.getElementById('lecturer-portal-save-status');
+
+    const examId = courseSelect ? courseSelect.value : null;
+    const note = textarea ? textarea.value.trim() : '';
+
+    if (!examId || !lecturerName) {
+        showToast('Lütfen önce ders seçiniz!', 'error');
+        return;
+    }
+
+    try {
+        if (examId === 'all-exams') {
+            const myExams = DB.exams.filter(ex => {
+                if (!ex.lecturer) return false;
+                return ex.lecturer.toLocaleLowerCase('tr').trim().includes(lecturerName.toLocaleLowerCase('tr').trim()) ||
+                       lecturerName.toLocaleLowerCase('tr').trim().includes(ex.lecturer.toLocaleLowerCase('tr').trim());
+            });
+
+            myExams.forEach(ex => {
+                ex.lecturerNote = note;
+            });
+            showToast(`${myExams.length} sınava ortak mesajınız iletildi.`);
+            if (textarea) textarea.value = '';
+        } else {
+            const exam = DB.exams.find(e => String(e.id) === String(examId));
+            if (!exam) throw new Error("Sınav bulunamadı.");
+            exam.lecturerNote = note;
+            showToast('Mesajınız gözetmenlere iletildi.');
+            if (textarea) textarea.value = '';
+        }
+
+        // Yerel kaydet (Anında başarılı olsun)
+        saveToLocalStorage();
+
+        // Geri bildirim
+        if (saveStatus) {
+            saveStatus.classList.remove('hidden');
+            setTimeout(() => saveStatus.classList.add('hidden'), 3000);
+        }
+
+        // Buluta kaydet
+        await saveToBackend();
+
+    } catch (err) {
+        console.error("Save error:", err);
+        showToast('Kayıt sırasında bir hata oluştu: ' + err.message, 'error');
+    }
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (myStaffId) {
+        const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+        if (typeof renderLecturerExamsTab === 'function') renderLecturerExamsTab(myStaffId, staff);
+        if (typeof renderResponsibleExamsTab === 'function') renderResponsibleExamsTab(myStaffId, staff);
+    }
+};
+
 
 /**
  * Gözetmenin Kendi Sınav Süresini Düzenlemesi
@@ -4092,7 +4434,7 @@ window.updateExamDurationFromProfile = function(id) {
             
             // Kaydet
             if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-            if (typeof saveToDataJSON === 'function') saveToDataJSON();
+            if (typeof saveToBackend === 'function') saveToBackend();
             
             showToast('Sınav süresi güncellendi.');
             renderProfile(); // Görüntüyü yenile
