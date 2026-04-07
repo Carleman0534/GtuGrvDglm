@@ -2001,9 +2001,9 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
     // ID'yi string olarak al — parseInt büyük Date.now() değerlerinde precision kaybı yaratır
     const id = document.getElementById('edit-exam-id').value;
 
-    // tempEditProctors boşsa mevcut sınavın gözetmenlerini koru
+    // tempEditProctors atanmışsa doğrudan kullan (boş dizi de olsa, kullanıcı tümünü silmiş demektir)
     const currentExam = DB.exams.find(ex => String(ex.id) === String(id));
-    const proctorIds = (window.tempEditProctors && window.tempEditProctors.length > 0)
+    const proctorIds = Array.isArray(window.tempEditProctors)
         ? window.tempEditProctors
         : (currentExam ? (currentExam.proctorIds || (currentExam.proctorId ? [currentExam.proctorId] : [])) : []);
 

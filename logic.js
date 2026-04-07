@@ -419,7 +419,7 @@ function updateExam(id, newData, skipSave = false) {
     
     // Yeni puan hesapla
     const newScore = calculateScore(new Date(`${newData.date}T${newData.time}`), newData.duration);
-    const newPIds = newData.proctorIds && newData.proctorIds.length > 0
+    const newPIds = Array.isArray(newData.proctorIds)
         ? newData.proctorIds
         : (oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []));
     const newProctors = DB.staff.filter(s => newPIds.includes(s.id));
@@ -448,14 +448,14 @@ function updateExam(id, newData, skipSave = false) {
 
     // Değişiklik Kontrolü ve Bildirim Gönderimi
     const changeLog = [];
-    if (oldExam.name !== newData.name) changeLog.push('name');
-    if (oldExam.date !== newData.date) changeLog.push('date');
-    if (oldExam.time !== newData.time) changeLog.push('time');
-    if (oldExam.duration !== newData.duration) changeLog.push('duration');
-    if (oldExam.location !== newData.location) changeLog.push('location');
-    if (oldExam.type !== newData.type) changeLog.push('type');
-    if (oldExam.lecturer !== newData.lecturer) changeLog.push('lecturer');
-    if (oldExam.capacity !== newData.capacity) changeLog.push('capacity');
+    if (newData.name !== undefined && oldExam.name !== newData.name) changeLog.push('name');
+    if (newData.date !== undefined && oldExam.date !== newData.date) changeLog.push('date');
+    if (newData.time !== undefined && oldExam.time !== newData.time) changeLog.push('time');
+    if (newData.duration !== undefined && oldExam.duration !== newData.duration) changeLog.push('duration');
+    if (newData.location !== undefined && oldExam.location !== newData.location) changeLog.push('location');
+    if (newData.type !== undefined && oldExam.type !== newData.type) changeLog.push('type');
+    if (newData.lecturer !== undefined && oldExam.lecturer !== newData.lecturer) changeLog.push('lecturer');
+    if (newData.capacity !== undefined && oldExam.capacity !== newData.capacity) changeLog.push('capacity');
 
     if (changeLog.length > 0 || proctorChanged) {
         const allAffected = new Set([...oldPIds, ...newPIds]);
@@ -467,8 +467,8 @@ function updateExam(id, newData, skipSave = false) {
         ...oldExam,
         ...newData,
         proctorIds: newPIds,
-        proctorId: newPIds[0] || oldExam.proctorId,
-        proctorName: newProctors.length > 0 ? newProctors.map(p => p.name).join(', ') : oldExam.proctorName,
+        proctorId: newPIds[0] || 0,
+        proctorName: newProctors.length > 0 ? newProctors.map(p => p.name).join(', ') : (newPIds.length === 0 ? "Atanmadı" : oldExam.proctorName),
         score: newScore,
         katsayi: getKatsayi(new Date(`${newData.date}T${newData.time}`))
     };
