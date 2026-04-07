@@ -712,13 +712,34 @@ tr:hover td {
     box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
 }
 
-/* Table Specific Tags */
-.score-tag {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--accent-green);
-    padding: 4px 10px;
-    border-radius: 8px;
+/* Availability Score Styles */
+.flex-score-container {
+    width: 100%;
+    max-width: 120px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 9px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+
+.flex-score-bar {
+    height: 100%;
+    transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.flex-score-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.65rem;
     font-weight: 800;
+    color: white;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
 }
 
 /* --- Functional Styles (Restored & Enhanced) --- */

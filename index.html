@@ -611,6 +611,7 @@
                                 <th>İsim Soyisim</th>
                                 <th>Toplam Puan</th>
                                 <th>Görev Sayısı</th>
+                                <th>Esneklik 🤖</th>
                                 <th class="admin-only">İşlem</th>
                             </tr>
                         </thead>
@@ -626,6 +627,7 @@
                     <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
                         <input type="text" id="exam-search" placeholder="🔍 Sınav veya Gözetmen Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                         <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
+                        <button id="btn-import-exams-excel" class="btn-primary admin-only" style="background:#1d6f42;">📂 Excel’den Aktar</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
                         <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#4f46e5;">✨ Taslak Yükle</button>
                         <button id="btn-toggle-draft-mode" class="btn-primary admin-only" style="background:#64748b;">🛠️ Taslak Modu (Aç/Kapat)</button>
@@ -828,6 +830,7 @@
                                     <th>H.Sonu/Akşam</th>
                                     <th>Toplam Görev</th>
                                     <th>Toplam Puan</th>
+                                    <th>Esneklik %</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1520,6 +1523,44 @@
                 <div class="form-actions" style="margin-top: 1.5rem;">
                     <button class="btn-secondary" onclick="closeLecturerMessageModal()" style="padding: 0.8rem 1.5rem;">Vazgeç</button>
                     <button class="btn-primary" onclick="saveLecturerMessage()" style="padding: 0.8rem 2rem; background: linear-gradient(135deg, var(--primary), #4f46e5);">Mesajı Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel Import Hidden Input -->
+    <input type="file" id="excel-import-input" accept=".xlsx, .xls, .csv" style="display: none;">
+
+    <!-- Excel Import Preview Modal -->
+    <div id="modal-excel-preview" class="modal hidden">
+        <div class="modal-content" style="max-width: 95vw; width: 1100px;">
+            <div class="modal-header">
+                <h2>📊 Excel'den Aktarılan Sınavlar</h2>
+                <button id="btn-close-excel-preview" class="btn-icon" style="font-size:1.5rem; background:none; border:none; color:white; cursor:pointer;" onclick="document.getElementById('modal-excel-preview').classList.add('hidden')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Aşağıdaki sınavlar Excel dosyanızdan okundu. 🤖 **Akıllı Atama** sistemi otomatik olarak en uygun gözetmenleri önerdi. İsterseniz listeden değiştirebilirsiniz.</p>
+                
+                <div class="table-container" style="max-height: 50vh; overflow-y: auto; margin-bottom: 20px;">
+                    <table id="table-excel-preview">
+                        <thead>
+                            <tr>
+                                <th>Tür</th>
+                                <th>Sınav Adı</th>
+                                <th>Tarih</th>
+                                <th>Saat</th>
+                                <th>Derslik</th>
+                                <th>Süre</th>
+                                <th>AI Gözetmen Önerisi</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 15px;">
+                    <button class="btn-secondary" onclick="document.getElementById('modal-excel-preview').classList.add('hidden')">İptal</button>
+                    <button id="btn-import-all-excel" class="btn-primary" style="background: var(--accent-green);">✓ Hepsini Sisteme Ekle</button>
                 </div>
             </div>
         </div>

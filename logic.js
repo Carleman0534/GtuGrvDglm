@@ -218,6 +218,39 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
 }
 
 /**
+ * Gözetmen Müsaitlik Puanını Hesapla (0-100)
+ * Hafta içi mesai saatleri (08:30-17:30) üzerinden kısıtlı süreyi çıkarır.
+ */
+function calculateAvailabilityScore(staffId) {
+    const staff = DB.staff.find(s => s.id === staffId);
+    if (!staff) return 0;
+    
+    const constraints = DB.constraints && DB.constraints[staff.name] ? DB.constraints[staff.name] : [];
+    if (constraints.length === 0) return 100;
+
+    const totalWeeklyMins = 5 * 9 * 60; // 5 gün * 9 saat * 60 dk = 2700 dk
+    let restrictedMins = 0;
+
+    constraints.forEach(c => {
+        // Sadece haftalık tekrarlayan kısıtları (day bazlı) sayalım (Basitleştirme için)
+        if (c.day !== undefined) {
+            const start = timeToMins(c.start);
+            const end = timeToMins(c.end);
+            // Mesai saatleri dışını kırp (08:30 - 17:30)
+            const actualStart = Math.max(start, 510); // 08:30
+            const actualEnd = Math.min(end, 1050);     // 17:30
+            
+            if (actualEnd > actualStart) {
+                restrictedMins += (actualEnd - actualStart);
+            }
+        }
+    });
+
+    const score = ((totalWeeklyMins - restrictedMins) / totalWeeklyMins) * 100;
+    return Math.max(0, Math.round(score));
+}
+
+/**
  * Bir gözetmenin o saatte hem kısıt hem de mevcut sınavlar açısından gerçekten boş olup olmadığını kontrol et
  */
 function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) {
@@ -247,6 +280,29 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) 
 
     return !hasConflict;
 }
+
+/**
+ * Akıllı Atama Asistanı için Gözetmen Önerileri Listesi oluştur
+ */
+function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null) {
+    if (DB.staff.length === 0) return [];
+    const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId));
+    if (available.length === 0) return [];
+
+    return available.map(s => {
+        const score = s.totalScore || 0;
+        const tasks = s.taskCount || 0;
+        const minReached = tasks >= GLOBAL_LIMITS.MIN_TASKS;
+        const avgScore = DB.staff.reduce((a, b) => a + (b.totalScore || 0), 0) / (DB.staff.length || 1);
+        
+        let reason = "✅ Müsait";
+        if (!minReached) reason = "🌟 Görev Sayısı Az";
+        else if (score < avgScore) reason = "⚖️ Düşük Puanlı";
+
+        return { ...s, reason };
+    }).sort((a,b) => a.totalScore - b.totalScore).slice(0, 5);
+}
+window.getRecommendedProctors = getRecommendedProctors;
 
 /**
  * En adil gözetmen atamasını yap (hem kısıt hem sınav çakışması kontrolü ile)

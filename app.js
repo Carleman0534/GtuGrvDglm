@@ -2,6 +2,15 @@
  * Gözetmenlik UI Kontrolcü
  */
 
+/**
+ * Puan rengine göre şık bir renk döndürür.
+ */
+window.getScoreColor = function(score) {
+    if (score >= 80) return "#10b981"; // Yeşil (Çok Esnek)
+    if (score >= 50) return "#f59e0b"; // Turuncu (Orta)
+    return "#ef4444"; // Kırmızı (Kısıtlı)
+};
+
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginOverlay = document.getElementById('login-overlay');
@@ -156,12 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
             finishLogin(false, true);
         });
     }
-    
     if (loginPassInput) {
         loginPassInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleLogin();
         });
     }
+
+    initExcelImport();
 });
 
 // UI Bileşenleri ve Navigasyon Yapısı
@@ -2527,6 +2537,11 @@ function renderStats() {
                 <td>${s.breakdown["Hafta Sonu / Akşam"]}</td>
                 <td class="${isHighLoad ? 'high-load' : ''}">${s.totalTasks}</td>
                 <td style="color: var(--primary); font-weight: 700;">${s.totalScore.toFixed(1)}</td>
+                <td>
+                    <span class="badge" style="background: ${getScoreColor(calculateAvailabilityScore(s.id))}22; color: ${getScoreColor(calculateAvailabilityScore(s.id))}; border: 1px solid ${getScoreColor(calculateAvailabilityScore(s.id))}44;">
+                        %${calculateAvailabilityScore(s.id)}
+                    </span>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -2552,6 +2567,12 @@ function renderStaff() {
             <td><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>
             <td>${s.totalScore.toFixed(1)}</td>
             <td>${s.taskCount}</td>
+            <td>
+                <div class="flex-score-container" title="Esneklik Puanı: %${calculateAvailabilityScore(s.id)}">
+                    <div class="flex-score-bar" style="width: ${calculateAvailabilityScore(s.id)}%; background: ${getScoreColor(calculateAvailabilityScore(s.id))}"></div>
+                    <span class="flex-score-text">%${calculateAvailabilityScore(s.id)}</span>
+                </div>
+            </td>
             <td class="admin-only"><button class="btn-delete" onclick="deleteStaff(${s.id})">Sil</button></td>
         `;
         tbody.appendChild(tr);
@@ -2893,8 +2914,16 @@ function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId
     area.classList.remove('hidden');
     list.innerHTML = recs.map(s => `
         <div class="suggestion-item" onclick="selectSuggestedProctor('${areaId}', '${selectId}', ${s.id})">
-            <strong>${s.name}</strong>
-            <span class="staff-score">${s.totalScore.toFixed(1)} Puan</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div>
+                    <strong style="display: block;">${s.name}</strong>
+                    <span style="font-size: 0.7rem; color: var(--accent-green); font-weight: 600;">${s.reason}</span>
+                </div>
+                <div style="text-align: right;">
+                    <span class="staff-score" style="display: block;">${s.totalScore.toFixed(1)} Puan</span>
+                    <span style="font-size: 0.65rem; opacity: 0.7;">${s.taskCount} Görev</span>
+                </div>
+            </div>
         </div>
     `).join('');
 }
@@ -6364,6 +6393,156 @@ window.rejectSmartSwap = async function(requestId) {
         alert("✅ Teklif reddedildi.");
     }
 };
+
+/**
+ * EXCEL'DEN SINAV İÇE AKTARMA MANTIĞI
+ */
+let draftExams = [];
+
+function initExcelImport() {
+    const btnImport = document.getElementById('btn-import-exams-excel');
+    const fileInput = document.getElementById('excel-import-input');
+    const btnAllImport = document.getElementById('btn-import-all-excel');
+
+    if (btnImport && fileInput) {
+        btnImport.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleExcelExamsFile);
+    }
+    
+    if (btnAllImport) {
+        btnAllImport.addEventListener('click', importAllExcelExams);
+    }
+}
+
+async function handleExcelExamsFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            const data = evt.target.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet);
+
+            if (rows.length === 0) {
+                showToast('Excel dosyası boş görünüyor!', 'error');
+                return;
+            }
+
+            processExcelRows(rows);
+        } catch (err) {
+            console.error(err);
+            showToast('Excel okuma hatası!', 'error');
+        }
+    };
+    reader.readAsBinaryString(file);
+    // Reset input
+    e.target.value = '';
+}
+
+function processExcelRows(rows) {
+    draftExams = [];
+    rows.forEach((row, index) => {
+        // Sütun isimlerini esnek hale getirelim (farklı diller/isimler için)
+        const type = row["Tür"] || row["Type"] || "Vize";
+        const name = row["Sınav Adı"] || row["Ders"] || row["Exam Name"] || "Bilinmeyen Sınav";
+        const lecturer = row["Öğretim Üyesi"] || row["Hoca"] || row["Lecturer"] || "";
+        const location = row["Derslik"] || row["Yer"] || row["Location"] || "";
+        const capacity = row["Kapasite"] || row["Mevcut"] || row["Capacity"] || 0;
+        const duration = parseInt(row["Süre"] || row["Süre (dk)"] || row["Duration"] || 60);
+        
+        let date = row["Tarih"] || row["Date"] || "";
+        let time = row["Saat"] || row["Time"] || "09:00";
+
+        // Excel tarih formatı bazen sayı gelebilir, kontrol et
+        if (typeof date === 'number') {
+            const excelDate = new Date((date - (25567 + 1)) * 86400 * 1000);
+            date = excelDate.toISOString().split('T')[0];
+        }
+
+        // Akıllı Atama: En uygun gözetmeni bul
+        const best = findBestProctor(date, time, duration);
+        
+        draftExams.push({
+            id: Date.now() + index,
+            type,
+            name,
+            lecturer,
+            location,
+            capacity,
+            date,
+            time,
+            duration,
+            proctorId: best ? best.id : 0,
+            proctorName: best ? best.name : "🤖 Atanmadı"
+        });
+    });
+
+    renderExcelPreview();
+}
+
+function renderExcelPreview() {
+    const modal = document.getElementById('modal-excel-preview');
+    const tbody = document.querySelector('#table-excel-preview tbody');
+    if (!modal || !tbody) return;
+
+    tbody.innerHTML = '';
+    draftExams.forEach(ex => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="badge" style="background: rgba(255,255,255,0.05); color:white;">${ex.type}</span></td>
+            <td><strong>${ex.name}</strong><br><small style="color:var(--text-muted)">${ex.lecturer}</small></td>
+            <td>${ex.date}</td>
+            <td>${ex.time}</td>
+            <td>${ex.location}</td>
+            <td>${ex.duration} dk</td>
+            <td style="color:var(--primary); font-weight:700;">
+                <span title="AI Önerisi">🤖</span> ${ex.proctorName}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    modal.classList.remove('hidden');
+}
+
+async function importAllExcelExams() {
+    if (draftExams.length === 0) return;
+
+    if (!confirm(`${draftExams.length} sınavı sisteme aktarmak istediğinize emin misiniz?`)) return;
+
+    // Her birini DB'ye ekle
+    draftExams.forEach(ex => {
+        const examData = {
+            type: ex.type,
+            name: ex.name,
+            lecturer: ex.lecturer,
+            location: ex.location,
+            capacity: ex.capacity,
+            date: ex.date,
+            time: ex.time,
+            duration: ex.duration,
+            proctorId: ex.proctorId,
+            proctorName: ex.proctorName,
+            proctorIds: ex.proctorId ? [ex.proctorId] : []
+        };
+        addExam(examData);
+    });
+
+    document.getElementById('modal-excel-preview').classList.add('hidden');
+    showToast(`${draftExams.length} sınav başarıyla aktarıldı!`);
+    
+    // UI Güncelle
+    renderExams();
+    renderSchedule();
+    renderDashboard();
+    
+    // Backend'e kaydet (addExam zaten saveToLocalStorage çağırıyor)
+    await saveToBackend();
+}
 
 
 
