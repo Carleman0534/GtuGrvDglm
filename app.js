@@ -372,6 +372,7 @@ async function initApp() {
     updateAnnouncementBadge(); // New announcement badge
     updateMarketplaceBadge(); // Marketplace badge
     updateNotificationBadge(); // Notification badge
+    updateMessageBadge(); // Hoca mesajı rozeti
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
 }
 
@@ -565,6 +566,9 @@ function initUI() {
             }
             if (tabId === 'my-timeline') {
                 renderMyTimeline();
+            }
+            if (tabId === 'responsible') {
+                clearMessageBadge();
             }
         });
     });
@@ -4197,6 +4201,7 @@ window.saveLecturerMessage = function() {
     const ex = DB.exams.find(e => e.id === id);
     if (ex) {
         ex.lecturerNote = text;
+        ex.lecturerNoteTimestamp = Date.now(); // Bildirim için zaman damgası
         
         // Kaydet
         if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
@@ -4382,6 +4387,7 @@ window.saveLecturerPortalNote = async function() {
 
             myExams.forEach(ex => {
                 ex.lecturerNote = note;
+                ex.lecturerNoteTimestamp = Date.now();
             });
             showToast(`${myExams.length} sınava ortak mesajınız iletildi.`);
             if (textarea) textarea.value = '';
@@ -4389,6 +4395,7 @@ window.saveLecturerPortalNote = async function() {
             const exam = DB.exams.find(e => String(e.id) === String(examId));
             if (!exam) throw new Error("Sınav bulunamadı.");
             exam.lecturerNote = note;
+            exam.lecturerNoteTimestamp = Date.now();
             showToast('Mesajınız gözetmenlere iletildi.');
             if (textarea) textarea.value = '';
         }
@@ -5929,6 +5936,41 @@ function showDailyTimeline(dateStr) {
         modal.classList.remove('hidden');
         renderTimeline();
     }
+}
+
+/**
+ * HOCA MESAJI BİLDİRİM ROZETİ (YENİ MESAJ NOKTASI)
+ */
+function updateMessageBadge() {
+    const badge = document.getElementById('notif-badge-messages');
+    if (!badge) return;
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+
+    const lastChecked = parseInt(localStorage.getItem('lastCheckedMessages') || '0');
+    
+    // Benim gözetmen olduğum ve yeni veya güncellenmiş notu olan sınavlar
+    const hasNewMessage = DB.exams.some(ex => {
+        const pIds = ex.proctorIds || [ex.proctorId];
+        const isMe = pIds.some(pid => String(pid) === String(myStaffId));
+        if (!isMe) return false;
+        
+        // Not var mı ve son kontrolümüzden sonra mı güncellenmiş?
+        return ex.lecturerNote && ex.lecturerNoteTimestamp && ex.lecturerNoteTimestamp > lastChecked;
+    });
+
+    if (hasNewMessage) {
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function clearMessageBadge() {
+    localStorage.setItem('lastCheckedMessages', Date.now().toString());
+    const badge = document.getElementById('notif-badge-messages');
+    if (badge) badge.classList.add('hidden');
 }
 
 

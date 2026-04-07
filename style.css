@@ -651,6 +651,7 @@ tr:hover td {
     font-weight: 700;
     cursor: pointer;
     transition: var(--transition-smooth);
+    position: relative;
 }
 
 .tab-btn.active {
@@ -2155,3 +2156,11 @@ table {
     font-weight: 700;
     color: white;
 }
+
+/* Toasts */
+.toast-container { position: fixed; bottom: 2rem; right: 2rem; display: flex; flex-direction: column; gap: 0.75rem; z-index: 9999; }
+.toast { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 1rem 1.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 10px; min-width: 300px; animation: toastSlideIn 0.3s ease; transform-origin: right bottom; }
+.toast.success { border-left: 4px solid var(--accent-green); }
+.toast.error { border-left: 4px solid var(--accent-red); }
+@keyframes toastSlideIn { from { transform: translateX(100%) scale(0.9); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
+.toast.fade-out { transition: all 0.3s ease; opacity: 0; transform: translateX(100%); }
