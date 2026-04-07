@@ -769,6 +769,9 @@ function getRecommendedProctors(date, time, duration, currentExamId = null) {
 /**
  * Sınav Programını Sıfırla ama Puanları Koru
  */
+/**
+ * Sınav Programını Sıfırla ama Puanları Koru
+ */
 function resetExamsButKeepScores() {
     DB.exams = [];
     DB.staff.forEach(s => {
@@ -776,5 +779,70 @@ function resetExamsButKeepScores() {
     });
     saveToLocalStorage();
 }
+
+/**
+ * İstatistik ve Analiz Paneli için detaylı verileri hazırla
+ */
+function getDetailedStats() {
+    const stats = {
+        categories: {
+            "Hafta İçi / Gündüz": 0,
+            "Hafta İçi / Akşam": 0,
+            "Hafta Sonu / Gündüz": 0,
+            "Hafta Sonu / Akşam": 0
+        },
+        staffStats: []
+    };
+
+    DB.staff.forEach(staff => {
+        const staffData = {
+            id: staff.id,
+            name: staff.name,
+            totalScore: staff.totalScore,
+            totalTasks: staff.taskCount || 0,
+            breakdown: {
+                "Hafta İçi / Gündüz": 0,
+                "Hafta İçi / Akşam": 0,
+                "Hafta Sonu / Gündüz": 0,
+                "Hafta Sonu / Akşam": 0
+            }
+        };
+
+        // Bu personelin görevlerini bul ve kategorize et
+        DB.exams.forEach(ex => {
+            const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+            if (pIds.includes(staff.id)) {
+                // Tarih formatını güvenli hale getir
+                const dateParts = ex.date.split('-');
+                const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                const day = dateObj.getDay();
+                const minutes = timeToMins(ex.time);
+                const isWeekend = (day === 0 || day === 6);
+                const isWorkHours = (minutes >= 510 && minutes < 1050); // 08:30 - 17:30
+
+                let category = "";
+                if (isWeekend) {
+                    category = isWorkHours ? "Hafta Sonu / Gündüz" : "Hafta Sonu / Akşam";
+                } else {
+                    category = isWorkHours ? "Hafta İçi / Gündüz" : "Hafta İçi / Akşam";
+                }
+
+                staffData.breakdown[category]++;
+                stats.categories[category]++;
+            }
+        });
+
+        stats.staffStats.push(staffData);
+    });
+
+    // Puanlara göre sırala
+    stats.staffStats.sort((a, b) => b.totalScore - a.totalScore);
+
+    return stats;
+}
+
+// Global'e aç
+window.getDetailedStats = getDetailedStats;
+
 
 // loadFromLocalStorage(); // Artık app.js içinden asenkron olarak çağrılıyor

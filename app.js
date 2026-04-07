@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnSchedule) btnSchedule.click();
                 
                 // Eğer click listener henüz bağlanmadıysa diye manuel çağır (fallback)
-                if (typeof switchGeneralScheduleTab === 'function') switchGeneralScheduleTab('active');
                 if (typeof renderSchedule === 'function') renderSchedule();
             }, 50);
         }
@@ -335,7 +334,8 @@ const navButtons = {
     profile: document.getElementById('btn-profile'),
     audit: document.getElementById('btn-audit'),
     announcements: document.getElementById('btn-announcements'),
-    timeline: document.getElementById('btn-timeline')
+    timeline: document.getElementById('btn-timeline'),
+    stats: document.getElementById('btn-stats')
 };
 
 const sections = {
@@ -348,7 +348,8 @@ const sections = {
     profile: document.getElementById('section-profile'),
     audit: document.getElementById('section-audit'),
     announcements: document.getElementById('section-announcements'),
-    timeline: document.getElementById('section-timeline')
+    timeline: document.getElementById('section-timeline'),
+    stats: document.getElementById('section-stats')
 };
 
 // Navigation
@@ -375,7 +376,6 @@ Object.entries(navButtons).forEach(([key, btn]) => {
 
         if (key === 'dashboard') renderDashboard();
         if (key === 'schedule') {
-            switchGeneralScheduleTab('active');
             renderSchedule();
         }
         if (key === 'exams') renderExams();
@@ -396,6 +396,9 @@ Object.entries(navButtons).forEach(([key, btn]) => {
         }
         if (key === 'timeline') {
             renderMonthlyCalendar();
+        }
+        if (key === 'stats') {
+            renderStats();
         }
     });
 });
@@ -426,9 +429,14 @@ function initUI() {
     document.getElementById('btn-export-staff-pdf')?.addEventListener('click', () => exportToPDF('table-staff', 'Personel Listesi'));
     document.getElementById('btn-export-exams-pdf')?.addEventListener('click', () => exportToPDF('table-exams', 'Sınav Listesi'));
     document.getElementById('btn-export-schedule-pdf')?.addEventListener('click', () => {
-        const activeTab = document.getElementById('tab-gen-btn-active').classList.contains('active') ? 'table-schedule' : 'table-archive-general';
-        const title = activeTab === 'table-schedule' ? 'Genel Sınav Programı' : 'Arşiv Sınav Programı';
-        exportToPDF(activeTab, title);
+        let targetId = 'table-schedule';
+        let pdfTitle = 'Genel Sınav Programı';
+        if (currentScheduleView === 'calendar') {
+             // Takvim görünümünde PDF yerine Resim öneriliyor ama opsiyonel olarak resim basarız
+             exportElementAsImage(document.getElementById('calendar-grid'), 'Sinav_Programi_Takvim.png');
+             return;
+        }
+        exportToPDF(targetId, pdfTitle);
     });
 
     // Theme Toggle
@@ -524,7 +532,20 @@ function initUI() {
                 renderNotifications();
                 markNotificationsAsRead();
             }
+            if (tabId === 'my-timeline') {
+                renderMyTimeline();
+            }
         });
+    });
+
+    // Kişisel takvim ay nav butonları
+    document.getElementById('btn-my-timeline-prev')?.addEventListener('click', () => {
+        myTimelineDate.setMonth(myTimelineDate.getMonth() - 1);
+        renderMyTimeline();
+    });
+    document.getElementById('btn-my-timeline-next')?.addEventListener('click', () => {
+        myTimelineDate.setMonth(myTimelineDate.getMonth() + 1);
+        renderMyTimeline();
     });
 
     document.getElementById('btn-prev-month')?.addEventListener('click', () => changeMonth(-1));
@@ -607,20 +628,14 @@ function initUI() {
         });
     });
 
-    // İndirme (Export) Butonları Dinleyicileri
-    const btnExportScheduleExcel = document.getElementById('btn-export-schedule-excel');
-    if (btnExportScheduleExcel) {
-        btnExportScheduleExcel.addEventListener('click', () => {
-             exportTableToExcel('table-schedule', 'Sinav_Programi.xlsx');
-        });
-    }
+    document.getElementById('btn-export-schedule-excel')?.addEventListener('click', () => {
+        exportTableToExcel('table-schedule', 'Sinav_Programi.xlsx');
+    });
 
-    const btnExportSchedule = document.getElementById('btn-export-schedule');
-    if (btnExportSchedule) {
-        btnExportSchedule.addEventListener('click', () => {
-             exportElementAsImage(document.querySelector('#section-schedule .table-container'), 'Sinav_Programi.png');
-        });
-    }
+    document.getElementById('btn-export-schedule')?.addEventListener('click', () => {
+        const target = currentScheduleView === 'calendar' ? document.getElementById('calendar-grid') : document.querySelector('#schedule-list-view .table-container');
+        exportElementAsImage(target, 'Sinav_Programi.png');
+    });
 
     const btnResolveConflicts = document.getElementById('btn-resolve-conflicts');
     if (btnResolveConflicts) {
@@ -877,6 +892,17 @@ function initUI() {
     document.getElementById('exam-search')?.addEventListener('input', renderExams);
     document.getElementById('staff-search')?.addEventListener('input', renderStaff);
     document.getElementById('schedule-search')?.addEventListener('input', renderSchedule);
+
+    // --- Schedule Filter Listeners ---
+    const scheduleTypeFilters = document.querySelectorAll('.type-filter-btn');
+    scheduleTypeFilters.forEach(btn => {
+        btn.addEventListener('click', () => {
+            scheduleTypeFilters.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentScheduleType = btn.dataset.type;
+            renderSchedule();
+        });
+    });
 
     // Timeline Listeners
     const timelineDateInput = document.getElementById('timeline-date-input');
@@ -1447,21 +1473,51 @@ function renderExams() {
     });
 }
 
+
+let currentScheduleDate = new Date(); // Genel program için seçili ay
+let currentScheduleType = 'all'; 
+let currentScheduleView = 'list';
+
+window.switchScheduleView = (mode) => {
+    currentScheduleView = mode;
+    document.getElementById('btn-view-list').classList.toggle('active', mode === 'list');
+    document.getElementById('btn-view-calendar').classList.toggle('active', mode === 'calendar');
+    
+    document.getElementById('schedule-list-view').classList.toggle('hidden', mode !== 'list');
+    document.getElementById('schedule-calendar-view').classList.toggle('hidden', mode !== 'calendar');
+    
+    renderSchedule();
+};
+
+window.changeScheduleMonth = (delta) => {
+    currentScheduleDate.setMonth(currentScheduleDate.getMonth() + delta);
+    renderSchedule();
+};
+
 function renderSchedule() {
     const tbodyActive = document.querySelector('#table-schedule tbody');
-    const tbodyArchive = document.querySelector('#table-archive-general tbody');
-    if (!tbodyActive || !tbodyArchive) return;
-    
-    tbodyActive.innerHTML = '';
-    tbodyArchive.innerHTML = '';
+    const title = document.getElementById('calendar-month-title');
+    const grid = document.getElementById('calendar-grid');
 
+    if (!tbodyActive || !title) return;
+    
+    // Temizle
+    tbodyActive.innerHTML = '';
+    if (grid) grid.innerHTML = '';
+
+    const year = currentScheduleDate.getFullYear();
+    const month = currentScheduleDate.getMonth();
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    title.textContent = `${monthNames[month]} ${year}`;
+
+    // Gruplama
     const groups = {};
     DB.exams.forEach(ex => {
         const key = `${ex.type}_${ex.name}_${ex.date}_${ex.time}_${ex.location}`;
         if (!groups[key]) {
             groups[key] = {
                 id: ex.id,
-                type: ex.type,
+                type: ex.type || 'vize',
                 name: ex.name,
                 date: ex.date,
                 time: ex.time,
@@ -1474,30 +1530,38 @@ function renderSchedule() {
         }
         const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
             const s = DB.staff.find(staff => staff.id === pid);
-            return s ? s.name : '???';
-        });
+            return s ? s.name : '';
+        }).filter(n => n !== '');
         groups[key].proctors.push(...pNames);
     });
 
+    // Tekilleştirme
+    Object.keys(groups).forEach(k => {
+        groups[k].proctors = [...new Set(groups[k].proctors)];
+    });
+
     const scheduleList = Object.values(groups);
-    
-    // Search filter
     const searchTerm = document.getElementById('schedule-search')?.value.toLowerCase() || '';
-    let filteredSchedule = scheduleList;
-    if (searchTerm) {
-        filteredSchedule = scheduleList.filter(ex => {
-            const nameMatch = (ex.name || "").toLowerCase().includes(searchTerm);
-            const lecturerMatch = (ex.lecturer || "").toLowerCase().includes(searchTerm);
-            const proctorMatch = (ex.proctors || []).some(p => p.toLowerCase().includes(searchTerm));
-            const locationMatch = (ex.location || "").toLowerCase().includes(searchTerm);
-            return nameMatch || lecturerMatch || proctorMatch || locationMatch;
-        });
-    }
 
-    const conflicts = getConflicts();
-    const locConflicts = getLocationConflicts();
-    const now = new Date();
+    // Filtreleme (Ay + Tür + Arama)
+    const filteredSchedule = scheduleList.filter(ex => {
+        if (!ex.date) return false;
+        const d = new Date(ex.date.replace(/-/g, "/"));
+        const matchesMonth = d.getMonth() === month && d.getFullYear() === year;
+        const matchesType = currentScheduleType === 'all' || ex.type === currentScheduleType;
+        
+        let matchesSearch = true;
+        if (searchTerm) {
+            matchesSearch = (ex.name || "").toLowerCase().includes(searchTerm) ||
+                            (ex.lecturer || "").toLowerCase().includes(searchTerm) ||
+                            (ex.proctors || []).some(p => p.toLowerCase().includes(searchTerm)) ||
+                            (ex.location || "").toLowerCase().includes(searchTerm);
+        }
+        
+        return matchesMonth && matchesType && matchesSearch;
+    });
 
+    // Sıralama
     function getYear(name) {
         const match = name.match(/\b(1|2|3|4)\d{2}\b/);
         if (match) return parseInt(match[1]);
@@ -1512,38 +1576,28 @@ function renderSchedule() {
         return a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
     });
 
-    let currentYearActive = -1;
-    let currentYearArchive = -1;
+    const conflicts = getConflicts();
+    const locConflicts = getLocationConflicts();
+
+    // 1. Liste Görünümü Render
+    let curYearActive = -1;
 
     filteredSchedule.forEach(ex => {
         const y = getYear(ex.name);
-        const examDate = new Date(`${ex.date}T${ex.time}`);
-        const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
-        const isPast = examEnd < now;
-
-        const targetTbody = isPast ? tbodyArchive : tbodyActive;
-        let currentYear = isPast ? currentYearArchive : currentYearActive;
         
-        if (y > 0 && y !== currentYear) {
-            if (isPast) currentYearArchive = y; else currentYearActive = y;
+        if (y > 0 && y !== curYearActive) {
+            curYearActive = y;
             const trHead = document.createElement('tr');
             trHead.className = 'year-header';
             trHead.innerHTML = `<td colspan="10">${y}. YIL</td>`;
-            targetTbody.appendChild(trHead);
+            tbodyActive.appendChild(trHead);
         }
 
         const tr = document.createElement('tr');
-        if (y > 0) tr.classList.add(`row-year-${y}`);
-        
-        // Bu gruptaki herhangi bir sınav çakışıyor mu?
-        const isConflict = DB.exams.some(e => 
-            e.name === ex.name && e.date === ex.date && e.time === ex.time && conflicts.has(e.id)
-        );
+        const isConflict = DB.exams.some(e => e.name === ex.name && e.date === ex.date && e.time === ex.time && conflicts.has(e.id));
         if (isConflict) tr.classList.add('conflict-row');
 
-        const isLocConflict = DB.exams.some(e => 
-            e.name === ex.name && e.date === ex.date && e.time === ex.time && locConflicts.has(e.id)
-        );
+        const isLocConflict = DB.exams.some(e => e.name === ex.name && e.date === ex.date && e.time === ex.time && locConflicts.has(e.id));
 
         const dateObj = new Date(ex.date.replace(/-/g, "/"));
         const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
@@ -1551,34 +1605,101 @@ function renderSchedule() {
         const formatString = ex.date.split("-").reverse().join(".") + " " + dayName; 
 
         tr.innerHTML = `
-            <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
+            <td><span class="badge-type type-${ex.type}">${ex.type.toUpperCase()}</span></td>
             <td>
-                <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')"><strong>${ex.name}</strong></span>
-                ${isConflict ? '<span class="conflict-warning">⚠️ Gözetmen Çakışması!</span>' : ''}
+                <span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')"><strong>${ex.name}</strong></span>
+                ${isConflict ? '<span class="conflict-warning" style="display:block; font-size:0.7rem; color:#ef4444;">⚠️ Gözetmen Çakışması!</span>' : ''}
             </td>
-            <td>${ex.lecturer || '-'}</td>
-            <td>${ex.capacity || '-'}</td>
+            <td>${ex.lecturer}</td>
+            <td>${ex.capacity}</td>
             <td class="${isLocConflict ? 'location-conflict' : ''}">
                 ${ex.location}
-                ${isLocConflict ? '<span class="location-warning">⚠️ Derslik Çakışması!</span>' : ''}
+                ${isLocConflict ? '<span class="location-warning" style="display:block; font-size:0.7rem; color:#f59e0b;">⚠️ Derslik Çakışması!</span>' : ''}
             </td>
             <td>${formatString}</td>
             <td>${ex.time}</td>
             <td>${ex.duration} dk</td>
             <td class="proctor-list">${ex.proctors.join(', ')}</td>
-            <td>
-                 <button class="btn-secondary admin-only" onclick="showEditScheduleModal('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
+            <td class="admin-only">
+                 <button class="btn-secondary" onclick="showEditScheduleModal('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
             </td>
         `;
-        targetTbody.appendChild(tr);
+        tbodyActive.appendChild(tr);
     });
 
-    if (tbodyActive.children.length === 0) {
-        tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Gelecek sınav programı bulunmuyor.</td></tr>';
+    if (tbodyActive.children.length === 0) tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu ay için program bulunmuyor.</td></tr>';
+
+    // 2. Takvim Görünümü Render
+    if (currentScheduleView === 'calendar' && grid) {
+        renderCalendarGrid(filteredSchedule, year, month);
     }
-    if (tbodyArchive.children.length === 0) {
-        tbodyArchive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Arşivlenmiş sınav programı bulunmuyor.</td></tr>';
+}
+
+function renderCalendarGrid(exams, year, month) {
+    const grid = document.getElementById('calendar-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const dayNames = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+    dayNames.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'calendar-day-head';
+        div.textContent = d;
+        grid.appendChild(div);
+    });
+
+    const firstDay = new Date(year, month, 1);
+    let startDayIdx = (firstDay.getDay() + 6) % 7; // Pzt=0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    // Önceki Ay
+    for (let i = startDayIdx - 1; i >= 0; i--) {
+        grid.appendChild(createScheduleDayCell(daysInPrevMonth - i, true));
     }
+
+    // Bu Ay
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
+        const dayExams = exams.filter(e => e.date === dateStr);
+        grid.appendChild(createScheduleDayCell(d, false, isToday, dayExams));
+    }
+
+    // Gelecek Ay
+    const totalCells = grid.children.length - 7;
+    const remaining = 42 - totalCells;
+    for (let i = 1; i <= remaining; i++) {
+        grid.appendChild(createScheduleDayCell(i, true));
+    }
+}
+
+function createScheduleDayCell(day, isOtherMonth, isToday = false, dayExams = []) {
+    const cell = document.createElement('div');
+    cell.className = `calendar-day ${isOtherMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}`;
+    
+    cell.innerHTML = `<div class="day-number">${day}</div>`;
+    
+    if (!isOtherMonth && dayExams.length > 0) {
+        const container = document.createElement('div');
+        container.className = 'calendar-events';
+        dayExams.forEach(ex => {
+            const ev = document.createElement('div');
+            ev.className = `calendar-event type-${ex.type}`;
+            ev.textContent = `${ex.time} ${ex.name}`;
+            ev.title = `${ex.name} - ${ex.location}`;
+            ev.onclick = (e) => {
+                e.stopPropagation();
+                showExamDetail(ex.name, ex.date, ex.time, ex.location);
+            };
+            container.appendChild(ev);
+        });
+        cell.appendChild(container);
+    }
+    
+    return cell;
 }
 
 /**
@@ -2106,6 +2227,68 @@ window.showEditScheduleModal = (name, date, time, location) => {
         await saveToBackend();
     };
 };
+
+function renderStats() {
+    const data = getDetailedStats();
+    
+    // 1. Global Grafik (Bar Chart)
+    const chartContainer = document.getElementById('stats-global-chart');
+    if (chartContainer) {
+        chartContainer.innerHTML = '';
+        const total = Object.values(data.categories).reduce((a, b) => a + b, 0);
+        
+        const colors = {
+            "Hafta İçi / Gündüz": "#6366f1",
+            "Hafta İçi / Akşam": "#818cf8",
+            "Hafta Sonu / Gündüz": "#a78bfa",
+            "Hafta Sonu / Akşam": "#c084fc"
+        };
+
+        Object.entries(data.categories).forEach(([label, count]) => {
+            const percent = total > 0 ? (count / total * 100).toFixed(1) : 0;
+            const barHtml = `
+                <div class="stats-bar-item">
+                    <div class="stats-bar-label">
+                        <span>${label}</span>
+                        <span>${count} Görev (${percent}%)</span>
+                    </div>
+                    <div class="stats-bar-wrapper">
+                        <div class="stats-bar-fill" style="width: ${percent}%; background: ${colors[label]};"></div>
+                    </div>
+                </div>
+            `;
+            chartContainer.innerHTML += barHtml;
+        });
+    }
+
+    // 2. Detaylı Tablo
+    const tbody = document.querySelector('#table-staff-stats tbody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        data.staffStats.forEach(s => {
+            const tr = document.createElement('tr');
+            
+            // Ortalama görev sayısından %50 fazla ise kırmızı göster (Yüklenme uyarısı)
+            const isHighLoad = s.totalTasks > (GLOBAL_LIMITS.MAX_TASKS - 1);
+            
+            tr.innerHTML = `
+                <td style="font-weight: 600;">${s.name}</td>
+                <td>${s.breakdown["Hafta İçi / Gündüz"]}</td>
+                <td>${s.breakdown["Hafta İçi / Akşam"]}</td>
+                <td>${s.breakdown["Hafta Sonu / Gündüz"]}</td>
+                <td>${s.breakdown["Hafta Sonu / Akşam"]}</td>
+                <td class="${isHighLoad ? 'high-load' : ''}">${s.totalTasks}</td>
+                <td style="color: var(--primary); font-weight: 700;">${s.totalScore.toFixed(1)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Puan Dağılım Grafiğini de güncelle
+    setTimeout(() => {
+        if (typeof renderScoreChart === 'function') renderScoreChart();
+    }, 100);
+}
 
 function renderStaff() {
     const tbody = document.querySelector('#table-staff tbody');
@@ -3346,12 +3529,15 @@ window.renderProfile = function() {
         }
 
         // Header Bilgileri
-        document.getElementById('profile-name').textContent = staff.name;
-        document.getElementById('profile-stat-score').textContent = staff.totalScore;
-        document.getElementById('profile-stat-tasks').textContent = staff.taskCount;
+        // Header Bilgileri (Yeni Premium Hero Tasarımı)
+        const profileName = document.getElementById('profile-name');
+        if (profileName) profileName.textContent = staff.name;
         
-        const initials = staff.name.split(' ').map(n => n[0]).join('').toUpperCase();
-        document.getElementById('profile-avatar').textContent = initials;
+        const avatarLetters = document.getElementById('profile-avatar-letters');
+        if (avatarLetters) {
+            const initials = staff.name.split(' ').map(n => n[0]).join('').toUpperCase();
+            avatarLetters.textContent = initials;
+        }
 
         // Görevleri listele
         const myExams = DB.exams.filter(e => String(e.proctorId) === String(myStaffId));
@@ -3410,7 +3596,11 @@ window.renderProfile = function() {
                     <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
                     <td>${ex.time}</td>
+                    <td>${ex.duration || '-'} dk</td>
                     <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
+                    <td style="text-align:right;">
+                        <button class="btn-secondary" onclick="updateExamDurationFromProfile(${ex.id})" title="Süreyi Güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange);">⏱️ Süre Gir</button>
+                    </td>
                 </tr>
             `;
         });
@@ -3420,6 +3610,13 @@ window.renderProfile = function() {
         renderMarketplace();
         updateMarketplaceBadge();
         updateProfileMarketplaceAnnouncement();
+
+        // === KİŞİSEL PORTAL EK RENDERİ ===
+        const staffIdNum = parseInt(myStaffId);
+        renderPersonalCalendar(staffIdNum);
+        updateProfileDashboard(staffIdNum);
+        renderProfileChecklist(staffIdNum);
+        renderResponsibleExamsTab(staffIdNum, staff);
 
         // Şifre Ayarlama Bölümünü Render Et (sadece gözetmen modunda)
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
@@ -3432,9 +3629,487 @@ window.renderProfile = function() {
     }
 };
 
+// ===== KİŞİSEL PORTAL YARDIMCI FONKSİYONLARI (Gözetmenlik'ten uyarlandı) =====
+
+let myTimelineDate = new Date();
+
+function renderMyTimeline() {
+    const container = document.getElementById('my-timeline-calendar-grid');
+    const monthLabel = document.getElementById('my-timeline-month-label');
+    if (!container) return;
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:2rem; grid-column:span 7;">Takvimi görmek için lütfen profilinizi kurun.</p>`;
+        return;
+    }
+
+    const staff  = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const year  = myTimelineDate.getFullYear();
+    const month = myTimelineDate.getMonth();
+    const monthNames = ['Ocak','\u015eubat','Mart','Nisan','May\u0131s','Haziran','Temmuz','A\u011fustos','Eyl\u00fcl','Ekim','Kas\u0131m','Aral\u0131k'];
+    if (monthLabel) monthLabel.textContent = `${monthNames[month]} ${year}`;
+
+    const firstDay   = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+    const todayStr   = new Date().toISOString().split('T')[0];
+
+    // Proctored & responsible exams this month
+    const proctored    = DB.exams.filter(e => isStaffProctorById(e, myStaffId));
+    const responsible  = DB.exams.filter(e => e.lecturer === staff.name);
+
+    // Header
+    const dayNames = ['Pzt','Sal','\u00c7ar','Per','Cum','Cmt','Paz'];
+    let html = dayNames.map(d => `<div style="text-align:center; font-weight:700; color:var(--primary); font-size:0.7rem; padding:6px 0; border-bottom:2px solid rgba(99,102,241,0.2);">${d}</div>`).join('');
+
+    // Empty leading cells
+    for (let i = 0; i < startOffset; i++) {
+        html += `<div style="border-radius:10px; background:rgba(255,255,255,0.01); min-height:70px;"></div>`;
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const isToday = dateStr === todayStr;
+
+        const dayProctored   = proctored.filter(e => e.date === dateStr);
+        const dayResponsible = responsible.filter(e => e.date === dateStr);
+        const bothIds = dayProctored.filter(e => dayResponsible.some(r => r.id === e.id)).map(e => e.id);
+
+        const hasProctor     = dayProctored.length > 0;
+        const hasResponsible = dayResponsible.length > 0;
+        const hasBoth        = bothIds.length > 0;
+
+        let dotColor   = 'transparent';
+        let dotClass   = '';
+        if (hasBoth)        { dotColor = 'var(--accent-red)'; }
+        else if (hasProctor && hasResponsible) { dotColor = 'var(--accent-red)'; }
+        else if (hasProctor)     { dotColor = 'var(--primary)'; }
+        else if (hasResponsible) { dotColor = 'var(--accent-orange)'; }
+
+        const allDayExams = [...new Map([...dayProctored, ...dayResponsible].map(e => [e.id, e])).values()];
+        
+        const border = isToday
+            ? 'border: 2px solid var(--primary); box-shadow: 0 0 12px rgba(99,102,241,0.3);'
+            : 'border: 1px solid var(--glass-border);';
+
+        const examsBadges = allDayExams.slice(0, 2).map(ex => {
+            const isProc = dayProctored.some(e => e.id === ex.id);
+            const isResp = dayResponsible.some(e => e.id === ex.id);
+            let bg = isProc && isResp ? 'var(--accent-red)' : isProc ? 'rgba(99,102,241,0.7)' : 'rgba(245,158,11,0.7)';
+            return `<div style="font-size:0.55rem; background:${bg}; color:white; padding:2px 4px; border-radius:4px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${ex.name} ${ex.time}">${ex.time} ${ex.name.substring(0,8)}${ex.name.length>8?'..':''}</div>`;
+        }).join('');
+
+        const moreCount = allDayExams.length > 2 ? `<div style="font-size:0.55rem; color:var(--text-muted); margin-top:2px;">+${allDayExams.length - 2} daha</div>` : '';
+
+        const clickAction = allDayExams.length > 0
+            ? `onclick="showMyTimelineDayDetail('${dateStr}')"`
+            : '';
+
+        html += `
+            <div ${clickAction} style="border-radius:10px; ${border} background:${allDayExams.length ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.02)'}; min-height:70px; padding:6px 5px; cursor:${allDayExams.length?'pointer':'default'}; transition: all 0.2s ease;" 
+                onmouseenter="${allDayExams.length ? 'this.style.background=\'rgba(99,102,241,0.1)\';this.style.transform=\'translateY(-2px)\'' : ''}" 
+                onmouseleave="${allDayExams.length ? 'this.style.background=\'rgba(99,102,241,0.04)\';this.style.transform=\'translateY(0)\'' : ''}">
+                <div style="font-size:0.72rem; font-weight:${isToday?'800':'500'}; color:${isToday?'var(--primary)':'var(--text-secondary)'}; margin-bottom:2px;">${day}</div>
+                ${examsBadges}
+                ${moreCount}
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+
+    // Day detail panel gizle
+    const detail = document.getElementById('my-timeline-day-detail');
+    if (detail) detail.classList.add('hidden');
+}
+
+window.showMyTimelineDayDetail = function(dateStr) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const dayNames = ['Pazar','Pazartesi','Sal\u0131','\u00c7ar\u015famba','Per\u015fembe','Cuma','Cumartesi'];
+    const dateObj = new Date(dateStr + 'T00:00');
+    const formatted = dateStr.split('-').reverse().join('.') + ' ' + dayNames[dateObj.getDay()];
+
+    const proctored   = DB.exams.filter(e => isStaffProctorById(e, myStaffId) && e.date === dateStr);
+    const responsible = DB.exams.filter(e => e.lecturer === staff.name && e.date === dateStr);
+    const allExams    = [...new Map([...proctored, ...responsible].map(e => [e.id, e])).values()]
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+    const titleEl = document.getElementById('my-timeline-day-title');
+    const examsEl = document.getElementById('my-timeline-day-exams');
+    const detail  = document.getElementById('my-timeline-day-detail');
+    if (!titleEl || !examsEl || !detail) return;
+
+    titleEl.textContent = `\ud83d\udcc5 ${formatted}`;
+
+    examsEl.innerHTML = allExams.map(ex => {
+        const isProc = proctored.some(e => e.id === ex.id);
+        const isResp = responsible.some(e => e.id === ex.id);
+        const role = isProc && isResp
+            ? `<span style="background:var(--accent-red); color:white; padding:2px 8px; border-radius:6px; font-size:0.7rem;">Gözetmen + Sorumlu</span>`
+            : isProc
+            ? `<span style="background:var(--primary); color:white; padding:2px 8px; border-radius:6px; font-size:0.7rem;">Gözetmen</span>`
+            : `<span style="background:var(--accent-orange); color:white; padding:2px 8px; border-radius:6px; font-size:0.7rem;">Sorumlu Hoca</span>`;
+        return `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:1rem; margin-bottom:10px;">
+                <div>
+                    <div style="font-weight:700; margin-bottom:4px;">${ex.name}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">${ex.time} &bull; ${ex.duration} dk &bull; ${ex.location || '-'}</div>
+                </div>
+                ${role}
+            </div>
+        `;
+    }).join('');
+
+    detail.classList.remove('hidden');
+    detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+
+
+let calendarDate = new Date();
+let calendarFilter = 'all';
+let profileCountdownTimer = null;
+
+function changeMonth(delta) {
+
+    calendarDate.setMonth(calendarDate.getMonth() + delta);
+    const myStaffId = parseInt(localStorage.getItem('myStaffId'));
+    if (myStaffId) renderPersonalCalendar(myStaffId);
+}
+
+// Takvim filtre butonları
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('calendar-filter-btn')) {
+        document.querySelectorAll('.calendar-filter-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+            b.style.color = 'var(--text-muted)';
+        });
+        e.target.classList.add('active');
+        e.target.style.background = 'rgba(99,102,241,0.15)';
+        e.target.style.color = 'var(--primary)';
+        calendarFilter = e.target.getAttribute('data-filter') || 'all';
+        const myStaffId = parseInt(localStorage.getItem('myStaffId'));
+        if (myStaffId) renderPersonalCalendar(myStaffId);
+    }
+});
+
+function isStaffProctorById(exam, staffId) {
+    if (!exam || !staffId) return false;
+    const sid = String(staffId);
+    if (String(exam.proctorId) === sid) return true;
+    if (Array.isArray(exam.proctorIds) && exam.proctorIds.map(String).includes(sid)) return true;
+    return false;
+}
+
+function renderPersonalCalendar(staffId) {
+    const container = document.getElementById('profile-calendar-grid');
+    const monthDisplay = document.getElementById('calendar-month-year');
+    if (!container || !staffId) return;
+
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff) return;
+
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const monthNames = ["Ocak", "\u015eubat", "Mart", "Nisan", "May\u0131s", "Haziran", "Temmuz", "A\u011fustos", "Eyl\u00fcl", "Ekim", "Kas\u0131m", "Aral\u0131k"];
+    if (monthDisplay) monthDisplay.textContent = `${monthNames[month]} ${year}`;
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    // Pazartesi ba\u015flang\u0131\u00e7l\u0131 ofset (0=Pzt, ..., 6=Paz)
+    let startOffset = (firstDay.getDay() + 6) % 7;
+    const totalDays = lastDay.getDate();
+
+    const daysArr = ["Pzt", "Sal", "\u00c7ar", "Per", "Cum", "Cmt", "Paz"];
+    let html = daysArr.map(d => `<div style="text-align:center; font-weight:700; color:var(--primary); font-size:0.65rem; padding: 4px;">${d}</div>`).join('');
+
+    for (let i = 0; i < startOffset; i++) {
+        html += '<div></div>';
+    }
+
+    const myProctorExams = DB.exams.filter(e => isStaffProctorById(e, staffId));
+    const myResponsibleExams = DB.exams.filter(e => e.lecturer === staff.name);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    for (let d = 1; d <= totalDays; d++) {
+        const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
+
+        const proctorExamsAtDate = myProctorExams.filter(ex => ex.date === dateStr);
+        const responsibleExamsAtDate = myResponsibleExams.filter(ex => ex.date === dateStr);
+        const isProctor = proctorExamsAtDate.length > 0;
+        const isResponsible = responsibleExamsAtDate.length > 0;
+        
+        // Merge to show preview
+        const combinedExamsOnDay = [...new Map([...proctorExamsAtDate, ...responsibleExamsAtDate].map(e => [e.id, e])).values()]
+            .sort((a,b) => a.time.localeCompare(b.time));
+
+        let bgColor = 'rgba(255,255,255,0.02)';
+        let indicator = '';
+
+        if (isProctor && isResponsible) {
+            bgColor = 'rgba(239, 68, 68, 0.08)'; // K\u0131rm\u0131z\u0131 (Her ikisi)
+        } else if (isProctor) {
+            bgColor = 'rgba(99,102,241,0.05)'; // Mor (G\u00f6zetmen)
+        } else if (isResponsible) {
+            bgColor = 'rgba(245, 158, 11, 0.08)'; // Turuncu (Sorumlu Hoca)
+        }
+
+        const examPreviews = combinedExamsOnDay.slice(0, 2).map(ex => {
+            const isP = proctorExamsAtDate.some(e => e.id === ex.id);
+            const isR = responsibleExamsAtDate.some(e => e.id === ex.id);
+            let roleColor = 'var(--primary)';
+            if (isP && isR) roleColor = 'var(--accent-red)';
+            else if (isR) roleColor = 'var(--accent-orange)';
+            
+            return `<div style="font-size:0.52rem; background:${roleColor}; color:white; padding:1px 3px; border-radius:3px; margin:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ex.time} ${ex.name.substring(0,6)}..</div>`;
+        }).join('');
+
+        const todayStyle = isToday ? 'border: 1px solid var(--primary); box-shadow: 0 0 8px rgba(99,102,241,0.2);' : 'border: 1px solid rgba(255,255,255,0.05);';
+        const hasClick = (combinedExamsOnDay.length > 0) ? `onclick="showProfileCalDayDetail('${dateStr}')" style="cursor:pointer; ${todayStyle} background:${bgColor};"` : `style="${todayStyle} background:${bgColor}; opacity:0.6;"`;
+
+        html += `
+            <div ${hasClick} class="profile-cal-day" style="display: flex; flex-direction: column; align-items: stretch; justify-content: start; min-height: 55px; padding: 4px 3px; border-radius: 8px; transition: all 0.2s;">
+                <div style="font-size:0.65rem; font-weight: ${isToday ? '800' : '500'}; color: ${isToday ? 'var(--primary)' : 'white'}; margin-bottom: 2px; text-align:center;">${d}</div>
+                <div style="display: flex; flex-direction: column;">
+                    ${examPreviews}
+                    ${combinedExamsOnDay.length > 2 ? `<div style="font-size:0.5rem; color:var(--text-muted); text-align:center; margin-top:1px;">+${combinedExamsOnDay.length - 2}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+window.showProfileCalDayDetail = function(dateStr) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return;
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    const detailPanel = document.getElementById('profile-cal-day-detail');
+    const titleEl = document.getElementById('profile-cal-day-title');
+    const examsEl = document.getElementById('profile-cal-day-exams');
+    if (!detailPanel || !titleEl || !examsEl) return;
+
+    const proctorExams = DB.exams.filter(e => isStaffProctorById(e, myStaffId) && e.date === dateStr);
+    const responsibleExams = DB.exams.filter(e => e.lecturer === staff.name && e.date === dateStr);
+    
+    // Union of both (using Map to ensure uniqueness by ID)
+    const allRelevantExams = [...new Map([...proctorExams, ...responsibleExams].map(e => [e.id, e])).values()]
+        .sort((a,b) => a.time.localeCompare(b.time));
+
+    const formattedDate = dateStr.split('-').reverse().join('.');
+    titleEl.textContent = `📅 ${formattedDate} Programı`;
+    
+    examsEl.innerHTML = allRelevantExams.length > 0 
+        ? allRelevantExams.map(ex => {
+            const isProc = proctorExams.some(e => e.id === ex.id);
+            const isResp = responsibleExams.some(e => e.id === ex.id);
+            let roleInfo = '';
+            if (isProc && isResp) roleInfo = '<span class="badge" style="background: var(--accent-red); font-size: 0.65rem;">Gözetmen + Sorumlu</span>';
+            else if (isProc) roleInfo = '<span class="badge" style="background: var(--primary); font-size: 0.65rem;">Gözetmen</span>';
+            else if (isResp) roleInfo = '<span class="badge" style="background: var(--accent-orange); font-size: 0.65rem;">Sorumlu Hoca</span>';
+
+            return `
+                <div style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+                        <div style="font-weight: 700; font-size: 0.85rem; color: white;">${ex.name}</div>
+                        ${roleInfo}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 10px;">
+                        <span>🕒 ${ex.time} (${ex.duration} dk)</span>
+                        <span>📍 ${ex.location || '-'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('')
+        : '<div style="color: var(--text-muted); font-size: 0.8rem;">Bu tarihte görev bulunmuyor.</div>';
+
+    detailPanel.classList.remove('hidden');
+    detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+function updateProfileDashboard(staffId) {
+    if (!staffId) return;
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff) return;
+
+    // Puan
+    const puanEl = document.getElementById('profile-dash-puan');
+    if (puanEl) puanEl.textContent = staff.totalScore.toFixed(1);
+
+    // Sıralama
+    const sorted = [...DB.staff].sort((a, b) => b.totalScore - a.totalScore);
+    const rank = sorted.findIndex(s => String(s.id) === String(staffId)) + 1;
+    const rankEl = document.getElementById('profile-dash-rank');
+    if (rankEl) rankEl.textContent = `#${rank}`;
+
+    // Sık birlikte çalıştıklarım
+    const matesCount = {};
+    DB.exams.filter(e => isStaffProctorById(e, staffId)).forEach(ex => {
+        const ids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        ids.forEach(pid => {
+            if (String(pid) !== String(staffId)) {
+                const p = DB.staff.find(s => String(s.id) === String(pid));
+                if (p) matesCount[p.name] = (matesCount[p.name] || 0) + 1;
+            }
+        });
+    });
+    const sortedMates = Object.entries(matesCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const matesEl = document.getElementById('profile-dash-mates');
+    if (matesEl) {
+        matesEl.innerHTML = sortedMates.length > 0
+            ? sortedMates.map(([name, cnt]) => `<span style="display:block;">\u2022 ${name} <span style="color:var(--primary); font-weight:700;">(${cnt} kez)</span></span>`).join('')
+            : '<span style="color:var(--text-muted);">Hen\u00fcz ortak g\u00f6rev yok</span>';
+    }
+
+    // Geri sayım
+    startProfileCountdown(staffId);
+}
+
+function startProfileCountdown(staffId) {
+    if (profileCountdownTimer) clearInterval(profileCountdownTimer);
+    const countVal = document.getElementById('profile-countdown');
+    const countTarget = document.getElementById('profile-countdown-target');
+    if (!countVal || !countTarget) return;
+
+    const now = new Date();
+    const upcoming = DB.exams
+        .filter(e => isStaffProctorById(e, staffId) && new Date(`${e.date}T${e.time}`) > now)
+        .sort((a, b) => (a.date + 'T' + a.time).localeCompare(b.date + 'T' + b.time));
+
+    if (upcoming.length === 0) {
+        countVal.textContent = '-- : -- : --';
+        countTarget.textContent = 'G\u00f6revde bulunmuyorsunuz.';
+        return;
+    }
+
+    const next = upcoming[0];
+    const targetDate = new Date(`${next.date}T${next.time}`);
+    countTarget.textContent = `${next.name} (${next.date})`;
+
+    const update = () => {
+        const diff = targetDate - new Date();
+        if (diff <= 0) { countVal.textContent = 'S\u0131nav Ba\u015flad\u0131!'; clearInterval(profileCountdownTimer); return; }
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        countVal.textContent = `${h.toString().padStart(2, '0')} : ${m.toString().padStart(2, '0')} : ${s.toString().padStart(2, '0')}`;
+    };
+    update();
+    profileCountdownTimer = setInterval(update, 1000);
+}
+
+function renderProfileChecklist(staffId) {
+    const container = document.getElementById('profile-checklist-container');
+    if (!container || !staffId) return;
+
+    const defaultItems = [
+        'S\u0131nav evraklar\u0131n\u0131 teslim al\u0131n.',
+        '\u00d6\u011frenci kimliklerini kontrol edin.',
+        '\u0130mza sirk\u00fcs\u00fcn\u00fc imzalat\u0131n.',
+        'Evraklar\u0131 eksiksiz teslim edin.'
+    ];
+
+    if (!DB.checklists) DB.checklists = {};
+    if (!DB.checklists[staffId]) DB.checklists[staffId] = defaultItems.map(text => ({ text, done: false }));
+
+    const items = DB.checklists[staffId];
+    container.innerHTML = '';
+    items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.style = `display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); cursor:pointer; margin-bottom:6px; opacity:${item.done ? 0.5 : 1};`;
+        div.innerHTML = `
+            <input type="checkbox" ${item.done ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer; accent-color: var(--primary);">
+            <span style="font-size:0.8rem; color:${item.done ? 'var(--text-muted)' : 'white'}; text-decoration:${item.done ? 'line-through' : 'none'}; line-height:1.3;">${item.text}</span>
+        `;
+        div.onclick = (e) => {
+            items[index].done = !items[index].done;
+            saveToLocalStorage();
+            renderProfileChecklist(staffId);
+        };
+        container.appendChild(div);
+    });
+}
+
+function renderResponsibleExamsTab(staffId, staff) {
+    const tbody = document.querySelector('#profile-table-responsible tbody');
+    if (!tbody || !staff) return;
+    tbody.innerHTML = '';
+
+    // Bu sekme artık "Proctor olarak atandığım sınavların hocalarından gelen mesajlar" olacak
+    const myMessages = DB.exams
+        .filter(ex => {
+            const pIds = ex.proctorIds || [ex.proctorId];
+            return pIds.some(pid => String(pid) === String(staff.id));
+        })
+        .sort((a, b) => (a.date + 'T' + a.time).localeCompare(b.date + 'T' + b.time));
+
+    if (myMessages.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Henüz hocalardan gelen bir mesaj bulunmuyor.</td></tr>`;
+        return;
+    }
+
+    myMessages.forEach(ex => {
+        const msg = ex.lecturerNote || `${ex.name} sınavı içi bilgilendirme bekleniyor...`;
+        
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${ex.lecturer || '-'}</strong></td>
+                <td>${ex.name}</td>
+                <td style="font-size:0.85rem;">${ex.date} <span style="opacity:0.6;">${ex.time}</span></td>
+                <td><span class="note-pill" style="background: rgba(99,102,241,0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; color: var(--primary); border: 1px solid rgba(99,102,241,0.2);">${msg}</span></td>
+                <td style="text-align:right;">
+                    <button class="btn-secondary" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')" style="font-size:0.75rem; padding:4px 8px;">Detay</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+
 /**
- * Profilde Şifre Ayarlama Bölümü
+ * Gözetmenin Kendi Sınav Süresini Düzenlemesi
  */
+window.updateExamDurationFromProfile = function(id) {
+    const ex = DB.exams.find(e => e.id === id);
+    if (!ex) return;
+
+    const newDur = prompt(`${ex.name} sınavı için yeni süreyi (dakika) girin:`, ex.duration || 60);
+    if (newDur !== null) {
+        const val = parseInt(newDur);
+        if (!isNaN(val) && val > 0) {
+            ex.duration = val;
+            
+            // Kaydet
+            if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            if (typeof saveToDataJSON === 'function') saveToDataJSON();
+            
+            showToast('Sınav süresi güncellendi.');
+            renderProfile(); // Görüntüyü yenile
+            
+            // Eğer "Sorumlu Olduğum" sekmesi açıksa orayı da yenile
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+            if (activeTab === 'responsible') {
+                const myStaffId = localStorage.getItem('myStaffId');
+                const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+                renderResponsibleExamsTab(myStaffId, staff);
+            }
+        } else {
+            showToast('Geçersiz süre!', 'error');
+        }
+    }
+};
+
 function renderPasswordSection(staff) {
     let container = document.getElementById('profile-password-section');
     if (!container) return;
