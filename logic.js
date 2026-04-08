@@ -510,7 +510,8 @@ function publishDraft() {
     // Toplu Bildirim Gönder
     const now = new Date().toISOString();
     affectedProctors.forEach(pid => {
-        if (!DB.notifications[pid]) DB.notifications[pid] = [];
+        if (!DB.notifications) DB.notifications = {};
+        if (!Array.isArray(DB.notifications[pid])) DB.notifications[pid] = [];
         DB.notifications[pid].unshift({
             id: Date.now() + Math.random(),
             message: `📢 Sınav programı yayınlandı! Toplam ${examCount} yeni/güncellenmiş görev programınıza eklendi.`,
@@ -577,7 +578,8 @@ function addExam(examData) {
     if (!DB.notifications) DB.notifications = {};
     const nowNotif = new Date().toISOString();
     proctors.forEach(p => {
-        if (!DB.notifications[p.id]) DB.notifications[p.id] = [];
+        if (!DB.notifications) DB.notifications = {};
+        if (!Array.isArray(DB.notifications[p.id])) DB.notifications[p.id] = [];
         DB.notifications[p.id].unshift({
             id: Date.now() + p.id,
             message: `📅 Yeni Görev: "${newExam.name}" (${newExam.date} - ${newExam.time}) sınavına gözetmen olarak atandınız.`,
@@ -601,37 +603,70 @@ function updateExam(id, newData, skipSave = false) {
     const oldExam = DB.exams[exIndex];
     
     // Yeni puan hesapla (Eksik veriler için mevcut sınav verilerini kullan)
-    const finalDate = newData.date || oldExam.date;
-    const finalTime = newData.time || oldExam.time;
+    const finalDate = newData.date !== undefined ? newData.date : oldExam.date;
+    const finalTime = newData.time !== undefined ? newData.time : oldExam.time;
     const finalDuration = (newData.duration !== undefined) ? newData.duration : oldExam.duration;
-    const newScore = calculateScore(new Date(`${finalDate}T${finalTime}`), finalDuration);
-    const newPIds = Array.isArray(newData.proctorIds)
-        ? newData.proctorIds
-        : (oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []));
-    const newProctors = DB.staff.filter(s => newPIds.includes(s.id));
+    
+    // Geçerli katsayı hesaplamak için date parse, eğer parse olmazsa eski katsayıyı kullan (NaN olmaması için)
+    const testDate = new Date(`${finalDate}T${finalTime}`);
+    let kts = parseFloat(oldExam.katsayi || 1); 
+    if (!isNaN(testDate.getTime())) {
+        const calculatedKts = getKatsayi(testDate);
+        if (calculatedKts !== undefined && calculatedKts !== null) {
+            kts = calculatedKts;
+        }
+    }
+    const safeDuration = parseFloat(finalDuration) || 60;
+    const newScore = parseFloat((safeDuration * kts).toFixed(2));
+
+    let newPIds;
+    if (Array.isArray(newData.proctorIds)) {
+        newPIds = newData.proctorIds;
+    } else if (newData.proctorId !== undefined) {
+        // Eğer tekil proctorId geldiyse, listeyi buna göre güncelle (mevcut listenin ilkini değiştir veya yeni liste kur)
+        const oldList = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
+        newPIds = [newData.proctorId, ...oldList.slice(1)];
+    } else {
+        newPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
+    }
+    const newProctors = DB.staff.filter(s => newPIds.map(String).includes(String(s.id)));
 
     // Gözetmen değiştiyse eski puanları düş, yeni puanları ekle
     const oldPIds = oldExam.proctorIds || (oldExam.proctorId ? [oldExam.proctorId] : []);
-    const proctorChanged = JSON.stringify(oldPIds.slice().sort()) !== JSON.stringify(newPIds.slice().sort());
-    const dateTimeChanged = oldExam.date !== newData.date || oldExam.time !== newData.time || oldExam.duration !== newData.duration;
+    const proctorChanged = JSON.stringify([...oldPIds].sort()) !== JSON.stringify([...newPIds].sort());
+    
+    // YALNIZCA veriler gerçekten değiştiyse puan güncellemesi tetiklensin
+    const dateChanged = newData.date !== undefined && newData.date !== oldExam.date;
+    const timeChanged = newData.time !== undefined && newData.time !== oldExam.time;
+    const durationChanged = newData.duration !== undefined && newData.duration !== oldExam.duration;
+    const dateTimeChanged = dateChanged || timeChanged || durationChanged;
 
     // TASLAK MODUNDA DEĞİLSEK bildirim gönder, taslak modundaysak toplu gönderilecek
     const shouldNotifyNow = !oldExam.isDraft && !DB.isDraftMode;
 
     if (proctorChanged || dateTimeChanged) {
         // Eski gözetmenden puanı çıkar (oldExam.score string gelmiş olabilir, parseFloat çek)
-        const oldScore = parseFloat(oldExam.score || 0);
+        const oldScore = parseFloat(oldExam.score) || 0;
+        
         oldPIds.forEach(pid => {
-            const s = DB.staff.find(staff => staff.id === pid);
+            const s = DB.staff.find(staff => String(staff.id) === String(pid));
             if (s) {
-                s.totalScore = Math.max(0, parseFloat((s.totalScore - oldScore).toFixed(2)));
-                s.taskCount = Math.max(0, s.taskCount - 1);
+                const currentScore = parseFloat(s.totalScore) || 0;
+                s.totalScore = Math.max(0, parseFloat((currentScore - oldScore).toFixed(2)));
+                // Sadece gözetmen değişmişse veya sınav siliniyorsa görev sayısını azalt
+                if (proctorChanged) {
+                    s.taskCount = Math.max(0, s.taskCount - 1);
+                }
             }
         });
+        
         // Yeni gözetmene puan ekle
         newProctors.forEach(p => {
-            p.totalScore = parseFloat((p.totalScore + newScore).toFixed(2));
-            p.taskCount = (p.taskCount || 0) + 1;
+            p.totalScore = parseFloat(((p.totalScore || 0) + newScore).toFixed(2));
+            // Sadece gözetmen değişmişse görev sayısını artır (süreyi değiştirdiysen baştan artırma)
+            if (proctorChanged) {
+                p.taskCount = (p.taskCount || 0) + 1;
+            }
         });
     }
 
@@ -648,7 +683,7 @@ function updateExam(id, newData, skipSave = false) {
 
     if ((changeLog.length > 0 || proctorChanged) && shouldNotifyNow) {
         const allAffected = new Set([...oldPIds, ...newPIds]);
-        sendExamChangeNotification(Array.from(allAffected), newData.name, changeLog);
+        sendExamChangeNotification(Array.from(allAffected), oldExam.name, changeLog);
     }
 
     // Sınavı her durumda güncelle (gözetmen yoksa eski gözetmeni koru)
@@ -659,12 +694,12 @@ function updateExam(id, newData, skipSave = false) {
         proctorId: newPIds[0] || 0,
         proctorName: newProctors.length > 0 ? newProctors.map(p => p.name).join(', ') : (newPIds.length === 0 ? "Atanmadı" : oldExam.proctorName),
         score: newScore,
-        katsayi: getKatsayi(new Date(`${newData.date}T${newData.time}`))
+        katsayi: kts
     };
 
     if (!skipSave) {
         saveToLocalStorage();
-        logAction('admin', 'Sınav Güncelleme', `${newData.name} sınav bilgileri güncellendi.`);
+        logAction('admin', 'Sınav Güncelleme', `${newData.name || oldExam.name} sınav bilgileri güncellendi.`);
     }
 }
 
@@ -696,7 +731,8 @@ function sendExamChangeNotification(proctorIds, examName, changedFields) {
     const message = `📋 "${examName}" görevinde değişiklik: ${changeMsg}`;
 
     proctorIds.forEach(pid => {
-        if (!DB.notifications[pid]) DB.notifications[pid] = [];
+        if (!DB.notifications) DB.notifications = {};
+        if (!Array.isArray(DB.notifications[pid])) DB.notifications[pid] = [];
         
         DB.notifications[pid].unshift({
             id: Date.now() + Math.random(),
@@ -1076,7 +1112,8 @@ function findSmartSwaps(myStaffId) {
 
         // Karşı taraftaki her bir gözetmen için kontrol et
         otherPids.forEach(otherPid => {
-            const otherStaff = DB.staff.find(s => s.id === otherPid);
+            const otherStaff = DB.staff.find(s => String(s.id) === String(otherPid));
+
             if (!otherStaff) return;
 
             targetExams.forEach(myEx => {
@@ -1144,7 +1181,7 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
     
     // Karşı tarafa bildirim gönder
     if (!DB.notifications) DB.notifications = {};
-    if (!DB.notifications[otherMember.id]) DB.notifications[otherMember.id] = [];
+    if (!Array.isArray(DB.notifications[otherMember.id])) DB.notifications[otherMember.id] = [];
     DB.notifications[otherMember.id].unshift({
         id: Date.now() + 1,
         message: `🔄 **Akıllı Takas Teklifi:** ${me.name}, ${myExam.date} tarihindeki görevini seninle takas etmek istiyor.`,

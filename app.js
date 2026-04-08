@@ -3831,7 +3831,7 @@ window.renderProfile = function() {
         }
 
         // Görevleri listele
-        const myExams = DB.exams.filter(e => String(e.proctorId) === String(myStaffId));
+        const myExams = DB.exams.filter(e => isStaffProctorById(e, myStaffId));
         const now = new Date();
         const activeExams = myExams.filter(e => {
             const examDate = new Date(`${e.date}T${e.time}`);
@@ -3847,35 +3847,35 @@ window.renderProfile = function() {
 
         const activeBody = document.querySelector('#profile-table-active tbody');
         activeBody.innerHTML = '';
-        activeExams.forEach(ex => {
-            activeBody.innerHTML += `
-                <tr>
-                    <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
-                    <td><span class="badge-location">${ex.location || '-'}</span></td>
-                    <td>${ex.lecturer || '-'}</td>
-                    <td>${ex.date}</td>
-                    <td>${ex.time}</td>
-                    <td>${ex.duration} dk</td>
-                    <td><span class="score-tag">+${ex.score}</span></td>
-                    <td style="display: flex; gap: 5px;">
-                        ${(() => {
-                            const hasRequest = (DB.requests || []).find(r => 
-                                String(r.examId) === String(ex.id) && 
-                                String(r.initiatorId) === String(myStaffId) && 
-                                ['pending', 'pending_peer'].includes(r.status)
-                            );
-                            if (hasRequest) {
-                                return `<button class="btn-delete" onclick="cancelSwapRequest(${hasRequest.id})" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
-                            }
-                            return `
-                                <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
-                                <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
-                            `;
-                        })()}
-                    </td>
-                </tr>
-            `;
-        });
+            activeExams.forEach(ex => {
+                activeBody.innerHTML += `
+                    <tr>
+                        <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
+                        <td><span class="badge-location">${ex.location || '-'}</span></td>
+                        <td>${ex.lecturer || '-'}</td>
+                        <td>${ex.date}</td>
+                        <td>${ex.time}</td>
+                        <td>${ex.duration} dk</td>
+                        <td><span class="score-tag">+${ex.score}</span></td>
+                        <td style="display: flex; gap: 5px;">
+                            ${(() => {
+                                const hasRequest = (DB.requests || []).find(r => 
+                                    String(r.examId) === String(ex.id) && 
+                                    String(r.initiatorId) === String(myStaffId) && 
+                                    ['pending', 'pending_peer'].includes(r.status)
+                                );
+                                if (hasRequest) {
+                                    return `<button class="btn-delete" onclick="cancelSwapRequest('${hasRequest.id}')" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
+                                }
+                                return `
+                                    <button class="btn-secondary" onclick="initiateDirectSwap('${ex.id}')" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                                    <button class="btn-primary" onclick="initiateOpenSwap('${ex.id}')" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
+                                `;
+                            })()}
+                        </td>
+                    </tr>
+                `;
+            });
 
         const archiveBody = document.querySelector('#profile-table-archive tbody');
         archiveBody.innerHTML = '';
@@ -3890,7 +3890,7 @@ window.renderProfile = function() {
                     <td>${ex.duration || '-'} dk</td>
                     <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
                     <td style="text-align:right;">
-                        <button class="btn-secondary" onclick="updateExamDurationFromProfile(${ex.id})" title="Süreyi Güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange);">⏱️ Süre Gir</button>
+                        <button class="btn-secondary" onclick="updateExamDurationFromProfile('${ex.id}')" title="Süreyi Güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange);">⏱️ Süre Gir</button>
                     </td>
                 </tr>
             `;
@@ -4671,30 +4671,45 @@ window.saveLecturerPortalNote = async function() {
  * Gözetmenin Kendi Sınav Süresini Düzenlemesi
  */
 window.updateExamDurationFromProfile = function(id) {
-    const ex = DB.exams.find(e => e.id === id);
-    if (!ex) return;
-
-    const newDur = prompt(`${ex.name} sınavı için yeni süreyi (dakika) girin:`, ex.duration || 60);
-    if (newDur !== null) {
-        const val = parseInt(newDur);
-        if (!isNaN(val) && val > 0) {
-            // Centralized update function (it handles score, proctor totals, and storage)
-            updateExam(id, { duration: val });
-            saveToBackend();
-            
-            showToast('Sınav süresi güncellendi.');
-            renderProfile(); // Görüntüyü yenile
-            
-            // Eğer "Sorumlu Olduğum" sekmesi açıksa orayı da yenile
-            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
-            if (activeTab === 'responsible') {
-                const myStaffId = localStorage.getItem('myStaffId');
-                const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-                renderResponsibleExamsTab(myStaffId, staff);
-            }
-        } else {
-            showToast('Geçersiz süre!', 'error');
+    try {
+        const ex = DB.exams.find(e => String(e.id) === String(id));
+        if (!ex) {
+            console.error('Sınav bulunamadı:', id);
+            return;
         }
+
+        const newDur = prompt(`${ex.name} sınavı için yeni süreyi (dakika) girin:`, ex.duration || 60);
+        if (newDur !== null) {
+            const val = parseInt(newDur);
+            if (!isNaN(val) && val > 0) {
+                // Centralized update function (it handles score, proctor totals, and storage)
+                updateExam(id, { duration: val });
+                
+                // Kayıt ve UI Yenileme
+                if (typeof saveToBackend === 'function') saveToBackend();
+                
+                if (typeof showToast === 'function') showToast('Sınav süresi güncellendi.');
+                else alert('Sınav süresi güncellendi.');
+
+                renderProfile(); // Görüntüyü yenile
+                
+                // Eğer "Sorumlu Olduğum" sekmesi açıksa orayı da yenile
+                const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+                if (activeTab === 'responsible') {
+                    const myStaffId = localStorage.getItem('myStaffId');
+                    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+                    if (staff && typeof renderResponsibleExamsTab === 'function') {
+                        renderResponsibleExamsTab(myStaffId, staff);
+                    }
+                }
+            } else {
+                if (typeof showToast === 'function') showToast('Geçersiz süre!', 'error');
+                else alert('Geçersiz süre!');
+            }
+        }
+    } catch (err) {
+        console.error('Süre güncelleme hatası:', err);
+        alert('Bir hata oluştu: ' + err.message);
     }
 };
 
@@ -6359,7 +6374,8 @@ window.acceptSmartSwap = async function(requestId) {
         DB.requests.splice(reqIndex, 1);
         
         // Bildirim gönder
-        if (!DB.notifications[him.id]) DB.notifications[him.id] = [];
+        if (!DB.notifications) DB.notifications = {};
+        if (!Array.isArray(DB.notifications[him.id])) DB.notifications[him.id] = [];
         DB.notifications[him.id].unshift({
             id: Date.now(),
             message: `✅ **Takas Onaylandı:** ${me.name}, gönderdiğin akıllı takas teklifini kabul etti!`,
