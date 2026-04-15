@@ -9,8 +9,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- OCR Library -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- PDF Export Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
@@ -629,10 +627,8 @@
                     <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
                         <input type="text" id="exam-search" placeholder="🔍 Sınav veya Gözetmen Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                         <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
-                        <button id="btn-import-ocr" class="btn-primary admin-only" style="background:#0ea5e9;">📷 OCR ile Çıkar</button>
                         <button id="btn-import-exams-excel" class="btn-primary admin-only" style="background:#1d6f42;">📂 Excel’den Aktar</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
-                        <button id="btn-donemlik-taslak" class="btn-primary admin-only" style="background:linear-gradient(135deg,#10b981,#059669);">📅 Dönemlik Taslak</button>
                         <button id="btn-import-auto-assign" class="btn-primary admin-only" style="background:#4f46e5;">✨ Taslak Yükle</button>
                         <button id="btn-toggle-draft-mode" class="btn-primary admin-only" style="background:#64748b;">🛠️ Taslak Modu (Aç/Kapat)</button>
                         <button id="btn-export-exams" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
@@ -708,28 +704,16 @@
                         </div>
                     </div>
 
-                    <!-- Toplu İşlemler Çubuğu -->
-                    <div id="bulk-action-bar" class="hidden admin-only" style="background: rgba(99,102,241,0.1); border: 1px dashed var(--primary); padding: 12px 20px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
-                        <div style="font-weight: 600; color: #cdd6f4;">
-                            <span id="bulk-selected-count">0</span> sınav seçili
-                        </div>
-                        <div style="display: flex; gap: 10px;">
-                            <button id="btn-bulk-ai-assign" class="btn-primary" style="background: var(--accent-green); padding: 0.5rem 1rem; border-radius: 8px;">✨ Seçilileri AI ile Çöz</button>
-                            <button id="btn-bulk-delete" class="btn-primary" style="background: var(--accent-red); padding: 0.5rem 1rem; border-radius: 8px;">🗑️ Seçilileri Sil</button>
-                        </div>
-                    </div>
-
                     <!-- Liste Görünümü -->
                     <div id="schedule-list-view">
                         <div class="table-container">
                             <table id="table-schedule">
                                 <thead>
                                     <tr>
-                                        <th class="admin-only" style="width: 40px; text-align: center;"><input type="checkbox" id="check-all-schedule" style="cursor: pointer;"></th>
                                         <th>Tür</th>
                                         <th>Ders / Sınav</th>
                                         <th>Dersi Veren</th>
-                                        <th>Sınıf Mevcudu</th>
+                                        <th>Sınıf Mevcudu / Yer</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
                                         <th>Saat</th>
@@ -1066,20 +1050,6 @@
         <div id="modal" class="modal hidden">
             <div class="modal-content">
                 <h2 id="modal-title">Yeni Kayıt</h2>
-                
-                <!-- SİHİRLİ KOMUT SATIRI -->
-                <div id="magic-command-container" class="hidden" style="margin-bottom: 1.5rem; background: rgba(139, 92, 246, 0.1); border: 1px dashed #8b5cf6; padding: 15px; border-radius: 12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-                        <h4 style="margin:0; color: #a78bfa; font-size: 0.9rem; display:flex; align-items:center; gap:5px;">🪄 Sihirli Komut Satırı</h4>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Yapay Zeka Destekli (Beta)</span>
-                    </div>
-                    <div style="position: relative;">
-                        <input type="text" id="magic-command-input" placeholder="Örn: Gelecek pazartesi saat 10:00'da Amfi-1'de 120 dakikalık Fizik 101 sınavı" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid #6366f1; padding:0.875rem; padding-right: 40px; border-radius:8px; color:white; font-size:0.95rem;">
-                        <button id="btn-magic-apply" class="btn-icon" style="position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:1.2rem; cursor:pointer;" title="Uygula">✨</button>
-                    </div>
-                    <div id="magic-command-status" style="margin-top:8px; font-size:0.8rem; color:#10b981; display:flex; gap:6px; flex-wrap:wrap;"></div>
-                </div>
-
                 <form id="modal-form">
                     <div id="form-fields"></div>
                     <div class="form-actions">
@@ -1132,7 +1102,7 @@
                                         <th>Tür</th>
                                         <th>Ders / Sınav</th>
                                         <th>Dersi Veren</th>
-                                        <th>Sınıf Mevcudu</th>
+                                        <th>Sınıf Mevcudu / Yer</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
                                         <th>Saat</th>
@@ -1154,7 +1124,7 @@
                                         <th>Tür</th>
                                         <th>Ders / Sınav</th>
                                         <th>Dersi Veren</th>
-                                        <th>Sınıf Mevcudu</th>
+                                        <th>Sınıf Mevcudu / Yer</th>
                                         <th>Derslik / Yer</th>
                                         <th>Tarih</th>
                                         <th>Saat</th>
@@ -1247,10 +1217,7 @@
                     </div>
                     <div class="form-group">
                         <label>Ders / Sınav Adı</label>
-                        <input type="text" id="edit-exam-name" placeholder="Örn: MATH 101 veya YZV 501" required>
-                        <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">
-                           💡 <b>Yıl Bilgisi:</b> Programda doğru yerde çıkması için ders kodunu veya <code>(1. Yıl)</code> gibi bir ibareyi ekleyin.
-                        </small>
+                        <input type="text" id="edit-exam-name" required>
                     </div>
                     <div class="form-group">
                         <label>Dersi Veren Hoca</label>
@@ -1259,8 +1226,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Sınıf Mevcudu</label>
-                        <input type="text" id="edit-exam-capacity" placeholder="Örn: 250">
+                        <label>Sınıf Mevcudu / Yer Bilgisi</label>
+                        <input type="text" id="edit-exam-capacity" placeholder="Örn: 55/ Amfi 2">
                     </div>
                     <div class="form-group">
                         <label>Derslik / Yer Bilgisi</label>
@@ -1535,7 +1502,6 @@
 
     <script src="logic.js"></script>
     <script src="app.js"></script>
-    <script src="ai_features.js"></script>
     <!-- Hoca Mesaj Gönderme Modalı -->
     <div id="modal-lecturer-message" class="modal hidden">
         <div class="modal-content" style="max-width: 500px;">
@@ -1562,67 +1528,8 @@
         </div>
     </div>
 
-    <!-- Zeka Küpü OCR (Fotoğraftan Sınav Okuma) Modal -->
-    <div id="modal-ocr-upload" class="modal hidden">
-        <div class="modal-content card-large" style="max-width: 600px; text-align: center; border: 1px solid var(--accent-orange);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                <h2 style="margin: 0; display:flex; align-items:center; gap:10px;"><span style="font-size: 1.5rem;">📷</span> Zeka Küpü (Fotoğraftan Çıkar)</h2>
-                <button class="btn-icon" style="font-size:1.5rem; background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick="document.getElementById('modal-ocr-upload').classList.add('hidden')">&times;</button>
-            </div>
-            
-            <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem; text-align:left;">
-                Duyuru panosuna asılan sınav listesinin fotoğrafını veya ekran görüntüsünü yükleyin. <b>BETA özelliği</b>: Resim ne kadar net ise sonuç o kadar iyi olacaktır.
-            </p>
-
-            <div id="ocr-drop-zone" style="border: 2px dashed rgba(245, 158, 11, 0.5); border-radius: 16px; padding: 3rem 2rem; background: rgba(245, 158, 11, 0.05); cursor: pointer; transition: all 0.3s ease; margin-bottom: 1.5rem; display:flex; flex-direction:column; align-items:center;">
-                <div style="font-size: 3.5rem; margin-bottom: 1rem; color: #f59e0b; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.4));" id="ocr-drop-icon">📸</div>
-                <h3 style="margin-bottom: 0.5rem; color: #fcd34d;" id="ocr-drop-text">Resmi Buraya Sürükleyin</h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;" id="ocr-drop-subtext">veya bilgisayarınızdan seçmek için tıklayın (.png, .jpg)</p>
-                <input type="file" id="ocr-import-input" accept=".png, .jpg, .jpeg" style="display: none;">
-                <button type="button" class="btn-primary" style="pointer-events: none; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4);" id="ocr-drop-btn">Görsel Seç</button>
-            </div>
-
-            <!-- AI Analiz Animasyonu -->
-            <div id="ocr-loading-area" class="hidden" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 12px;">
-                <div style="display:flex; align-items:center; justify-content:center; gap:15px; margin-bottom:10px;">
-                    <div style="font-size:2rem;" class="spin">⚙️</div>
-                    <h3 style="margin:0; color:var(--primary);">Yapay Zeka Analiz Ediyor...</h3>
-                </div>
-                <p id="ocr-progress-text" style="color:var(--text-muted); font-size:0.85rem; font-family:monospace; margin:0;">0% - Hazırlanıyor</p>
-                <div style="width:100%; background:var(--bg-card); height:8px; border-radius:4px; margin-top:10px; overflow:hidden;">
-                    <div id="ocr-progress-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #10b981, #3b82f6); transition:width 0.3s ease;"></div>
-                </div>
-            </div>
-            
-            <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; font-size: 0.8rem; color: var(--text-muted); border: 1px solid var(--glass-border);">
-                <strong style="color: var(--accent-orange);">💡 İpucu:</strong> Listedeki metinlerin okunaklı olması önemlidir. 
-            </div>
-        </div>
-    </div>
-
-    <!-- Excel Drag & Drop Upload Modal -->
-    <div id="modal-excel-upload" class="modal hidden">
-        <div class="modal-content card-large" style="max-width: 500px; text-align: center; border: 1px solid var(--primary);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                <h2 style="margin: 0; display:flex; align-items:center; gap:10px;"><span style="font-size: 1.5rem;">📁</span> Sınav Aktar</h2>
-                <button class="btn-icon" style="font-size:1.5rem; background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick="document.getElementById('modal-excel-upload').classList.add('hidden')">&times;</button>
-            </div>
-            
-            <div id="excel-drop-zone" style="border: 2px dashed rgba(99,102,241,0.5); border-radius: 16px; padding: 3rem 2rem; background: rgba(99,102,241,0.05); cursor: pointer; transition: all 0.3s ease; margin-bottom: 1.5rem; display:flex; flex-direction:column; align-items:center;">
-                <div style="font-size: 3.5rem; margin-bottom: 1rem; color: #818cf8; filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.4));" id="excel-drop-icon">📥</div>
-                <h3 style="margin-bottom: 0.5rem; color: #c7d2fe;" id="excel-drop-text">Excel Dosyasını Sürükleyin</h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;" id="excel-drop-subtext">veya bilgisayarınızdan seçmek için tıklayın (.xlsx, .csv)</p>
-                <input type="file" id="excel-import-input" accept=".xlsx, .xls, .csv" style="display: none;">
-                <button type="button" class="btn-primary" style="pointer-events: none; background: rgba(99,102,241,0.2); color: #818cf8; border: 1px solid rgba(99,102,241,0.4);" id="excel-drop-btn">Dosya Seç</button>
-            </div>
-            
-            <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; font-size: 0.8rem; color: var(--text-muted); border: 1px solid var(--glass-border);">
-                <strong style="color: var(--accent-orange);">💡 İpucu:</strong> Dosyanızdaki başlıklar esnektir ancak şu formata yakın olması önerilir:
-                <br>
-                <span style="color: var(--primary);">Tür, Sınav Adı, Öğretim Üyesi, Derslik, Tarih, Saat, Süre</span>
-            </div>
-        </div>
-    </div>
+    <!-- Excel Import Hidden Input -->
+    <input type="file" id="excel-import-input" accept=".xlsx, .xls, .csv" style="display: none;">
 
     <!-- Excel Import Preview Modal -->
     <div id="modal-excel-preview" class="modal hidden">

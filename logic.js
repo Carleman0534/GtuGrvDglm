@@ -171,69 +171,15 @@ function getKatsayi(date) {
 
     const isWeekend = (day === 0 || day === 6);
     
-    // Eşik: 17:00 (17.0)
     if (isWeekend) {
-        return (currentTime >= 8.5 && currentTime < 17.0) ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_SONU_AKSAM;
+        return (currentTime >= 8.5 && currentTime < 17.5) ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_SONU_AKSAM;
     } else {
-        return (currentTime >= 8.5 && currentTime < 17.0) ? KATSAYILAR.HAFTA_ICI_MESAI : KATSAYILAR.HAFTA_ICI_AKSAM;
+        return (currentTime >= 8.5 && currentTime < 17.5) ? KATSAYILAR.HAFTA_ICI_MESAI : KATSAYILAR.HAFTA_ICI_AKSAM;
     }
 }
 
-/**
- * Sınav süresini 17:00 sınırında parçalayarak katsayı ile ağırlıklı puan hesaplar.
- * 17:00 öncesi: hafta içi x1.0, hafta sonu x2.0
- * 17:00 ve sonrası: hafta içi x1.5, hafta sonu x2.5
- *
- * Örnek (hafta içi): Başlangıç 16:30, Süre 120dk
- *   16:30–17:00 → 30 dk × 1.0 = 30 puan
- *   17:00–18:30 → 90 dk × 1.5 = 135 puan
- *   Toplam: 165 puan
- */
 function calculateScore(date, duration) {
-    const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-
-    // Gece yarısından itibaren dakika cinsinden başlangıç ve bitiş
-    const startTotalMins = date.getHours() * 60 + date.getMinutes();
-    const endTotalMins   = startTotalMins + duration;
-
-    // 17:00 eşiği = 1020 dakika
-    const THRESHOLD_MINS = 17 * 60;
-
-    let totalScore = 0;
-
-    if (isWeekend) {
-        const kGunduz = KATSAYILAR.HAFTA_SONU_GUNDUZ; // 2.0
-        const kAksam  = KATSAYILAR.HAFTA_SONU_AKSAM;  // 2.5
-        if (endTotalMins <= THRESHOLD_MINS) {
-            // Tüm sınav 17:00'dan önce
-            totalScore = duration * kGunduz;
-        } else if (startTotalMins >= THRESHOLD_MINS) {
-            // Tüm sınav 17:00'da veya sonrasında
-            totalScore = duration * kAksam;
-        } else {
-            // Sınav 17:00'ı geçiyor → ikiye böl
-            const beforeMins = THRESHOLD_MINS - startTotalMins;
-            const afterMins  = duration - beforeMins;
-            totalScore = (beforeMins * kGunduz) + (afterMins * kAksam);
-        }
-    } else {
-        const kMesai = KATSAYILAR.HAFTA_ICI_MESAI; // 1.0
-        const kAksam = KATSAYILAR.HAFTA_ICI_AKSAM; // 1.5
-        if (endTotalMins <= THRESHOLD_MINS) {
-            // Tüm sınav 17:00'dan önce
-            totalScore = duration * kMesai;
-        } else if (startTotalMins >= THRESHOLD_MINS) {
-            // Tüm sınav 17:00'da veya sonrasında
-            totalScore = duration * kAksam;
-        } else {
-            // Sınav 17:00'ı geçiyor → ikiye böl
-            const beforeMins = THRESHOLD_MINS - startTotalMins;
-            const afterMins  = duration - beforeMins;
-            totalScore = (beforeMins * kMesai) + (afterMins * kAksam);
-        }
-    }
-
-    return parseFloat(totalScore.toFixed(2));
+    return duration * getKatsayi(date);
 }
 
 function timeToMins(timeStr) {
@@ -661,7 +607,7 @@ function updateExam(id, newData, skipSave = false) {
     const finalTime = newData.time !== undefined ? newData.time : oldExam.time;
     const finalDuration = (newData.duration !== undefined) ? newData.duration : oldExam.duration;
     
-    // Katsayıyı ve puanı hesapla (17:00 eşiği üzerinden parçalı hesaplama)
+    // Geçerli katsayı hesaplamak için date parse, eğer parse olmazsa eski katsayıyı kullan (NaN olmaması için)
     const testDate = new Date(`${finalDate}T${finalTime}`);
     let kts = parseFloat(oldExam.katsayi || 1); 
     if (!isNaN(testDate.getTime())) {
@@ -671,10 +617,7 @@ function updateExam(id, newData, skipSave = false) {
         }
     }
     const safeDuration = parseFloat(finalDuration) || 60;
-    // Parçalı katsayı hesabı: calculateScore 17:00 sınırını bölerek hesaplar
-    const newScore = !isNaN(testDate.getTime())
-        ? calculateScore(testDate, safeDuration)
-        : parseFloat((safeDuration * kts).toFixed(2));
+    const newScore = parseFloat((safeDuration * kts).toFixed(2));
 
     let newPIds;
     if (Array.isArray(newData.proctorIds)) {
@@ -928,9 +871,6 @@ async function loadFromDataJSON() {
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
             console.log("Veriler başarıyla yüklendi.");
-            // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
-            recalculateAllScores();
-            console.log("Puan yeniden hesaplama tamamlandı (sunucu verisi).");
         } else {
             console.error("Sunucudan gelen veri geçersiz formatta!", data);
             throw new Error("Geçersiz veri formatı");
@@ -945,9 +885,6 @@ async function loadFromDataJSON() {
                     parsed.lecturers = DB.lecturers;
                 }
                 DB = parsed;
-                // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
-                recalculateAllScores();
-                console.log("Puan yeniden hesaplama tamamlandı (localStorage verisi).");
             }
  catch (parseError) {
                 console.error("LocalStorage verisi bozuk!", parseError);
@@ -1263,51 +1200,5 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
 // Global'e aç
 window.findSmartSwaps = findSmartSwaps;
 window.requestSmartSwap = requestSmartSwap;
-
-/**
- * TÜM MEVCUT SINAVLARI YENİDEN HESAPLA (17:00 parçalı katsayı düzeltmesi)
- * Taban puanları (baseScore) KORUNUR, sadece sınavlardan gelen puanlar yeniden hesaplanır.
- * Mantık:
- *   - s.baseScore  : Sınavlardan bağımsız, manuel/önceki dönem taban puanı (korunur)
- *   - s.totalScore : baseScore + tüm sınavlardan hesaplanan puan
- *   - s.taskCount  : Sadece sistemdeki sınavlardan gelen görev sayısı
- */
-function recalculateAllScores() {
-    // 1) Her personelin baseScore'unu güvenceye al (ilk çalıştırmada mevcut değeri koru)
-    DB.staff.forEach(s => {
-        if (s.baseScore === undefined) {
-            s.baseScore = 0; // İlk çalıştırma: taban puan 0 olarak başlat
-        }
-        // Sınav puanlarını sıfırla; totalScore'u baseScore'dan başlat
-        s.totalScore = parseFloat((s.baseScore || 0).toFixed(2));
-        s.taskCount  = 0;
-    });
-
-    // 2) Her sınavı yeni 17:00 parçalı formüle göre hesapla
-    DB.exams.forEach(ex => {
-        const examDate = new Date(`${ex.date}T${ex.time}`);
-        if (isNaN(examDate.getTime())) return;
-
-        const newScore = calculateScore(examDate, parseFloat(ex.duration) || 60);
-        ex.score   = newScore;
-        ex.katsayi = getKatsayi(examDate);
-
-        // Gözetmenlerin puanlarını güncelle (baseScore üstüne ekle)
-        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
-        pIds.forEach(pid => {
-            const s = DB.staff.find(st => String(st.id) === String(pid));
-            if (s) {
-                s.totalScore = parseFloat((s.totalScore + newScore).toFixed(2));
-                s.taskCount  = (s.taskCount || 0) + 1;
-            }
-        });
-    });
-
-    saveToLocalStorage();
-    console.log('✅ Tüm sınavlar yeni katsayı sistemine göre yeniden hesaplandı (taban puanlar korundu).');
-    logAction('admin', 'Puan Yeniden Hesaplama', `${DB.exams.length} sınav 17:00 parçalı katsayı kuralıyla yeniden hesaplandı. Taban puanlar korundu.`);
-    return DB.exams.length;
-}
-window.recalculateAllScores = recalculateAllScores;
 
 // loadFromLocalStorage(); // Artık app.js içinden asenkron olarak çağrılıyor
