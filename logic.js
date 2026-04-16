@@ -24,43 +24,49 @@ const GLOBAL_LIMITS = {
 
 let DB = {
     staff: [
-        { id: 1, name: "Prof. Dr. Mustafa AKKURT", totalScore: 0, taskCount: 0 },
-        { id: 2, name: "Prof. Dr. Nuri ÇELİK", totalScore: 0, taskCount: 0 },
-        { id: 3, name: "Prof. Dr. Oğul ESEN", totalScore: 0, taskCount: 0 },
-        { id: 4, name: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)", totalScore: 0, taskCount: 0 },
-        { id: 5, name: "Prof. Dr. Emil NOVRUZ", totalScore: 0, taskCount: 0 },
-        { id: 6, name: "Prof. Dr. Sibel ÖZKAN", totalScore: 0, taskCount: 0 },
-        { id: 7, name: "Prof. Dr. Serkan SÜTLÜ", totalScore: 0, taskCount: 0 },
-        { id: 8, name: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)", totalScore: 0, taskCount: 0 },
-        { id: 9, name: "Doç. Dr. Nursel EREY", totalScore: 0, taskCount: 0 },
-        { id: 10, name: "Doç. Dr. Gülden GÜN POLAT", totalScore: 0, taskCount: 0 },
-        { id: 11, name: "Doç. Dr. Feray HACIVELİOĞLU", totalScore: 0, taskCount: 0 },
-        { id: 12, name: "Doç. Dr. Roghayeh HAFEZIEH", totalScore: 0, taskCount: 0 },
-        { id: 13, name: "Doç. Dr. Fatma KARAOĞLU CEYHAN", totalScore: 0, taskCount: 0 },
-        { id: 14, name: "Doç. Dr. Ayten KOÇ", totalScore: 0, taskCount: 0 },
-        { id: 15, name: "Doç. Dr. Işıl ÖNER", totalScore: 0, taskCount: 0 },
-        { id: 16, name: "Doç. Dr. Hülya ÖZTÜRK", totalScore: 0, taskCount: 0 },
-        { id: 17, name: "Doç. Dr. Ayşe SÖNMEZ", totalScore: 0, taskCount: 0 },
-        { id: 18, name: "Doç. Dr. Selçuk TOPAL", totalScore: 0, taskCount: 0 },
-        { id: 19, name: "Doç. Dr. Gülşen ULUCAK", totalScore: 0, taskCount: 0 },
-        { id: 20, name: "Dr. Öğr. Üyesi Hadi ALIZADEH", totalScore: 0, taskCount: 0 },
-        { id: 21, name: "Dr. Öğr. Üyesi Keremcan DOĞAN", totalScore: 0, taskCount: 0 },
-        { id: 22, name: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", totalScore: 0, taskCount: 0 },
-        { id: 23, name: "Dr. Öğr. Üyesi Samire YAZAR", totalScore: 0, taskCount: 0 },
-        { id: 24, name: "Arş. Gör. Murat Can AŞKAROĞULLARI", totalScore: 0, taskCount: 0 },
-        { id: 25, name: "Arş. Gör. Serkan AYRICA", totalScore: 0, taskCount: 0 },
-        { id: 26, name: "Arş. Gör. Serdal ÇÖLMEKCİ", totalScore: 0, taskCount: 0 },
-        { id: 27, name: "Arş. Gör. Ömer DEMİR", totalScore: 0, taskCount: 0 },
-        { id: 28, name: "Arş. Gör. Saliha DEMİRBÜKEN", totalScore: 0, taskCount: 0 },
-        { id: 29, name: "Arş. Gör. Muhammed Ergen", totalScore: 0, taskCount: 0 },
-        { id: 30, name: "Arş. Gör. Aslıhan GÜR", totalScore: 0, taskCount: 0 },
-        { id: 31, name: "Arş. Gör. Çağla ÖZATAR", totalScore: 0, taskCount: 0 },
-        { id: 32, name: "Arş. Gör. Ezgi ÖZTEKİN", totalScore: 0, taskCount: 0 },
-        { id: 33, name: "Arş. Gör. Aysel ŞAHİN", totalScore: 0, taskCount: 0 },
-        { id: 34, name: "Arş. Gör. Cansu ŞAHİN", totalScore: 0, taskCount: 0 },
-        { id: 35, name: "Arş. Gör. Oğuzhan SELÇUK", totalScore: 0, taskCount: 0 },
-        { id: 36, name: "Arş. Gör. Yasin TURAN", totalScore: 0, taskCount: 0 },
-        { id: 37, name: "Arş. Gör. Şeyma YAŞAR", totalScore: 0, taskCount: 0 }
+        { id: 1, name: "Prof. Dr. Mustafa AKKURT", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 2, name: "Prof. Dr. Nuri ÇELİK", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 3, name: "Prof. Dr. Oğul ESEN", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 4, name: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 5, name: "Prof. Dr. Emil NOVRUZ", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 6, name: "Prof. Dr. Sibel ÖZKAN", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 7, name: "Prof. Dr. Serkan SÜTLÜ", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 8, name: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 9, name: "Doç. Dr. Nursel EREY", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 10, name: "Doç. Dr. Gülden GÜN POLAT", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 11, name: "Doç. Dr. Feray HACIVELİOĞLU", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 12, name: "Doç. Dr. Roghayeh HAFEZIEH", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 13, name: "Doç. Dr. Fatma KARAOĞLU CEYHAN", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 14, name: "Doç. Dr. Ayten KOÇ", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 15, name: "Doç. Dr. Işıl ÖNER", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 16, name: "Doç. Dr. Hülya ÖZTÜRK", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 17, name: "Doç. Dr. Ayşe SÖNMEZ", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 18, name: "Doç. Dr. Selçuk TOPAL", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 19, name: "Doç. Dr. Gülşen ULUCAK", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 20, name: "Dr. Öğr. Üyesi Hadi ALIZADEH", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 21, name: "Dr. Öğr. Üyesi Keremcan DOĞAN", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 22, name: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 23, name: "Dr. Öğr. Üyesi Samire YAZAR", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 24, name: "Arş. Gör. Murat Can AŞKAROĞULLARI", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 25, name: "Arş. Gör. Serkan AYRICA", totalScore: 1440, taskCount: 0, baseScore: 1440 },
+        { id: 26, name: "Arş. Gör. Serdal ÇÖMLEKCİ", totalScore: 600, taskCount: 0, baseScore: 600 },
+        { id: 27, name: "Arş. Gör. Ömer DEMİR", totalScore: 1440, taskCount: 0, baseScore: 1440 },
+        { id: 28, name: "Arş. Gör. Saliha DEMİRBÜKEN", totalScore: 1200, taskCount: 0, baseScore: 1200 },
+        { id: 29, name: "Arş. Gör. Muhammed Ergen", totalScore: 1320, taskCount: 0, baseScore: 1320 },
+        { id: 30, name: "Arş. Gör. Aslıhan GÜR", totalScore: 1200, taskCount: 0, baseScore: 1200 },
+        { id: 31, name: "Arş. Gör. Çağla ÖZATAR", totalScore: 1560, taskCount: 0, baseScore: 1560 },
+        { id: 32, name: "Arş. Gör. Ezgi ÖZTEKİN", totalScore: 1200, taskCount: 0, baseScore: 1200 },
+        { id: 33, name: "Arş. Gör. Aysel ŞAHİN", totalScore: 1440, taskCount: 0, baseScore: 1440 },
+        { id: 34, name: "Arş. Gör. Cansu ŞAHİN", totalScore: 600, taskCount: 0, baseScore: 600 },
+        { id: 35, name: "Arş. Gör. Oğuzhan SELÇUK", totalScore: 1200, taskCount: 0, baseScore: 1200 },
+        { id: 36, name: "Arş. Gör. Yasin TURAN", totalScore: 1800, taskCount: 0, baseScore: 1800 },
+        { id: 37, name: "Arş. Gör. Şeyma YAŞAR", totalScore: 1320, taskCount: 0, baseScore: 1320 },
+        { id: 38, name: "Dr. Begüm ATEŞLİ", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 39, name: "Dr. Sultan BOZKURT GÜNGÖR", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 40, name: "Dr. Yasemin BÜYÜKÇOLAK", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 41, name: "Dr. Ayten GEZİCİ", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 42, name: "Dr. Büşra KARADENİZ ŞEN", totalScore: 0, taskCount: 0, baseScore: 0 },
+        { id: 43, name: "Dr. Fatih YETGİN", totalScore: 0, taskCount: 0, baseScore: 0 }
     ],
     exams: [],
     constraints: {},
@@ -188,6 +194,16 @@ function getKatsayi(date, duration = 0, examId = null) {
     return parseFloat((score / duration).toFixed(3));
 }
 
+/**
+ * Sınav süresini 17:00 sınırında parçalayarak katsayı ile ağırlıklı puan hesaplar.
+ * 17:00 öncesi: hafta içi x1.0, hafta sonu x2.0
+ * 17:00 ve sonrası: hafta içi x1.5, hafta sonu x2.5
+ *
+ * Örnek (hafta içi): Başlangıç 16:30, Süre 120dk
+ *   16:30–17:00 → 30 dk × 1.0 = 30 puan
+ *   17:00–18:30 → 90 dk × 1.5 = 135 puan
+ *   Toplam: 165 puan
+ */
 function calculateScore(date, duration, examId = null) {
     const day = date.getDay();
     const isWeekend = (day === 0 || day === 6);
@@ -918,6 +934,7 @@ async function loadFromDataJSON() {
                 data.courseLecturers = DB.courseLecturers;
             }
             
+
             // KRİTİK: Eğer yerel kısıtlar varsa ve biz bir kullanıcıysak, yerel kısıtlarımızı koruyalım
             // Çünkü guest modunda sunucuya kayıt yapılamıyor, refresh sonrası silinmemeli.
             if (localConstraints) {
@@ -932,35 +949,12 @@ async function loadFromDataJSON() {
 
             DB = data;
             if (!DB.requests) DB.requests = []; // Eksikse başlat
-            
-            // YENİ: Veri yüklendiğinde tüm sınav puanlarını yeni mantığa göre güncelle
-            // 'Taban puanları' (base scores) korumak için fark (diff) mantığı kullanıyoruz
-            DB.exams.forEach(ex => {
-                const oldScore = parseFloat(ex.score) || 0;
-                const date = new Date(`${ex.date}T${ex.time}`);
-                if (!isNaN(date.getTime())) {
-                    const newScore = calculateScore(date, ex.duration || 60, ex.id);
-                    const diff = newScore - oldScore;
-                    
-                    ex.score = newScore;
-                    ex.katsayi = getKatsayi(date, ex.duration || 60, ex.id);
-                    
-                    // Sadece katsayı değişiminden kaynaklı farkı personelin toplam puanına yansıt
-                    if (diff !== 0) {
-                        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
-                        pIds.forEach(pid => {
-                            const s = DB.staff.find(staff => String(staff.id) === String(pid));
-                            if (s) {
-                                s.totalScore = parseFloat((parseFloat(s.totalScore || 0) + diff).toFixed(2));
-                            }
-                        });
-                    }
-                }
-            });
-
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
-            console.log("Veriler başarıyla yüklendi ve puanlar yeniden hesaplandı.");
+            console.log("Veriler başarıyla yüklendi.");
+            // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
+            recalculateAllScores();
+            console.log("Puan yeniden hesaplama tamamlandı (sunucu verisi).");
         } else {
             console.error("Sunucudan gelen veri geçersiz formatta!", data);
             throw new Error("Geçersiz veri formatı");
@@ -974,7 +968,21 @@ async function loadFromDataJSON() {
                 if (!parsed.lecturers || parsed.lecturers.length === 0) {
                     parsed.lecturers = DB.lecturers;
                 }
+                // Taban puanları koru (localStorage yedeği için)
+                if (DB.staff && Array.isArray(DB.staff)) {
+                    parsed.staff.forEach(s => {
+                        const hardcoded = DB.staff.find(h => 
+                            h.id === s.id || 
+                            h.name.toLowerCase().includes(s.name.toLowerCase()) || 
+                            s.name.toLowerCase().includes(h.name.toLowerCase())
+                        );
+                        if (hardcoded && hardcoded.baseScore !== undefined) s.baseScore = hardcoded.baseScore;
+                    });
+                }
                 DB = parsed;
+                // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
+                recalculateAllScores();
+                console.log("Puan yeniden hesaplama tamamlandı (localStorage verisi).");
             }
  catch (parseError) {
                 console.error("LocalStorage verisi bozuk!", parseError);
@@ -1290,5 +1298,78 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
 // Global'e aç
 window.findSmartSwaps = findSmartSwaps;
 window.requestSmartSwap = requestSmartSwap;
+
+/**
+ * TÜM MEVCUT SINAVLARI YENİDEN HESAPLA (17:00 parçalı katsayı düzeltmesi)
+ * Taban puanları (baseScore) KORUNUR, sadece sınavlardan gelen puanlar yeniden hesaplanır.
+ * Mantık:
+ *   - s.baseScore  : Sınavlardan bağımsız, manuel/önceki dönem taban puanı (korunur)
+ *   - s.totalScore : baseScore + tüm sınavlardan hesaplanan puan
+ *   - s.taskCount  : Sadece sistemdeki sınavlardan gelen görev sayısı
+ */
+function recalculateAllScores() {
+    // 0) BASE SCORE GÜNCELLEME (Source of Truth)
+    const BASE_MAP = {
+        "MUSTAFA AKKURT": 0, "NURI CELIK": 0, "OGUL ESEN": 0, "MANSUR ISGENDEROĞLU": 0, "EMIL NOVRUZ": 0,
+        "SIBEL OZKAN": 0, "SERKAN SUTLU": 0, "COSKUN YAKAR": 0, "NURSEL EREY": 0, "GULDEN GUN POLAT": 0,
+        "FERAY HACIVELIOGLU": 0, "ROGHAYEH HAFEZIEH": 0, "FATMA KARAOGLU CEYHAN": 0, "AYTEN KOC": 0,
+        "ISIL ONER": 0, "HULYA OZTURK": 0, "AYSE SONMEZ": 0, "SELCUK TOPAL": 0, "GULSEN ULUCAK": 0,
+        "HADI ALIZADEH": 0, "KEREMCAN DOGAN": 0, "TUGBA MAHMUTCEPOGLU": 0, "SAMIRE YAZAR": 0,
+        "MURAT CAN ASKAROGULLARI": 0, "SERKAN AYRICA": 1440, "SERDAL COMLEKCI": 600, "OMER DEMIR": 1440,
+        "SALIHA DEMIRBUKEN": 1200, "MUHAMMED ERGEN": 1320, "ASLIHAN GUR": 1200, "CAGLA OZATAR": 1560,
+        "EZGI OZTEKIN": 1200, "AYSEL SAHIN": 1440, "CANSU SAHIN": 600, "OGUZHAN SELCUK": 1200,
+        "YASIN TURAN": 1800, "SEYMA YASAR": 1320, "BEGUM ATESLI": 0, "SULTAN BOZKURT GUNGOR": 0,
+        "YASEMIN BUYUKCOLAK": 0, "AYTEN GEZICI": 0, "BUSRA KARADENIZ SEN": 0, "FATIH YETGIN": 0
+    };
+
+    const normalize = (str) => (str || "").toLocaleLowerCase('tr-TR')
+        .replace(/prof\.|dr\.|öğr\.|üyesi|doç\.|arş\.|gör\.|[\.\(\)]/g, '')
+        .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ı/g, 'i')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
+
+    // 1) Her personelin baseScore'unu güvenceye al
+    DB.staff.forEach(s => {
+        const normName = normalize(s.name);
+        const mappedBase = BASE_MAP[normName];
+        
+        if (mappedBase !== undefined) {
+            s.baseScore = mappedBase;
+        } else if (s.baseScore === undefined) {
+            s.baseScore = 0;
+        }
+        
+        // Sınav puanlarını sıfırla; totalScore'u baseScore'dan başlat
+        s.totalScore = parseFloat((s.baseScore || 0).toFixed(2));
+        s.taskCount  = 0;
+    });
+
+    // 2) Her sınavı yeni 17:00 parçalı formüle göre hesapla
+    DB.exams.forEach(ex => {
+        const examDate = new Date(`${ex.date}T${ex.time}`);
+        if (isNaN(examDate.getTime())) return;
+
+        const newScore = calculateScore(examDate, parseFloat(ex.duration) || 60, ex.id);
+        ex.score   = newScore;
+        ex.katsayi = getKatsayi(examDate, parseFloat(ex.duration) || 60, ex.id);
+
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        pIds.forEach(pid => {
+            const s = DB.staff.find(st => String(st.id) === String(pid));
+            if (s) {
+                s.totalScore = parseFloat((s.totalScore + newScore).toFixed(2));
+                s.taskCount  = (s.taskCount || 0) + 1;
+            }
+        });
+    });
+
+    saveToLocalStorage();
+    console.log('✅ Tüm sınavlar yeni katsayı sistemine göre yeniden hesaplandı (taban puanlar korundu).');
+    logAction('admin', 'Puan Yeniden Hesaplama', `${DB.exams.length} sınav 17:00 parçalı katsayı kuralıyla yeniden hesaplandı. Taban puanlar korundu.`);
+    return DB.exams.length;
+}
+window.recalculateAllScores = recalculateAllScores;
 
 // loadFromLocalStorage(); // Artık app.js içinden asenkron olarak çağrılıyor

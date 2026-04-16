@@ -7,6 +7,11 @@ const KATSAYILAR = {
     HAFTA_SONU_AKSAM: 2.5
 };
 
+const BONUSLAR = {
+    ERKEN_KUS: 0.2,
+    DINAMIK_IHTIYAC: 0.5
+};
+
 const PROCTOR_CONSTRAINTS = {
     "Aysel Şahin": [{ day: 2, start: "08:30", end: "17:30" }],
     "Muhammed Ergen": [{ day: 4, start: "12:00", end: "17:30" }],
@@ -64,36 +69,17 @@ let staff = [
     { id: 14, name: "Cansu Şahin", currentScore: 1200, count: 0 }
 ];
 
-function getKatsayi(dateStr, timeStr, duration = 0) {
-    const date = new Date(`${dateStr}T${timeStr}`);
-    const day = date.getDay();
-    const isWeekend = (day === 0 || day === 6);
-    
-    // Multipliers
-    const ktsDay = isWeekend ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_ICI_MESAI;
-    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM;
-    
-    if (duration <= 0) {
-        const hour = date.getHours();
-        const minutes = date.getMinutes();
-        const currentTime = hour + minutes / 60;
-        return (currentTime >= 8.5 && currentTime < 17.0) ? ktsDay : ktsNight;
-    }
-
-    const score = calculateScore(dateStr, timeStr, duration);
-    return parseFloat((score / duration).toFixed(3));
-}
-
-function calculateScore(dateStr, timeStr, duration) {
+function calculateScore(dateStr, timeStr, duration, examId = null) {
     const date = new Date(`${dateStr}T${timeStr}`);
     const day = date.getDay();
     const isWeekend = (day === 0 || day === 6);
     
     const ktsDay = isWeekend ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_ICI_MESAI;
-    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM;
+    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM; 
 
-    const m830 = 8.5 * 60;
-    const m1700 = 17.0 * 60;
+    const m830 = 8.5 * 60; 
+    const m1000 = 10.0 * 60; 
+    const m1700 = 17.0 * 60; 
     
     const startMins = date.getHours() * 60 + date.getMinutes();
     const endMins = startMins + duration;
@@ -103,11 +89,32 @@ function calculateScore(dateStr, timeStr, duration) {
     }
     
     let totalScore = 0;
-    totalScore += getOverlap(startMins, endMins, 0, m830) * ktsNight;
-    totalScore += getOverlap(startMins, endMins, m830, m1700) * ktsDay;
-    totalScore += getOverlap(startMins, endMins, m1700, 1440) * ktsNight;
+    totalScore += getOverlap(startMins, endMins, 0, m830) * (ktsNight + BONUSLAR.ERKEN_KUS);
+    totalScore += getOverlap(startMins, endMins, m830, m1000) * (ktsDay + BONUSLAR.ERKEN_KUS);
+    totalScore += getOverlap(startMins, endMins, m1000, m1700) * (ktsDay);
     
+    let eveningScore = 0;
+    const evStart = Math.max(startMins, m1700);
+    const evEnd = Math.min(endMins, 1440);
+    
+    if (evEnd > evStart) {
+        for (let h = 17; h < 24; h++) {
+            const hStart = h * 60;
+            const hEnd = (h + 1) * 60;
+            const overlap = getOverlap(evStart, evEnd, hStart, hEnd);
+            if (overlap > 0) {
+                const progressiveBonus = (h - 17) * 0.15;
+                eveningScore += overlap * (ktsNight + progressiveBonus);
+            }
+        }
+    }
+    totalScore += eveningScore;
     return parseFloat(totalScore.toFixed(2));
+}
+
+function getKatsayi(dateStr, timeStr, duration = 0) {
+    const score = calculateScore(dateStr, timeStr, duration || 60);
+    return parseFloat((score / (duration || 60)).toFixed(3));
 }
 function timeToMins(timeStr) {
     const parts = timeStr.split(':');

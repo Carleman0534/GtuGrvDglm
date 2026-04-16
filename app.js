@@ -3,6 +3,32 @@
  */
 
 /**
+ * UI Dinamik Bileşenleri
+ */
+window.getInitials = function(name) {
+    if(!name) return "?";
+    const parts = name.split(" ").filter(p => !p.includes(".") && p.length > 1);
+    const mainParts = parts.length > 0 ? parts : name.split(" ");
+    const initials = mainParts.slice(0, 2).map(p => p[0]).join("");
+    return initials.toUpperCase();
+};
+
+window.getAvatarColor = function(name) {
+    const colors = ["--av-1", "--av-2", "--av-3", "--av-4", "--av-5", "--av-6", "--av-7", "--av-8"];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return `var(${colors[Math.abs(hash) % colors.length]})`;
+};
+
+window.getAvatarHtml = function(name) {
+    const initials = getInitials(name);
+    const color = getAvatarColor(name);
+    return `<div class="avatar-circle" style="background: ${color}">${initials}</div>`;
+};
+
+/**
  * Puan rengine göre şık bir renk döndürür.
  */
 window.getScoreColor = function(score) {
@@ -926,6 +952,23 @@ function initUI() {
         });
     }
 
+    // Excel Akıllı Import Butonu (Sınav Listesi bölümü)
+    const btnImportExamsExcel = document.getElementById('btn-import-exams-excel');
+    if (btnImportExamsExcel) {
+        btnImportExamsExcel.addEventListener('click', () => {
+            document.getElementById('import-preview').innerHTML = '';
+            document.getElementById('import-file-input').value = '';
+            document.getElementById('btn-confirm-import').disabled = true;
+            document.getElementById('modal-import').classList.remove('hidden');
+        });
+    }
+
+    // Dönemlik Taslak Butonu
+    const btnDonemlikTaslak = document.getElementById('btn-donemlik-taslak');
+    if (btnDonemlikTaslak) {
+        btnDonemlikTaslak.addEventListener('click', showDonemlikTaslakModal);
+    }
+
     // Şablon İndir - Personel
     const btnTplStaff = document.getElementById('btn-download-staff-template');
     if (btnTplStaff) {
@@ -943,8 +986,8 @@ function initUI() {
     if (btnTplExam) {
         btnTplExam.addEventListener('click', () => {
             const data = [
-                ['Ders Adı', 'Derslik / Yer', 'Tarih (YYYY-MM-DD)', 'Saat (HH:MM)', 'Süre (dk)', 'Gözetmen Adı'],
-                ['MATH 101', 'Amfi 1', '2025-03-20', '09:00', '90', 'Gülay Mert']
+                ['Dersin Kodu', 'Dersin Adı', 'Dersi veren Öğr Üyesi', 'Sınav Tarihi ve Saati', 'Sınıf Mevcudu Derslik', 'Gözetmen'],
+                ['INF 100', 'Bilgisayara Giriş', 'Dr. Öğr. Üyesi Hadi ALIZADEH', '25 Kasım 2025 Salı, 18:15', '250', '']
             ];
             const ws = XLSX.utils.aoa_to_sheet(data);
             const wb = XLSX.utils.book_new();
@@ -987,8 +1030,61 @@ function initUI() {
                     document.getElementById('import-preview').innerHTML = html;
                     document.getElementById('btn-confirm-import').disabled = false;
 
-                    // Satırları button'a aktar
-                    document.getElementById('btn-confirm-import')._importData = { rows, sheetName };
+                    // === AKILLI SÜTUN EŞLEŞTİRME UI ===
+                    const SCHEMA_FIELDS = [
+                        { key: 'name',     label: '📚 Sınav Adı',   required: true  },
+                        { key: 'date',     label: '📅 Tarih',        required: true  },
+                        { key: 'time',     label: '🕐 Saat',         required: true  },
+                        { key: 'duration', label: '⌛ Süre (dk)',    required: false },
+                        { key: 'location', label: '📍 Konum',        required: false },
+                        { key: 'lecturer', label: '👤 Hoca',         required: false },
+                        { key: 'type',     label: '📋 Tür',          required: false },
+                        { key: 'proctor',  label: '🛡️ Gözetmen',    required: false },
+                    ];
+                    const SAVED_MAP_KEY = 'excel_col_map_v1';
+                    const savedMap = JSON.parse(localStorage.getItem(SAVED_MAP_KEY) || '{}');
+                    const AUTO_KEYWORDS = {
+                        name:     ['ders','sınav','isim','name','exam','kod'],
+                        date:     ['tarih','date','gun'],
+                        time:     ['saat','time','vakit'],
+                        duration: ['süre','dakika','duration'],
+                        location: ['yer','derslik','sınıf','location','room'],
+                        lecturer: ['hoca','lecturer','öğretim','instructor'],
+                        type:     ['tür','type','kind'],
+                        proctor:  ['gözetmen','proctor','invigilator'],
+                    };
+                    const autoGuess = (headerRaw) => {
+                        const h = headerRaw.toLowerCase();
+                        if (savedMap[headerRaw]) return savedMap[headerRaw];
+                        for (const [field, keys] of Object.entries(AUTO_KEYWORDS)) {
+                            if (keys.some(k => h.includes(k))) return field;
+                        }
+                        return '';
+                    };
+                    let mapHtml = `<div id="smart-col-map" style="margin-top:1rem; background:rgba(99,102,241,0.1); border:1px solid #6366f1; border-radius:12px; padding:1rem;">`;
+                    mapHtml += `<div style="font-size:0.85rem; color:#a78bfa; font-weight:700; margin-bottom:10px;">🧠 Akıllı Sütun Eşleştirme — Her başlık neyi temsil ediyor?</div>`;
+                    mapHtml += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
+                    rows[0].forEach((h, idx) => {
+                        const guess = autoGuess(String(h).trim());
+                        const opts = SCHEMA_FIELDS.map(f =>
+                            `<option value="${f.key}" ${guess === f.key ? 'selected' : ''}>${f.label}</option>`
+                        ).join('');
+                        mapHtml += `
+                        <div style="background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px;">
+                            <div style="font-size:0.75rem; color:#94a3b8; margin-bottom:4px;">${h}</div>
+                            <select data-col-idx="${idx}" class="smart-map-select"
+                                style="width:100%; background:rgba(0,0,0,0.3); border:1px solid #334155; padding:4px 6px; border-radius:6px; color:white; font-size:0.8rem;">
+                                <option value="">— Yoksay —</option>
+                                ${opts}
+                            </select>
+                        </div>`;
+                    });
+                    mapHtml += `</div></div>`;
+                    document.getElementById('import-preview').innerHTML += mapHtml;
+
+                    // Satırları button'a aktar (smartMap flag ile)
+                    document.getElementById('btn-confirm-import')._importData = { rows, sheetName, smartMap: true };
+
                 } catch(err) {
                     document.getElementById('import-preview').innerHTML = '<p style="color:#ef4444;">Dosya okunamadı: ' + err.message + '</p>';
                 }
@@ -1005,6 +1101,96 @@ function initUI() {
             if (!data || !data.rows || data.rows.length < 2) return;
 
             const rows = data.rows;
+
+            // === AKILLI EŞLEŞTİRME MODU ===
+            if (data.smartMap) {
+                const SAVED_MAP_KEY = 'excel_col_map_v1';
+                const savedMap = JSON.parse(localStorage.getItem(SAVED_MAP_KEY) || '{}');
+
+                // Seçilen mapping'i oku
+                const colMap = {}; // { field -> colIndex }
+                document.querySelectorAll('.smart-map-select').forEach(sel => {
+                    const val = sel.value;
+                    const idx = parseInt(sel.dataset.colIdx);
+                    if (val) {
+                        colMap[val] = idx;
+                        // Hafızaya kaydet (header ismi bazında)
+                        const headerName = rows[0][idx];
+                        if (headerName) savedMap[String(headerName).trim()] = val;
+                    }
+                });
+                localStorage.setItem(SAVED_MAP_KEY, JSON.stringify(savedMap));
+
+                if (!colMap.name || !colMap.date || !colMap.time) {
+                    alert('⚠️ En azından Sınav Adı, Tarih ve Saat sütunlarını eşleştirmeniz gerekiyor!');
+                    return;
+                }
+
+                let addedCount = 0, skipCount = 0;
+
+                rows.slice(1).forEach(row => {
+                    const name = String(row[colMap.name] || '').trim();
+                    const dateRaw = String(row[colMap.date] || '').trim();
+                    const timeRaw = String(row[colMap.time] || '').trim();
+                    if (!name || !dateRaw || !timeRaw) return;
+
+                    // Tarih normalizasyonu
+                    let date = dateRaw;
+                    if (date.includes('.') || date.includes('/')) {
+                        const parts = date.split(/[./]/);
+                        if (parts[0].length === 4) date = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+                        else date = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+                    }
+
+                    // Saat normalizasyonu
+                    let time = String(timeRaw).replace('.', ':');
+                    if (time.length === 4 && !time.includes(':')) time = time.slice(0,2) + ':' + time.slice(2);
+
+                    const duration = colMap.duration !== undefined ? (parseInt(row[colMap.duration]) || 90) : 90;
+                    const location = colMap.location !== undefined ? String(row[colMap.location] || '').trim() : '';
+                    const lecturer = colMap.lecturer !== undefined ? String(row[colMap.lecturer] || '').trim() : '';
+                    const type     = colMap.type     !== undefined ? String(row[colMap.type]     || '').trim() : 'Vize';
+                    const proctorName = colMap.proctor !== undefined ? String(row[colMap.proctor] || '').trim() : '';
+
+                    const isDuplicate = DB.exams.some(ex => ex.name === name && ex.date === date && ex.time === time);
+                    if (!isDuplicate) {
+                        const score = calculateScore(new Date(`${date}T${time}`), duration);
+                        const katsayi = getKatsayi(new Date(`${date}T${time}`));
+                        const newExam = {
+                            id: Date.now() + Math.floor(Math.random() * 10000),
+                            name, date, time, duration, location, lecturer,
+                            type: type || 'Vize',
+                            score, katsayi,
+                            proctorIds: [], proctorId: null, proctorName: '',
+                            isDraft: DB.isDraftMode,
+                            createdAt: new Date().toISOString()
+                        };
+                        if (proctorName) {
+                            const staff = DB.staff.find(s => s.name.toLowerCase().includes(proctorName.toLowerCase()));
+                            if (staff) {
+                                newExam.proctorIds = [staff.id];
+                                newExam.proctorId = staff.id;
+                                newExam.proctorName = staff.name;
+                                staff.totalScore = parseFloat((staff.totalScore + score).toFixed(2));
+                                staff.taskCount++;
+                            }
+                        }
+                        DB.exams.push(newExam);
+                        addedCount++;
+                    } else {
+                        skipCount++;
+                    }
+                });
+
+                saveToLocalStorage();
+                if (typeof saveToBackend === 'function') await saveToBackend();
+                document.getElementById('modal-import').classList.add('hidden');
+                renderExams(); renderStaff(); renderSchedule(); renderDashboard();
+                showToast(`✅ ${addedCount} sınav eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandı)` : ''}`);
+                return; // Eski genel import'u atla
+            }
+
+            // === ESKİ GENEL IMPORT (Fallback) ===
             const headers = rows[0].map(h => String(h).trim().toLowerCase());
             
             // Sütun indekslerini bul
@@ -1078,7 +1264,7 @@ function initUI() {
                     const isDuplicate = DB.exams.some(ex => ex.name === name && ex.date === date && ex.time === time);
                     if (!isDuplicate) {
                         const score = calculateScore(new Date(`${date}T${time}`), duration);
-                        const katsayi = getKatsayi(new Date(`${date}T${time}`), duration);
+                        const katsayi = getKatsayi(new Date(`${date}T${time}`));
                         
                         const newExam = {
                             id: Date.now() + Math.floor(Math.random() * 10000),
@@ -1129,6 +1315,7 @@ function initUI() {
 
     // --- Phase 3: Batch Assignment & Search ---
     document.getElementById('btn-batch-assign')?.addEventListener('click', window.batchAutoAssign);
+    document.getElementById('btn-donemlik-taslak')?.addEventListener('click', showDonemlikTaslakModal);
     document.getElementById('exam-search')?.addEventListener('input', renderExams);
     document.getElementById('staff-search')?.addEventListener('input', renderStaff);
     document.getElementById('schedule-search')?.addEventListener('input', renderSchedule);
@@ -1261,7 +1448,12 @@ function renderDashboard() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${idx + 1}</td>
-            <td><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>
+            <td>
+                <div class="name-with-avatar">
+                    ${getAvatarHtml(s.name)}
+                    <span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span>
+                </div>
+            </td>
             <td>${s.totalScore.toFixed(1)}</td>
             <td>${s.taskCount}</td>
             <td><span class="badge ${s.totalScore === 0 ? 'idle' : 'active'}">${s.totalScore === 0 ? 'Beklemede' : 'Görevli'}</span></td>
@@ -1273,7 +1465,12 @@ function renderDashboard() {
             const trB = document.createElement('tr');
             const st = stats[s.id];
             trB.innerHTML = `
-                <td><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>
+                <td>
+                    <div class="name-with-avatar">
+                        ${getAvatarHtml(s.name)}
+                        <span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span>
+                    </div>
+                </td>
                 <td>${st.hiG}</td>
                 <td>${st.hiA}</td>
                 <td>${st.hsG}</td>
@@ -1695,7 +1892,7 @@ function renderExams() {
             <td>${displayDate}</td>
             <td>${ex.time}</td>
             <td>${ex.duration}</td>
-            <td>x${parseFloat(ex.katsayi).toFixed(2)}</td>
+            <td>x${ex.katsayi.toFixed(1)}</td>
             <td>${ex.score.toFixed(1)}</td>
             <td>${pNames}</td>
             <td style="display: flex; gap: 8px; justify-content: flex-end;">
@@ -1766,7 +1963,17 @@ function renderSchedule() {
 
     // Gruplama
     const groups = {};
+    const now = new Date();
+    
     DB.exams.forEach(ex => {
+        // Tarihi geçmiş sınavları programda gösterme
+        const examDateStr = ex.date || "";
+        const examTimeStr = ex.time || "00:00";
+        const examDate = new Date(`${examDateStr}T${examTimeStr}`);
+        const examEnd = new Date(examDate.getTime() + (ex.duration || 60) * 60000);
+        
+        if (examEnd < now) return;
+
         const key = `${ex.type}_${ex.name}_${ex.date}_${ex.time}_${ex.location}`;
         if (!groups[key]) {
             groups[key] = {
@@ -1816,18 +2023,39 @@ function renderSchedule() {
         return matchesMonth && matchesType && matchesSearch;
     });
 
-    // Sıralama
+    // Sıralama ve Kategorize Etme
     function getYear(name) {
+        const lowerName = name.toLowerCase();
+        
+        // Açıkça (1. Yıl, 2. Sınıf vb) belirtilmişse öncelikli al
+        const explicitMatch = lowerName.match(/(1|2|3|4)\.\s*(yıl|sınıf)/);
+        if (explicitMatch) return parseInt(explicitMatch[1]);
+        
+        if (lowerName.includes("yüksek lisans") || lowerName.includes("doktora") || lowerName.includes("yl")) return 5;
+
+        // Yüksek Lisans / Doktora: 500 ve üzeri
+        if (name.match(/\b(5|6|7|8|9)\d{2}\b/)) return 5;
+        
+        // Lisans: 100, 200, 300, 400
         const match = name.match(/\b(1|2|3|4)\d{2}\b/);
         if (match) return parseInt(match[1]);
-        if (name.includes("101") || name.includes("102") || name.includes("106") || name.includes("112") || name.includes("114")) return 1;
+        
+        // İsim bazlı zorunlu/ortak dersler genelde 1. sınıf
+        if (lowerName.includes("101") || lowerName.includes("102") || lowerName.includes("106") || lowerName.includes("112") || lowerName.includes("114")) return 1;
+        
+        // Bulunamayanlar
         return 0;
     }
 
     filteredSchedule.sort((a, b) => {
         const ya = getYear(a.name);
         const yb = getYear(b.name);
-        if (ya !== yb) return ya - yb;
+        
+        // 0 (Diğer) olanları en sona atmak için ağırlık(weight) hesaplıyoruz
+        const weightA = ya === 0 ? 99 : ya;
+        const weightB = yb === 0 ? 99 : yb;
+        
+        if (weightA !== weightB) return weightA - weightB;
         return a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
     });
 
@@ -1840,11 +2068,17 @@ function renderSchedule() {
     filteredSchedule.forEach(ex => {
         const y = getYear(ex.name);
         
-        if (y > 0 && y !== curYearActive) {
+        if (y !== curYearActive) {
             curYearActive = y;
             const trHead = document.createElement('tr');
             trHead.className = 'year-header';
-            trHead.innerHTML = `<td colspan="10">${y}. YIL</td>`;
+            
+            let labelText = "";
+            if (y === 5) labelText = "🎓 Yüksek Lisans / Doktora";
+            else if (y > 0 && y < 5) labelText = `🏫 ${y}. YIL`;
+            else labelText = "📚 Diğer / Ortak Dersler";
+
+            trHead.innerHTML = `<td colspan="11" style="background: rgba(99,102,241,0.15); border-left: 4px solid var(--primary); color: #c7d2fe; padding-left: 1rem; font-weight: 700; letter-spacing: 0.5px;">${labelText}</td>`;
             tbodyActive.appendChild(trHead);
         }
 
@@ -1859,12 +2093,21 @@ function renderSchedule() {
         const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
         const dayName = dayNames[dateObj.getDay()];
         const formatString = ex.date.split("-").reverse().join(".") + " " + dayName; 
+        
+        // Group Key identifier to use for bulk actions instead of a single ID
+        const examGroupKey = btoa(encodeURIComponent(`${ex.type}|${ex.name}|${ex.date}|${ex.time}|${ex.location}`));
 
         tr.innerHTML = `
+            <td class="admin-only" style="text-align: center;"><input type="checkbox" class="bulk-check" value="${examGroupKey}" style="cursor: pointer;"></td>
             <td><span class="badge-type type-${ex.type}">${ex.type.toUpperCase()}</span></td>
             <td>
                 <span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')"><strong>${ex.name}</strong></span>
-                ${isConflict ? '<span class="conflict-warning" style="display:block; font-size:0.7rem; color:#ef4444;">⚠️ Gözetmen Çakışması!</span>' : ''}
+                ${isConflict ? `
+                    <span class="conflict-warning" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#ef4444; margin-top:4px;">
+                        ⚠️ Gözetmen Çakışması
+                        <button class="btn-primary admin-only" onclick="autoResolveGroupConflict('${examGroupKey}')" style="background:#10b981; padding:2px 6px; font-size:0.65rem; border-radius:4px; border:none;">✨ Auto-Çöz</button>
+                    </span>
+                ` : ''}
             </td>
             <td>${ex.lecturer}</td>
             <td>${ex.capacity}</td>
@@ -2029,7 +2272,13 @@ function showAddExamModal() {
         </div>
         <div class="form-group">
             <label>Sınav/Ders Adı</label>
-            <input type="text" id="exam-name" placeholder="Örn: Matematik I" required>
+            <input type="text" id="exam-name" list="exam-memory-list" placeholder="Örn: MATH 101 veya YZV 501" required>
+            <datalist id="exam-memory-list">
+                ${[...new Set(DB.exams.map(e => e.name).filter(Boolean))].sort().map(name => `<option value="${name}">`).join('')}
+            </datalist>
+            <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">
+               💡 <b>Yıl Bilgisi:</b> Eğitim yılını belirtmek için ders kodunu (1xx, 5xx) veya direkt olarak <code>(1. Yıl)</code>, <code>(Yüksek Lisans)</code> ifadesini ders adına ekleyebilirsiniz.
+            </small>
         </div>
         <div class="form-group">
             <label>Dersi Veren Hoca</label>
@@ -2039,8 +2288,8 @@ function showAddExamModal() {
             </select>
         </div>
         <div class="form-group">
-            <label>Sınıf Mevcudu / Yer Bilgisi</label>
-            <input type="text" id="exam-capacity" placeholder="Örn: 55/ Amfi 2">
+            <label>Sınıf Mevcudu</label>
+            <input type="number" id="exam-capacity" placeholder="Örn: 250">
         </div>
         <div class="form-group">
             <label>Sınav Tarihi</label>
@@ -2086,13 +2335,30 @@ function showAddExamModal() {
     document.getElementById('exam-time').addEventListener('change', updateAddSuggestions);
     document.getElementById('exam-duration').addEventListener('input', updateAddSuggestions);
 
-    // --- LECTURER AUTO-SUGGESTION ---
+    // --- KURS HAFIZASI (COURSE MEMORY) ---
     document.getElementById('exam-name').addEventListener('input', (e) => {
         const val = e.target.value.trim();
-        const lecturerName = DB.courseLecturers[val];
-        if (lecturerName) {
-            const selectL = document.getElementById('exam-lecturer');
-            if (selectL) selectL.value = lecturerName;
+        if (!val) return;
+
+        const selectL = document.getElementById('exam-lecturer');
+        const capInput = document.getElementById('exam-capacity');
+        const locInput = document.getElementById('exam-location');
+        const durInput = document.getElementById('exam-duration');
+
+        // 1. Önce eski sınavlardan bu isimde olanın özelliklerini çekelim
+        const pastExams = DB.exams.filter(ex => ex.name.toLowerCase() === val.toLowerCase());
+        if (pastExams.length > 0) {
+            // En son ekleneni bul (tarihe göre sıralayabiliriz veya dizi sonuncusunu alırız)
+            const latest = pastExams[pastExams.length - 1];
+
+            if (latest.lecturer && selectL.value === '-') selectL.value = latest.lecturer;
+            if (latest.capacity && !capInput.value) capInput.value = latest.capacity;
+            if (latest.location && !locInput.value) locInput.value = latest.location;
+            if (latest.duration && durInput.value === '60') durInput.value = latest.duration;
+        } else {
+            // 2. Eğer DB.exams'te yoksa, DB.courseLecturers kuralı devrede
+            const lecturerName = DB.courseLecturers[val];
+            if (lecturerName && selectL) selectL.value = lecturerName;
         }
     });
 
@@ -2530,7 +2796,12 @@ function renderStats() {
             const isHighLoad = s.totalTasks > (GLOBAL_LIMITS.MAX_TASKS - 1);
             
             tr.innerHTML = `
-                <td style="font-weight: 600;">${s.name}</td>
+                <td>
+                    <div class="name-with-avatar">
+                        ${getAvatarHtml(s.name)}
+                        <span style="font-weight: 600;">${s.name}</span>
+                    </div>
+                </td>
                 <td>${s.breakdown["Hafta İçi / Gündüz"]}</td>
                 <td>${s.breakdown["Hafta İçi / Akşam"]}</td>
                 <td>${s.breakdown["Hafta Sonu / Gündüz"]}</td>
@@ -2564,7 +2835,12 @@ function renderStaff() {
     filteredStaff.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>
+            <td>
+                <div class="name-with-avatar">
+                    ${getAvatarHtml(s.name)}
+                    <span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span>
+                </div>
+            </td>
             <td>${s.totalScore.toFixed(1)}</td>
             <td>${s.taskCount}</td>
             <td>
@@ -6419,70 +6695,301 @@ function initExcelImport() {
     const btnImport = document.getElementById('btn-import-exams-excel');
     const fileInput = document.getElementById('excel-import-input');
     const btnAllImport = document.getElementById('btn-import-all-excel');
+    const uploadModal = document.getElementById('modal-excel-upload');
+    const dropZone = document.getElementById('excel-drop-zone');
 
-    if (btnImport && fileInput) {
-        btnImport.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', handleExcelExamsFile);
+    if (btnImport && uploadModal) {
+        btnImport.addEventListener('click', () => {
+            if (dropZone) dropZone.style.borderColor = 'rgba(99,102,241,0.5)';
+            const text = document.getElementById('excel-drop-text');
+            const icon = document.getElementById('excel-drop-icon');
+            if (text) text.innerHTML = "Excel Dosyasını Sürükleyin";
+            if (icon) icon.innerHTML = "📥";
+            uploadModal.classList.remove('hidden');
+        });
+    }
+
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.background = 'rgba(99,102,241,0.2)';
+            dropZone.style.borderColor = 'var(--primary)';
+        });
+        
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.style.background = 'rgba(99,102,241,0.05)';
+            dropZone.style.borderColor = 'rgba(99,102,241,0.5)';
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.background = 'rgba(99,102,241,0.05)';
+            dropZone.style.borderColor = 'rgba(99,102,241,0.5)';
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleExcelExamsFile({ target: fileInput });
+            }
+        });
+    }
+
+    if (fileInput) fileInput.addEventListener('change', handleExcelExamsFile);
+    if (btnAllImport) btnAllImport.addEventListener('click', importAllExcelExams);
+}
+
+function parseTurkishDateTime(rawStr) {
+    let dateStr = "";
+    let timeStr = "09:00";
+    
+    if (typeof rawStr === 'number') {
+        const excelDate = new Date((rawStr - (25567 + 1)) * 86400 * 1000);
+        const d = String(excelDate.getDate()).padStart(2, '0');
+        const m = String(excelDate.getMonth() + 1).padStart(2, '0');
+        const y = excelDate.getFullYear();
+        dateStr = `${y}-${m}-${d}`;
+        timeStr = `${String(excelDate.getUTCHours()).padStart(2,'0')}:${String(excelDate.getUTCMinutes()).padStart(2,'0')}`;
+        return { date: dateStr, time: timeStr };
+    }
+
+    rawStr = String(rawStr).trim();
+    
+    const timeMatch = rawStr.match(/(\d{1,2})[:.](\d{2})/);
+    if (timeMatch) {
+        timeStr = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
     }
     
-    if (btnAllImport) {
-        btnAllImport.addEventListener('click', importAllExcelExams);
+    const months = {
+        "ocak": "01", "şubat": "02", "subat": "02", "mart": "03", "nisan": "04", "mayıs": "05", "mayis": "05", "haziran": "06",
+        "temmuz": "07", "ağustos": "08", "agustos": "08", "eylül": "09", "eylul": "09", "ekim": "10", "kasım": "11", "kasim": "11", "aralık": "12", "aralik": "12"
+    };
+    
+    const regexTurkishDate = /(\d{1,2})\s+([a-zA-ZğüşıöçĞÜŞİÖÇ]+)\s+(\d{4})/;
+    const dateMatch = rawStr.match(regexTurkishDate);
+    
+    if (dateMatch) {
+        const d = dateMatch[1].padStart(2, '0');
+        const mStr = dateMatch[2].toLowerCase();
+        const y = dateMatch[3];
+        const m = months[mStr] || "01";
+        dateStr = `${y}-${m}-${d}`;
+    } else {
+        const stdMatch = rawStr.match(/(\d{1,4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,4})/);
+        if (stdMatch) {
+            let p1 = stdMatch[1], p2 = stdMatch[2], p3 = stdMatch[3];
+            if (p1.length === 4) {
+                dateStr = `${p1}-${p2.padStart(2,'0')}-${p3.padStart(2,'0')}`;
+            } else if (p3.length === 4) {
+                dateStr = `${p3}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
+            } else {
+                dateStr = `20${p3}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
+            }
+        }
     }
+    
+    return { date: dateStr || new Date().toISOString().split('T')[0], time: timeStr };
 }
 
 async function handleExcelExamsFile(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    const textObj = document.getElementById('excel-drop-text');
+    const subObj = document.getElementById('excel-drop-subtext');
+    const iconObj = document.getElementById('excel-drop-icon');
+    
+    if (textObj) textObj.innerHTML = "Yükleniyor ve Yapay Zeka Hesaplanıyor...";
+    if (subObj) subObj.innerHTML = "Lütfen bekleyin, bu işlem çok sayıda sınav varsa birkaç saniye sürebilir.";
+    if (iconObj) iconObj.innerHTML = "⏳";
+
     const reader = new FileReader();
     reader.onload = function(evt) {
-        try {
-            const data = evt.target.result;
-            const workbook = XLSX.read(data, { type: 'binary' });
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(sheet);
+        setTimeout(() => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                
+                const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                
+                let headerRowIndex = -1;
+                let headers = [];
+                for(let i=0; i<rawRows.length; i++) {
+                    const r = rawRows[i];
+                    if (!r) continue;
+                    const rowStr = r.join(' ').toLowerCase();
+                    if (rowStr.includes('dersin adı') || rowStr.includes('sınav adı') || rowStr.includes('ders') || rowStr.includes('kodu')) {
+                        headerRowIndex = i;
+                        headers = r.map(h => h ? String(h).trim().toLowerCase() : '');
+                        break;
+                    }
+                }
 
-            if (rows.length === 0) {
-                showToast('Excel dosyası boş görünüyor!', 'error');
-                return;
+                if (headerRowIndex === -1) {
+                    showToast('Excel dosyasında geçerli bir başlık satırı ("Dersin Adı", "Sınav Adı" vb.) bulunamadı!', 'error');
+                    if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
+                    if (iconObj) iconObj.innerHTML = "📥";
+                    return;
+                }
+
+                const mappedRows = [];
+                for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
+                    const r = rawRows[i];
+                    if (!r || r.length === 0 || !r.some(v => v !== "" && v !== undefined)) continue;
+                    
+                    const obj = {};
+                    headers.forEach((h, idx) => {
+                        if (h) obj[h] = r[idx];
+                    });
+                    mappedRows.push(obj);
+                }
+
+                if (mappedRows.length === 0) {
+                    showToast('Excel dosyası veri içermiyor!', 'error');
+                    if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
+                    if (iconObj) iconObj.innerHTML = "📥";
+                    return;
+                }
+
+                processExcelRows(mappedRows);
+            } catch (err) {
+                console.error(err);
+                showToast('Excel okuma hatası! Lütfen geçerli bir dosya yükleyin.', 'error');
+                if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
+                if (iconObj) iconObj.innerHTML = "❌";
             }
-
-            processExcelRows(rows);
-        } catch (err) {
-            console.error(err);
-            showToast('Excel okuma hatası!', 'error');
-        }
+            
+            const uploadModal = document.getElementById('modal-excel-upload');
+            if (uploadModal) uploadModal.classList.add('hidden');
+        }, 150);
     };
-    reader.readAsBinaryString(file);
-    // Reset input
+    reader.readAsArrayBuffer(file);
     e.target.value = '';
 }
 
 function processExcelRows(rows) {
     draftExams = [];
-    rows.forEach((row, index) => {
-        // Sütun isimlerini esnek hale getirelim (farklı diller/isimler için)
-        const type = row["Tür"] || row["Type"] || "Vize";
-        const name = row["Sınav Adı"] || row["Ders"] || row["Exam Name"] || "Bilinmeyen Sınav";
-        const lecturer = row["Öğretim Üyesi"] || row["Hoca"] || row["Lecturer"] || "";
-        const location = row["Derslik"] || row["Yer"] || row["Location"] || "";
-        const capacity = row["Kapasite"] || row["Mevcut"] || row["Capacity"] || 0;
-        const duration = parseInt(row["Süre"] || row["Süre (dk)"] || row["Duration"] || 60);
-        
-        let date = row["Tarih"] || row["Date"] || "";
-        let time = row["Saat"] || row["Time"] || "09:00";
+    
+    // Geçici durum (state) kopyaları
+    let tempStaff = JSON.parse(JSON.stringify(DB.staff));
+    let tempExams = JSON.parse(JSON.stringify(DB.exams));
 
-        // Excel tarih formatı bazen sayı gelebilir, kontrol et
-        if (typeof date === 'number') {
-            const excelDate = new Date((date - (25567 + 1)) * 86400 * 1000);
-            date = excelDate.toISOString().split('T')[0];
+    rows.forEach((row, index) => {
+        const getVal = (possibleNames) => {
+            for (let key of Object.keys(row)) {
+                if (row[key] === undefined || row[key] === null) continue;
+                const kLower = key.toLowerCase().trim();
+                for (let p of possibleNames) {
+                    if (kLower.includes(p.toLowerCase())) return row[key];
+                }
+            }
+            return null;
+        };
+
+        const type = getVal(["tür", "type"]) || "Vize";
+        
+        let name = getVal(["sınav adı", "dersin adı", "ders"]);
+        if (!name) name = getVal(["kodu", "kod"]) || "Bilinmeyen Sınav";
+        
+        const lecturer = getVal(["öğretim üyesi", "hoca", "lecturer", "öğr", "veren"]) || "";
+        const locationRaw = getVal(["derslik", "yer", "location", "sınıf mevcudu", "sınıf", "salon"]) || "";
+        
+        const location = String(locationRaw).replace(/\n/g, ' ').trim();
+        const capacityMatch = String(locationRaw).match(/\d+/);
+        const capacity = capacityMatch ? parseInt(capacityMatch[0]) : 0;
+        
+        const duration = parseInt(getVal(["süre", "duration"]) || 60);
+        
+        const dateTimeRaw = getVal(["sınav tarihi", "tarih ve saat", "tarih", "date"]);
+        const parsedDT = parseTurkishDateTime(dateTimeRaw);
+        
+        const date = parsedDT.date;
+        const time = parsedDT.time;
+
+        // Hesaplama: Her 50 kişiye 1 gözetmen (veya min 1)
+        let requiredProctors = 1;
+        if (capacity > 50) requiredProctors = Math.ceil(capacity / 50);
+        
+        let assignedProctors = [];
+        
+        // Atama Simülasyon Döngüsü
+        for (let i = 0; i < requiredProctors; i++) {
+            let available = tempStaff.filter(s => {
+                if (!isAvailable(s.name, date, time, duration)) return false;
+                
+                // TempExams Conflict Check
+                const start = new Date(`${date}T${time}`);
+                const end = new Date(start.getTime() + (duration + 15) * 60000); // 15dk tolerans
+                
+                const hasConflict = tempExams.some(ex => {
+                    const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                    if (!pIds.includes(s.id)) return false;
+                    if (ex.date !== date) return false;
+                    
+                    const exStart = new Date(`${ex.date}T${ex.time}`);
+                    const exEnd = new Date(exStart.getTime() + (ex.duration + 15) * 60000);
+                    return (start < exEnd && end > exStart);
+                });
+                
+                if (hasConflict) return false;
+                
+                // Aynı sınava birden kez atanmasını engelle
+                if (assignedProctors.find(p => p.id === s.id)) return false;
+                
+                return (s.taskCount || 0) < GLOBAL_LIMITS.MAX_TASKS;
+            });
+            
+            if (available.length === 0) {
+                available = tempStaff.filter(s => {
+                    if (!isAvailable(s.name, date, time, duration)) return false;
+                    const start = new Date(`${date}T${time}`);
+                    const end = new Date(start.getTime() + (duration + 15) * 60000);
+                    const hasConflict = tempExams.some(ex => {
+                        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                        if (!pIds.includes(s.id)) return false;
+                        if (ex.date !== date) return false;
+                        const exStart = new Date(`${ex.date}T${ex.time}`);
+                        const exEnd = new Date(exStart.getTime() + (ex.duration + 15) * 60000);
+                        return (start < exEnd && end > exStart);
+                    });
+                    if (hasConflict) return false;
+                    if (assignedProctors.find(p => p.id === s.id)) return false;
+                    return true;
+                });
+            }
+            
+            if (available.length > 0) {
+                available.sort((a, b) => {
+                    const aMin = (a.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
+                    const bMin = (b.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
+                    if (aMin !== bMin) return aMin ? 1 : -1;
+                    return (a.totalScore || 0) - (b.totalScore || 0);
+                });
+                
+                const chosen = available[0];
+                assignedProctors.push(chosen);
+                
+                // Simülasyon Puanını Arttır (Bir sonraki aramada aynısını önermemesi için)
+                let scoreToAdd = parseFloat((duration * 1.5).toFixed(2));
+                chosen.totalScore = parseFloat(((chosen.totalScore || 0) + scoreToAdd).toFixed(2));
+                chosen.taskCount = (chosen.taskCount || 0) + 1;
+            }
+        }
+        
+        let pIds = assignedProctors.map(p => p.id);
+        
+        let pNamesDisplay;
+        if (assignedProctors.length === 0) {
+             pNamesDisplay = "🤖 Atanmadı";
+        } else if (assignedProctors.length === 1) {
+             pNamesDisplay = assignedProctors[0].name;
+        } else {
+             pNamesDisplay = assignedProctors.map(p => `<span class="badge" style="background:rgba(99,102,241,0.2); margin-top:2px; display:inline-block;">${p.name}</span>`).join(' ');
         }
 
-        // Akıllı Atama: En uygun gözetmeni bul
-        const best = findBestProctor(date, time, duration);
-        
-        draftExams.push({
+        const newEx = {
             id: Date.now() + index,
             type,
             name,
@@ -6492,9 +6999,13 @@ function processExcelRows(rows) {
             date,
             time,
             duration,
-            proctorId: best ? best.id : 0,
-            proctorName: best ? best.name : "🤖 Atanmadı"
-        });
+            proctorIds: pIds,
+            proctorId: pIds[0] || 0,
+            proctorName: pNamesDisplay
+        };
+        
+        draftExams.push(newEx);
+        tempExams.push(newEx);
     });
 
     renderExcelPreview();
@@ -6562,3 +7073,366 @@ async function importAllExcelExams() {
 
 
 
+
+
+// --- BULK ACTIONS & AI AUTO RESOLVE LOGIC ---
+function initBulkActions() {
+    // 1. Check all listener
+    const checkAllSchedule = document.getElementById('check-all-schedule');
+    if (checkAllSchedule) {
+        checkAllSchedule.addEventListener('change', (e) => {
+            const checks = document.querySelectorAll('.bulk-check');
+            checks.forEach(chk => chk.checked = e.target.checked);
+            updateBulkActionBar();
+        });
+    }
+
+    // 2. Individual checkboxes change listener using Event Delegation since rows are dynamic
+    const scheduleTbody = document.querySelector('#table-schedule tbody');
+    if (scheduleTbody) {
+        scheduleTbody.addEventListener('change', (e) => {
+            if (e.target.classList.contains('bulk-check')) {
+                updateBulkActionBar();
+            }
+        });
+    }
+
+    // 3. Bulk Delete Button
+    const btnBulkDelete = document.getElementById('btn-bulk-delete');
+    if (btnBulkDelete) {
+        btnBulkDelete.addEventListener('click', () => {
+            const selectedKeys = getSelectedGroupKeys();
+            if (selectedKeys.length === 0) return;
+            
+            if (confirm(`Seçilen ${selectedKeys.length} sınavı silmek istediğinize emin misiniz?`)) {
+                let initialCount = DB.exams.length;
+                DB.exams = DB.exams.filter(ex => {
+                    const key = btoa(encodeURIComponent(`${ex.type}|${ex.name}|${ex.date}|${ex.time}|${ex.location}`));
+                    return !selectedKeys.includes(key);
+                });
+                const deleted = initialCount - DB.exams.length;
+                saveToLocalStorage();
+                renderAll();
+                showToast(`${deleted} kayıt başarıyla silindi!`, 'success');
+            }
+        });
+    }
+
+    // 4. Bulk AI Assign Button (Auto Resolve)
+    const btnBulkAiAssign = document.getElementById('btn-bulk-ai-assign');
+    if (btnBulkAiAssign) {
+        btnBulkAiAssign.addEventListener('click', () => {
+            const selectedKeys = getSelectedGroupKeys();
+            if (selectedKeys.length === 0) return;
+            
+            if (confirm(`Seçilen ${selectedKeys.length} sınava yapay zeka ile baştan gözetmen atanacak. Daha önceki gözetmenler görevden alınacaktır! Emin misiniz?`)) {
+                selectedKeys.forEach(b64Key => {
+                    processAutoResolve(b64Key, false);
+                });
+                
+                saveToLocalStorage();
+                renderAll();
+                showToast(`✨ ${selectedKeys.length} grup için yapay zeka atamaları başarıyla gerçekleşti!`, 'success');
+            }
+        });
+    }
+}
+
+function updateBulkActionBar() {
+    const checks = document.querySelectorAll('.bulk-check:checked');
+    const count = checks.length;
+    const bar = document.getElementById('bulk-action-bar');
+    const countSpan = document.getElementById('bulk-selected-count');
+    
+    if (count > 0) {
+        countSpan.textContent = count;
+        bar.classList.remove('hidden');
+    } else {
+        bar.classList.add('hidden');
+        if(document.getElementById('check-all-schedule')) {
+            document.getElementById('check-all-schedule').checked = false;
+        }
+    }
+}
+
+function getSelectedGroupKeys() {
+    const checks = document.querySelectorAll('.bulk-check:checked');
+    return Array.from(checks).map(c => c.value);
+}
+
+// 5. Individual Auto-Resolve AI Conflict Function (Called explicitly from the button)
+window.autoResolveGroupConflict = function(b64Key) {
+    if (confirm("Yapay Zeka bu çakışmayı düzeltmek için mevcut kişiyi çıkarıp, o an en uygun kişiyi bulacaktır. Onaylıyor musunuz?")) {
+        processAutoResolve(b64Key, true);
+        saveToLocalStorage();
+        renderAll();
+        showToast("✨ Çakışma başarıyla çözüldü ve uygun personel atandı!", "success");
+    }
+}
+
+function processAutoResolve(b64Key, saveLocally = false) {
+    const key = decodeURIComponent(atob(b64Key));
+    const [type, name, date, time, location] = key.split('|');
+    
+    const matchingExams = DB.exams.filter(e => e.type === type && e.name === name && e.date === date && e.time === time && e.location === location);
+    if(matchingExams.length === 0) return;
+    
+    const duration = matchingExams[0].duration;
+    const capacity = matchingExams[0].capacity;
+    const lecturer = matchingExams[0].lecturer;
+    
+    // Gözetmenlerin görev sayısını rollback yap
+    matchingExams.forEach(ex => {
+        const pIds = ex.proctorIds || [ex.proctorId];
+        pIds.forEach(pid => {
+            let st = DB.staff.find(s => s.id === pid);
+            if(st) {
+                 const score = calculateScore(new Date(`${ex.date}T${ex.time}`), duration, ex.id);
+                 st.taskCount = Math.max(0, (st.taskCount || 0) - 1);
+                 st.totalScore = parseFloat(Math.max(0, st.totalScore - score).toFixed(2));
+            }
+        });
+    });
+
+    // DB'den asil sınavları komple çıkar
+    DB.exams = DB.exams.filter(e => !matchingExams.includes(e));
+    
+    // AI algoritmasından tek tek alıp yerleştir!
+    const requiredProctors = matchingExams.length; 
+    let assignedCount = 0;
+    
+    for(let i=0; i<requiredProctors; i++) {
+        // En iyisini bul
+        const best = findBestProctor(date, time, duration);
+        if(best && best.id) {
+            // Skoru hemen commitle ki bi sonrakinde tekrar önermesin
+            let st = DB.staff.find(s => s.id === best.id);
+            if(st) {
+                 const score = calculateScore(new Date(`${date}T${time}`), duration);
+                 st.taskCount = (st.taskCount || 0) + 1;
+                 st.totalScore = parseFloat((st.totalScore + score).toFixed(2));
+            }
+            
+            DB.exams.push({
+                 id: Date.now() + Math.random(),
+                 type, name, date, time, location, duration, capacity, lecturer,
+                 proctorId: best.id,
+                 proctorIds: [best.id] // backwards compatibility
+            });
+            assignedCount++;
+        }
+    }
+}
+
+initBulkActions();
+
+/**
+ * =============================================================
+ * DÖNEMLİK TASLAK ÜRETİCİ
+ * Geçmiş dönem sınavlarından desen çıkarır, yeni dönem başlangıç
+ * tarihine göre tüm programı taslak olarak üretir.
+ * =============================================================
+ */
+window.showDonemlikTaslakModal = function() {
+    const existing = document.getElementById('modal-donemlik-taslak');
+    if (existing) { existing.classList.remove('hidden'); return; }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-donemlik-taslak';
+    overlay.className = 'modal';
+    overlay.style.cssText = 'z-index:9000;';
+
+    // Mevcut sınavlardan benzersiz ders adlarını çek
+    const courseSet = [...new Set(DB.exams.map(e => e.name).filter(Boolean))].sort();
+
+    overlay.innerHTML = `
+    <div class="modal-content card-large" style="max-width:640px; border:1px solid #10b981;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:2rem; filter:drop-shadow(0 0 10px #10b981);">📅</span>
+                <div>
+                    <h2 style="margin:0; color:#10b981; font-size:1.1rem;">Dönemlik Taslak Üreticisi</h2>
+                    <p style="margin:0; color:var(--text-muted); font-size:0.8rem;">Geçmiş dönem deseni → Yeni dönem taslak programı</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('modal-donemlik-taslak').classList.add('hidden')"
+                style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <!-- ADIM 1: Kaynak Seçimi -->
+        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
+            <div style="font-weight:700; color:#34d399; margin-bottom:12px; font-size:0.9rem;">📊 Adım 1: Şablon Kaynağı</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Yeni Dönem Başlangıç Tarihi</label>
+                    <input type="date" id="tpl-start-date" style="width:100%; margin-top:4px;
+                        background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem;
+                        border-radius:8px; color:white;">
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Dönem Süresi (hafta)</label>
+                    <input type="number" id="tpl-week-count" value="8" min="1" max="20"
+                        style="width:100%; margin-top:4px; background:rgba(0,0,0,0.3);
+                        border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white;">
+                </div>
+            </div>
+        </div>
+
+        <!-- ADIM 2: Ders Seçimi -->
+        <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
+            <div style="font-weight:700; color:#a78bfa; margin-bottom:12px; font-size:0.9rem;">📚 Adım 2: Sınava Girecek Dersler</div>
+            <div id="tpl-course-list" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+                ${courseSet.slice(0,30).map(c => `
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px;
+                    background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                    <input type="checkbox" class="tpl-course-check" value="${c.replace(/"/g,'')}" checked
+                        style="accent-color:#6366f1; width:16px; height:16px;">
+                    <span style="font-size:0.85rem;">${c}</span>
+                </label>`).join('')}
+                ${courseSet.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem;">Sistemde önceki dönem sınavı bulunamadı. Manuel ders ekleyebilirsiniz.</p>' : ''}
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px;">
+                <input type="text" id="tpl-new-course" placeholder="Yeni ders ekle..."
+                    style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.5rem 0.75rem; border-radius:8px; color:white; font-size:0.85rem;">
+                <button onclick="window.tplAddCourse()" class="btn-primary" style="padding:0.5rem 0.9rem; font-size:0.85rem;">+ Ekle</button>
+            </div>
+        </div>
+
+        <!-- ADIM 3: Varsayılan Ayarlar -->
+        <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:12px; padding:1.25rem; margin-bottom:1.5rem;">
+            <div style="font-weight:700; color:#fcd34d; margin-bottom:12px; font-size:0.9rem;">⚙️ Adım 3: Varsayılan Değerler</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Varsayılan Saat</label>
+                    <input type="time" id="tpl-default-time" value="09:00"
+                        style="width:100%; margin-top:4px; background:rgba(0,0,0,0.3);
+                        border:1px solid var(--glass-border); padding:0.5rem; border-radius:8px; color:white;">
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Süre (dk)</label>
+                    <input type="number" id="tpl-default-duration" value="90" min="30" max="300"
+                        style="width:100%; margin-top:4px; background:rgba(0,0,0,0.3);
+                        border:1px solid var(--glass-border); padding:0.5rem; border-radius:8px; color:white;">
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Sınav Türü</label>
+                    <select id="tpl-default-type"
+                        style="width:100%; margin-top:4px; background:rgba(0,0,0,0.3);
+                        border:1px solid var(--glass-border); padding:0.5rem; border-radius:8px; color:white;">
+                        ${(DB.examTypes || ['Vize','Final']).map(t => `<option>${t}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sonuç özeti -->
+        <div id="tpl-preview-info" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem; text-align:center;"></div>
+
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('modal-donemlik-taslak').classList.add('hidden')"
+                style="flex:1; padding:0.9rem; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border);
+                border-radius:10px; color:var(--text-muted); cursor:pointer;">Vazgeç</button>
+            <button id="btn-tpl-generate" onclick="window.generateDonemlikTaslak()"
+                style="flex:2; padding:0.9rem; background:linear-gradient(135deg,#10b981,#059669);
+                border:none; border-radius:10px; color:white; font-weight:700; cursor:pointer;
+                font-size:0.95rem; box-shadow:0 0 20px rgba(16,185,129,0.3);">
+                ✨ Taslak Programı Oluştur
+            </button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+};
+
+window.tplAddCourse = function() {
+    const inp = document.getElementById('tpl-new-course');
+    const name = inp.value.trim();
+    if (!name) return;
+    const list = document.getElementById('tpl-course-list');
+    const p = document.createElement('label');
+    p.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:8px;border:1px solid rgba(255,255,255,0.05);';
+    p.innerHTML = `<input type="checkbox" class="tpl-course-check" value="${name.replace(/"/g,'')}" checked
+        style="accent-color:#6366f1;width:16px;height:16px;"> <span style="font-size:0.85rem;">${name}</span>`;
+    list.appendChild(p);
+    inp.value = '';
+};
+
+window.generateDonemlikTaslak = function() {
+    const startDateVal = document.getElementById('tpl-start-date').value;
+    const weekCount    = parseInt(document.getElementById('tpl-week-count').value) || 8;
+    const defaultTime  = document.getElementById('tpl-default-time').value || '09:00';
+    const defaultDur   = parseInt(document.getElementById('tpl-default-duration').value) || 90;
+    const defaultType  = document.getElementById('tpl-default-type').value || 'Vize';
+
+    if (!startDateVal) { alert('Lütfen dönem başlangıç tarihini seçin!'); return; }
+
+    const selectedCourses = [...document.querySelectorAll('.tpl-course-check:checked')].map(c => c.value);
+    if (selectedCourses.length === 0) { alert('En az bir ders seçin!'); return; }
+
+    const startDate = new Date(startDateVal);
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    // Her ders için geçmiş döneme bakarak gün+saat deseni bul, yoksa haftalık dağıt
+    selectedCourses.forEach((courseName, courseIdx) => {
+        const pastExams = DB.exams.filter(e => e.name === courseName).sort((a,b) => a.date.localeCompare(b.date));
+
+        // Geçmiş deseni: gün haftası (0=Pazar .. 6=Cumartesi) ve saat
+        let prefDay  = (courseIdx % 5) + 1; // Pazartesi-Cuma arası dağıt
+        let prefTime = defaultTime;
+        let prefDur  = defaultDur;
+        let prefLoc  = '';
+        let prefLect = '';
+
+        if (pastExams.length > 0) {
+            const last = pastExams[pastExams.length - 1];
+            const lastDate = new Date(last.date);
+            prefDay  = lastDate.getDay() || 1;
+            prefTime = last.time || defaultTime;
+            prefDur  = last.duration || defaultDur;
+            prefLoc  = last.location || '';
+            prefLect = last.lecturer || '';
+        }
+
+        // Her hafta bu günü bul
+        for (let w = 0; w < weekCount; w++) {
+            const candidateDate = new Date(startDate);
+            candidateDate.setDate(startDate.getDate() + w * 7);
+
+            // O haftada seçilen gün kaçar ileri?
+            let diff = prefDay - candidateDate.getDay();
+            if (diff < 0) diff += 7;
+            candidateDate.setDate(candidateDate.getDate() + diff);
+
+            const dateStr = candidateDate.toISOString().split('T')[0];
+            const isDuplicate = DB.exams.some(e => e.name === courseName && e.date === dateStr && e.time === prefTime);
+            if (isDuplicate) { skippedCount++; continue; }
+
+            const score = calculateScore(new Date(`${dateStr}T${prefTime}`), prefDur);
+            DB.exams.push({
+                id: Date.now() + Math.random(),
+                name: courseName,
+                date: dateStr,
+                time: prefTime,
+                duration: prefDur,
+                type: defaultType,
+                location: prefLoc,
+                lecturer: prefLect,
+                score, katsayi: getKatsayi(new Date(`${dateStr}T${prefTime}`), prefDur),
+                proctorIds: [], proctorId: null, proctorName: '',
+                isDraft: true,   // Her zaman taslak
+                createdAt: new Date().toISOString()
+            });
+            addedCount++;
+        }
+    });
+
+    saveToLocalStorage();
+    if (typeof saveToBackend === 'function') saveToBackend();
+    document.getElementById('modal-donemlik-taslak').classList.add('hidden');
+    renderExams(); renderSchedule(); renderDashboard();
+
+    if (typeof showToast === 'function') {
+        showToast(`✅ ${addedCount} taslak sınav oluşturuldu!${skippedCount > 0 ? ` (${skippedCount} mükerrer atlandı)` : ''} Taslak Modu'nu açıp inceleyebilirsiniz.`);
+    }
+};
