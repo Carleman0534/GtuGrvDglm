@@ -1078,7 +1078,7 @@ function initUI() {
                     const isDuplicate = DB.exams.some(ex => ex.name === name && ex.date === date && ex.time === time);
                     if (!isDuplicate) {
                         const score = calculateScore(new Date(`${date}T${time}`), duration);
-                        const katsayi = getKatsayi(new Date(`${date}T${time}`));
+                        const katsayi = getKatsayi(new Date(`${date}T${time}`), duration);
                         
                         const newExam = {
                             id: Date.now() + Math.floor(Math.random() * 10000),
@@ -1695,7 +1695,7 @@ function renderExams() {
             <td>${displayDate}</td>
             <td>${ex.time}</td>
             <td>${ex.duration}</td>
-            <td>x${ex.katsayi.toFixed(1)}</td>
+            <td>x${parseFloat(ex.katsayi).toFixed(2)}</td>
             <td>${ex.score.toFixed(1)}</td>
             <td>${pNames}</td>
             <td style="display: flex; gap: 8px; justify-content: flex-end;">

@@ -64,21 +64,50 @@ let staff = [
     { id: 14, name: "Cansu Şahin", currentScore: 1200, count: 0 }
 ];
 
-function getKatsayi(dateStr, timeStr) {
+function getKatsayi(dateStr, timeStr, duration = 0) {
     const date = new Date(`${dateStr}T${timeStr}`);
     const day = date.getDay();
-    const hour = date.getHours();
-    const minutes = date.getMinutes();
-    const currentTime = hour + minutes / 60;
     const isWeekend = (day === 0 || day === 6);
-    if (isWeekend) {
-        return (currentTime >= 8.5 && currentTime < 17.5) ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_SONU_AKSAM;
-    } else {
-        return (currentTime >= 8.5 && currentTime < 17.5) ? KATSAYILAR.HAFTA_ICI_MESAI : KATSAYILAR.HAFTA_ICI_AKSAM;
+    
+    // Multipliers
+    const ktsDay = isWeekend ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_ICI_MESAI;
+    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM;
+    
+    if (duration <= 0) {
+        const hour = date.getHours();
+        const minutes = date.getMinutes();
+        const currentTime = hour + minutes / 60;
+        return (currentTime >= 8.5 && currentTime < 17.0) ? ktsDay : ktsNight;
     }
+
+    const score = calculateScore(dateStr, timeStr, duration);
+    return parseFloat((score / duration).toFixed(3));
 }
+
 function calculateScore(dateStr, timeStr, duration) {
-    return duration * getKatsayi(dateStr, timeStr);
+    const date = new Date(`${dateStr}T${timeStr}`);
+    const day = date.getDay();
+    const isWeekend = (day === 0 || day === 6);
+    
+    const ktsDay = isWeekend ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_ICI_MESAI;
+    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM;
+
+    const m830 = 8.5 * 60;
+    const m1700 = 17.0 * 60;
+    
+    const startMins = date.getHours() * 60 + date.getMinutes();
+    const endMins = startMins + duration;
+    
+    function getOverlap(s, e, pStart, pEnd) {
+        return Math.max(0, Math.min(e, pEnd) - Math.max(s, pStart));
+    }
+    
+    let totalScore = 0;
+    totalScore += getOverlap(startMins, endMins, 0, m830) * ktsNight;
+    totalScore += getOverlap(startMins, endMins, m830, m1700) * ktsDay;
+    totalScore += getOverlap(startMins, endMins, m1700, 1440) * ktsNight;
+    
+    return parseFloat(totalScore.toFixed(2));
 }
 function timeToMins(timeStr) {
     const parts = timeStr.split(':');

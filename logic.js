@@ -12,6 +12,11 @@ const KATSAYILAR = {
     HAFTA_SONU_AKSAM: 2.5
 };
 
+const BONUSLAR = {
+    ERKEN_KUS: 0.2,        // 09:00 öncesi dakika başına ek
+    DINAMIK_IHTIYAC: 0.5   // Marketplace'te 48 saatten az kalan görevler
+};
+
 const GLOBAL_LIMITS = {
     MIN_TASKS: 3,
     MAX_TASKS: 7
@@ -163,23 +168,88 @@ function logAction(category, action, details = "") {
     // Local storage'a kaydet (saveToLocalStorage içinden zaten çağrılıyor olabilir ama garantiye alalım)
     localStorage.setItem(DB_KEY, JSON.stringify(DB));
 }
-function getKatsayi(date) {
+function getKatsayi(date, duration = 0, examId = null) {
     const day = date.getDay();
-    const hour = date.getHours();
-    const minutes = date.getMinutes();
-    const currentTime = hour + minutes / 60;
-
     const isWeekend = (day === 0 || day === 6);
     
-    if (isWeekend) {
-        return (currentTime >= 8.5 && currentTime < 17.5) ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_SONU_AKSAM;
-    } else {
-        return (currentTime >= 8.5 && currentTime < 17.5) ? KATSAYILAR.HAFTA_ICI_MESAI : KATSAYILAR.HAFTA_ICI_AKSAM;
+    // Multipliers
+    const ktsDay = isWeekend ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_ICI_MESAI;
+    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM;
+    
+    if (duration <= 0) {
+        const hour = date.getHours();
+        const minutes = date.getMinutes();
+        const currentTime = hour + minutes / 60;
+        return (currentTime >= 8.5 && currentTime < 17.0) ? ktsDay : ktsNight;
     }
+
+    // Weighted average multiplier
+    const score = calculateScore(date, duration, examId);
+    return parseFloat((score / duration).toFixed(3));
 }
 
-function calculateScore(date, duration) {
-    return duration * getKatsayi(date);
+function calculateScore(date, duration, examId = null) {
+    const day = date.getDay();
+    const isWeekend = (day === 0 || day === 6);
+    
+    const ktsDay = isWeekend ? KATSAYILAR.HAFTA_SONU_GUNDUZ : KATSAYILAR.HAFTA_ICI_MESAI;
+    const ktsNight = isWeekend ? KATSAYILAR.HAFTA_SONU_AKSAM : KATSAYILAR.HAFTA_ICI_AKSAM; 
+
+    // Dinamik Katsayı Kontrolü (Marketplace + <48h)
+    let dynamicBonus = 0;
+    if (examId && DB.requests) {
+        const hasOpenRequest = DB.requests.some(r => String(r.examId) === String(examId) && r.status === 'open');
+        if (hasOpenRequest) {
+            const timeToExam = date.getTime() - new Date().getTime();
+            if (timeToExam > 0 && timeToExam < (48 * 60 * 60 * 1000)) {
+                dynamicBonus = BONUSLAR.DINAMIK_IHTIYAC;
+            }
+        }
+    }
+
+    // Boundaries in minutes from midnight
+    const m830 = 8.5 * 60; 
+    const m1000 = 10.0 * 60; // Erken Kuş Bitiş (Kullanıcı isteğiyle 10:00'a çekildi)
+    const m1700 = 17.0 * 60; 
+    
+    const startMins = date.getHours() * 60 + date.getMinutes();
+    const endMins = startMins + duration;
+    
+    function getOverlap(s, e, pStart, pEnd) {
+        return Math.max(0, Math.min(e, pEnd) - Math.max(s, pStart));
+    }
+    
+    let totalScore = 0;
+    
+    // Period 1: 00:00 - 08:30 (Gece + Erken Kuş + Dinamik)
+    totalScore += getOverlap(startMins, endMins, 0, m830) * (ktsNight + BONUSLAR.ERKEN_KUS + dynamicBonus);
+    
+    // Period 2: 08:30 - 10:00 (Gündüz + Erken Kuş + Dinamik)
+    totalScore += getOverlap(startMins, endMins, m830, m1000) * (ktsDay + BONUSLAR.ERKEN_KUS + dynamicBonus);
+    
+    // Period 3: 10:00 - 17:00 (Gündüz + Dinamik)
+    totalScore += getOverlap(startMins, endMins, m1000, m1700) * (ktsDay + dynamicBonus);
+    
+    // Period 4: 17:00 - 24:00 (Kademeli Akşam)
+    // Her saat başı katsayı 0.15 artar (17-18: 1.5, 18-19: 1.65, vb.)
+    let eveningScore = 0;
+    const evStart = Math.max(startMins, m1700);
+    const evEnd = Math.min(endMins, 1440);
+    
+    if (evEnd > evStart) {
+        for (let h = 17; h < 24; h++) {
+            const hStart = h * 60;
+            const hEnd = (h + 1) * 60;
+            const overlap = getOverlap(evStart, evEnd, hStart, hEnd);
+            if (overlap > 0) {
+                const progressiveBonus = (h - 17) * 0.15;
+                eveningScore += overlap * (ktsNight + progressiveBonus + dynamicBonus);
+            }
+        }
+    }
+    totalScore += eveningScore;
+    
+    return parseFloat(totalScore.toFixed(2));
 }
 
 function timeToMins(timeStr) {
@@ -466,12 +536,12 @@ function runGlobalOptimization() {
         const chosen = candidates[0];
 
         if (chosen.penalty < 10000) {
-            const score = calculateScore(new Date(`${date}T${time}`), duration);
+            const score = calculateScore(new Date(`${date}T${time}`), duration, ex.id);
             ex.proctorIds = [chosen.staff.id];
             ex.proctorId = chosen.staff.id;
             ex.proctorName = chosen.staff.name;
             ex.score = score;
-            ex.katsayi = getKatsayi(new Date(`${date}T${time}`));
+            ex.katsayi = getKatsayi(new Date(`${date}T${time}`), duration, ex.id);
             
             chosen.staff.totalScore = parseFloat((chosen.staff.totalScore + score).toFixed(2));
             chosen.staff.taskCount += 1;
@@ -563,7 +633,7 @@ function addExam(examData) {
         proctorId: proctors[0].id,
         proctorName: proctors.map(p => p.name).join(', '),
         score: score,
-        katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`))
+        katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`), examData.duration, newExam.id || Date.now())
     };
 
     DB.exams.push(newExam);
@@ -609,15 +679,9 @@ function updateExam(id, newData, skipSave = false) {
     
     // Geçerli katsayı hesaplamak için date parse, eğer parse olmazsa eski katsayıyı kullan (NaN olmaması için)
     const testDate = new Date(`${finalDate}T${finalTime}`);
-    let kts = parseFloat(oldExam.katsayi || 1); 
-    if (!isNaN(testDate.getTime())) {
-        const calculatedKts = getKatsayi(testDate);
-        if (calculatedKts !== undefined && calculatedKts !== null) {
-            kts = calculatedKts;
-        }
-    }
     const safeDuration = parseFloat(finalDuration) || 60;
-    const newScore = parseFloat((safeDuration * kts).toFixed(2));
+    const newScore = calculateScore(testDate, safeDuration, id);
+    const kts = getKatsayi(testDate, safeDuration, id);
 
     let newPIds;
     if (Array.isArray(newData.proctorIds)) {
@@ -868,9 +932,35 @@ async function loadFromDataJSON() {
 
             DB = data;
             if (!DB.requests) DB.requests = []; // Eksikse başlat
+            
+            // YENİ: Veri yüklendiğinde tüm sınav puanlarını yeni mantığa göre güncelle
+            // 'Taban puanları' (base scores) korumak için fark (diff) mantığı kullanıyoruz
+            DB.exams.forEach(ex => {
+                const oldScore = parseFloat(ex.score) || 0;
+                const date = new Date(`${ex.date}T${ex.time}`);
+                if (!isNaN(date.getTime())) {
+                    const newScore = calculateScore(date, ex.duration || 60, ex.id);
+                    const diff = newScore - oldScore;
+                    
+                    ex.score = newScore;
+                    ex.katsayi = getKatsayi(date, ex.duration || 60, ex.id);
+                    
+                    // Sadece katsayı değişiminden kaynaklı farkı personelin toplam puanına yansıt
+                    if (diff !== 0) {
+                        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                        pIds.forEach(pid => {
+                            const s = DB.staff.find(staff => String(staff.id) === String(pid));
+                            if (s) {
+                                s.totalScore = parseFloat((parseFloat(s.totalScore || 0) + diff).toFixed(2));
+                            }
+                        });
+                    }
+                }
+            });
+
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
-            console.log("Veriler başarıyla yüklendi.");
+            console.log("Veriler başarıyla yüklendi ve puanlar yeniden hesaplandı.");
         } else {
             console.error("Sunucudan gelen veri geçersiz formatta!", data);
             throw new Error("Geçersiz veri formatı");

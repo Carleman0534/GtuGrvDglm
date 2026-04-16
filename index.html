@@ -785,23 +785,45 @@
                         </h3>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
                             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta içi Gündüz</div>
-                                <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-green);">1.0x</div>
+                                 <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta içi Gündüz</div>
+                                 <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-green);">1.0x</div>
                             </div>
                             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta içi Akşam</div>
-                                <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">1.5x</div>
+                                 <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta içi Akşam</div>
+                                 <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">1.5x</div>
                             </div>
                             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta sonu Gündüz</div>
-                                <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-orange);">2.0x</div>
+                                 <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta sonu Gündüz</div>
+                                 <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-orange);">2.0x</div>
                             </div>
                             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta sonu Akşam</div>
-                                <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-red);">2.5x</div>
+                                 <div style="font-size: 0.8rem; color: var(--text-muted);">Hafta sonu Akşam</div>
+                                 <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-red);">2.5x</div>
                             </div>
                         </div>
-                        <p style="margin-top: 1.5rem; font-style: italic; font-size: 0.8rem; color: var(--text-muted);">* Puan = Sınav Süresi × Katsayı formülüyle hesaplanır.</p>
+
+                        <!-- Ek Bonuslar Bilgilendirme -->
+                        <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <h4 style="font-size: 0.85rem; margin-bottom: 0.75rem; color: #a5b4fc; display: flex; align-items: center; gap: 6px;">
+                                <span>🚀</span> Ek Bonuslar (Çarpanlar)
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; background: rgba(96,165,250,0.05); padding: 8px 12px; border-radius: 8px;">
+                                    <span style="color: var(--text-muted);">🐦 Erken Kuş (10:00 Öncesi)</span>
+                                    <span style="color: #60a5fa; font-weight: 700;">+0.2x</span>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; background: rgba(139,92,246,0.05); padding: 8px 12px; border-radius: 8px;">
+                                    <span style="color: var(--text-muted);">🌙 Kademeli Akşam (17:00'den sonra)</span>
+                                    <span style="color: #a78bfa; font-weight: 700;">+0.15x/saat</span>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; background: rgba(251,146,60,0.05); padding: 8px 12px; border-radius: 8px;">
+                                    <span style="color: var(--text-muted);">🔥 Dinamik Aciliyet (&lt;48 Saat)</span>
+                                    <span style="color: #fb923c; font-weight: 700;">+0.5x</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p style="margin-top: 1.25rem; font-style: italic; font-size: 0.75rem; color: var(--text-muted);">* Toplam Puan = Sınav Süresi × (Katsayı + Bonuslar)</p>
                     </div>
                 </div>
 
