@@ -5,16 +5,35 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. SİHİRLİ KOMUT SATIRI (NLP) INIT
+    // 1. SİHİRLİ KOMUT SATIRI (NLP) INIT (Embedded in Add Modal)
     const magicContainer = document.getElementById('magic-command-container');
     const btnAddExam = document.getElementById('btn-add-exam');
     const magicInput = document.getElementById('magic-command-input');
     const btnMagicApply = document.getElementById('btn-magic-apply');
     const magicStatus = document.getElementById('magic-command-status');
 
+    // 1.1 GLOBAL SİHİRLİ YILDIZ INIT (FAB)
+    const fabMagic = document.getElementById('fab-magic-star');
+    const modalGlobalMagic = document.getElementById('modal-global-magic');
+    const globalMagicInput = document.getElementById('global-magic-input');
+    const btnGlobalMagicApply = document.getElementById('btn-global-magic-apply');
+    const globalMagicStatus = document.getElementById('global-magic-status');
+
     if(btnAddExam) {
         btnAddExam.addEventListener('click', () => {
             if(magicContainer) magicContainer.classList.remove('hidden');
+        });
+    }
+
+    // Global FAB açma
+    if(fabMagic && modalGlobalMagic) {
+        fabMagic.addEventListener('click', () => {
+            modalGlobalMagic.classList.remove('hidden');
+            if(globalMagicInput) {
+                globalMagicInput.value = '';
+                globalMagicStatus.innerHTML = '';
+                globalMagicInput.focus();
+            }
         });
     }
 
@@ -27,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Input Dinleyicileri — Yerel (Modal İçi)
     if(magicInput && btnMagicApply) {
         magicInput.addEventListener('input', (e) => {
             const parsed = parseMagicCommand(e.target.value);
@@ -36,28 +56,63 @@ document.addEventListener('DOMContentLoaded', () => {
         magicInput.addEventListener('keypress', (e) => {
             if(e.key === 'Enter') {
                 e.preventDefault();
-                applyMagicCommandToForm();
+                processMagicCommand(magicInput, magicStatus, 'modal');
             }
         });
 
         btnMagicApply.addEventListener('click', (e) => {
             e.preventDefault();
-            applyMagicCommandToForm();
+            processMagicCommand(magicInput, magicStatus, 'modal');
         });
     }
 
-    function applyMagicCommandToForm() {
-        const text = magicInput.value;
-        if(!text.trim()) return;
-        const parsed = parseMagicCommand(text);
+    // Input Dinleyicileri — Global FAB
+    if(globalMagicInput && btnGlobalMagicApply) {
+        globalMagicInput.addEventListener('input', (e) => {
+            const parsed = parseMagicCommand(e.target.value);
+            displayMagicStatus(parsed, globalMagicStatus);
+        });
 
+        globalMagicInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                processMagicCommand(globalMagicInput, globalMagicStatus, 'global');
+            }
+        });
+
+        btnGlobalMagicApply.addEventListener('click', (e) => {
+            e.preventDefault();
+            processMagicCommand(globalMagicInput, globalMagicStatus, 'global');
+        });
+    }
+
+    function processMagicCommand(inputElem, statusElem, source = 'modal') {
+        const text = inputElem.value.trim();
+        if(!text) return;
+        
+        const parsed = parseMagicCommand(text);
+        
+        // 🔍 ARAMA/FİLTRELEME NİYETİ KONTROLÜ
+        const queryKeywords = ['göster', 'listele', 'bul', 'ara', 'filtrele', 'neler', 'kim', 'ne zaman', 'sınavları', 'görevleri'];
+        const isQuery = queryKeywords.some(k => text.toLowerCase().includes(k)) || 
+                        (!parsed.course && !parsed.type && text.length > 3);
+
+        if (isQuery && !parsed.duration && !parsed.location) {
+             handleMagicSearch(parsed, text, source);
+             return;
+        }
+
+        applyMagicCommandToForm(parsed, statusElem, source);
+    }
+
+    function applyMagicCommandToForm(parsed, statusElem, source) {
         // Zorunlu alanlar kontrolü
         if(!parsed.course && !parsed.type) {
-            magicStatus.innerHTML = '<span style="color:#ef4444;">⚠️ Sınav adı veya türü anlaşılamadı.</span>';
+            statusElem.innerHTML = '<span style="color:#ef4444;">⚠️ Sınav adı veya türü anlaşılamadı.</span>';
             return;
         }
         if(!parsed.date || !parsed.time) {
-            magicStatus.innerHTML = '<span style="color:#ef4444;">⚠️ Tarih ve saat bilgisi gerekli (örn: Pazartesi 10:00).</span>';
+            statusElem.innerHTML = '<span style="color:#ef4444;">⚠️ Tarih ve saat bilgisi gerekli (örn: Pazartesi 10:00).</span>';
             return;
         }
 
@@ -69,7 +124,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const bestProctor = recommended.length > 0 ? recommended[0] : null;
 
         // Modalı kapat, onay kartı göster
-        document.getElementById('modal').classList.add('hidden');
+        if (source === 'modal') {
+            const modal = document.getElementById('modal');
+            if (modal) modal.classList.add('hidden');
+        } else {
+            const modalGlobalMagic = document.getElementById('modal-global-magic');
+            if (modalGlobalMagic) modalGlobalMagic.classList.add('hidden');
+        }
+
         showMagicConfirmCard({
             type:     parsed.type     || (DB.examTypes && DB.examTypes[0]) || 'Vize',
             name:     parsed.course   || 'Sınav',
@@ -80,6 +142,77 @@ document.addEventListener('DOMContentLoaded', () => {
             lecturer: '-',
             capacity: '-'
         }, bestProctor, recommended);
+    }
+
+    /**
+     * 🔍 NLP Filtreleme Mantığı
+     */
+    function handleMagicSearch(parsed, text, source = 'modal') {
+        const lowText = text.toLowerCase();
+        let targetSection = 'exams'; 
+        let searchTerm = "";
+
+        // 1. Sekme Kararı
+        if (lowText.includes('personel') || lowText.includes('hoca') || lowText.includes('gözetmen')) {
+            targetSection = 'staff';
+        } else if (lowText.includes('program') || lowText.includes('takvim') || lowText.includes('çizelge') || lowText.includes('aylık')) {
+            targetSection = 'schedule';
+        }
+
+        // 2. Tarih ve Ay Navigasyonu (Program Sekmesi İçin)
+        if (targetSection === 'schedule' && parsed.date) {
+            const dateObj = new Date(parsed.date);
+            if (!isNaN(dateObj.getTime())) {
+                // Global currentScheduleDate'i güncelle ve render et
+                if (typeof currentScheduleDate !== 'undefined') {
+                    window.currentScheduleDate = dateObj;
+                    if (typeof renderSchedule === 'function') renderSchedule();
+                }
+            }
+        }
+
+        // 3. Arama Terimi Belirleme
+        if (parsed.course) searchTerm = parsed.course;
+        else if (parsed.type) searchTerm = parsed.type;
+        else {
+            // Gereksiz kelimeleri temizle
+            searchTerm = text.replace(/(göster|listele|bul|ara|filtrele|vizeleri|finalleri|hocaları|hocanın|görevlerini|sınavlarını|programını|takvimini|getir|bakalım|neler)/gi, '').trim();
+        }
+
+        // 4. UI Navigasyon
+        const btn = document.getElementById('btn-' + targetSection);
+        if (btn) btn.click();
+        
+        // 5. Arama Kutusuna Yaz ve Tetikle
+        const searchInput = document.getElementById(targetSection + '-search');
+        if (searchInput) {
+            // Eğer "vizeleri" gibi bir çoğul ek varsa, baz kelimeye çevir
+            if (lowText.includes('vize')) searchTerm = "Vize";
+            else if (lowText.includes('final')) searchTerm = "Final";
+            else if (lowText.includes('bütünleme')) searchTerm = "Bütünleme";
+            
+            searchInput.value = searchTerm;
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // Sihirli alanı temizle ve kapat
+            if (source === 'modal') {
+                if (magicInput) magicInput.value = '';
+                if (magicStatus) magicStatus.innerHTML = '';
+                const modal = document.getElementById('modal');
+                if (modal) modal.classList.add('hidden');
+            } else {
+                if (globalMagicInput) globalMagicInput.value = '';
+                if (globalMagicStatus) globalMagicStatus.innerHTML = '';
+                if (modalGlobalMagic) modalGlobalMagic.classList.add('hidden');
+            }
+
+            let toastMsg = `🔍 "${searchTerm || 'Tümü'}" için ${targetSection === 'staff' ? 'personel' : 'sınav'} araması yapıldı.`;
+            if (parsed.date) toastMsg += `<br>📅 ${parsed.date.split('-').reverse().join('.')} tarihine gidildi.`;
+
+            if (typeof showToast === 'function') {
+                showToast(toastMsg);
+            }
+        }
     }
 
     /**
@@ -186,23 +319,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
     }
 
-    function displayMagicStatus(parsed, statusEl) {
-        if(!statusEl) return;
-        statusEl.innerHTML = '';
+    function displayMagicStatus(parsed, container) {
+        if (!container) return;
         
+        const queryKeywords = ['göster', 'listele', 'bul', 'ara', 'filtrele', 'neler', 'kim', 'ne zaman', 'sınavları', 'görevleri'];
+        const textValue = document.getElementById('magic-command-input')?.value.toLowerCase() || '';
+        const isQuery = queryKeywords.some(k => textValue.includes(k)) || 
+                        (!parsed.course && !parsed.type && textValue.length > 3);
+
+        const btn = document.getElementById('btn-magic-apply');
+
+        if (isQuery && !parsed.duration && !parsed.location) {
+            container.innerHTML = `
+                <span class="magic-tag" style="background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding: 2px 8px; border-radius: 12px; font-weight: 600;">
+                    🔍 Arama Aktif
+                </span>
+                ${parsed.course ? `<span class="magic-tag" style="background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); padding: 2px 8px; border-radius: 12px; font-weight: 600;">🎯 ${parsed.course}</span>` : ''}
+            `;
+            if(btn) btn.textContent = 'Ara / Filtrele';
+            return;
+        }
+
+        if(btn) btn.textContent = 'Oluştur';
+        
+        container.innerHTML = '';
         const createBadge = (icon, text) => {
             const span = document.createElement('span');
-            span.style.cssText = "background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); padding: 2px 8px; border-radius: 12px; font-weight: 600;";
+            span.style.cssText = "background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); padding: 2px 8px; border-radius: 12px; font-weight: 600; margin-right: 5px; display: inline-block;";
             span.textContent = `${icon} ${text}`;
             return span;
         };
 
-        if(parsed.date) statusEl.appendChild(createBadge('📅', parsed.date));
-        if(parsed.time) statusEl.appendChild(createBadge('🕰️', parsed.time));
-        if(parsed.duration) statusEl.appendChild(createBadge('⌛', parsed.duration + ' dk'));
-        if(parsed.location) statusEl.appendChild(createBadge('📍', parsed.location));
-        if(parsed.type) statusEl.appendChild(createBadge('📋', parsed.type));
-        if(parsed.course) statusEl.appendChild(createBadge('📚', parsed.course));
+        if(parsed.date) container.appendChild(createBadge('📅', parsed.date));
+        if(parsed.time) container.appendChild(createBadge('🕰️', parsed.time));
+        if(parsed.duration) container.appendChild(createBadge('⌛', parsed.duration + ' dk'));
+        if(parsed.location) container.appendChild(createBadge('📍', parsed.location));
+        if(parsed.type) container.appendChild(createBadge('📋', parsed.type));
+        if(parsed.course) container.appendChild(createBadge('📚', parsed.course));
+
+        if (container.innerHTML === '') {
+            container.innerHTML = '<span style="opacity:0.5; font-size: 0.75rem;">Sınav bilgisi veya arama terimi girin...</span>';
+        }
     }
 
 
@@ -216,12 +373,18 @@ document.addEventListener('DOMContentLoaded', () => {
             duration: null,
             course: null,
             location: null,
-            type: null
+            type: null,
+            intent: 'add'
         };
         
         if(!text) return result;
         
         let workingText = text.toLowerCase();
+
+        // 0. İPUCU: Eğer "göster", "bul" gibi kelimeler varsa niyeti arama yap
+        if (/(göster|listele|bul|ara|filtrele)/i.test(workingText)) {
+            result.intent = 'search';
+        }
 
         // 1. SÜRE TAHMİNİ (örnek: "120 dk", "120 dakika", "2 saat", "1.5 saat")
         const durationRegex = /(\d+(?:\.\d+)?)\s*(dk|dakika|saat)\b/i;

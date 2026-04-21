@@ -18,8 +18,8 @@ const BONUSLAR = {
 };
 
 const GLOBAL_LIMITS = {
-    MIN_TASKS: 3,
-    MAX_TASKS: 7
+    MIN_TASKS: 0,
+    MAX_TASKS: 6
 };
 
 let DB = {
@@ -401,7 +401,7 @@ function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null) {
         (s.taskCount || 0) < GLOBAL_LIMITS.MAX_TASKS
     );
 
-    // Eğer MAX_TASKS (7) sınırına herkes ulaştığı için müsait kimse kalmadıysa, bu sınırı esnet. 
+    // Eğer MAX_TASKS (6) sınırına herkes ulaştığı için müsait kimse kalmadıysa, bu sınırı esnet. 
     // Böylece test ortamında veya yoğun haftalarda "müsait gözetmen bulunamadı" hatası almayız.
     if (available.length === 0) {
         available = DB.staff.filter(s =>
@@ -412,7 +412,7 @@ function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null) {
     if (available.length === 0) return null;
 
     // SIRALAMA STRATEJİSİ: 
-    // 1. Önce minimum görev sayısına (3) ulaşmamış olanlara öncelik ver
+    // 1. Önce minimum görev sayısına (0) ulaşmamış olanlara öncelik ver
     // 2. Kendi aralarında en düşük puanlı olanı seç
     return available.sort((a, b) => {
         const aMinReached = (a.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
