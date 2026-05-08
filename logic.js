@@ -636,9 +636,10 @@ function addExam(examData) {
 
     const score = calculateScore(new Date(`${examData.date}T${examData.time}`), examData.duration);
     
+    const examId = Date.now();
     const newExam = {
         ...examData,
-        id: Date.now(),
+        id: examId,
         isDraft: DB.isDraftMode, // EĞER TASLAK MODU AÇIKSA TASLAK OLARAK KAYDET
         type: examData.type || "Vize",
         name: examData.name || "İsimsiz Sınav",
@@ -649,7 +650,7 @@ function addExam(examData) {
         proctorId: proctors[0].id,
         proctorName: proctors.map(p => p.name).join(', '),
         score: score,
-        katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`), examData.duration, newExam.id || Date.now())
+        katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`), examData.duration, examId)
     };
 
     DB.exams.push(newExam);
