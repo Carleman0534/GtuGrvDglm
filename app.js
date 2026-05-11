@@ -871,21 +871,6 @@ function initUI() {
         });
     }
 
-    const btnGitHubSync = document.getElementById('btn-github-sync');
-    if (btnGitHubSync) {
-        btnGitHubSync.addEventListener('click', showGitHubSyncModal);
-    }
-
-    const btnCopySyncCode = document.getElementById('btn-copy-sync-code');
-    if (btnCopySyncCode) {
-        btnCopySyncCode.addEventListener('click', () => {
-            const textarea = document.getElementById('github-sync-code');
-            textarea.select();
-            document.execCommand('copy');
-            btnCopySyncCode.textContent = "✅ Kopyalandı!";
-            setTimeout(() => { btnCopySyncCode.textContent = "📋 Kodu Kopyala"; }, 2000);
-        });
-    }
 
     const btnExportExams = document.getElementById('btn-export-exams');
     if (btnExportExams) {
@@ -902,16 +887,20 @@ function initUI() {
     }
 
     // Taslak Modu Toggle
-    document.getElementById('btn-toggle-draft-mode')?.addEventListener('click', () => {
-        DB.isDraftMode = !DB.isDraftMode;
-        saveToLocalStorage();
-        updateDraftBanner();
-        if (DB.isDraftMode) {
-            showToast("🛠️ Taslak Modu Açıldı. Atamalar gizli kalacak.", "success");
-        } else {
-            showToast("Taslak Modu Kapatıldı.", "success");
-        }
-    });
+    const draftToggleInput = document.getElementById('toggle-draft-mode-input');
+    if (draftToggleInput) {
+        draftToggleInput.checked = DB.isDraftMode || false;
+        draftToggleInput.addEventListener('change', (e) => {
+            DB.isDraftMode = e.target.checked;
+            saveToLocalStorage();
+            updateDraftBanner();
+            if (DB.isDraftMode) {
+                showToast("🛠️ Taslak Modu Açıldı. Atamalar gizli kalacak.", "success");
+            } else {
+                showToast("Taslak Modu Kapatıldı.", "success");
+            }
+        });
+    }
 
     const btnExportIndividual = document.getElementById('btn-export-individual-schedule');
     if (btnExportIndividual) {
@@ -942,15 +931,7 @@ function initUI() {
         });
     }
 
-    const btnImportExamsAlt = document.getElementById('btn-import-auto-assign');
-    if (btnImportExamsAlt) {
-        btnImportExamsAlt.addEventListener('click', () => {
-            document.getElementById('import-preview').innerHTML = '';
-            document.getElementById('import-file-input').value = '';
-            document.getElementById('btn-confirm-import').disabled = true;
-            document.getElementById('modal-import').classList.remove('hidden');
-        });
-    }
+
 
     // Excel Akıllı Import Butonu (Sınav Listesi bölümü)
     const btnImportExamsExcel = document.getElementById('btn-import-exams-excel');
@@ -3294,16 +3275,6 @@ function renderAvailability() {
 }
 
 
-function showGitHubSyncModal() {
-    const modal = document.getElementById('modal-github-sync');
-    const textarea = document.getElementById('github-sync-code');
-    
-    // DB objesini logic.js formatında metne dönüştür
-    const dbCode = `let DB = ${JSON.stringify(DB, null, 4)};`;
-    
-    textarea.value = dbCode;
-    modal.classList.remove('hidden');
-}
 
 /**
  * TAKAS SİSTEMİ ÇEKİRDEK MANTIĞI
@@ -3354,6 +3325,50 @@ window.showSwapModal = function(examId, forceInitiatorId = null) {
 
     document.getElementById('modal-swap').classList.remove('hidden');
 };
+
+function createSwapRequest(examId, initiatorId, receiverId) {
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
+    const initiator = DB.staff.find(s => String(s.id) === String(initiatorId));
+    const receiver = receiverId ? DB.staff.find(s => String(s.id) === String(receiverId)) : null;
+
+    if (!exam || !initiator) return false;
+
+    const newReq = {
+        id: Date.now(),
+        examId: exam.id,
+        examName: exam.name,
+        examDate: exam.date,
+        examTime: exam.time,
+        initiatorId: initiator.id,
+        initiatorName: initiator.name,
+        receiverId: receiver ? receiver.id : null,
+        receiverName: receiver ? receiver.name : "Açık Talep",
+        status: 'pending',
+        fromApproved: true,
+        toApproved: false,
+        createdAt: new Date().toISOString()
+    };
+
+    if (!DB.requests) DB.requests = [];
+    DB.requests.push(newReq);
+    
+    if (receiver) {
+        if (!DB.notifications) DB.notifications = {};
+        if (!Array.isArray(DB.notifications[receiver.id])) DB.notifications[receiver.id] = [];
+        DB.notifications[receiver.id].unshift({
+            id: Date.now() + 1,
+            message: `🔄 **Takas Talebi:** ${initiator.name}, "${exam.name}" görevini sana devretmek istiyor.`,
+            type: 'swap_request',
+            requestId: newReq.id,
+            createdAt: new Date().toISOString(),
+            isRead: false
+        });
+    }
+
+    logAction('user', 'Takas Talebi', `${initiator.name}, ${exam.name} için talep oluşturdu.`);
+    saveToLocalStorage();
+    return true;
+}
 
 window.submitSwapForm = async function() {
     try {
@@ -5631,13 +5646,19 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
     
     // Hocanın aktif sınavlarını bul
     const now = new Date();
-    const targetExams = DB.exams.filter(e => String(e.proctorId) === String(targetStaffId) && new Date(e.date) >= now);
+    const targetExams = DB.exams.filter(e => {
+        if (String(e.proctorId) !== String(targetStaffId)) return false;
+        if (!e.date || !e.time) return false;
+        const examDate = new Date(`${e.date}T${e.time}`);
+        const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
+        return examEnd >= now;
+    });
 
     if (targetExams.length === 0) {
         list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">Bu hocanın aktif görevi bulunmuyor.</p>';
     } else {
         list.innerHTML = targetExams.map(ex => `
-            <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, \`${ex.name.replace(/`/g, '')}\`, '${ex.date}', this)">
+            <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, \`${ex.name.replace(/`/g, '').replace(/"/g, '&quot;')}\`, '${ex.date}', this)">
                 <div style="font-weight: 600;">${ex.name}</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted);">${ex.date} - ${ex.time}</div>
             </div>
