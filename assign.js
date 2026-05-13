@@ -70,6 +70,7 @@ let staff = [
 ];
 
 function calculateScore(dateStr, timeStr, duration, examId = null) {
+    duration = parseFloat(duration) || 60;
     const date = new Date(`${dateStr}T${timeStr}`);
     const day = date.getDay();
     const isWeekend = (day === 0 || day === 6);

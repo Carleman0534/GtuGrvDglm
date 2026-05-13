@@ -1712,6 +1712,13 @@ window.takeOverDuty = async function(examId, oldProctorId) {
         // SINAV GÜNCELLEME
         exam.proctorId = newProctor.id;
         exam.proctorName = newProctor.name;
+        if (!exam.proctorIds || exam.proctorIds.length === 0) {
+            exam.proctorIds = [newProctor.id];
+        } else {
+            const idx = exam.proctorIds.indexOf(parseInt(oldProctorId));
+            if (idx !== -1) exam.proctorIds[idx] = newProctor.id;
+            else exam.proctorIds = [newProctor.id];
+        }
 
         // KAYDET VE YENİLE
         saveToLocalStorage();

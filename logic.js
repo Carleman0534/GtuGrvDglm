@@ -205,6 +205,7 @@ function getKatsayi(date, duration = 0, examId = null) {
  *   Toplam: 165 puan
  */
 function calculateScore(date, duration, examId = null) {
+    duration = parseFloat(duration) || 60;
     const day = date.getDay();
     const isWeekend = (day === 0 || day === 6);
     
@@ -472,6 +473,13 @@ function autoResolveConflicts() {
             // Yeni gözetmeni ata
             exam.proctorId = newProctor.id;
             exam.proctorName = newProctor.name;
+            if (!exam.proctorIds || exam.proctorIds.length === 0) {
+                exam.proctorIds = [newProctor.id];
+            } else {
+                const idx = exam.proctorIds.indexOf(oldStaff ? oldStaff.id : exam.proctorId);
+                if (idx !== -1) exam.proctorIds[idx] = newProctor.id;
+                else exam.proctorIds = [newProctor.id];
+            }
             newProctor.totalScore = parseFloat((newProctor.totalScore + exam.score).toFixed(2));
             newProctor.taskCount += 1;
             resolvedCount++;
@@ -721,13 +729,15 @@ function updateExam(id, newData, skipSave = false) {
     const timeChanged = newData.time !== undefined && newData.time !== oldExam.time;
     const durationChanged = newData.duration !== undefined && newData.duration !== oldExam.duration;
     const dateTimeChanged = dateChanged || timeChanged || durationChanged;
+    
+    // Eski score değerini parseFloat ile al
+    const oldScore = parseFloat(oldExam.score) || 0;
+    const scoreChanged = newScore !== oldScore;
 
     // TASLAK MODUNDA DEĞİLSEK bildirim gönder, taslak modundaysak toplu gönderilecek
     const shouldNotifyNow = !oldExam.isDraft && !DB.isDraftMode;
 
-    if (proctorChanged || dateTimeChanged) {
-        // Eski gözetmenden puanı çıkar (oldExam.score string gelmiş olabilir, parseFloat çek)
-        const oldScore = parseFloat(oldExam.score) || 0;
+    if (proctorChanged || dateTimeChanged || scoreChanged) {
         
         oldPIds.forEach(pid => {
             const s = DB.staff.find(staff => String(staff.id) === String(pid));
