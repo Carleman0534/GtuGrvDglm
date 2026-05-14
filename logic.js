@@ -874,6 +874,7 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
         return text
             .replace(/{personel_adi}/g, staff.name)
             .replace(/{sinav_adi}/g, exam.name || '-')
+            .replace(/{dersi_veren}/g, exam.lecturer || '-')
             .replace(/{tarih}/g, exam.date || '-')
             .replace(/{saat}/g, exam.time || '-')
             .replace(/{derslik}/g, exam.location || '-')
@@ -1407,7 +1408,7 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
         DB.templates = {
             swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
             assignment_email_subject: "Yeni Görev Ataması: {sinav_adi}",
-            assignment_email_body: "Sayın {personel_adi},\n\n{tarih} tarihinde saat {saat}'de yapılacak olan \"{sinav_adi}\" sınavına gözetmen olarak atandınız.\n\nDerslik: {derslik}\nSüre: {sure} dakika\nPuan: {puan}\n\nİyi çalışmalar dileriz.",
+            assignment_email_body: "Sayın {personel_adi},\n\n{tarih} tarihinde saat {saat}'de yapılacak olan \"{sinav_adi}\" sınavına gözetmen olarak atandınız.\n\nDersi Veren: {dersi_veren}\nDerslik: {derslik}\nSüre: {sure} dakika\nPuan: {puan}\n\nİyi çalışmalar dileriz.",
             update_email_subject: "Görev Değişikliği: {sinav_adi}",
             update_email_body: "Sayın {personel_adi},\n\n{tarih} tarihindeki \"{sinav_adi}\" sınavı görevinizde güncelleme yapılmıştır.\n\nYeni Bilgiler:\nSaat: {saat}\nDerslik: {derslik}\nSüre: {sure} dakika\n\nLütfen sistem üzerinden kontrol ediniz."
         };

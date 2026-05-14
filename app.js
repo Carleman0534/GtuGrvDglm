@@ -387,6 +387,7 @@ async function initApp() {
     <div style="background: #f8f7ff; border-left: 4px solid #4f46e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
@@ -414,6 +415,7 @@ async function initApp() {
     <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
@@ -2546,12 +2548,13 @@ window.sendExamMailViaOutlook = (examId) => {
     const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
 
     const body = `Sayın Hocam,
-
+ 
 ${exam.date} tarihinde saat ${exam.time}'de yapılacak olan "${exam.name}" sınavına gözetmen olarak atandınız.
-
+ 
 SINAV BİLGİLERİ
 ----------------------------
 📚 Sınav Adı : ${exam.name}
+👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
 📅 Tarih : ${exam.date}
 🕒 Saat : ${exam.time}
 🏫 Derslik : ${exam.location || '-'}
@@ -2611,12 +2614,13 @@ window.sendScheduleMailViaOutlook = (examName, examDate, examTime, examLocation)
 
     const subject = `📅 Yeni Gözetmenlik Görevi: ${examName} | ${examDate}`;
     const body = `Sayın Hocam,
-
+ 
 ${examDate} tarihinde saat ${examTime}'de yapılacak olan "${examName}" sınavına gözetmen olarak atandınız.
-
+ 
 SINAV BİLGİLERİ
 ----------------------------
 📚 Sınav Adı : ${examName}
+👨‍🏫 Dersi Veren : ${refExam.lecturer || '-'}
 📅 Tarih : ${examDate}
 🕒 Saat : ${examTime}
 🏫 Derslik : ${examLocation || '-'}
