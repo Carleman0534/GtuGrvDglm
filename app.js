@@ -375,6 +375,69 @@ async function initApp() {
     if (!DB.templates) {
         DB.templates = {
             swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
+            assignment_email_subject: "📅 Yeni Gözetmenlik Görevi: {sinav_adi} | {tarih}",
+            assignment_email_body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f4f4; padding: 20px; border-radius: 10px;">
+  <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 22px;">&#128197; Yeni Gözetmenlik Görevi</h1>
+    <p style="color: #c4b5fd; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
+  </div>
+  <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Aşağıda belirtilen sınava <strong>gözetmen</strong> olarak atanmışsınız. Lütfen tarih ve saati not alınız.</p>
+    <div style="background: #f8f7ff; border-left: 4px solid #4f46e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#9201; Süre</td><td style="padding: 8px 0;">{sure} dakika</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128101; Gözetmenler</td><td style="padding: 8px 0;">{gozet men ler}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#11088; Puan</td><td style="padding: 8px 0;"><strong style="color: #4f46e5;">{puan}</strong></td></tr>
+      </table>
+    </div>
+    <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İŝin:</strong></p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri\'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
+    </div>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.</p>
+  </div>
+</div>`,
+            update_email_subject: "🔄 Görev Güncellendi: {sinav_adi} | {tarih}",
+            update_email_body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f4f4; padding: 20px; border-radius: 10px;">
+  <div style="background: linear-gradient(135deg, #d97706, #f59e0b); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 22px;">&#128260; Görev Güncelleme Bildirimi</h1>
+    <p style="color: #fef3c7; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
+  </div>
+  <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Atandığınız sınavda bazı bilgiler <strong>güncellenmiştir</strong>. Ayrıntıları aşağıda bulabilirsiniz.</p>
+    <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#9201; Süre</td><td style="padding: 8px 0;">{sure} dakika</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128101; Gözetmenler</td><td style="padding: 8px 0;">{gozetmenler}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#11088; Puan</td><td style="padding: 8px 0;"><strong style="color: #d97706;">{puan}</strong></td></tr>
+      </table>
+    </div>
+    <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İŝin:</strong></p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri\'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
+    </div>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.</p>
+  </div>
+</div>`
+        };
+    }
+    if (!DB.emailSettings) {
+        DB.emailSettings = {
+            enabled: false,
+            provider: 'smtpjs',
+            smtpToken: '',
+            apiEndpoint: '',
+            fromEmail: 'noreply@gtu.edu.tr'
         };
     }
 
@@ -570,6 +633,8 @@ function initUI() {
         exportToPDF(targetId, pdfTitle);
     });
 
+    document.getElementById('btn-email-settings')?.addEventListener('click', showEmailSettingsModal);
+    
     // Theme Toggle
     document.getElementById('btn-theme-toggle')?.addEventListener('click', toggleTheme);
 
@@ -1906,6 +1971,7 @@ function renderExams() {
                  })()}
                  <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
                  <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
+                 <button class="btn-secondary admin-only" onclick="sendExamMailViaOutlook(${ex.id})" title="Gözetmenlere Mail Gönder" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; background: rgba(14,165,233,0.15); border-color: #0ea5e9; color: #38bdf8;">📧 Mail</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -2108,7 +2174,8 @@ function renderSchedule() {
             <td>${ex.duration} dk</td>
             <td class="proctor-list">${ex.proctors.join(', ')}</td>
             <td class="admin-only">
-                 <button class="btn-secondary" onclick="showEditScheduleModal('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
+                 <button class="btn-secondary" onclick="showEditScheduleModal('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}') " style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
+                 <button class="btn-secondary" onclick="sendScheduleMailViaOutlook('${ex.name.replace(/'/g, "\\'")}','${ex.date}','${ex.time}','${ex.location.replace(/'/g, "\\'")}')" title="Gözetmenlere Mail Gönder" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; background: rgba(14,165,233,0.15); border-color: #0ea5e9; color: #38bdf8;">📧 Mail</button>
             </td>
         `;
         tbodyActive.appendChild(tr);
@@ -2441,6 +2508,141 @@ function showAddExamModal() {
 function hideModal() {
     document.getElementById('modal').classList.add('hidden');
 }
+
+/**
+ * Sınav gözetmenlerine Outlook üzerinden mail gönder (mailto: linki ile)
+ */
+window.sendExamMailViaOutlook = (examId) => {
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
+    if (!exam) return;
+
+    // Tüm gözetmenleri bul
+    const proctorIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+    const proctors = proctorIds
+        .map(pid => DB.staff.find(s => String(s.id) === String(pid)))
+        .filter(Boolean);
+
+    if (proctors.length === 0) {
+        alert('Bu sınava atanmış gözetmen bulunamadı.');
+        return;
+    }
+
+    // E-postası olmayan gözetmenler varsa uyar
+    const noEmail = proctors.filter(p => !p.email);
+    if (noEmail.length > 0) {
+        const names = noEmail.map(p => p.name).join(', ');
+        if (!confirm(`⚠️ Şu kişilerin e-posta adresi eksik: ${names}\n\nDevam etmek istiyor musunuz?`)) return;
+    }
+
+    const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
+    if (!emailList) {
+        alert('Atanmış gözetmenlerin hiçbirinin e-posta adresi girilmemiş.\nPersonel sekmesinden e-posta adreslerini ekleyin.');
+        return;
+    }
+
+    const gozetmenler = proctors.map(p => p.name).join(', ');
+    const scoreText = typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-');
+
+    const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
+
+    const body = `Sayın Hocam,
+
+${exam.date} tarihinde saat ${exam.time}'de yapılacak olan "${exam.name}" sınavına gözetmen olarak atandınız.
+
+SINAV BİLGİLERİ
+----------------------------
+📚 Sınav Adı : ${exam.name}
+📅 Tarih : ${exam.date}
+🕒 Saat : ${exam.time}
+🏫 Derslik : ${exam.location || '-'}
+⏱ Süre : ${exam.duration} dakika
+👥 Gözetmenler: ${gozetmenler}
+⭐ Puan : ${scoreText}
+----------------------------
+
+⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
+Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
+
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+    // Gizli link oluştur ve tıkla (sayfa yenilenmeden Outlook açılır)
+    const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const a = document.createElement('a');
+    a.href = mailtoLink;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 100);
+
+    logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
+};
+
+/**
+ * Sınav Programı tablosundan (isim+tarih+saat+yer) gözetmenlere Outlook üzerinden mail gönder
+ */
+window.sendScheduleMailViaOutlook = (examName, examDate, examTime, examLocation) => {
+    // Gruba dahil olan tüm sınavları bul (aynı ad+tarih+saat+yer)
+    const matchingExams = DB.exams.filter(e =>
+        e.name === examName && e.date === examDate && e.time === examTime && e.location === examLocation
+    );
+
+    if (matchingExams.length === 0) { alert('Sınav bulunamadı.'); return; }
+
+    // Tüm gözetmen ID'lerini topla (tekrarsız)
+    const allProctorIds = [...new Set(matchingExams.flatMap(e => e.proctorIds || (e.proctorId ? [e.proctorId] : [])))];
+    const proctors = allProctorIds.map(pid => DB.staff.find(s => String(s.id) === String(pid))).filter(Boolean);
+
+    if (proctors.length === 0) { alert('Bu sınava atanmış gözetmen bulunamadı.'); return; }
+
+    // E-postası eksik olanları kontrol et
+    const noEmail = proctors.filter(p => !p.email);
+    if (noEmail.length > 0) {
+        const names = noEmail.map(p => p.name).join(', ');
+        if (!confirm(`⚠️ E-posta adresi eksik: ${names}\n\nDevam edilsin mi?`)) return;
+    }
+
+    const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
+    if (!emailList) { alert('Gözetmenlerin e-posta adresi girilmemiş.'); return; }
+
+    const refExam = matchingExams[0];
+    const gozetmenler = proctors.map(p => p.name).join(', ');
+    const scoreText = typeof refExam.score === 'number' ? refExam.score.toFixed(1) : (refExam.score || '-');
+
+    const subject = `📅 Yeni Gözetmenlik Görevi: ${examName} | ${examDate}`;
+    const body = `Sayın Hocam,
+
+${examDate} tarihinde saat ${examTime}'de yapılacak olan "${examName}" sınavına gözetmen olarak atandınız.
+
+SINAV BİLGİLERİ
+----------------------------
+📚 Sınav Adı : ${examName}
+📅 Tarih : ${examDate}
+🕒 Saat : ${examTime}
+🏫 Derslik : ${examLocation || '-'}
+⏱ Süre : ${refExam.duration} dakika
+👥 Gözetmenler: ${gozetmenler}
+⭐ Puan : ${scoreText}
+----------------------------
+
+⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
+Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
+
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+    const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    // Gizli link oluştur ve tıkla (sayfa yenilenmeden Outlook açılır)
+    const a = document.createElement('a');
+    a.href = mailtoLink;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 100);
+
+    logAction('admin', 'Mail Gönderim', `"${examName}" sınavı için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
+};
 
 window.deleteExam = (id) => {
     const exIndex = DB.exams.findIndex(e => e.id === id);
@@ -2829,6 +3031,7 @@ function renderStaff() {
                     <span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span>
                 </div>
             </td>
+            <td><span class="email-text">${s.email || '-'}</span></td>
             <td>${s.totalScore.toFixed(1)}</td>
             <td>${s.taskCount}</td>
             <td>
@@ -2837,7 +3040,10 @@ function renderStaff() {
                     <span class="flex-score-text">%${calculateAvailabilityScore(s.id)}</span>
                 </div>
             </td>
-            <td class="admin-only"><button class="btn-delete" onclick="deleteStaff(${s.id})">Sil</button></td>
+            <td class="admin-only">
+                <button class="btn-edit" onclick="showEditStaffModal(${s.id})">Düzenle</button>
+                <button class="btn-delete" onclick="deleteStaff(${s.id})">Sil</button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -2853,17 +3059,24 @@ function showAddStaffModal() {
             <label>Personel Adı Soyadı</label>
             <input type="text" id="staff-name" placeholder="Örn: Dr. Can Berk" required>
         </div>
+        <div class="form-group">
+            <label>E-posta Adresi</label>
+            <input type="email" id="staff-email" placeholder="personel@gtu.edu.tr">
+        </div>
     `;
     modal.classList.remove('hidden');
 
     document.getElementById('modal-form').onsubmit = (e) => {
         e.preventDefault();
         const name = document.getElementById('staff-name').value;
+        const email = document.getElementById('staff-email').value;
         const newStaff = {
             id: Date.now(),
             name: name,
+            email: email,
             totalScore: 0,
-            taskCount: 0
+            taskCount: 0,
+            baseScore: 0
         };
         DB.staff.push(newStaff);
         saveToLocalStorage();
@@ -2872,6 +3085,38 @@ function showAddStaffModal() {
         renderStaff();
     };
 }
+
+window.showEditStaffModal = (id) => {
+    const staff = DB.staff.find(s => s.id === id);
+    if (!staff) return;
+
+    const modal = document.getElementById('modal');
+    const fields = document.getElementById('form-fields');
+    document.getElementById('modal-title').textContent = "Personel Düzenle";
+    
+    fields.innerHTML = `
+        <div class="form-group">
+            <label>Personel Adı Soyadı</label>
+            <input type="text" id="staff-name" value="${staff.name}" required>
+        </div>
+        <div class="form-group">
+            <label>E-posta Adresi</label>
+            <input type="email" id="staff-email" value="${staff.email || ''}">
+        </div>
+    `;
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-form').onsubmit = (e) => {
+        e.preventDefault();
+        staff.name = document.getElementById('staff-name').value;
+        staff.email = document.getElementById('staff-email').value;
+        
+        saveToLocalStorage();
+        logAction('admin', 'Personel Güncelleme', `${staff.name} bilgileri güncellendi.`);
+        hideModal();
+        renderStaff();
+    };
+};
 
 window.deleteStaff = (id) => {
     const staff = DB.staff.find(s => s.id === id);
@@ -2882,6 +3127,83 @@ window.deleteStaff = (id) => {
         renderStaff();
     }
 };
+
+window.showEmailSettingsModal = () => {
+    const modal = document.getElementById('modal');
+    const fields = document.getElementById('form-fields');
+    document.getElementById('modal-title').textContent = "📧 E-posta Bildirim Ayarları";
+    
+    if (!DB.emailSettings) {
+        DB.emailSettings = { enabled: false, provider: 'smtpjs', smtpToken: '', apiEndpoint: '', fromEmail: 'noreply@gtu.edu.tr' };
+    }
+
+    fields.innerHTML = `
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; background: rgba(99,102,241,0.1); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <label style="flex: 1; margin: 0;">E-posta Bildirimlerini Etkinleştir</label>
+            <label class="switch">
+                <input type="checkbox" id="email-enabled" ${DB.emailSettings.enabled ? 'checked' : ''}>
+                <span class="slider round"></span>
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label>Gönderen E-posta (From)</label>
+            <input type="text" id="email-from" value="${DB.emailSettings.fromEmail || 'noreply@gtu.edu.tr'}" placeholder="noreply@gtu.edu.tr">
+        </div>
+
+        <div class="form-group">
+            <label>Servis Sağlayıcı</label>
+            <select id="email-provider" onchange="toggleEmailProviderFields()">
+                <option value="smtpjs" ${DB.emailSettings.provider === 'smtpjs' ? 'selected' : ''}>SmtpJS (Önerilen - Ücretsiz)</option>
+                <option value="api" ${DB.emailSettings.provider === 'api' ? 'selected' : ''}>Özel API Endpoint</option>
+            </select>
+        </div>
+
+        <div id="group-smtpjs" class="form-group ${DB.emailSettings.provider !== 'smtpjs' ? 'hidden' : ''}">
+            <label>SmtpJS Secure Token</label>
+            <input type="password" id="email-token" value="${DB.emailSettings.smtpToken || ''}" placeholder="SmtpJS'ten aldığınız token...">
+            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">* SmtpJS.com üzerinden ücretsiz token alabilirsiniz.</p>
+        </div>
+
+        <div id="group-api" class="form-group ${DB.emailSettings.provider !== 'api' ? 'hidden' : ''}">
+            <label>API Endpoint (POST)</label>
+            <input type="text" id="email-api" value="${DB.emailSettings.apiEndpoint || ''}" placeholder="https://siteniz.com/api/send-email">
+        </div>
+
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px dashed #f59e0b; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
+             <h4 style="color: #f59e0b; font-size: 0.8rem; margin-bottom: 5px;">⚠️ Dikkat</h4>
+             <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+                E-postalar, sadece <b>Taslak Modu kapalıyken</b> yeni sınav eklendiğinde veya sınav güncellendiğinde gönderilir. 
+                Taslaklar yayınlandığında ise toplu olarak gönderilir.
+             </p>
+        </div>
+    `;
+
+    window.toggleEmailProviderFields = () => {
+        const provider = document.getElementById('email-provider').value;
+        document.getElementById('group-smtpjs').classList.toggle('hidden', provider !== 'smtpjs');
+        document.getElementById('group-api').classList.toggle('hidden', provider !== 'api');
+    };
+
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-form').onsubmit = (e) => {
+        e.preventDefault();
+        DB.emailSettings = {
+            enabled: document.getElementById('email-enabled').checked,
+            fromEmail: document.getElementById('email-from').value,
+            provider: document.getElementById('email-provider').value,
+            smtpToken: document.getElementById('email-token').value,
+            apiEndpoint: document.getElementById('email-api').value
+        };
+        
+        saveToLocalStorage();
+        logAction('admin', 'E-posta Ayarları', `E-posta bildirimleri ${DB.emailSettings.enabled ? 'açıldı' : 'kapatıldı'}.`);
+        hideModal();
+        alert('E-posta ayarları kaydedildi.');
+    };
+};
+
 
 window.showStaffSchedule = (staffName) => {
     const modal = document.getElementById('modal-staff-schedule');

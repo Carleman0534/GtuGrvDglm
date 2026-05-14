@@ -18,6 +18,7 @@
     <!-- PDF Export Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
 </head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
@@ -528,6 +529,7 @@
                                 <button id="id-restore-system" class="dropdown-item">📂 Geri Yükle</button>
                                 <button id="btn-reset-exams" class="dropdown-item" style="color:var(--accent-orange);">🧹 Programı Sıfırla (Puanlar Kalsın)</button>
                                 <button id="btn-resolve-conflicts" class="dropdown-item" style="color:var(--accent-red);">⚠️ Çakışmaları Otomatik Çöz</button>
+                                <button id="btn-email-settings" class="dropdown-item" style="color:var(--primary);">📧 E-posta Ayarları</button>
                             </div>
                         </div>
                         <div class="dropdown">
@@ -629,6 +631,7 @@
                         <thead>
                             <tr>
                                 <th>İsim Soyisim</th>
+                                <th>E-posta</th>
                                 <th>Toplam Puan</th>
                                 <th>Görev Sayısı</th>
                                 <th>Esneklik 🤖</th>

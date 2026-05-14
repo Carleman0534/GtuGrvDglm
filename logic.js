@@ -24,49 +24,49 @@ const GLOBAL_LIMITS = {
 
 let DB = {
     staff: [
-        { id: 1, name: "Prof. Dr. Mustafa AKKURT", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 2, name: "Prof. Dr. Nuri ÇELİK", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 3, name: "Prof. Dr. Oğul ESEN", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 4, name: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 5, name: "Prof. Dr. Emil NOVRUZ", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 6, name: "Prof. Dr. Sibel ÖZKAN", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 7, name: "Prof. Dr. Serkan SÜTLÜ", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 8, name: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 9, name: "Doç. Dr. Nursel EREY", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 10, name: "Doç. Dr. Gülden GÜN POLAT", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 11, name: "Doç. Dr. Feray HACIVELİOĞLU", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 12, name: "Doç. Dr. Roghayeh HAFEZIEH", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 13, name: "Doç. Dr. Fatma KARAOĞLU CEYHAN", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 14, name: "Doç. Dr. Ayten KOÇ", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 15, name: "Doç. Dr. Işıl ÖNER", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 16, name: "Doç. Dr. Hülya ÖZTÜRK", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 17, name: "Doç. Dr. Ayşe SÖNMEZ", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 18, name: "Doç. Dr. Selçuk TOPAL", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 19, name: "Doç. Dr. Gülşen ULUCAK", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 20, name: "Dr. Öğr. Üyesi Hadi ALIZADEH", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 21, name: "Dr. Öğr. Üyesi Keremcan DOĞAN", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 22, name: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 23, name: "Dr. Öğr. Üyesi Samire YAZAR", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 24, name: "Arş. Gör. Murat Can AŞKAROĞULLARI", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 25, name: "Arş. Gör. Serkan AYRICA", totalScore: 1440, taskCount: 0, baseScore: 1440 },
-        { id: 26, name: "Arş. Gör. Serdal ÇÖMLEKCİ", totalScore: 600, taskCount: 0, baseScore: 600 },
-        { id: 27, name: "Arş. Gör. Ömer DEMİR", totalScore: 1440, taskCount: 0, baseScore: 1440 },
-        { id: 28, name: "Arş. Gör. Saliha DEMİRBÜKEN", totalScore: 1200, taskCount: 0, baseScore: 1200 },
-        { id: 29, name: "Arş. Gör. Muhammed Ergen", totalScore: 1320, taskCount: 0, baseScore: 1320 },
-        { id: 30, name: "Arş. Gör. Aslıhan GÜR", totalScore: 1200, taskCount: 0, baseScore: 1200 },
-        { id: 31, name: "Arş. Gör. Çağla ÖZATAR", totalScore: 1560, taskCount: 0, baseScore: 1560 },
-        { id: 32, name: "Arş. Gör. Ezgi ÖZTEKİN", totalScore: 1200, taskCount: 0, baseScore: 1200 },
-        { id: 33, name: "Arş. Gör. Aysel ŞAHİN", totalScore: 1440, taskCount: 0, baseScore: 1440 },
-        { id: 34, name: "Arş. Gör. Cansu ŞAHİN", totalScore: 600, taskCount: 0, baseScore: 600 },
-        { id: 35, name: "Arş. Gör. Oğuzhan SELÇUK", totalScore: 1200, taskCount: 0, baseScore: 1200 },
-        { id: 36, name: "Arş. Gör. Yasin TURAN", totalScore: 1800, taskCount: 0, baseScore: 1800 },
-        { id: 37, name: "Arş. Gör. Şeyma YAŞAR", totalScore: 1320, taskCount: 0, baseScore: 1320 },
-        { id: 38, name: "Dr. Begüm ATEŞLİ", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 39, name: "Dr. Sultan BOZKURT GÜNGÖR", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 40, name: "Dr. Yasemin BÜYÜKÇOLAK", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 41, name: "Dr. Ayten GEZİCİ", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 42, name: "Dr. Büşra KARADENİZ ŞEN", totalScore: 0, taskCount: 0, baseScore: 0 },
-        { id: 43, name: "Dr. Fatih YETGİN", totalScore: 0, taskCount: 0, baseScore: 0 }
+        { id: 1, name: "Prof. Dr. Mustafa AKKURT", totalScore: 0, taskCount: 0, baseScore: 0, email: "m.akkurt@gtu.edu.tr" },
+        { id: 2, name: "Prof. Dr. Nuri ÇELİK", totalScore: 0, taskCount: 0, baseScore: 0, email: "n.celik@gtu.edu.tr" },
+        { id: 3, name: "Prof. Dr. Oğul ESEN", totalScore: 0, taskCount: 0, baseScore: 0, email: "o.esen@gtu.edu.tr" },
+        { id: 4, name: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)", totalScore: 0, taskCount: 0, baseScore: 0, email: "m.isgenderoglu@gtu.edu.tr" },
+        { id: 5, name: "Prof. Dr. Emil NOVRUZ", totalScore: 0, taskCount: 0, baseScore: 0, email: "e.novruz@gtu.edu.tr" },
+        { id: 6, name: "Prof. Dr. Sibel ÖZKAN", totalScore: 0, taskCount: 0, baseScore: 0, email: "s.ozkan@gtu.edu.tr" },
+        { id: 7, name: "Prof. Dr. Serkan SÜTLÜ", totalScore: 0, taskCount: 0, baseScore: 0, email: "s.sutlu@gtu.edu.tr" },
+        { id: 8, name: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)", totalScore: 0, taskCount: 0, baseScore: 0, email: "c.yakar@gtu.edu.tr" },
+        { id: 9, name: "Doç. Dr. Nursel EREY", totalScore: 0, taskCount: 0, baseScore: 0, email: "n.erey@gtu.edu.tr" },
+        { id: 10, name: "Doç. Dr. Gülden GÜN POLAT", totalScore: 0, taskCount: 0, baseScore: 0, email: "g.gunpolat@gtu.edu.tr" },
+        { id: 11, name: "Doç. Dr. Feray HACIVELİOĞLU", totalScore: 0, taskCount: 0, baseScore: 0, email: "f.hacivelioglu@gtu.edu.tr" },
+        { id: 12, name: "Doç. Dr. Roghayeh HAFEZIEH", totalScore: 0, taskCount: 0, baseScore: 0, email: "r.hafezieh@gtu.edu.tr" },
+        { id: 13, name: "Doç. Dr. Fatma KARAOĞLU CEYHAN", totalScore: 0, taskCount: 0, baseScore: 0, email: "f.karaoglu@gtu.edu.tr" },
+        { id: 14, name: "Doç. Dr. Ayten KOÇ", totalScore: 0, taskCount: 0, baseScore: 0, email: "a.koc@gtu.edu.tr" },
+        { id: 15, name: "Doç. Dr. Işıl ÖNER", totalScore: 0, taskCount: 0, baseScore: 0, email: "i.oner@gtu.edu.tr" },
+        { id: 16, name: "Doç. Dr. Hülya ÖZTÜRK", totalScore: 0, taskCount: 0, baseScore: 0, email: "h.ozturk@gtu.edu.tr" },
+        { id: 17, name: "Doç. Dr. Ayşe SÖNMEZ", totalScore: 0, taskCount: 0, baseScore: 0, email: "a.sonmez@gtu.edu.tr" },
+        { id: 18, name: "Doç. Dr. Selçuk TOPAL", totalScore: 0, taskCount: 0, baseScore: 0, email: "s.topal@gtu.edu.tr" },
+        { id: 19, name: "Doç. Dr. Gülşen ULUCAK", totalScore: 0, taskCount: 0, baseScore: 0, email: "g.ulucak@gtu.edu.tr" },
+        { id: 20, name: "Dr. Öğr. Üyesi Hadi ALIZADEH", totalScore: 0, taskCount: 0, baseScore: 0, email: "h.alizadeh@gtu.edu.tr" },
+        { id: 21, name: "Dr. Öğr. Üyesi Keremcan DOĞAN", totalScore: 0, taskCount: 0, baseScore: 0, email: "k.dogan@gtu.edu.tr" },
+        { id: 22, name: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", totalScore: 0, taskCount: 0, baseScore: 0, email: "t.mahmutcepoglu@gtu.edu.tr" },
+        { id: 23, name: "Dr. Öğr. Üyesi Samire YAZAR", totalScore: 0, taskCount: 0, baseScore: 0, email: "s.yazar@gtu.edu.tr" },
+        { id: 24, name: "Arş. Gör. Murat Can AŞKAROĞULLARI", totalScore: 0, taskCount: 0, baseScore: 0, email: "m.askarogullari@gtu.edu.tr" },
+        { id: 25, name: "Arş. Gör. Serkan AYRICA", totalScore: 1440, taskCount: 0, baseScore: 1440, email: "s.ayrica@gtu.edu.tr" },
+        { id: 26, name: "Arş. Gör. Serdal ÇÖMLEKCİ", totalScore: 600, taskCount: 0, baseScore: 600, email: "s.colmekci@gtu.edu.tr" },
+        { id: 27, name: "Arş. Gör. Ömer DEMİR", totalScore: 1440, taskCount: 0, baseScore: 1440, email: "o.demir@gtu.edu.tr" },
+        { id: 28, name: "Arş. Gör. Saliha DEMİRBÜKEN", totalScore: 1200, taskCount: 0, baseScore: 1200, email: "s.demirbuken@gtu.edu.tr" },
+        { id: 29, name: "Arş. Gör. Muhammed Ergen", totalScore: 1320, taskCount: 0, baseScore: 1320, email: "m.ergen@gtu.edu.tr" },
+        { id: 30, name: "Arş. Gör. Aslıhan GÜR", totalScore: 1200, taskCount: 0, baseScore: 1200, email: "a.gur@gtu.edu.tr" },
+        { id: 31, name: "Arş. Gör. Çağla ÖZATAR", totalScore: 1560, taskCount: 0, baseScore: 1560, email: "c.ozatar@gtu.edu.tr" },
+        { id: 32, name: "Arş. Gör. Ezgi ÖZTEKİN", totalScore: 1200, taskCount: 0, baseScore: 1200, email: "e.oztekin@gtu.edu.tr" },
+        { id: 33, name: "Arş. Gör. Aysel ŞAHİN", totalScore: 1440, taskCount: 0, baseScore: 1440, email: "a.sahin@gtu.edu.tr" },
+        { id: 34, name: "Arş. Gör. Cansu ŞAHİN", totalScore: 600, taskCount: 0, baseScore: 600, email: "c.sahin@gtu.edu.tr" },
+        { id: 35, name: "Arş. Gör. Oğuzhan SELÇUK", totalScore: 1200, taskCount: 0, baseScore: 1200, email: "o.selcuk@gtu.edu.tr" },
+        { id: 36, name: "Arş. Gör. Yasin TURAN", totalScore: 1800, taskCount: 0, baseScore: 1800, email: "y.turan@gtu.edu.tr" },
+        { id: 37, name: "Arş. Gör. Şeyma YAŞAR", totalScore: 1320, taskCount: 0, baseScore: 1320, email: "s.yasar@gtu.edu.tr" },
+        { id: 38, name: "Dr. Begüm ATEŞLİ", totalScore: 0, taskCount: 0, baseScore: 0, email: "b.atesli@gtu.edu.tr" },
+        { id: 39, name: "Dr. Sultan BOZKURT GÜNGÖR", totalScore: 0, taskCount: 0, baseScore: 0, email: "s.bozkurt@gtu.edu.tr" },
+        { id: 40, name: "Dr. Yasemin BÜYÜKÇOLAK", totalScore: 0, taskCount: 0, baseScore: 0, email: "y.buyukcolak@gtu.edu.tr" },
+        { id: 41, name: "Dr. Ayten GEZİCİ", totalScore: 0, taskCount: 0, baseScore: 0, email: "a.gezici@gtu.edu.tr" },
+        { id: 42, name: "Dr. Büşra KARADENİZ ŞEN", totalScore: 0, taskCount: 0, baseScore: 0, email: "b.karadeniz@gtu.edu.tr" },
+        { id: 43, name: "Dr. Fatih YETGİN", totalScore: 0, taskCount: 0, baseScore: 0, email: "f.yetgin@gtu.edu.tr" }
     ],
     exams: [],
     constraints: {},
@@ -603,17 +603,23 @@ function publishDraft() {
 
     // Toplu Bildirim Gönder
     const now = new Date().toISOString();
-    affectedProctors.forEach(pid => {
-        if (!DB.notifications) DB.notifications = {};
-        if (!Array.isArray(DB.notifications[pid])) DB.notifications[pid] = [];
-        DB.notifications[pid].unshift({
-            id: Date.now() + Math.random(),
-            message: `📢 Sınav programı yayınlandı! Toplam ${examCount} yeni/güncellenmiş görev programınıza eklendi.`,
-            type: 'publish_draft',
-            createdAt: now,
-            isRead: false
+        affectedProctors.forEach(pid => {
+            if (!DB.notifications) DB.notifications = {};
+            if (!Array.isArray(DB.notifications[pid])) DB.notifications[pid] = [];
+            DB.notifications[pid].unshift({
+                id: Date.now() + Math.random(),
+                message: `📢 Sınav programı yayınlandı! Toplam ${examCount} yeni/güncellenmiş görev programınıza eklendi.`,
+                type: 'publish_draft',
+                createdAt: now,
+                isRead: false
+            });
+
+            // Taslak yayınlandığında e-posta gönder
+            const staffExams = DB.exams.filter(ex => !ex.isDraft && (ex.proctorIds?.includes(pid) || ex.proctorId === pid));
+            staffExams.forEach(ex => {
+                sendAssignmentEmail(pid, ex, 'new');
+            });
         });
-    });
 
     saveToLocalStorage();
     logAction('admin', 'Taslak Yayınlama', `${examCount} sınav yayına alındı, ${affectedProctors.size} gözetmene toplu bildirim gitti.`);
@@ -682,6 +688,11 @@ function addExam(examData) {
             createdAt: nowNotif,
             isRead: false
         });
+
+        // E-posta Gönder (Taslak modunda değilsek)
+        if (!newExam.isDraft) {
+            sendAssignmentEmail(p.id, newExam, 'new');
+        }
     });
 
     saveToLocalStorage();
@@ -775,6 +786,11 @@ function updateExam(id, newData, skipSave = false) {
     if ((changeLog.length > 0 || proctorChanged) && shouldNotifyNow) {
         const allAffected = new Set([...oldPIds, ...newPIds]);
         sendExamChangeNotification(Array.from(allAffected), oldExam.name, changeLog);
+        
+        // E-posta Gönder
+        newPIds.forEach(pid => {
+            sendAssignmentEmail(pid, { ...oldExam, ...newData }, proctorChanged ? 'new' : 'update');
+        });
     }
 
     // Sınavı her durumda güncelle (gözetmen yoksa eski gözetmeni koru)
@@ -832,13 +848,76 @@ function sendExamChangeNotification(proctorIds, examName, changedFields) {
             createdAt: now,
             isRead: false
         });
-
-        // Maksimum 50 bildirim sakla
-        if (DB.notifications[pid].length > 50) {
-            DB.notifications[pid].pop();
-        }
     });
 }
+
+/**
+ * E-posta Bildirimi Gönder
+ */
+async function sendAssignmentEmail(staffId, exam, type = 'new') {
+    if (!DB.emailSettings || !DB.emailSettings.enabled) return;
+
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff || !staff.email) return;
+
+    const subjectTemplate = type === 'new' ? DB.templates.assignment_email_subject : DB.templates.update_email_subject;
+    const bodyTemplate = type === 'new' ? DB.templates.assignment_email_body : DB.templates.update_email_body;
+
+    // Tüm gözetmen isimlerini virgülle birleştir
+    const proctorIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+    const gozetmenler = proctorIds
+        .map(pid => { const s = DB.staff.find(x => String(x.id) === String(pid)); return s ? s.name : ''; })
+        .filter(n => n)
+        .join(', ') || exam.proctorName || '-';
+
+    const replacePlaceholders = (text) => {
+        return text
+            .replace(/{personel_adi}/g, staff.name)
+            .replace(/{sinav_adi}/g, exam.name || '-')
+            .replace(/{tarih}/g, exam.date || '-')
+            .replace(/{saat}/g, exam.time || '-')
+            .replace(/{derslik}/g, exam.location || '-')
+            .replace(/{sure}/g, exam.duration || '-')
+            .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
+            .replace(/{gozetmenler}/g, gozetmenler)
+            .replace(/{gozet men ler}/g, gozetmenler); // fallback for typo in template
+    };
+
+    const subject = replacePlaceholders(subjectTemplate);
+    const body = replacePlaceholders(bodyTemplate);
+
+    console.log(`Email gönderiliyor: To=${staff.email}, Subject=${subject}`);
+
+    try {
+        if (DB.emailSettings.provider === 'smtpjs' && DB.emailSettings.smtpToken) {
+            if (window.Email) {
+                await window.Email.send({
+                    SecureToken : DB.emailSettings.smtpToken,
+                    To : staff.email,
+                    From : DB.emailSettings.fromEmail,
+                    Subject : subject,
+                    Body : body  // HTML body gönderiliyor
+                });
+                console.log(`✅ Email gönderildi: ${staff.email}`);
+            } else {
+                console.warn("SmtpJS (window.Email) yüklü değil!");
+            }
+        } else if (DB.emailSettings.provider === 'api' && DB.emailSettings.apiEndpoint) {
+            await fetch(DB.emailSettings.apiEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: staff.email, subject, body, isHtml: true })
+            });
+            console.log(`✅ Email API'ye iletildi: ${staff.email}`);
+        } else {
+            console.warn("E-posta ayarları tamamlanmamış! Panel > Sistem Ayarları > E-posta Ayarları kısmını kontrol edin.");
+        }
+    } catch (e) {
+        console.error("Email gönderim hatası:", e);
+    }
+}
+window.sendAssignmentEmail = sendAssignmentEmail;
+
 
 const API_URL = API_BASE_URL + "/api/data";
 
@@ -911,7 +990,40 @@ async function saveToBackend() {
 
 function saveToLocalStorage() {
     // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için
-    localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    const dbStr = JSON.stringify(DB);
+    
+    // Yaklaşık boyut kontrolü (Karakter sayısı x 2 byte = byte cinsinden boyut)
+    const sizeInMB = (dbStr.length * 2) / (1024 * 1024);
+    
+    if (sizeInMB > 4.0) {
+        console.warn(`Local Storage dolmak üzere! Mevcut Boyut: ${sizeInMB.toFixed(2)} MB`);
+        // Eğer yer kritik seviyeye geldiyse işlem geçmişini (auditLogs) temizleyelim
+        if (DB.auditLogs && DB.auditLogs.length > 50) {
+            DB.auditLogs = DB.auditLogs.slice(-50); // Sadece son 50 kaydı tut
+            console.log("Limit kontrolü: İşlem geçmişi yer açmak için son 50 kayda düşürüldü.");
+        }
+    }
+
+    try {
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+            console.error("LocalStorage doldu! Temizleme deneniyor...");
+            alert("⚠️ Tarayıcı depolama alanı doldu! Yer açmak için işlem geçmişi siliniyor...");
+            
+            // Radikal çözüm: İşlem geçmişini tamamen sıfırla
+            if (DB.auditLogs) DB.auditLogs = [];
+            
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(DB));
+                alert("✓ İşlem geçmişi temizlenerek yer açıldı ve veriler kaydedildi.");
+            } catch (e2) {
+                alert("❌ Hata: Yer açılamadı! Lütfen tarayıcı ayarlarından site verilerini temizleyin veya eski sınavları silin.");
+            }
+        } else {
+            console.error("LocalStorage kayıt hatası:", e);
+        }
+    }
     
     // Sunucuya asenkron olarak yaz (tüm kullanıcılar için)
     saveToBackend();
@@ -1291,6 +1403,24 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
     // Karşı tarafa bildirim gönder
     if (!DB.notifications) DB.notifications = {};
     if (!Array.isArray(DB.notifications[otherMember.id])) DB.notifications[otherMember.id] = [];
+    if (!DB.templates) {
+        DB.templates = {
+            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
+            assignment_email_subject: "Yeni Görev Ataması: {sinav_adi}",
+            assignment_email_body: "Sayın {personel_adi},\n\n{tarih} tarihinde saat {saat}'de yapılacak olan \"{sinav_adi}\" sınavına gözetmen olarak atandınız.\n\nDerslik: {derslik}\nSüre: {sure} dakika\nPuan: {puan}\n\nİyi çalışmalar dileriz.",
+            update_email_subject: "Görev Değişikliği: {sinav_adi}",
+            update_email_body: "Sayın {personel_adi},\n\n{tarih} tarihindeki \"{sinav_adi}\" sınavı görevinizde güncelleme yapılmıştır.\n\nYeni Bilgiler:\nSaat: {saat}\nDerslik: {derslik}\nSüre: {sure} dakika\n\nLütfen sistem üzerinden kontrol ediniz."
+        };
+    }
+    if (!DB.emailSettings) {
+        DB.emailSettings = {
+            enabled: false,
+            provider: 'smtpjs', // 'smtpjs' or 'api'
+            smtpToken: '', // For SmtpJS
+            apiEndpoint: '', // For custom API
+            fromEmail: 'noreply@gtu.edu.tr'
+        };
+    }
     DB.notifications[otherMember.id].unshift({
         id: Date.now() + 1,
         message: `🔄 **Akıllı Takas Teklifi:** ${me.name}, ${myExam.date} tarihindeki görevini seninle takas etmek istiyor.`,
