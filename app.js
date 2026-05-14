@@ -7486,6 +7486,109 @@ function initBulkActions() {
             }
         });
     }
+
+    // 5. Bulk Mail Button
+    const btnBulkMail = document.getElementById('btn-bulk-mail');
+    if (btnBulkMail) {
+        btnBulkMail.addEventListener('click', async () => {
+            const selectedKeys = getSelectedGroupKeys();
+            if (selectedKeys.length === 0) return;
+
+            if (!DB.emailSettings || !DB.emailSettings.enabled) {
+                alert("⚠️ E-posta gönderimi kapalı! Önce 'Sistem Ayarları > E-posta Ayarları' kısmından sistemi aktif etmelisiniz.");
+                return;
+            }
+
+            if (confirm(`Seçilen ${selectedKeys.length} sınavın tüm gözetmenlerine otomatik bilgilendirme maili gönderilecek. Onaylıyor musunuz?`)) {
+                let sentCount = 0;
+                showToast("📧 Toplu gönderim başladı, lütfen bekleyin...", "info");
+
+                for (const b64Key of selectedKeys) {
+                    const key = decodeURIComponent(atob(b64Key));
+                    const [type, name, date, time, location] = key.split('|');
+                    
+                    const matchingExams = DB.exams.filter(e => 
+                        e.type === type && e.name === name && e.date === date && e.time === time && e.location === location
+                    );
+                    
+                    for (const ex of matchingExams) {
+                        const proctorIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                        for (const pid of proctorIds) {
+                            await sendAssignmentEmail(pid, ex, 'new');
+                        }
+                    }
+                    sentCount++;
+                }
+
+                showToast(`✅ ${sentCount} grup sınav için gözetmenlere mailler başarıyla iletildi!`, "success");
+            }
+        });
+    }
+
+    // 6. Bulk Outlook Announcement Button
+    const btnBulkAnnouncement = document.getElementById('btn-bulk-announcement');
+    if (btnBulkAnnouncement) {
+        btnBulkAnnouncement.addEventListener('click', () => {
+            const selectedKeys = getSelectedGroupKeys();
+            if (selectedKeys.length === 0) return;
+
+            // Seçilen tüm sınavlardaki benzersiz gözetmenleri topla
+            const allEmails = new Set();
+            const proctorNames = new Set();
+            const missingEmailNames = [];
+
+            selectedKeys.forEach(b64Key => {
+                const key = decodeURIComponent(atob(b64Key));
+                const [type, name, date, time, location] = key.split('|');
+                const matchingExams = DB.exams.filter(e => e.type === type && e.name === name && e.date === date && e.time === time && e.location === location);
+                
+                matchingExams.forEach(ex => {
+                    const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                    pIds.forEach(pid => {
+                        const s = DB.staff.find(x => String(x.id) === String(pid));
+                        if (s) {
+                            proctorNames.add(s.name);
+                            if (s.email) allEmails.add(s.email);
+                            else missingEmailNames.push(s.name);
+                        }
+                    });
+                });
+            });
+
+            if (allEmails.size === 0) {
+                alert("Seçilen sınavların gözetmenlerine ait hiçbir e-posta adresi bulunamadı.");
+                return;
+            }
+
+            if (missingEmailNames.length > 0) {
+                const uniqueMissing = [...new Set(missingEmailNames)];
+                if (!confirm(`⚠️ Şu hocaların e-posta adresi eksik: ${uniqueMissing.join(', ')}\n\nDiğer ${allEmails.size} kişiye mail hazırlansın mı?`)) return;
+            }
+
+            const emailList = Array.from(allEmails).join(';');
+            const subject = "📢 Yeni Sınav Gözetmenlikleri Hakkında Bilgilendirme";
+            const body = `Sayın hocalarım,
+
+Yeni sınav gözetmenlikleriniz verilmiştir. Sistemden ve ekteki pdf dosyasından kontrol edebilirsiniz.
+
+⚠️ GÖREV DEĞİŞİKLİKLERİ HAKKINDA:
+Gözetmenliklerinizde değişiklik yapmak isterseniz yöneticiye gerek kalmadan sistem üzerinden "Profilim" sekmesini kullanarak kendi aranızda değişiklik yapabilirsiniz.
+
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+            const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            const a = document.createElement('a');
+            a.href = mailtoLink;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 100);
+
+            logAction('admin', 'Toplu Duyuru', `${selectedKeys.length} grup sınav için ${allEmails.size} kişiye toplu duyuru hazırlandı.`);
+        });
+    }
 }
 
 function updateBulkActionBar() {
