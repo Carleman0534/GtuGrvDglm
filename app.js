@@ -41,6 +41,7 @@ window.getScoreColor = function(score) {
 document.addEventListener('DOMContentLoaded', () => {
     const loginOverlay = document.getElementById('login-overlay');
     const appWrapper = document.getElementById('app-wrapper');
+    let currentImportType = 'exams'; // 'staff' veya 'exams'
     const loginPassInput = document.getElementById('login-password');
     const btnLogin = document.getElementById('btn-login');
     const btnLoginLecturer = document.getElementById('btn-login-lecturer');
@@ -991,6 +992,7 @@ function initUI() {
     const btnImport = document.getElementById('btn-import-excel');
     if (btnImport) {
         btnImport.addEventListener('click', () => {
+            currentImportType = 'staff';
             document.getElementById('import-preview').innerHTML = '';
             document.getElementById('import-file-input').value = '';
             document.getElementById('btn-confirm-import').disabled = true;
@@ -1004,6 +1006,7 @@ function initUI() {
     const btnImportExamsExcel = document.getElementById('btn-import-exams-excel');
     if (btnImportExamsExcel) {
         btnImportExamsExcel.addEventListener('click', () => {
+            currentImportType = 'exams';
             document.getElementById('import-preview').innerHTML = '';
             document.getElementById('import-file-input').value = '';
             document.getElementById('btn-confirm-import').disabled = true;
@@ -1079,38 +1082,57 @@ function initUI() {
                     document.getElementById('btn-confirm-import').disabled = false;
 
                     // === AKILLI SÜTUN EŞLEŞTİRME UI ===
-                    const SCHEMA_FIELDS = [
-                        { key: 'name',     label: '📚 Sınav Adı',   required: true  },
-                        { key: 'date',     label: '📅 Tarih',        required: true  },
-                        { key: 'time',     label: '🕐 Saat',         required: true  },
-                        { key: 'duration', label: '⌛ Süre (dk)',    required: false },
-                        { key: 'location', label: '📍 Konum',        required: false },
-                        { key: 'lecturer', label: '👤 Hoca',         required: false },
-                        { key: 'type',     label: '📋 Tür',          required: false },
-                        { key: 'proctor',  label: '🛡️ Gözetmen',    required: false },
-                    ];
-                    const SAVED_MAP_KEY = 'excel_col_map_v1';
+                    let SCHEMA_FIELDS = [];
+                    let AUTO_KEYWORDS = {};
+
+                    if (currentImportType === 'staff') {
+                        SCHEMA_FIELDS = [
+                            { key: 'name',      label: '👤 İsim Soyisim', required: true  },
+                            { key: 'email',     label: '📧 E-posta',      required: false },
+                            { key: 'baseScore', label: '📊 Başl. Puanı', required: false },
+                        ];
+                        AUTO_KEYWORDS = {
+                            name:      ['isim', 'ad soyad', 'personel', 'name', 'hoca'],
+                            email:     ['eposta', 'mail', 'email'],
+                            baseScore: ['puan', 'score', 'başlangıç', 'base'],
+                        };
+                    } else {
+                        SCHEMA_FIELDS = [
+                            { key: 'name',     label: '📚 Sınav Adı',   required: true  },
+                            { key: 'date',     label: '📅 Tarih',        required: true  },
+                            { key: 'time',     label: '🕐 Saat',         required: true  },
+                            { key: 'duration', label: '⌛ Süre (dk)',    required: false },
+                            { key: 'location', label: '📍 Konum',        required: false },
+                            { key: 'lecturer', label: '👤 Hoca',         required: false },
+                            { key: 'type',     label: '📋 Tür',          required: false },
+                            { key: 'proctor',  label: '🛡️ Gözetmen',    required: false },
+                        ];
+                        AUTO_KEYWORDS = {
+                            name:     ['ders','sınav','isim','name','exam','kod'],
+                            date:     ['tarih','date','gun'],
+                            time:     ['saat','time','vakit'],
+                            duration: ['süre','dakika','duration'],
+                            location: ['yer','derslik','sınıf','location','room'],
+                            lecturer: ['hoca','lecturer','öğretim','instructor'],
+                            type:     ['tür','type','kind'],
+                            proctor:  ['gözetmen','proctor','invigilator'],
+                        };
+                    }
+
+                    const SAVED_MAP_KEY = 'excel_col_map_' + currentImportType;
                     const savedMap = JSON.parse(localStorage.getItem(SAVED_MAP_KEY) || '{}');
-                    const AUTO_KEYWORDS = {
-                        name:     ['ders','sınav','isim','name','exam','kod'],
-                        date:     ['tarih','date','gun'],
-                        time:     ['saat','time','vakit'],
-                        duration: ['süre','dakika','duration'],
-                        location: ['yer','derslik','sınıf','location','room'],
-                        lecturer: ['hoca','lecturer','öğretim','instructor'],
-                        type:     ['tür','type','kind'],
-                        proctor:  ['gözetmen','proctor','invigilator'],
-                    };
+                    
                     const autoGuess = (headerRaw) => {
-                        const h = headerRaw.toLowerCase();
+                        const h = String(headerRaw).toLowerCase();
                         if (savedMap[headerRaw]) return savedMap[headerRaw];
                         for (const [field, keys] of Object.entries(AUTO_KEYWORDS)) {
                             if (keys.some(k => h.includes(k))) return field;
                         }
                         return '';
                     };
+
                     let mapHtml = `<div id="smart-col-map" style="margin-top:1rem; background:rgba(99,102,241,0.1); border:1px solid #6366f1; border-radius:12px; padding:1rem;">`;
-                    mapHtml += `<div style="font-size:0.85rem; color:#a78bfa; font-weight:700; margin-bottom:10px;">🧠 Akıllı Sütun Eşleştirme — Her başlık neyi temsil ediyor?</div>`;
+                    mapHtml += `<div style="font-size:0.85rem; color:#a78bfa; font-weight:700; margin-bottom:10px;">🧠 Akıllı Sütun Eşleştirme (${currentImportType === 'staff' ? 'Personel' : 'Sınav'})</div>`;
                     mapHtml += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
                     rows[0].forEach((h, idx) => {
                         const guess = autoGuess(String(h).trim());
@@ -1130,7 +1152,7 @@ function initUI() {
                     mapHtml += `</div></div>`;
                     document.getElementById('import-preview').innerHTML += mapHtml;
 
-                    // Satırları button'a aktar (smartMap flag ile)
+                    // Satırları button'a aktar
                     document.getElementById('btn-confirm-import')._importData = { rows, sheetName, smartMap: true };
 
                 } catch(err) {
@@ -1152,7 +1174,7 @@ function initUI() {
 
             // === AKILLI EŞLEŞTİRME MODU ===
             if (data.smartMap) {
-                const SAVED_MAP_KEY = 'excel_col_map_v1';
+                const SAVED_MAP_KEY = 'excel_col_map_' + currentImportType;
                 const savedMap = JSON.parse(localStorage.getItem(SAVED_MAP_KEY) || '{}');
 
                 // Seçilen mapping'i oku
@@ -1162,37 +1184,90 @@ function initUI() {
                     const idx = parseInt(sel.dataset.colIdx);
                     if (val) {
                         colMap[val] = idx;
-                        // Hafızaya kaydet (header ismi bazında)
                         const headerName = rows[0][idx];
                         if (headerName) savedMap[String(headerName).trim()] = val;
                     }
                 });
                 localStorage.setItem(SAVED_MAP_KEY, JSON.stringify(savedMap));
 
+                let addedCount = 0, skipCount = 0;
+
+                // --- PERSONEL MODU ---
+                if (currentImportType === 'staff') {
+                    if (colMap.name === undefined) {
+                        alert('⚠️ En azından İsim Soyisim sütununu eşleştirmeniz gerekiyor!');
+                        return;
+                    }
+                    rows.slice(1).forEach(row => {
+                        const name = String(row[colMap.name] || '').trim();
+                        if (!name) return;
+                        const email = colMap.email !== undefined ? String(row[colMap.email] || '').trim() : '';
+                        const baseScore = colMap.baseScore !== undefined ? (parseFloat(row[colMap.baseScore]) || 0) : 0;
+
+                        const exists = DB.staff.find(s => s.name.toLowerCase() === name.toLowerCase());
+                        if (!exists) {
+                            const newId = DB.staff.length > 0 ? (Math.max(...DB.staff.map(s => s.id)) + 1) : 1;
+                            DB.staff.push({
+                                id: newId,
+                                name: name,
+                                email: email,
+                                totalScore: baseScore,
+                                baseScore: baseScore,
+                                taskCount: 0
+                            });
+                            addedCount++;
+                        } else {
+                            skipCount++;
+                        }
+                    });
+                    saveToLocalStorage();
+                    if (typeof saveToBackend === 'function') await saveToBackend();
+                    document.getElementById('modal-import').classList.add('hidden');
+                    renderStaff(); renderDashboard();
+                    showToast(`✅ ${addedCount} hoca eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandı)` : ''}`);
+                    return;
+                }
+
+                // --- SINAV MODU ---
                 if (!colMap.name || !colMap.date || !colMap.time) {
                     alert('⚠️ En azından Sınav Adı, Tarih ve Saat sütunlarını eşleştirmeniz gerekiyor!');
                     return;
                 }
 
-                let addedCount = 0, skipCount = 0;
+                const monthsMap = {
+                    'ocak': '01', 'şubat': '02', 'mart': '03', 'nisan': '04', 'mayıs': '05', 'haziran': '06',
+                    'temmuz': '07', 'ağustos': '08', 'eylül': '09', 'ekim': '10', 'kasım': '11', 'aralık': '12'
+                };
 
                 rows.slice(1).forEach(row => {
                     const name = String(row[colMap.name] || '').trim();
-                    const dateRaw = String(row[colMap.date] || '').trim();
-                    const timeRaw = String(row[colMap.time] || '').trim();
-                    if (!name || !dateRaw || !timeRaw) return;
+                    let dateRaw = String(row[colMap.date] || '').trim();
+                    let timeRaw = String(row[colMap.time] || '').trim();
+                    if (!name || !dateRaw) return;
 
-                    // Tarih normalizasyonu
-                    let date = dateRaw;
-                    if (date.includes('.') || date.includes('/')) {
-                        const parts = date.split(/[./]/);
-                        if (parts[0].length === 4) date = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-                        else date = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+                    // Tarih/Saat Akıllı Ayrıştırma
+                    let combined = (dateRaw + " " + timeRaw).toLowerCase();
+                    for (const [mName, mVal] of Object.entries(monthsMap)) {
+                        combined = combined.replace(mName, mVal);
                     }
+                    combined = combined.replace(/pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar/g, '')
+                                       .replace(/[,./-]/g, ' ')
+                                       .replace(/\s+/g, ' ').trim();
 
-                    // Saat normalizasyonu
-                    let time = String(timeRaw).replace('.', ':');
-                    if (time.length === 4 && !time.includes(':')) time = time.slice(0,2) + ':' + time.slice(2);
+                    const parts = combined.match(/\d+/g);
+                    if (!parts || parts.length < 3) return;
+
+                    let d, m, y, h = "09", min = "00";
+                    if (parts[0].length === 4) { // YYYY MM DD
+                        y = parts[0]; m = parts[1]; d = parts[2];
+                        if (parts.length >= 5) { h = parts[3]; min = parts[4]; }
+                    } else { // DD MM YYYY
+                        d = parts[0]; m = parts[1]; y = parts[2];
+                        if (parts.length >= 5) { h = parts[3]; min = parts[4]; }
+                    }
+                    
+                    const date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    const time = `${h.padStart(2, '0')}:${min.padStart(2, '0')}`;
 
                     const duration = colMap.duration !== undefined ? (parseInt(row[colMap.duration]) || 90) : 90;
                     const location = colMap.location !== undefined ? String(row[colMap.location] || '').trim() : '';
@@ -1235,7 +1310,7 @@ function initUI() {
                 document.getElementById('modal-import').classList.add('hidden');
                 renderExams(); renderStaff(); renderSchedule(); renderDashboard();
                 showToast(`✅ ${addedCount} sınav eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandı)` : ''}`);
-                return; // Eski genel import'u atla
+                return;
             }
 
             // === ESKİ GENEL IMPORT (Fallback) ===
@@ -3229,8 +3304,13 @@ window.showStaffSchedule = (staffName) => {
     const now = new Date();
     
     // Filtrele ve tarihe göre sırala
+    const staffObj = DB.staff.find(s => s.name === staffName);
     const individualExams = DB.exams
-        .filter(ex => ex.proctorName === staffName)
+        .filter(ex => {
+            const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+            if (staffObj && pIds.includes(staffObj.id)) return true;
+            return ex.proctorName && ex.proctorName.includes(staffName);
+        })
         .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
         
     individualExams.forEach(ex => {
