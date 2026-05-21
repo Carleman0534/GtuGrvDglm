@@ -477,6 +477,7 @@ async function initApp() {
     updateMessageBadge(); // Hoca mesajı rozeti
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
     updateDraftBanner(); // Taslak Modu Banner'ı Güncelle
+    if (typeof updateUndoUI === 'function') updateUndoUI(); // Undo UI
 }
 
 /**
@@ -612,7 +613,35 @@ window.switchExamTab = (tab) => {
     renderExams();
 };
 
+window.updateUndoUI = function() {
+    const btnUndo = document.getElementById('btn-undo');
+    if (!btnUndo) return;
+    
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+    if (!isAdmin || typeof UNDO_STACK === 'undefined' || UNDO_STACK.length === 0) {
+        btnUndo.classList.add('hidden');
+        return;
+    }
+    
+    const lastAction = UNDO_STACK[UNDO_STACK.length - 1];
+    btnUndo.innerHTML = `<span class="icon" style="margin:0; margin-right:4px;">↩️</span>Geri Al: ${lastAction.actionName}`;
+    btnUndo.classList.remove('hidden');
+};
+
 function initUI() {
+    document.getElementById('btn-undo')?.addEventListener('click', () => {
+        if (confirm("Son işlemi geri almak istediğinize emin misiniz? Puanlar ve atamalar bir önceki haline dönecek.")) {
+            if (typeof undoLastAction === 'function' && undoLastAction()) {
+                // Ekranda değişiklikleri yansıtmak için listeleri güncelle
+                if (typeof renderDashboard === 'function') renderDashboard();
+                if (typeof renderExams === 'function') renderExams();
+                if (typeof renderSchedule === 'function') renderSchedule();
+                if (typeof renderStaff === 'function') renderStaff();
+                showToast("İşlem başarıyla geri alındı.", "success");
+            }
+        }
+    });
+
     document.getElementById('btn-add-exam').addEventListener('click', showAddExamModal);
     document.getElementById('btn-manage-types')?.addEventListener('click', () => {
         document.getElementById('modal-manage-types').classList.remove('hidden');
@@ -768,6 +797,8 @@ function initUI() {
         const type = e.target.value;
         document.getElementById('profile-constraint-day-group').classList.toggle('hidden', type !== 'day');
         document.getElementById('profile-constraint-date-group').classList.toggle('hidden', type !== 'date');
+        const drGroup = document.getElementById('profile-constraint-daterange-group');
+        if (drGroup) drGroup.classList.toggle('hidden', type !== 'daterange');
     });
 
     document.getElementById('form-profile-add-constraint')?.addEventListener('submit', (e) => {
@@ -1728,6 +1759,10 @@ window.showExamDetail = function(examName, date, time, location) {
     );
 
     title.textContent = examName;
+    
+    document.getElementById('btn-download-attendance').onclick = () => {
+        generateAttendancePDF(examName, date, time, location, relatedExams);
+    };
 
     const formatDate = date.split('-').reverse().join('.');
     const duration = relatedExams.length > 0 ? relatedExams[0].duration : '-';
@@ -2724,6 +2759,7 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
 };
 
 window.deleteExam = (id) => {
+    takeSnapshot("Sınav Silme");
     const exIndex = DB.exams.findIndex(e => e.id === id);
     if (exIndex > -1) {
         const ex = DB.exams[exIndex];
@@ -5648,6 +5684,8 @@ function renderProfileConstraints() {
         let label = "";
         if (c.day !== undefined) {
             label = `Haftalık: ${TurkishDays[c.day]}`;
+        } else if (c.startDate && c.endDate) {
+            label = `Toplu Tarih: ${c.startDate} / ${c.endDate}`;
         } else if (c.date) {
             label = `Özel Tarih: ${c.date}`;
         }
@@ -5700,11 +5738,18 @@ function handleProfileConstraintAdd() {
     const newConstraint = { start, end };
     if (type === 'day') {
         newConstraint.day = parseInt(document.getElementById('profile-constraint-day').value);
-    } else {
+    } else if (type === 'date') {
         const dateVal = document.getElementById('profile-constraint-date').value; // YYYY-MM-DD
         if (!dateVal) { alert("Lütfen tarih seçin!"); return; }
         const parts = dateVal.split('-');
         newConstraint.date = `${parts[1]}-${parts[2]}`; // MM-DD formatı logic.js uyumlu
+    } else if (type === 'daterange') {
+        const startVal = document.getElementById('profile-constraint-daterange-start').value;
+        const endVal = document.getElementById('profile-constraint-daterange-end').value;
+        if (!startVal || !endVal) { alert("Lütfen başlangıç ve bitiş tarihlerini seçin!"); return; }
+        if (startVal > endVal) { alert("Başlangıç tarihi bitiş tarihinden sonra olamaz!"); return; }
+        newConstraint.startDate = startVal;
+        newConstraint.endDate = endVal;
     }
 
     if (!DB.constraints[staff.name]) DB.constraints[staff.name] = [];
@@ -5819,6 +5864,7 @@ window.renderMarketplace = function() {
                 <td><span class="score-tag">+${exam.score || 0}</span></td>
                 <td style="text-align:right; display: flex; gap: 5px; justify-content: flex-end;">
                     <button class="btn-primary" onclick="acceptOpenRequest(${req.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--accent-green);">Görevi Al</button>
+                    <button class="btn-secondary" onclick="openOfferSwapModal(${req.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--accent-orange);">Takas Teklif Et</button>
                     <button class="btn-delete" onclick="dismissMarketplaceRequest(${req.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Reddet</button>
                 </td>
             `;
@@ -6144,6 +6190,110 @@ document.getElementById('btn-confirm-direct-swap').onclick = async function() {
     }
 };
 
+window.openOfferSwapModal = function(requestId) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) return alert("Lütfen önce profilinizden kimliğinizi seçin.");
+
+    const req = DB.requests.find(r => String(r.id) === String(requestId));
+    if (!req) return;
+
+    const targetExam = DB.exams.find(e => String(e.id) === String(req.examId));
+    if (!targetExam) return;
+
+    document.getElementById('offer-swap-request-id').value = requestId;
+    document.getElementById('offer-swap-target-exam-name').textContent = `${targetExam.name} (${targetExam.date})`;
+    
+    // Kendi aktif sınavlarımı bul
+    const now = new Date();
+    const myExams = DB.exams.filter(e => {
+        if (!e.proctorIds && e.proctorId !== parseInt(myStaffId)) return false;
+        if (e.proctorIds && !e.proctorIds.includes(parseInt(myStaffId))) return false;
+        if (!e.date || !e.time) return false;
+        const examDate = new Date(`${e.date}T${e.time}`);
+        const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
+        return examEnd >= now;
+    });
+
+    const list = document.getElementById('offer-swap-exam-list');
+    if (myExams.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">Aktif göreviniz bulunmuyor. Takas teklif edemezsiniz.</p>';
+    } else {
+        list.innerHTML = myExams.map(ex => `
+            <div class="suggestion-item" onclick="selectOfferSwapExam(${ex.id}, \`${ex.name.replace(/`/g, '').replace(/"/g, '&quot;')}\`, '${ex.date}', this)">
+                <div style="font-weight: 600;">${ex.name}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${ex.date} - ${ex.time}</div>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('offer-swap-summary').classList.add('hidden');
+    document.getElementById('btn-confirm-offer-swap').disabled = true;
+    window.selectedOfferSwapMyExamId = null;
+
+    document.getElementById('modal-offer-swap').classList.remove('hidden');
+};
+
+window.selectOfferSwapExam = function(examId, name, date, element) {
+    window.selectedOfferSwapMyExamId = examId;
+    document.getElementById('offer-swap-my-exam-name').textContent = `${name} (${date})`;
+    document.getElementById('offer-swap-summary').classList.remove('hidden');
+    document.getElementById('btn-confirm-offer-swap').disabled = false;
+    
+    document.querySelectorAll('#offer-swap-exam-list .suggestion-item').forEach(el => el.classList.remove('active'));
+    if (element) {
+        element.classList.add('active');
+    }
+};
+
+window.confirmOfferSwap = async function() {
+    try {
+        const requestId = document.getElementById('offer-swap-request-id').value;
+        const myExamId = window.selectedOfferSwapMyExamId;
+        const myStaffId = localStorage.getItem('myStaffId');
+
+        if (!myExamId || !requestId) {
+            alert("Lütfen vereceğiniz sınavı seçiniz.");
+            return;
+        }
+
+        const openReq = DB.requests.find(r => String(r.id) === String(requestId));
+        const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+        const targetStaff = DB.staff.find(s => String(s.id) === String(openReq.initiatorId));
+        const myExam = DB.exams.find(e => String(e.id) === String(myExamId));
+        const targetExam = DB.exams.find(e => String(e.id) === String(openReq.examId));
+
+        if (!myStaff || !targetStaff || !myExam || !targetExam || !openReq) {
+            alert("Kayıt bulunamadı. Lütfen sayfayı yenileyin.");
+            return;
+        }
+
+        if (confirm(`Pazar yerindeki bu görev için ${targetStaff.name} hocaya takas teklifi göndermek istediğinize emin misiniz?`)) {
+            if (!DB.requests) DB.requests = [];
+            
+            DB.requests.push({
+                id: Date.now(),
+                type: 'direct_swap',
+                initiatorId: parseInt(myStaffId),
+                initiatorName: myStaff.name,
+                initiatorExamId: Number(myExamId),
+                receiverId: targetStaff.id,
+                receiverName: targetStaff.name,
+                receiverExamId: targetExam.id,
+                status: 'pending_peer',
+                createdAt: new Date().toISOString()
+            });
+
+            saveToLocalStorage();
+            alert("Takas teklifiniz iletildi. Görevin sahibinin profilinden onaylaması bekleniyor.");
+            document.getElementById('modal-offer-swap').classList.add('hidden');
+            renderProfile();
+        }
+    } catch(err) {
+        alert("Teklif Gönderilirken Hata: " + err.message);
+        console.error("Offer swap error:", err);
+    }
+};
+
 window.acceptDirectSwap = async function(requestId) {
     const req = DB.requests.find(r => String(r.id) === String(requestId));
     if (!req) return;
@@ -6446,6 +6596,8 @@ async function exportToPDF(tableId, title) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'mm', 'a4'); // Yatay format
     
+    let pdfFont = 'helvetica';
+    let hasRoboto = false;
     try {
         // Türkçe destekleyen Roboto fontlarını çekip sanal dosya sistemine ekliyoruz
         const [fontRes, boldRes] = await Promise.all([
@@ -6460,6 +6612,7 @@ async function exportToPDF(tableId, title) {
             for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
             doc.addFileToVFS('Roboto-Regular.ttf', window.btoa(binary));
             doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+            hasRoboto = true;
         }
         if (boldRes.ok) {
             const boldBuffer = await boldRes.arrayBuffer();
@@ -6469,16 +6622,31 @@ async function exportToPDF(tableId, title) {
             doc.addFileToVFS('Roboto-Medium.ttf', window.btoa(binary));
             doc.addFont('Roboto-Medium.ttf', 'Roboto', 'bold');
         }
-        
-        doc.setFont('Roboto');
+        if (hasRoboto) {
+            pdfFont = 'Roboto';
+        }
     } catch (e) {
         console.warn('Font yüklenemedi. Varsayılan font kullanılacak:', e);
     }
+    doc.setFont(pdfFont);
+
+    const adjustTextForFont = (str) => {
+        if (typeof str !== 'string') return str;
+        if (pdfFont === 'helvetica') {
+            const trMap = {
+                'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
+                'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
+            };
+            return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m]);
+        }
+        return str;
+    };
 
     // Emojileri temizleyen ama Türkçe karakterlere dokunmayan fonksiyon
     const cleanStr = (str) => {
         if (typeof str !== 'string') return str;
-        return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+        const cleaned = str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+        return adjustTextForFont(cleaned);
     };
     
     // Title
@@ -6503,7 +6671,7 @@ async function exportToPDF(tableId, title) {
         startY: 35,
         theme: 'grid',
         styles: {
-            font: 'Roboto', // Dinamik fontumuz
+            font: pdfFont, // Dinamik fontumuz
             fontStyle: 'normal',
             fontSize: 8,
             cellPadding: 3,
@@ -6513,8 +6681,8 @@ async function exportToPDF(tableId, title) {
             fillColor: [99, 102, 241], // Primary color
             textColor: 255,
             fontSize: 9,
-            font: 'Roboto',
-            fontStyle: 'bold' // Roboto-Medium çekecek
+            font: pdfFont,
+            fontStyle: 'bold'
         },
         alternateRowStyles: {
             fillColor: [245, 247, 250]
@@ -6541,6 +6709,194 @@ async function exportToPDF(tableId, title) {
     const filename = `${replaceTRForFilename(title).toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.pdf`;
     doc.save(filename);
 }
+
+window.generateAttendancePDF = async function(examName, date, time, location, relatedExams) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4'); // Dikey A4
+    
+    try {
+        // Türkçe fontları yükle
+        const [fontRes, boldRes] = await Promise.all([
+            fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf'),
+            fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf')
+        ]);
+        
+        if (fontRes.ok) {
+            const fontBuffer = await fontRes.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(fontBuffer);
+            for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+            doc.addFileToVFS('Roboto-Regular.ttf', window.btoa(binary));
+            doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+        }
+        if (boldRes.ok) {
+            const boldBuffer = await boldRes.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(boldBuffer);
+            for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); }
+            doc.addFileToVFS('Roboto-Medium.ttf', window.btoa(binary));
+            doc.addFont('Roboto-Medium.ttf', 'Roboto', 'bold');
+        }
+        doc.setFont('Roboto');
+    } catch (e) {
+        console.warn('Font yüklenemedi. Varsayılan font kullanılacak:', e);
+    }
+
+    const cleanStr = (str) => {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ''); // Emojileri temizle
+    };
+
+    const formatDate = date.split('-').reverse().join('.');
+    
+    // Gözetmenleri birleştir
+    const proctorsSet = new Set();
+    relatedExams.forEach(ex => {
+        if (ex.proctorName) proctorsSet.add(ex.proctorName);
+        if (ex.proctorIds) {
+            ex.proctorIds.forEach(pid => {
+                const s = DB.staff.find(x => x.id == pid);
+                if (s) proctorsSet.add(s.name);
+            });
+        }
+    });
+    const proctorsStr = Array.from(proctorsSet).join(', ') || 'Atanmadı';
+
+    // Akıllı sınıf / bölüm tespiti
+    let classStr = "";
+    const nameLower = examName.toLowerCase();
+    const classMatch = nameLower.match(/(1|2|3|4)\.\s*(sınıf|yıl)/);
+    if (classMatch) {
+        classStr = classMatch[1] + ". Sınıf";
+    } else {
+        const codeMatch = examName.match(/\b([1-4])\d{2}\b/);
+        if (codeMatch) {
+            classStr = codeMatch[1] + ". Sınıf";
+        }
+    }
+    const deptStr = "Matematik Bölümü" + (classStr ? " / " + classStr : "");
+
+    // Logo çizimi (Base64 olarak doğrudan gömülüdür, CORS veya dosya yolu hatalarını önler)
+    let startY = 32; // Üst tablonun başlayacağı koordinat
+    try {
+        const logoBase64 = "data:image/png;base64,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";
+        doc.addImage(logoBase64, 'PNG', 15, 6, 32, 19);
+    } catch (err) {
+        console.warn("Logo yüklenirken hata oluştu:", err);
+    }
+
+    // SINAV TUTANAĞI Başlığı
+    doc.setFont('Roboto', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(60, 60, 60);
+    doc.text("SINAV TUTANAĞI", 105, 17, { align: "center" });
+
+    // Üst Tablo (Sınav Detayları)
+    doc.autoTable({
+        startY: startY,
+        margin: { left: 15, right: 15 },
+        body: [
+            [{ content: 'Tarih', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: formatDate, colSpan: 3 }],
+            [{ content: 'Bölüm/Program/Sınıf', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: deptStr, colSpan: 3 }],
+            [{ content: 'Ders Adı', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: cleanStr(examName), colSpan: 3 }],
+            [
+                { content: 'Gözetmen', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, 
+                { content: cleanStr(proctorsStr) }, 
+                { content: 'İmza', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, 
+                { content: '' }
+            ]
+        ],
+        theme: 'grid',
+        styles: {
+            font: 'Roboto',
+            fontSize: 9,
+            cellPadding: 2.2,
+            textColor: [0, 0, 0],
+            lineColor: [0, 0, 0],
+            lineWidth: 0.25,
+            valign: 'middle'
+        },
+        columnStyles: {
+            0: { cellWidth: 35 },
+            1: { cellWidth: 85 },
+            2: { cellWidth: 15 },
+            3: { cellWidth: 45 }
+        }
+    });
+
+    const topTableFinalY = doc.lastAutoTable.finalY;
+
+    // "Sınava giren öğrencinin" başlığı
+    doc.setFont('Roboto', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Sınava giren öğrencinin", 15, topTableFinalY + 4);
+
+    // Boş Tablo Verisi (40 Öğrenci Kapasiteli)
+    // Sütun sırası: Sıra No, Adı Soyadı, Numarası, İmza
+    const tableData = [];
+    for (let i = 1; i <= 40; i++) {
+        tableData.push([i.toString(), "", "", ""]);
+    }
+
+    doc.autoTable({
+        startY: topTableFinalY + 5.5,
+        margin: { left: 15, right: 15 },
+        head: [['Sıra No', 'Adı, Soyadı', 'Numarası', 'İmza']],
+        body: tableData,
+        theme: 'grid',
+        styles: {
+            font: 'Roboto',
+            fontSize: 8.5,
+            cellPadding: 1.6,
+            valign: 'middle',
+            lineColor: [0, 0, 0],
+            lineWidth: 0.25,
+            textColor: [0, 0, 0]
+        },
+        headStyles: {
+            fillColor: [255, 255, 255],
+            textColor: [0, 0, 0],
+            fontStyle: 'bold',
+            lineColor: [0, 0, 0],
+            lineWidth: 0.25
+        },
+        columnStyles: {
+            0: { cellWidth: 15, halign: 'center' },
+            1: { cellWidth: 85 },
+            2: { cellWidth: 45 },
+            3: { cellWidth: 35 }
+        }
+    });
+
+    const studentTableFinalY = doc.lastAutoTable.finalY;
+
+    // Sınava katılım ve not bilgileri
+    doc.setFont('Roboto', 'normal');
+    doc.setFontSize(9);
+    doc.text("Sınava toplam ........................ öğrenci katılmıştır.", 15, studentTableFinalY + 5);
+
+    doc.setFont('Roboto', 'bold');
+    doc.text("Not: Sınav tutanağı sınav kâğıtlarıyla birlikte muhafaza edilecektir.", 15, studentTableFinalY + 9);
+
+    // Sayfa altı kodu (FR-0282)
+    doc.setFont('Roboto', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text("FR-0282 Yayın Tarihi: 06.11.2017 Değ.No:0 Değ.Tarihi:-", 15, 288);
+
+    // Dosyayı İndir
+    const replaceTRForFilename = (str) => {
+        const trMap = {
+            'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
+            'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
+        };
+        return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m]).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+    };
+    
+    const filename = `Yoklama_${replaceTRForFilename(examName).toLowerCase().replace(/\s+/g, '_')}_${formatDate}.pdf`;
+    doc.save(filename);
+};
 
 /**
  * Tema Kontrolü
@@ -7475,6 +7831,7 @@ async function importAllExcelExams() {
 
     if (!confirm(`${draftExams.length} sınavı sisteme aktarmak istediğinize emin misiniz?`)) return;
 
+    takeSnapshot("Excel İçe Aktarma");
     // Her birini DB'ye ekle
     draftExams.forEach(ex => {
         const examData = {
@@ -7980,9 +8337,33 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js')
             .then(registration => {
                 console.log('[PWA] Service Worker registered with scope:', registration.scope);
+                
+                // Eğer yeni bir service worker yüklenirse sayfayı yenile
+                registration.onupdatefound = () => {
+                    const installingWorker = registration.installing;
+                    if (installingWorker) {
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed') {
+                                if (navigator.serviceWorker.controller) {
+                                    console.log('[PWA] Yeni güncelleme algılandı, sayfa yenileniyor...');
+                                    window.location.reload();
+                                }
+                            }
+                        };
+                    }
+                };
             })
             .catch(error => {
                 console.error('[PWA] Service Worker registration failed:', error);
             });
+
+        // Service Worker değiştiğinde sayfayı otomatik yenile
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
     });
 }

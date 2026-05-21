@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e1b4b">
     <link rel="apple-touch-icon" href="icon-192.png">
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -47,6 +47,9 @@
                 <h1>Gözetmenlik <span>Katsayı Sistemi</span></h1>
             </div>
             <nav>
+                <button id="btn-undo" class="admin-only hidden" style="background-color: #f59e0b; color: #fff; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);" title="Son İşlemi Geri Al">
+                    <span class="icon" style="margin:0; margin-right:4px;">↩️</span>Geri Al
+                </button>
                 <button id="btn-profile" class="active">👤 Profilim <span id="marketplace-badge" class="badge-count hidden">0</span><span id="notif-badge-profile" class="badge-count hidden">0</span></button>
                 <button id="btn-dashboard">Panel</button>
                 <button id="btn-schedule">Sınav Programı</button>
@@ -462,6 +465,7 @@
                                             <select id="profile-constraint-type" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
                                                 <option value="day">Haftalık Tekrarla</option>
                                                 <option value="date">Sadece Belirli Gün</option>
+                                                <option value="daterange">Toplu Tarih (Tarih Aralığı)</option>
                                             </select>
                                         </div>
                                         <div id="profile-constraint-day-group" class="form-group">
@@ -479,6 +483,18 @@
                                         <div id="profile-constraint-date-group" class="form-group hidden">
                                             <label>Tarih</label>
                                             <input type="date" id="profile-constraint-date" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                        </div>
+                                        <div id="profile-constraint-daterange-group" class="form-group hidden">
+                                            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                                <div>
+                                                    <label>Başlangıç Tarihi</label>
+                                                    <input type="date" id="profile-constraint-daterange-start" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                                </div>
+                                                <div>
+                                                    <label>Bitiş Tarihi</label>
+                                                    <input type="date" id="profile-constraint-daterange-end" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                             <div class="form-group">
@@ -1220,7 +1236,12 @@
             <div class="modal-content" style="max-width: 700px;">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h2 id="exam-detail-title">Sınav Detayı</h2>
-                    <button id="btn-close-exam-detail" class="btn-secondary">Kapat</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btn-download-attendance" class="btn-primary" style="background: var(--accent-orange); display: flex; align-items: center; gap: 5px;">
+                            <span>📄</span> Yoklama Listesi (PDF)
+                        </button>
+                        <button id="btn-close-exam-detail" class="btn-secondary">Kapat</button>
+                    </div>
                 </div>
                 <div id="exam-detail-info" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;"></div>
                 
@@ -1538,6 +1559,45 @@
         </div>
     </div>
 
+    <!-- Marketplace Offer Swap Modal -->
+    <div id="modal-offer-swap" class="modal hidden">
+        <div class="modal-content card-large" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Pazar Yeri Takas Teklifi</h2>
+                <button class="close-modal" onclick="document.getElementById('modal-offer-swap').classList.add('hidden')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Bu açık görevi almak karşılığında kendi sınavlarınızdan hangisini karşı tarafa devretmek istiyorsunuz?</p>
+                
+                <input type="hidden" id="offer-swap-request-id">
+                
+                <div id="offer-swap-my-exams-container">
+                    <label>Kendi Aktif Sınavlarınız (Birini Seçin)</label>
+                    <div id="offer-swap-exam-list" class="suggestion-list" style="max-height: 250px; overflow-y: auto; margin-top: 0.5rem; display: grid; gap: 10px;">
+                        <!-- Kullanıcının Sınavları Buraya Gelecek -->
+                    </div>
+                </div>
+
+                <div id="offer-swap-summary" class="hidden" style="margin-top: 1.5rem; padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 12px; border: 1px dashed var(--primary);">
+                    <p style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Teklif Özeti:</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong id="offer-swap-target-exam-name" style="color: var(--accent-orange);">Alacağınız Görev</strong>
+                        </div>
+                        <div style="margin: 0 1rem; font-size: 1.2rem;">🔄</div>
+                        <div style="flex: 1; text-align: right;">
+                            <strong id="offer-swap-my-exam-name" style="color: var(--primary);">Vereceğiniz Görev</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('modal-offer-swap').classList.add('hidden')">İptal</button>
+                <button id="btn-confirm-offer-swap" class="btn-primary" disabled onclick="confirmOfferSwap()">Teklifi Gönder</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Takas Şifre Onay Modalı -->
     <div id="modal-swap-confirm-password" class="modal hidden">
         <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
@@ -1554,8 +1614,8 @@
         </div>
     </div>
 
-    <script src="logic.js"></script>
-    <script src="app.js"></script>
+    <script src="logic.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 
     <!-- Hoca Mesaj Gönderme Modalı -->
     <div id="modal-lecturer-message" class="modal hidden">

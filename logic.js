@@ -152,6 +152,51 @@ let DB = {
 };
 
 /**
+ * Geri Al (Undo) ve Yedekleme Sistemi
+ */
+let UNDO_STACK = [];
+const MAX_UNDO_STEPS = 10;
+
+function takeSnapshot(actionName) {
+    // DB.exams ve DB.staff'ın derin kopyasını al
+    const snapshot = {
+        actionName: actionName,
+        timestamp: new Date().toISOString(),
+        exams: JSON.parse(JSON.stringify(DB.exams || [])),
+        staff: JSON.parse(JSON.stringify(DB.staff || []))
+    };
+    
+    UNDO_STACK.push(snapshot);
+    if (UNDO_STACK.length > MAX_UNDO_STEPS) {
+        UNDO_STACK.shift(); // En eskisini sil
+    }
+    
+    // UI Güncellemesini tetikle (app.js'de tanımlı olacak)
+    if (typeof updateUndoUI === 'function') {
+        updateUndoUI();
+    }
+}
+
+function undoLastAction() {
+    if (UNDO_STACK.length === 0) return false;
+    
+    const lastSnapshot = UNDO_STACK.pop();
+    
+    // Verileri geri yükle
+    DB.exams = JSON.parse(JSON.stringify(lastSnapshot.exams));
+    DB.staff = JSON.parse(JSON.stringify(lastSnapshot.staff));
+    
+    saveToLocalStorage();
+    logAction('admin', 'İşlem Geri Alındı', `Geri alınan işlem: ${lastSnapshot.actionName}`);
+    
+    // UI Güncellemesi
+    if (typeof updateUndoUI === 'function') {
+        updateUndoUI();
+    }
+    return true;
+}
+
+/**
  * İşlem Günlüğü (Logging)
  */
 function logAction(category, action, details = "") {
@@ -290,8 +335,17 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
     for (const c of constraints) {
         let isDayMatch = (c.day !== undefined && parseInt(c.day) === dayOfWeek);
         let isDateMatch = (c.date !== undefined && c.date === matchDateStr);
+        let isDaterangeMatch = false;
         
-        if (isDayMatch || isDateMatch) {
+        if (c.startDate && c.endDate) {
+            const startD = new Date(c.startDate);
+            const endD = new Date(c.endDate);
+            if (examDate >= startD && examDate <= endD) {
+                isDaterangeMatch = true;
+            }
+        }
+        
+        if (isDayMatch || isDateMatch || isDaterangeMatch) {
             const constraintStart = timeToMins(c.start);
             const constraintEnd = Math.min(timeToMins(c.end), timeToMins("17:30"));
             
@@ -431,6 +485,7 @@ function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null) {
  * - Hem zaman çakışması olan, hem de kısıt ihlali olan sınavlar için yeni gözetmen atar
  */
 function autoResolveConflicts() {
+    takeSnapshot("Otomatik Çakışma Çözme");
     let resolvedCount = 0;
     let skippedCount = 0;
 
@@ -503,6 +558,7 @@ function autoResolveConflicts() {
  * Atanmamış görevleri en adil şekilde dağıtır.
  */
 function runGlobalOptimization() {
+    takeSnapshot("AI Optimizasyon");
     let assignedCount = 0;
     let failCount = 0;
 
@@ -584,6 +640,7 @@ function runGlobalOptimization() {
  * TASLAK MODU VE YAYINLAMA
  */
 function publishDraft() {
+    takeSnapshot("Taslak Yayınlama");
     let affectedProctors = new Set();
     let examCount = 0;
 
@@ -629,6 +686,7 @@ function publishDraft() {
 
 
 function addExam(examData) {
+    takeSnapshot("Sınav Ekleme");
     let proctors = [];
     
     if (examData.proctorIds && examData.proctorIds.length > 0) {
@@ -701,6 +759,7 @@ function addExam(examData) {
 }
 
 function updateExam(id, newData, skipSave = false) {
+    takeSnapshot("Sınav Güncelleme");
     const exIndex = DB.exams.findIndex(e => String(e.id) === String(id));
     if (exIndex === -1) {
         console.error('updateExam: Sınav bulunamadı! id=', id);

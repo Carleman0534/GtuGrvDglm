@@ -135,7 +135,17 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
     for (const c of constraints) {
         let isDayMatch = (c.day !== undefined && c.day === dayOfWeek);
         let isDateMatch = (c.date !== undefined && c.date === matchDateStr);
-        if (isDayMatch || isDateMatch) {
+        let isDaterangeMatch = false;
+        
+        if (c.startDate && c.endDate) {
+            const startD = new Date(c.startDate);
+            const endD = new Date(c.endDate);
+            if (examDate >= startD && examDate <= endD) {
+                isDaterangeMatch = true;
+            }
+        }
+        
+        if (isDayMatch || isDateMatch || isDaterangeMatch) {
             const constraintStart = timeToMins(c.start);
             const constraintEnd = Math.min(timeToMins(c.end), timeToMins("17:30"));
             if (examStart < constraintEnd && examEnd > constraintStart) {
