@@ -58,6 +58,7 @@
                 <button id="btn-staff" class="admin-only">Personel</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
                 <button id="btn-audit" class="admin-only">📜 İşlem Geçmişi</button>
+                <button id="btn-feedbacks" class="admin-only">💡 Geri Bildirimler</button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-lecturer-portal" class="lecturer-only hidden" style="background: rgba(99,102,241,0.15); color: var(--primary); font-weight: 600;">✍️ Hoca Paneli (Mesaj Gönder)</button>
                 <button id="btn-theme-toggle" class="btn-theme-toggle" title="Temayı Değiştir">🌓</button>
@@ -302,6 +303,7 @@
                         </button>
                         <button class="tab-btn" data-tab="notifications">🔔 Bildirimler</button>
                         <button class="tab-btn user-only" data-tab="availability">Kısıt Ayarlarım</button>
+                        <button class="tab-btn user-only" data-tab="feedback">💡 Geri Bildirim</button>
                     </div>
 
                     <div id="profile-tab-content">
@@ -527,6 +529,35 @@
                                         </table>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                        <!-- Feedback/Suggestions Tab -->
+                        <div id="tab-feedback" class="tab-pane hidden">
+                            <div class="card-large" style="padding: 2rem; max-width: 600px; margin: 0 auto;">
+                                <h3 style="margin-bottom: 1rem; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
+                                    💡 Öneri & Eksik Bildirimi
+                                </h3>
+                                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                                    Sistemle ilgili herhangi bir hata (bug), eksiklik veya geliştirme öneriniz varsa lütfen buradan yazın. Bildiriminiz yöneticilere iletilecektir.
+                                </p>
+                                <form id="form-profile-feedback" onsubmit="handleProfileFeedbackSubmit(event)">
+                                    <div class="form-group" style="margin-bottom: 1.25rem;">
+                                        <label for="profile-feedback-type" style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 600;">Bildirim Türü</label>
+                                        <select id="profile-feedback-type" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white; font-family: inherit;">
+                                            <option value="Öneri">💡 Öneri / Geliştirme</option>
+                                            <option value="Hata / Eksik">🐛 Hata / Eksik Bildirimi</option>
+                                            <option value="Diğer">✍️ Diğer</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                                        <label for="profile-feedback-text" style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 600;">Mesajınız</label>
+                                        <textarea id="profile-feedback-text" required placeholder="Görüş ve önerilerinizi buraya detaylıca yazabilirsiniz..." 
+                                            style="width: 100%; min-height: 150px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; color: white; padding: 1rem; font-family: inherit; font-size: 0.9rem; resize: vertical; outline: none; transition: border-color 0.3s ease; box-sizing: border-box;"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 1rem;">
+                                        🚀 Gönder
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -973,6 +1004,30 @@
                                     <th>Kategori</th>
                                     <th>İşlem</th>
                                     <th>Detaylar</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Feedbacks Section -->
+            <section id="section-feedbacks" class="content-section hidden admin-only">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h2>💡 Gözetmen Geri Bildirimleri ve Önerileri</h2>
+                    <button id="btn-clear-feedbacks" class="btn-secondary admin-only" style="color: var(--accent-red);" onclick="clearAllFeedbacks()">Tümünü Temizle</button>
+                </div>
+                <div class="card-large">
+                    <div class="table-container">
+                        <table id="table-feedbacks">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Gözetmen</th>
+                                    <th>Tür</th>
+                                    <th>Mesaj</th>
+                                    <th style="text-align: right; width: 100px;">İşlem</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>

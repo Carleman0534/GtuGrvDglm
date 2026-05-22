@@ -217,6 +217,7 @@ function initNavigation() {
     navButtons.requests = document.getElementById('btn-requests');
     navButtons.profile = document.getElementById('btn-profile');
     navButtons.audit = document.getElementById('btn-audit');
+    navButtons.feedbacks = document.getElementById('btn-feedbacks');
     navButtons.announcements = document.getElementById('btn-announcements');
     navButtons.timeline = document.getElementById('btn-timeline');
     navButtons.stats = document.getElementById('btn-stats');
@@ -230,6 +231,7 @@ function initNavigation() {
     sections.requests = document.getElementById('section-requests');
     sections.profile = document.getElementById('section-profile');
     sections.audit = document.getElementById('section-audit');
+    sections.feedbacks = document.getElementById('section-feedbacks');
     sections.announcements = document.getElementById('section-announcements');
     sections.timeline = document.getElementById('section-timeline');
     sections.stats = document.getElementById('section-stats');
@@ -265,6 +267,7 @@ function initNavigation() {
             if (key === 'requests') loadFromDataJSON().then(() => renderSwapRequests());
             if (key === 'profile') { renderProfile(); updateNotificationBadge(); }
             if (key === 'audit') renderAuditLogs();
+            if (key === 'feedbacks') renderFeedbacksAdmin();
             if (key === 'announcements') { renderAnnouncements(); markAnnouncementsAsRead(); }
             if (key === 'timeline') renderMonthlyCalendar();
             if (key === 'stats') renderStats();
@@ -5670,7 +5673,62 @@ function renderProfileConstraints() {
     const container = document.querySelector('#profile-table-constraints tbody');
     if (!container) return;
 
-    const userConstraints = DB.constraints[staff.name] || [];
+    let userConstraints = DB.constraints[staff.name] || [];
+
+    // --- AUTO-DELETE EXPIRED CONSTRAINTS ---
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`; // e.g. "2026-05-22"
+
+    let currentYear = year;
+    if (DB.exams && DB.exams.length > 0) {
+        const years = DB.exams.map(ex => {
+            if (ex.date) {
+                const parts = ex.date.split('-');
+                if (parts[0] && parts[0].length === 4) {
+                    return parseInt(parts[0]);
+                }
+            }
+            return null;
+        }).filter(Boolean);
+        if (years.length > 0) {
+            currentYear = Math.max(...years);
+        }
+    }
+
+    const activeConstraints = [];
+    let hasExpired = false;
+
+    userConstraints.forEach(c => {
+        let isExpired = false;
+        if (c.day !== undefined) {
+            isExpired = false;
+        } else if (c.startDate && c.endDate) {
+            isExpired = c.endDate < todayStr;
+        } else if (c.date) {
+            const constructedDateStr = `${currentYear}-${c.date}`;
+            isExpired = constructedDateStr < todayStr;
+        }
+        
+        if (isExpired) {
+            hasExpired = true;
+        } else {
+            activeConstraints.push(c);
+        }
+    });
+
+    if (hasExpired) {
+        DB.constraints[staff.name] = activeConstraints;
+        userConstraints = activeConstraints;
+        saveToLocalStorage();
+        if (typeof showToast === 'function') {
+            showToast("Tarihi geçmiş kısıtlar otomatik olarak temizlendi.");
+        }
+    }
+    // --------------------------------------
+
     container.innerHTML = '';
 
     if (userConstraints.length === 0) {
@@ -8328,6 +8386,132 @@ window.generateDonemlikTaslak = function() {
 
     if (typeof showToast === 'function') {
         showToast(`✅ ${addedCount} taslak sınav oluşturuldu!${skippedCount > 0 ? ` (${skippedCount} mükerrer atlandı)` : ''} Taslak Modu'nu açıp inceleyebilirsiniz.`);
+    }
+};
+
+// --- FEEDBACK & SUGGESTIONS SYSTEM ---
+window.handleProfileFeedbackSubmit = function(event) {
+    event.preventDefault();
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) {
+        alert("Lütfen önce profilinizden giriş yapın.");
+        return;
+    }
+    
+    const typeVal = document.getElementById('profile-feedback-type').value;
+    const textVal = document.getElementById('profile-feedback-text').value.trim();
+    if (!textVal) {
+        alert("Lütfen bir mesaj yazın!");
+        return;
+    }
+    
+    if (!DB.feedbacks) {
+        DB.feedbacks = [];
+    }
+    
+    const nextId = DB.feedbacks.length > 0 ? Math.max(...DB.feedbacks.map(f => f.id || 0)) + 1 : 1;
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day} ${hours}:${minutes}`;
+    
+    const feedbackItem = {
+        id: nextId,
+        staffId: staff.id,
+        staffName: staff.name,
+        type: typeVal,
+        message: textVal,
+        date: dateStr,
+        status: 'new'
+    };
+    
+    DB.feedbacks.push(feedbackItem);
+    
+    saveToLocalStorage();
+    if (typeof saveToBackend === 'function') {
+        saveToBackend();
+    }
+    
+    document.getElementById('profile-feedback-text').value = '';
+    
+    alert("✓ Bildiriminiz yöneticilere başarıyla iletildi. Teşekkür ederiz!");
+};
+
+window.renderFeedbacksAdmin = function() {
+    const tbody = document.querySelector('#table-feedbacks tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    const feedbacks = DB.feedbacks || [];
+    
+    if (feedbacks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz geri bildirim bulunmuyor.</td></tr>';
+        return;
+    }
+    
+    const sortedFeedbacks = [...feedbacks].sort((a, b) => b.id - a.id);
+    
+    const escapeHtml = (str) => {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+    
+    sortedFeedbacks.forEach(f => {
+        let badgeStyle = 'background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);';
+        if (f.type === 'Öneri') {
+            badgeStyle = 'background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);';
+        } else if (f.type === 'Hata / Eksik') {
+            badgeStyle = 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);';
+        } else if (f.type === 'Diğer') {
+            badgeStyle = 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2);';
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(f.date)}</td>
+            <td><strong>${escapeHtml(f.staffName)}</strong></td>
+            <td><span class="badge" style="${badgeStyle}">${escapeHtml(f.type)}</span></td>
+            <td style="white-space: pre-wrap; max-width: 400px; word-break: break-all;">${escapeHtml(f.message)}</td>
+            <td style="text-align: right;">
+                <button class="btn-icon" style="color:var(--accent-red);" onclick="deleteFeedback(${f.id})">🗑️ Sil</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.deleteFeedback = function(id) {
+    if (confirm("Bu geri bildirimi silmek istediğinize emin misiniz?")) {
+        if (DB.feedbacks) {
+            DB.feedbacks = DB.feedbacks.filter(f => f.id !== id);
+            saveToLocalStorage();
+            if (typeof saveToBackend === 'function') {
+                saveToBackend();
+            }
+            renderFeedbacksAdmin();
+        }
+    }
+};
+
+window.clearAllFeedbacks = function() {
+    if (confirm("Tüm geri bildirimleri silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) {
+        DB.feedbacks = [];
+        saveToLocalStorage();
+        if (typeof saveToBackend === 'function') {
+            saveToBackend();
+        }
+        renderFeedbacksAdmin();
     }
 };
 
