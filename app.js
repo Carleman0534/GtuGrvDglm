@@ -217,11 +217,11 @@ function initNavigation() {
     navButtons.requests = document.getElementById('btn-requests');
     navButtons.profile = document.getElementById('btn-profile');
     navButtons.audit = document.getElementById('btn-audit');
-    navButtons.feedbacks = document.getElementById('btn-feedbacks');
     navButtons.announcements = document.getElementById('btn-announcements');
     navButtons.timeline = document.getElementById('btn-timeline');
     navButtons.stats = document.getElementById('btn-stats');
     navButtons.lecturerPortal = document.getElementById('btn-lecturer-portal');
+    navButtons.feedback = document.getElementById('btn-feedback');
 
     sections.dashboard = document.getElementById('section-dashboard');
     sections.schedule = document.getElementById('section-schedule');
@@ -231,11 +231,11 @@ function initNavigation() {
     sections.requests = document.getElementById('section-requests');
     sections.profile = document.getElementById('section-profile');
     sections.audit = document.getElementById('section-audit');
-    sections.feedbacks = document.getElementById('section-feedbacks');
     sections.announcements = document.getElementById('section-announcements');
     sections.timeline = document.getElementById('section-timeline');
     sections.stats = document.getElementById('section-stats');
     sections.lecturerPortal = document.getElementById('sec-lecturer-portal');
+    sections.feedback = document.getElementById('section-feedback');
 
     Object.entries(navButtons).forEach(([key, btn]) => {
         if (!btn) return;
@@ -267,11 +267,11 @@ function initNavigation() {
             if (key === 'requests') loadFromDataJSON().then(() => renderSwapRequests());
             if (key === 'profile') { renderProfile(); updateNotificationBadge(); }
             if (key === 'audit') renderAuditLogs();
-            if (key === 'feedbacks') renderFeedbacksAdmin();
             if (key === 'announcements') { renderAnnouncements(); markAnnouncementsAsRead(); }
             if (key === 'timeline') renderMonthlyCalendar();
             if (key === 'stats') renderStats();
             if (key === 'lecturerPortal') loadLecturerPortalStaff();
+            if (key === 'feedback') renderFeedbackPage();
         });
     });
 }
@@ -285,6 +285,7 @@ async function initApp() {
 
     // Initialize DB.requests if not present
     if (!DB.requests) DB.requests = [];
+    if (!DB.feedbacks) DB.feedbacks = [];
     // Migration: Old single announcement to new announcements array
     if (DB.announcement && !DB.announcements) {
         DB.announcements = [{
@@ -478,6 +479,7 @@ async function initApp() {
     updateMarketplaceBadge(); // Marketplace badge
     updateNotificationBadge(); // Notification badge
     updateMessageBadge(); // Hoca mesajı rozeti
+    updateFeedbackBadge(); // Öneri ve şikayet rozeti
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
     updateDraftBanner(); // Taslak Modu Banner'ı Güncelle
     if (typeof updateUndoUI === 'function') updateUndoUI(); // Undo UI
@@ -1543,6 +1545,19 @@ function initUI() {
     }
 
     updateNotifBadge();
+
+    // Geri Bildirim Formu Dinleyicileri
+    document.getElementById('form-submit-feedback')?.addEventListener('submit', window.submitFeedback);
+
+    // Geri Bildirim Filtre Dinleyicileri
+    document.querySelectorAll('.feedback-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.feedback-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            window.currentFeedbackFilter = btn.dataset.filter;
+            renderFeedbackPage();
+        });
+    });
 }
 
 
@@ -5673,62 +5688,7 @@ function renderProfileConstraints() {
     const container = document.querySelector('#profile-table-constraints tbody');
     if (!container) return;
 
-    let userConstraints = DB.constraints[staff.name] || [];
-
-    // --- AUTO-DELETE EXPIRED CONSTRAINTS ---
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`; // e.g. "2026-05-22"
-
-    let currentYear = year;
-    if (DB.exams && DB.exams.length > 0) {
-        const years = DB.exams.map(ex => {
-            if (ex.date) {
-                const parts = ex.date.split('-');
-                if (parts[0] && parts[0].length === 4) {
-                    return parseInt(parts[0]);
-                }
-            }
-            return null;
-        }).filter(Boolean);
-        if (years.length > 0) {
-            currentYear = Math.max(...years);
-        }
-    }
-
-    const activeConstraints = [];
-    let hasExpired = false;
-
-    userConstraints.forEach(c => {
-        let isExpired = false;
-        if (c.day !== undefined) {
-            isExpired = false;
-        } else if (c.startDate && c.endDate) {
-            isExpired = c.endDate < todayStr;
-        } else if (c.date) {
-            const constructedDateStr = `${currentYear}-${c.date}`;
-            isExpired = constructedDateStr < todayStr;
-        }
-        
-        if (isExpired) {
-            hasExpired = true;
-        } else {
-            activeConstraints.push(c);
-        }
-    });
-
-    if (hasExpired) {
-        DB.constraints[staff.name] = activeConstraints;
-        userConstraints = activeConstraints;
-        saveToLocalStorage();
-        if (typeof showToast === 'function') {
-            showToast("Tarihi geçmiş kısıtlar otomatik olarak temizlendi.");
-        }
-    }
-    // --------------------------------------
-
+    const userConstraints = DB.constraints[staff.name] || [];
     container.innerHTML = '';
 
     if (userConstraints.length === 0) {
@@ -8389,130 +8349,331 @@ window.generateDonemlikTaslak = function() {
     }
 };
 
-// --- FEEDBACK & SUGGESTIONS SYSTEM ---
-window.handleProfileFeedbackSubmit = function(event) {
-    event.preventDefault();
-    const myStaffId = localStorage.getItem('myStaffId');
-    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-    if (!staff) {
-        alert("Lütfen önce profilinizden giriş yapın.");
+/**
+ * =============================================================
+ * GERİ BİLDİRİM (ÖNERİ & ŞİKAYET) MODÜLÜ
+ * =============================================================
+ */
+
+window.currentFeedbackFilter = 'all';
+
+window.updateFeedbackBadge = function() {
+    const badge = document.getElementById('feedback-badge');
+    if (!badge) return;
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+    if (!isAdmin || !DB.feedbacks) {
+        badge.classList.add('hidden');
         return;
     }
+    const pendingCount = DB.feedbacks.filter(f => f.status === 'Yeni').length;
+    if (pendingCount > 0) {
+        badge.textContent = pendingCount;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+};
+
+window.renderFeedbackPage = function() {
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+    const myStaffId = localStorage.getItem('myStaffId');
+    const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+
+    const adminView = document.getElementById('feedback-admin-view');
+    const userView = document.getElementById('feedback-user-view');
+
+    if (!adminView || !userView) return;
+
+    if (isAdmin) {
+        adminView.classList.remove('hidden');
+        userView.classList.add('hidden');
+        renderFeedbackAdmin();
+    } else {
+        adminView.classList.add('hidden');
+        userView.classList.remove('hidden');
+        renderFeedbackUser(myStaff);
+    }
     
-    const typeVal = document.getElementById('profile-feedback-type').value;
-    const textVal = document.getElementById('profile-feedback-text').value.trim();
-    if (!textVal) {
+    // Badge güncelle
+    window.updateFeedbackBadge();
+};
+
+function getCategoryColor(category) {
+    if (category === 'Sistemsel') return '#8b5cf6'; // Indigo/Purple
+    if (category === 'Sınav Düzeni') return '#f59e0b'; // Amber/Orange
+    if (category === 'Fiziksel Koşullar') return '#ef4444'; // Red
+    return '#94a3b8'; // Grey/Diğer
+}
+
+function getStatusBadge(status) {
+    if (status === 'Yeni') return `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.7rem; padding: 4px 8px;">Yeni</span>`;
+    if (status === 'İnceleniyor') return `<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); font-size: 0.7rem; padding: 4px 8px;">İnceleniyor</span>`;
+    return `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.7rem; padding: 4px 8px;">Çözüldü</span>`;
+}
+
+function renderFeedbackAdmin() {
+    const listEl = document.getElementById('feedback-admin-list');
+    if (!listEl) return;
+
+    const feedbacks = DB.feedbacks || [];
+    
+    // İstatistikler
+    document.getElementById('feedback-stat-total').textContent = feedbacks.length;
+    document.getElementById('feedback-stat-pending').textContent = feedbacks.filter(f => f.status === 'Yeni').length;
+    document.getElementById('feedback-stat-resolved').textContent = feedbacks.filter(f => f.status === 'Çözüldü').length;
+
+    // Filtreleme
+    let filtered = feedbacks;
+    if (window.currentFeedbackFilter !== 'all') {
+        filtered = feedbacks.filter(f => f.status === window.currentFeedbackFilter);
+    }
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                Kriterlere uygun geri bildirim bulunamadı.
+            </div>
+        `;
+        return;
+    }
+
+    // En yeni en üstte
+    const sorted = [...filtered].sort((a, b) => b.id - a.id);
+
+    listEl.innerHTML = sorted.map(f => {
+        const categoryColor = getCategoryColor(f.category);
+        const statusBadge = getStatusBadge(f.status);
+        const senderText = f.isAnonymous ? '🔒 Anonim Kullanıcı' : (f.senderName || 'Bilinmeyen Kullanıcı');
+        const dateStr = new Date(f.id).toLocaleString('tr-TR');
+
+        return `
+            <div class="card-large" style="margin-bottom: 0; padding: 1.5rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem;">
+                    <div>
+                        <span class="badge" style="background: ${categoryColor}22; color: ${categoryColor}; border: 1px solid ${categoryColor}44; font-size: 0.7rem; padding: 4px 8px; margin-right: 8px;">
+                            ${f.category}
+                        </span>
+                        <strong style="color: white; font-size: 0.95rem;">${senderText}</strong>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 8px;">${dateStr}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${statusBadge}
+                        <select onchange="window.updateFeedbackStatus(${f.id}, this.value)" style="background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; width: auto;">
+                            <option value="Yeni" ${f.status === 'Yeni' ? 'selected' : ''}>Yeni</option>
+                            <option value="İnceleniyor" ${f.status === 'İnceleniyor' ? 'selected' : ''}>İnceleniyor</option>
+                            <option value="Çözüldü" ${f.status === 'Çözüldü' ? 'selected' : ''}>Çözüldü</option>
+                        </select>
+                    </div>
+                </div>
+
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem; white-space: pre-wrap; line-height: 1.5;">${f.message}</p>
+
+                <!-- Yanıt Alanı -->
+                <div id="response-container-${f.id}" style="background: rgba(99, 102, 241, 0.04); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.1); padding: 1rem; margin-top: 1rem; ${!f.response ? 'display: none;' : ''}">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.8rem; color: var(--primary); font-weight: 700;">
+                        <span>💬 Yönetici Yanıtı:</span>
+                    </div>
+                    <p id="response-text-${f.id}" style="color: var(--text-secondary); font-size: 0.85rem; margin: 0; white-space: pre-wrap;">${f.response || ''}</p>
+                </div>
+
+                <!-- İşlem Butonları -->
+                <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 8px;">
+                    <button class="btn-primary" onclick="window.toggleFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); box-shadow: none;">
+                        ${f.response ? '✍️ Yanıtı Düzenle' : '💬 Yanıt Yaz'}
+                    </button>
+                </div>
+
+                <div id="reply-form-${f.id}" class="hidden" style="margin-top: 1rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; border: 1px solid var(--glass-border);">
+                    <textarea id="reply-text-${f.id}" placeholder="Yanıtınızı buraya yazın..." style="width: 100%; min-height: 80px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: white; padding: 8px; border-radius: 8px; font-size: 0.85rem; resize: vertical; outline: none; margin-bottom: 8px;"></textarea>
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button class="btn-secondary" onclick="window.toggleFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">İptal</button>
+                        <button class="btn-primary" onclick="window.submitFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Yanıtı Kaydet</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderFeedbackUser(myStaff) {
+    const listEl = document.getElementById('feedback-user-list');
+    const formEl = document.getElementById('form-submit-feedback');
+
+    if (!listEl) return;
+
+    if (!myStaff) {
+        listEl.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                ⚠️ Geri bildirimlerinizi görmek ve yeni bildirim iletmek için lütfen önce <b>Profilim</b> sayfasından kimliğinizi seçin.
+            </div>
+        `;
+        if (formEl) {
+            formEl.style.opacity = '0.5';
+            formEl.style.pointerEvents = 'none';
+        }
+        return;
+    }
+
+    if (formEl) {
+        formEl.style.opacity = '1';
+        formEl.style.pointerEvents = 'auto';
+    }
+
+    const feedbacks = DB.feedbacks || [];
+    const userFeedbacks = feedbacks.filter(f => String(f.senderId) === String(myStaff.id));
+
+    if (userFeedbacks.length === 0) {
+        listEl.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                Kayıtlı geri bildiriminiz bulunmamaktadır.
+            </div>
+        `;
+        return;
+    }
+
+    const sorted = [...userFeedbacks].sort((a, b) => b.id - a.id);
+
+    listEl.innerHTML = sorted.map(f => {
+        const categoryColor = getCategoryColor(f.category);
+        const statusBadge = getStatusBadge(f.status);
+        const dateStr = new Date(f.id).toLocaleString('tr-TR');
+        const anonText = f.isAnonymous ? ' <span style="font-size:0.7rem; color:var(--text-muted); font-style:italic;">(🔒 Anonim)</span>' : '';
+
+        return `
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); padding: 1.25rem; border-radius: 14px; margin-bottom: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <div>
+                        <span class="badge" style="background: ${categoryColor}22; color: ${categoryColor}; border: 1px solid ${categoryColor}44; font-size: 0.65rem; padding: 2px 6px;">
+                            ${f.category}
+                        </span>
+                        ${anonText}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">${dateStr}</span>
+                        ${statusBadge}
+                    </div>
+                </div>
+
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.5rem 0; white-space: pre-wrap; line-height: 1.4;">${f.message}</p>
+
+                <!-- Yanıt -->
+                ${f.response ? `
+                    <div style="background: rgba(99, 102, 241, 0.05); border-left: 3px solid var(--primary); padding: 8px 12px; border-radius: 4px 8px 8px 4px; margin-top: 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-bottom: 4px;">💬 Yönetici Yanıtı:</div>
+                        <p style="color: var(--text-primary); font-size: 0.8rem; margin: 0; white-space: pre-wrap;">${f.response}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+window.submitFeedback = async function(e) {
+    e.preventDefault();
+
+    const myStaffId = localStorage.getItem('myStaffId');
+    const myStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    
+    if (!myStaff) {
+        alert("Lütfen önce profilinizden kimliğinizi seçin!");
+        return;
+    }
+
+    const category = document.getElementById('feedback-category').value;
+    const message = document.getElementById('feedback-message').value.trim();
+    const isAnonymous = document.getElementById('feedback-anonymous').checked;
+
+    if (!message) {
         alert("Lütfen bir mesaj yazın!");
         return;
     }
-    
-    if (!DB.feedbacks) {
-        DB.feedbacks = [];
-    }
-    
-    const nextId = DB.feedbacks.length > 0 ? Math.max(...DB.feedbacks.map(f => f.id || 0)) + 1 : 1;
-    
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day} ${hours}:${minutes}`;
-    
-    const feedbackItem = {
-        id: nextId,
-        staffId: staff.id,
-        staffName: staff.name,
-        type: typeVal,
-        message: textVal,
-        date: dateStr,
-        status: 'new'
+
+    const newFeedback = {
+        id: Date.now(),
+        senderId: myStaff.id,
+        senderName: myStaff.name,
+        isAnonymous: isAnonymous,
+        category: category,
+        message: message,
+        status: 'Yeni',
+        response: '',
+        createdAt: new Date().toISOString()
     };
-    
-    DB.feedbacks.push(feedbackItem);
-    
+
+    if (!DB.feedbacks) DB.feedbacks = [];
+    DB.feedbacks.push(newFeedback);
+
     saveToLocalStorage();
-    if (typeof saveToBackend === 'function') {
-        saveToBackend();
+    logAction('user', 'Geri Bildirim', `${isAnonymous ? 'Anonim' : myStaff.name} yeni bir öneri/şikayet iletti.`);
+
+    // Formu sıfırla
+    document.getElementById('feedback-message').value = '';
+    document.getElementById('feedback-anonymous').checked = false;
+
+    if (typeof showToast === 'function') {
+        showToast("Geri bildiriminiz başarıyla iletildi. Teşekkür ederiz!", "success");
     }
-    
-    document.getElementById('profile-feedback-text').value = '';
-    
-    alert("✓ Bildiriminiz yöneticilere başarıyla iletildi. Teşekkür ederiz!");
+
+    renderFeedbackPage();
+    await saveToBackend();
 };
 
-window.renderFeedbacksAdmin = function() {
-    const tbody = document.querySelector('#table-feedbacks tbody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    const feedbacks = DB.feedbacks || [];
-    
-    if (feedbacks.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz geri bildirim bulunmuyor.</td></tr>';
-        return;
-    }
-    
-    const sortedFeedbacks = [...feedbacks].sort((a, b) => b.id - a.id);
-    
-    const escapeHtml = (str) => {
-        if (!str) return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    };
-    
-    sortedFeedbacks.forEach(f => {
-        let badgeStyle = 'background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);';
-        if (f.type === 'Öneri') {
-            badgeStyle = 'background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);';
-        } else if (f.type === 'Hata / Eksik') {
-            badgeStyle = 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);';
-        } else if (f.type === 'Diğer') {
-            badgeStyle = 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2);';
-        }
+window.updateFeedbackStatus = async function(id, newStatus) {
+    const feedback = DB.feedbacks.find(f => f.id === id);
+    if (!feedback) return;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${escapeHtml(f.date)}</td>
-            <td><strong>${escapeHtml(f.staffName)}</strong></td>
-            <td><span class="badge" style="${badgeStyle}">${escapeHtml(f.type)}</span></td>
-            <td style="white-space: pre-wrap; max-width: 400px; word-break: break-all;">${escapeHtml(f.message)}</td>
-            <td style="text-align: right;">
-                <button class="btn-icon" style="color:var(--accent-red);" onclick="deleteFeedback(${f.id})">🗑️ Sil</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
+    feedback.status = newStatus;
+    saveToLocalStorage();
+    logAction('admin', 'Geri Bildirim Güncellemesi', `Bildirim (ID: ${id}) durumu '${newStatus}' olarak güncellendi.`);
+    
+    if (typeof showToast === 'function') {
+        showToast(`Durum güncellendi: ${newStatus}`, "success");
+    }
+    renderFeedbackPage();
+    await saveToBackend();
 };
 
-window.deleteFeedback = function(id) {
-    if (confirm("Bu geri bildirimi silmek istediğinize emin misiniz?")) {
-        if (DB.feedbacks) {
-            DB.feedbacks = DB.feedbacks.filter(f => f.id !== id);
-            saveToLocalStorage();
-            if (typeof saveToBackend === 'function') {
-                saveToBackend();
-            }
-            renderFeedbacksAdmin();
+window.toggleFeedbackReply = function(id) {
+    const replyForm = document.getElementById(`reply-form-${id}`);
+    if (!replyForm) return;
+
+    replyForm.classList.toggle('hidden');
+    if (!replyForm.classList.contains('hidden')) {
+        const textarea = document.getElementById(`reply-text-${id}`);
+        const feedback = DB.feedbacks.find(f => f.id === id);
+        if (textarea && feedback) {
+            textarea.value = feedback.response || '';
+            textarea.focus();
         }
     }
 };
 
-window.clearAllFeedbacks = function() {
-    if (confirm("Tüm geri bildirimleri silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) {
-        DB.feedbacks = [];
-        saveToLocalStorage();
-        if (typeof saveToBackend === 'function') {
-            saveToBackend();
-        }
-        renderFeedbacksAdmin();
+window.submitFeedbackReply = async function(id) {
+    const textarea = document.getElementById(`reply-text-${id}`);
+    if (!textarea) return;
+
+    const responseText = textarea.value.trim();
+    const feedback = DB.feedbacks.find(f => f.id === id);
+    if (!feedback) return;
+
+    feedback.response = responseText;
+    
+    if (feedback.status === 'Yeni') {
+        feedback.status = 'İnceleniyor';
     }
+
+    saveToLocalStorage();
+    logAction('admin', 'Geri Bildirim Yanıtlandı', `Bildirim (ID: ${id}) yanıtlandı.`);
+
+    const replyForm = document.getElementById(`reply-form-${id}`);
+    if (replyForm) replyForm.classList.add('hidden');
+
+    if (typeof showToast === 'function') {
+        showToast("Yanıtınız kaydedildi.", "success");
+    }
+
+    renderFeedbackPage();
+    await saveToBackend();
 };
 
 // --- PWA: Service Worker Registration ---
