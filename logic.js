@@ -319,11 +319,38 @@ function timeToMins(timeStr) {
     return parseInt(parts[0]) * 60 + parseInt(parts[1]);
 }
 
+function getConstraintsForStaff(staffName) {
+    if (!DB.constraints || !staffName) return [];
+    
+    const normalize = (name) => {
+        return name
+            .replace(/Prof\.\s*Dr\./gi, '')
+            .replace(/Doç\.\s*Dr\./gi, '')
+            .replace(/Dr\.\s*Öğr\.\s*Üyesi/gi, '')
+            .replace(/Arş\.\s*Gör\./gi, '')
+            .replace(/Dr\./gi, '')
+            .replace(/Öğr\.Gör\./gi, '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ');
+    };
+
+    const target = normalize(staffName);
+    for (const key of Object.keys(DB.constraints)) {
+        if (normalize(key) === target) {
+            return DB.constraints[key] || [];
+        }
+    }
+    return [];
+}
+
 function isAvailable(staffName, dateStr, timeStr, duration) {
-    const constraints = DB.constraints && DB.constraints[staffName] ? DB.constraints[staffName] : [];
+    const constraints = getConstraintsForStaff(staffName);
     if (constraints.length === 0) return true;
 
-    const examDate = new Date(dateStr);
+    // Timezone safe local date parsing
+    const parts = dateStr.split('-');
+    const examDate = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayOfWeek = examDate.getDay();
     const mm = String(examDate.getMonth() + 1).padStart(2, '0');
     const dd = String(examDate.getDate()).padStart(2, '0');
@@ -338,8 +365,10 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
         let isDaterangeMatch = false;
         
         if (c.startDate && c.endDate) {
-            const startD = new Date(c.startDate);
-            const endD = new Date(c.endDate);
+            const startParts = c.startDate.split('-');
+            const endParts = c.endDate.split('-');
+            const startD = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+            const endD = new Date(endParts[0], endParts[1] - 1, endParts[2]);
             if (examDate >= startD && examDate <= endD) {
                 isDaterangeMatch = true;
             }
@@ -366,7 +395,7 @@ function calculateAvailabilityScore(staffId) {
     const staff = DB.staff.find(s => s.id === staffId);
     if (!staff) return 0;
     
-    const constraints = DB.constraints && DB.constraints[staff.name] ? DB.constraints[staff.name] : [];
+    const constraints = getConstraintsForStaff(staff.name);
     if (constraints.length === 0) return 100;
 
     const totalWeeklyMins = 5 * 9 * 60; // 5 gün * 9 saat * 60 dk = 2700 dk

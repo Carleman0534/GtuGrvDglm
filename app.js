@@ -280,6 +280,22 @@ async function initApp() {
     // Sitenin en güncel veriyi Backend API'den asenkron olarak okumasını bekliyoruz
     await loadFromDataJSON();
 
+    // Hotfix: Correct Oğuzhan Selçuk's constraints if they are duplicated from Cansu Şahin
+    if (DB.constraints) {
+        const cansuConstraints = DB.constraints["Cansu Şahin"];
+        const oguzhanConstraints = DB.constraints["Oğuzhan Selçuk"];
+        
+        if (cansuConstraints && oguzhanConstraints && JSON.stringify(cansuConstraints) === JSON.stringify(oguzhanConstraints)) {
+            DB.constraints["Oğuzhan Selçuk"] = [
+                { "day": 1, "start": "08:30", "end": "13:30" },
+                { "day": 4, "start": "12:30", "end": "15:30" },
+                { "day": 5, "start": "08:30", "end": "13:30" }
+            ];
+            saveToLocalStorage();
+            console.log("Hotfixed Oğuzhan Selçuk's constraints to his original values.");
+        }
+    }
+
     // Tüm eski yamalar (v2-v20) kaldırıldı. Veriler artık backend'deki data.json'dan geliyor.
     // Eski yama kodları gereksizdir çünkü data.json zaten tüm düzeltmeleri içermektedir.
 
