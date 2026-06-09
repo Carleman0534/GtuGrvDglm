@@ -687,6 +687,7 @@ function initUI() {
     });
 
     document.getElementById('btn-email-settings')?.addEventListener('click', showEmailSettingsModal);
+    document.getElementById('btn-email-templates')?.addEventListener('click', showEmailTemplatesModal);
     
     // Theme Toggle
     document.getElementById('btn-theme-toggle')?.addEventListener('click', toggleTheme);
@@ -1493,6 +1494,12 @@ function initUI() {
     document.getElementById('btn-donemlik-taslak')?.addEventListener('click', showDonemlikTaslakModal);
     document.getElementById('exam-search')?.addEventListener('input', renderExams);
     document.getElementById('staff-search')?.addEventListener('input', renderStaff);
+    document.getElementById('lecturer-search')?.addEventListener('input', () => {
+        if (typeof renderLecturers === 'function') renderLecturers();
+    });
+    document.getElementById('mapping-search')?.addEventListener('input', () => {
+        if (typeof renderMappings === 'function') renderMappings();
+    });
     document.getElementById('schedule-search')?.addEventListener('input', renderSchedule);
 
     // --- Schedule Filter Listeners ---
@@ -1580,11 +1587,52 @@ function initUI() {
 function exportElementAsImage(element, filename) {
     if (!element) return;
     try {
-        html2canvas(element, { scale: 2, backgroundColor: '#0f172a' }).then(canvas => {
+        // Orijinal stilleri kaydet
+        const origMaxHeight = element.style.maxHeight;
+        const origOverflowY = element.style.overflowY;
+        const origHeight = element.style.height;
+
+        // Altındaki tüm tablo konteynerlerinin orijinal stillerini kaydet
+        const tableContainers = element.querySelectorAll('.table-container');
+        const origTableStyles = Array.from(tableContainers).map(tc => ({
+            el: tc,
+            maxHeight: tc.style.maxHeight,
+            overflowY: tc.style.overflowY,
+            height: tc.style.height
+        }));
+
+        // Elemanları tam boyuta genişlet (scroll/clipping engellemek için)
+        element.style.maxHeight = 'none';
+        element.style.overflowY = 'visible';
+        element.style.height = 'auto';
+
+        tableContainers.forEach(tc => {
+            tc.style.maxHeight = 'none';
+            tc.style.overflowY = 'visible';
+            tc.style.height = 'auto';
+        });
+
+        html2canvas(element, { 
+            scale: 2, 
+            backgroundColor: '#0f172a',
+            logging: false,
+            useCORS: true
+        }).then(canvas => {
             const link = document.createElement('a');
             link.download = filename;
             link.href = canvas.toDataURL('image/png');
             link.click();
+
+            // Stilleri eski haline geri yükle
+            element.style.maxHeight = origMaxHeight;
+            element.style.overflowY = origOverflowY;
+            element.style.height = origHeight;
+
+            origTableStyles.forEach(style => {
+                style.el.style.maxHeight = style.maxHeight;
+                style.el.style.overflowY = style.overflowY;
+                style.el.style.height = style.height;
+            });
         });
     } catch(err) {
         console.error("Resim çıkartılamadı: ", err);
@@ -2797,11 +2845,20 @@ window.deleteExam = (id) => {
     const exIndex = DB.exams.findIndex(e => e.id === id);
     if (exIndex > -1) {
         const ex = DB.exams[exIndex];
-        const staff = DB.staff.find(s => s.id === ex.proctorId);
-        if (staff) {
-            staff.totalScore -= ex.score;
-            staff.taskCount -= 1;
-        }
+        
+        // Gözetmenlerin puanını ve görev sayılarını düşür, iptal maili gönder
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        pIds.forEach(pid => {
+            const staff = DB.staff.find(s => s.id === pid);
+            if (staff) {
+                staff.totalScore = Math.max(0, staff.totalScore - ex.score);
+                staff.taskCount = Math.max(0, staff.taskCount - 1);
+            }
+            if (!ex.isDraft) {
+                sendAssignmentEmail(pid, ex, 'cancel');
+            }
+        });
+
         DB.exams.splice(exIndex, 1);
         saveToLocalStorage();
         logAction('admin', 'Sınav Silme', `${ex.name} sınavı sistemden silindi.`);
@@ -3196,7 +3253,297 @@ function renderStaff() {
         `;
         tbody.appendChild(tr);
     });
+    if (typeof renderLecturers === 'function') renderLecturers();
+    if (typeof renderMappings === 'function') renderMappings();
 }
+
+window.switchStaffTab = function(tabName) {
+    const btnProctors = document.getElementById('btn-staff-tab-proctors');
+    const btnLecturers = document.getElementById('btn-staff-tab-lecturers');
+    const btnMappings = document.getElementById('btn-staff-tab-mappings');
+    const containerProctors = document.getElementById('staff-tab-proctors-container');
+    const containerLecturers = document.getElementById('staff-tab-lecturers-container');
+    const containerMappings = document.getElementById('staff-tab-mappings-container');
+    const controlsProctors = document.getElementById('proctors-controls');
+    const controlsLecturers = document.getElementById('lecturers-controls');
+    const controlsMappings = document.getElementById('mappings-controls');
+
+    btnProctors.classList.remove('active');
+    btnLecturers.classList.remove('active');
+    if (btnMappings) btnMappings.classList.remove('active');
+
+    containerProctors.classList.add('hidden');
+    containerLecturers.classList.add('hidden');
+    if (containerMappings) containerMappings.classList.add('hidden');
+
+    controlsProctors.classList.add('hidden');
+    controlsLecturers.classList.add('hidden');
+    if (controlsMappings) controlsMappings.classList.add('hidden');
+
+    if (tabName === 'proctors') {
+        btnProctors.classList.add('active');
+        containerProctors.classList.remove('hidden');
+        controlsProctors.classList.remove('hidden');
+    } else if (tabName === 'lecturers') {
+        btnLecturers.classList.add('active');
+        containerLecturers.classList.remove('hidden');
+        controlsLecturers.classList.remove('hidden');
+        renderLecturers();
+    } else if (tabName === 'mappings') {
+        if (btnMappings) btnMappings.classList.add('active');
+        if (containerMappings) containerMappings.classList.remove('hidden');
+        if (controlsMappings) controlsMappings.classList.remove('hidden');
+        renderMappings();
+    }
+};
+
+window.renderLecturers = function() {
+    const tbody = document.querySelector('#table-table-lecturers tbody') || document.querySelector('#table-lecturers tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const searchTerm = document.getElementById('lecturer-search')?.value.toLowerCase() || '';
+    
+    if (!DB.lecturers) DB.lecturers = [];
+    
+    const filteredLecturers = DB.lecturers.filter(l => 
+        (l.name || '').toLowerCase().includes(searchTerm) || 
+        (l.title || '').toLowerCase().includes(searchTerm)
+    );
+
+    filteredLecturers.sort((a,b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+
+    filteredLecturers.forEach((l) => {
+        const originalIndex = DB.lecturers.findIndex(item => item === l);
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span style="font-weight: 600; color: var(--primary);">${l.title || '-'}</span></td>
+            <td><span style="font-weight: 500; color: white;">${l.name || '-'}</span></td>
+            <td class="admin-only" style="text-align: right;">
+                <button class="btn-edit" onclick="showEditLecturerModal(${originalIndex})">Düzenle</button>
+                <button class="btn-delete" onclick="deleteLecturer(${originalIndex})">Sil</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.renderMappings = function() {
+    const tbody = document.querySelector('#table-mappings tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const searchTerm = document.getElementById('mapping-search')?.value.toLowerCase() || '';
+
+    if (!DB.courseLecturers) DB.courseLecturers = {};
+
+    const entries = Object.entries(DB.courseLecturers);
+    const filteredEntries = entries.filter(([course, lecturer]) => 
+        course.toLowerCase().includes(searchTerm) || 
+        lecturer.toLowerCase().includes(searchTerm)
+    );
+
+    filteredEntries.sort((a, b) => a[0].localeCompare(b[0], 'tr'));
+
+    filteredEntries.forEach(([course, lecturer]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span style="font-weight: 600; color: white;">${course}</span></td>
+            <td><span style="font-weight: 500; color: var(--primary);">${lecturer}</span></td>
+            <td class="admin-only" style="text-align: right;">
+                <button class="btn-edit" onclick="showEditMappingModal('${course.replace(/'/g, "\\'")}', '${lecturer.replace(/'/g, "\\'")}')">Düzenle</button>
+                <button class="btn-delete" onclick="deleteMapping('${course.replace(/'/g, "\\'")}')">Sil</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.showAddLecturerModal = function() {
+    const modal = document.getElementById('modal');
+    const fields = document.getElementById('form-fields');
+    document.getElementById('modal-title').textContent = "Yeni Hoca Ekle";
+    
+    fields.innerHTML = `
+        <div class="form-group">
+            <label>Unvanı (Title)</label>
+            <input type="text" id="lecturer-title" placeholder="Örn: Prof. Dr. veya Dr. Öğr. Üyesi" required>
+        </div>
+        <div class="form-group">
+            <label>İsim Soyisim</label>
+            <input type="text" id="lecturer-name" placeholder="Örn: Ahmet Yılmaz" required>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('lecturer-title').value.trim();
+        const name = document.getElementById('lecturer-name').value.trim();
+        
+        if (!DB.lecturers) DB.lecturers = [];
+        
+        const newLecturer = { title, name };
+        DB.lecturers.push(newLecturer);
+        
+        saveToLocalStorage();
+        logAction('admin', 'Hoca Ekleme', `${title} ${name} hoca listesine eklendi.`);
+        hideModal();
+        renderLecturers();
+        await saveToBackend();
+    };
+};
+
+window.showEditLecturerModal = function(index) {
+    if (!DB.lecturers || !DB.lecturers[index]) return;
+    const l = DB.lecturers[index];
+
+    const modal = document.getElementById('modal');
+    const fields = document.getElementById('form-fields');
+    document.getElementById('modal-title').textContent = "Hoca Düzenle";
+    
+    fields.innerHTML = `
+        <div class="form-group">
+            <label>Unvanı (Title)</label>
+            <input type="text" id="lecturer-title" value="${l.title || ''}" placeholder="Örn: Prof. Dr." required>
+        </div>
+        <div class="form-group">
+            <label>İsim Soyisim</label>
+            <input type="text" id="lecturer-name" value="${l.name || ''}" placeholder="Örn: Ahmet Yılmaz" required>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('lecturer-title').value.trim();
+        const name = document.getElementById('lecturer-name').value.trim();
+        
+        DB.lecturers[index] = { title, name };
+        
+        saveToLocalStorage();
+        logAction('admin', 'Hoca Güncelleme', `${title} ${name} bilgileri güncellendi.`);
+        hideModal();
+        renderLecturers();
+        await saveToBackend();
+    };
+};
+
+window.deleteLecturer = async function(index) {
+    if (!DB.lecturers || !DB.lecturers[index]) return;
+    const l = DB.lecturers[index];
+    const fullName = `${l.title} ${l.name}`;
+    if (confirm(`"${fullName}" hocasını silmek istediğinize emin misiniz?`)) {
+        DB.lecturers.splice(index, 1);
+        saveToLocalStorage();
+        logAction('admin', 'Hoca Silme', `"${fullName}" hocası sistemden silindi.`);
+        renderLecturers();
+        await saveToBackend();
+    }
+};
+
+window.showAddMappingModal = function() {
+    const modal = document.getElementById('modal');
+    const fields = document.getElementById('form-fields');
+    document.getElementById('modal-title').textContent = "Yeni Ders-Hoca Eşleştirmesi Ekle";
+    
+    if (!DB.lecturers) DB.lecturers = [];
+    const lecturerOptions = DB.lecturers.map(l => {
+        const fullName = `${l.title} ${l.name}`;
+        return `<option value="${fullName}">${fullName}</option>`;
+    }).join('');
+
+    fields.innerHTML = `
+        <div class="form-group">
+            <label>Ders Adı</label>
+            <input type="text" id="mapping-course" placeholder="Örn: PHYS 113 veya Türk Dili I" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+        </div>
+        <div class="form-group">
+            <label>Sorumlu Hoca</label>
+            <select id="mapping-lecturer" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                <option value="">Seçin...</option>
+                ${lecturerOptions}
+            </select>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const course = document.getElementById('mapping-course').value.trim();
+        const lecturer = document.getElementById('mapping-lecturer').value;
+        
+        if (!DB.courseLecturers) DB.courseLecturers = {};
+        DB.courseLecturers[course] = lecturer;
+        
+        saveToLocalStorage();
+        logAction('admin', 'Ders Eşleştirme Ekleme', `"${course}" dersi "${lecturer}" ile eşleştirildi.`);
+        hideModal();
+        renderMappings();
+        await saveToBackend();
+    };
+};
+
+window.showEditMappingModal = function(oldCourse, currentLecturer) {
+    const modal = document.getElementById('modal');
+    const fields = document.getElementById('form-fields');
+    document.getElementById('modal-title').textContent = "Eşleştirmeyi Düzenle";
+    
+    if (!DB.lecturers) DB.lecturers = [];
+    const lecturerOptions = DB.lecturers.map(l => {
+        const fullName = `${l.title} ${l.name}`;
+        return `<option value="${fullName}" ${fullName === currentLecturer ? 'selected' : ''}>${fullName}</option>`;
+    }).join('');
+
+    fields.innerHTML = `
+        <div class="form-group">
+            <label>Ders Adı</label>
+            <input type="text" id="mapping-course" value="${oldCourse}" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+        </div>
+        <div class="form-group">
+            <label>Sorumlu Hoca</label>
+            <select id="mapping-lecturer" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                <option value="">Seçin...</option>
+                ${lecturerOptions}
+            </select>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const newCourse = document.getElementById('mapping-course').value.trim();
+        const newLecturer = document.getElementById('mapping-lecturer').value;
+        
+        if (!DB.courseLecturers) DB.courseLecturers = {};
+        
+        if (newCourse !== oldCourse) {
+            delete DB.courseLecturers[oldCourse];
+        }
+        
+        DB.courseLecturers[newCourse] = newLecturer;
+        
+        saveToLocalStorage();
+        logAction('admin', 'Ders Eşleştirme Güncelleme', `"${newCourse}" dersi eşleştirmesi güncellendi.`);
+        hideModal();
+        renderMappings();
+        await saveToBackend();
+    };
+};
+
+window.deleteMapping = async function(course) {
+    if (confirm(`"${course}" dersinin hoca eşleştirmesini silmek istediğinize emin misiniz?`)) {
+        if (DB.courseLecturers && DB.courseLecturers[course]) {
+            delete DB.courseLecturers[course];
+            saveToLocalStorage();
+            logAction('admin', 'Ders Eşleştirme Silme', `"${course}" ders eşleştirmesi silindi.`);
+            renderMappings();
+            await saveToBackend();
+        }
+    }
+};
+
 
 function showAddStaffModal() {
     const modal = document.getElementById('modal');
@@ -3351,6 +3698,77 @@ window.showEmailSettingsModal = () => {
         hideModal();
         alert('E-posta ayarları kaydedildi.');
     };
+};
+
+window.showEmailTemplatesModal = () => {
+    if (!DB.templates) {
+        DB.templates = {
+            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
+            assignment_email_subject: "📅 Yeni Gözetmenlik Görevi: {sinav_adi} | {tarih}",
+            assignment_email_body: "",
+            update_email_subject: "🔄 Görev Güncellendi: {sinav_adi} | {tarih}",
+            update_email_body: "",
+            cancel_email_subject: "❌ Görev İptal Edildi: {sinav_adi} | {tarih}",
+            cancel_email_body: ""
+        };
+    }
+
+    document.getElementById('tpl-new-subject').value = DB.templates.assignment_email_subject || '';
+    document.getElementById('tpl-new-body').value = DB.templates.assignment_email_body || '';
+    document.getElementById('tpl-update-subject').value = DB.templates.update_email_subject || '';
+    document.getElementById('tpl-update-body').value = DB.templates.update_email_body || '';
+    document.getElementById('tpl-cancel-subject').value = DB.templates.cancel_email_subject || '';
+    document.getElementById('tpl-cancel-body').value = DB.templates.cancel_email_body || '';
+
+    switchTemplateEditTab('new');
+    document.getElementById('modal-email-templates').classList.remove('hidden');
+};
+
+window.switchTemplateEditTab = (type) => {
+    const btnNew = document.getElementById('tpl-tab-btn-new');
+    const btnUpdate = document.getElementById('tpl-tab-btn-update');
+    const btnCancel = document.getElementById('tpl-tab-btn-cancel');
+
+    const conNew = document.getElementById('tpl-edit-new-container');
+    const conUpdate = document.getElementById('tpl-edit-update-container');
+    const conCancel = document.getElementById('tpl-edit-cancel-container');
+
+    btnNew.classList.remove('active');
+    btnUpdate.classList.remove('active');
+    btnCancel.classList.remove('active');
+
+    conNew.classList.add('hidden');
+    conUpdate.classList.add('hidden');
+    conCancel.classList.add('hidden');
+
+    if (type === 'new') {
+        btnNew.classList.add('active');
+        conNew.classList.remove('hidden');
+    } else if (type === 'update') {
+        btnUpdate.classList.add('active');
+        conUpdate.classList.remove('hidden');
+    } else if (type === 'cancel') {
+        btnCancel.classList.add('active');
+        conCancel.classList.remove('hidden');
+    }
+};
+
+window.saveEmailTemplates = async (e) => {
+    e.preventDefault();
+    if (!DB.templates) DB.templates = {};
+
+    DB.templates.assignment_email_subject = document.getElementById('tpl-new-subject').value.trim();
+    DB.templates.assignment_email_body = document.getElementById('tpl-new-body').value;
+    DB.templates.update_email_subject = document.getElementById('tpl-update-subject').value.trim();
+    DB.templates.update_email_body = document.getElementById('tpl-update-body').value;
+    DB.templates.cancel_email_subject = document.getElementById('tpl-cancel-subject').value.trim();
+    DB.templates.cancel_email_body = document.getElementById('tpl-cancel-body').value;
+
+    saveToLocalStorage();
+    logAction('admin', 'Şablon Güncelleme', 'E-posta şablonları güncellendi.');
+    document.getElementById('modal-email-templates').classList.add('hidden');
+    alert('E-posta şablonları kaydedildi.');
+    await saveToBackend();
 };
 
 

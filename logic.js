@@ -88,9 +88,17 @@ let DB = {
         "Analitik Geometri": "Dr. Öğr. Üyesi Fatma KARAOĞLU",
         "Turkish II": "Öğr.Gör. Benan Durukan",
         "Türk Dili II": "Öğr.Gör. Benan Durukan",
+        "Turkish I": "Öğr.Gör. Benan DURUKAN",
+        "Türk Dili I": "Öğr.Gör. Benan DURUKAN",
         "Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
         "PHYS 114 - Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
         "Fizik II": "Doç. Dr. Eda GOLDENBERG",
+        "Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "PHYS 113 - Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "Fizik I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "Principles of Atatürk and History of Turkish Revolution II": "Öğr. Gör. Orkun Canbek",
+        "Atatürk İlkeleri ve İnkılap Tarihi II": "Öğr. Gör. Orkun Canbek",
         "Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
         "Diferansiyel Denklemler II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
         "Topology": "Doç. Dr. Ayşe SÖNMEZ",
@@ -147,7 +155,11 @@ let DB = {
         { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
         { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
         { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
-        { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" }
+        { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" },
+        { name: "Benan DURUKAN", title: "Öğr.Gör." },
+        { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
+        { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
+        { name: "Orkun Canbek", title: "Öğr. Gör." }
     ]
 };
 
@@ -879,6 +891,14 @@ function updateExam(id, newData, skipSave = false) {
         newPIds.forEach(pid => {
             sendAssignmentEmail(pid, { ...oldExam, ...newData }, proctorChanged ? 'new' : 'update');
         });
+
+        // Çıkarılan gözetmenlere iptal maili gönder
+        if (proctorChanged) {
+            const removedPIds = oldPIds.filter(pid => !newPIds.includes(pid));
+            removedPIds.forEach(pid => {
+                sendAssignmentEmail(pid, oldExam, 'cancel');
+            });
+        }
     }
 
     // Sınavı her durumda güncelle (gözetmen yoksa eski gözetmeni koru)
@@ -948,8 +968,13 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff || !staff.email) return;
 
-    const subjectTemplate = type === 'new' ? DB.templates.assignment_email_subject : DB.templates.update_email_subject;
-    const bodyTemplate = type === 'new' ? DB.templates.assignment_email_body : DB.templates.update_email_body;
+    const subjectTemplate = type === 'new' 
+        ? DB.templates.assignment_email_subject 
+        : (type === 'cancel' ? DB.templates.cancel_email_subject : DB.templates.update_email_subject);
+
+    const bodyTemplate = type === 'new' 
+        ? DB.templates.assignment_email_body 
+        : (type === 'cancel' ? DB.templates.cancel_email_body : DB.templates.update_email_body);
 
     // Tüm gözetmen isimlerini virgülle birleştir
     const proctorIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
@@ -959,7 +984,11 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
         .join(', ') || exam.proctorName || '-';
 
     const replacePlaceholders = (text) => {
-        return text
+        if (!text) return '';
+        const siteUrl = window.location.origin + window.location.pathname;
+        const signature = `<br><br><hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;"><p style="font-size: 12px; color: #9ca3af; text-align: center;">Sisteme erişmek için: <a href="${siteUrl}" style="color: #4f46e5; text-decoration: underline;">${siteUrl}</a></p>`;
+
+        let processedText = text
             .replace(/{personel_adi}/g, staff.name)
             .replace(/{sinav_adi}/g, exam.name || '-')
             .replace(/{dersi_veren}/g, exam.lecturer || '-')
@@ -970,6 +999,16 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
             .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
             .replace(/{gozetmenler}/g, gozetmenler)
             .replace(/{gozet men ler}/g, gozetmenler); // fallback for typo in template
+
+        // Sitenin linkini gövdenin en sonuna enjekte et
+        if (processedText.includes('</div>') && processedText.lastIndexOf('</div>') !== -1) {
+            const lastDivIndex = processedText.lastIndexOf('</div>');
+            processedText = processedText.substring(0, lastDivIndex) + signature + processedText.substring(lastDivIndex);
+        } else {
+            processedText += signature;
+        }
+
+        return processedText;
     };
 
     const subject = replacePlaceholders(subjectTemplate);
@@ -1202,6 +1241,101 @@ async function loadFromDataJSON() {
         } else {
             console.error("Hiçbir veri bulunamadı! Lütfen backendin çalıştığından emin olun.");
         }
+    }
+    
+    // Eksik hocaları ve eşleştirmeleri yüklenen veritabanına enjekte et
+    ensureDefaultLecturersAndCoursesMigrated();
+}
+
+function ensureDefaultLecturersAndCoursesMigrated() {
+    if (!DB) return;
+    if (!DB.lecturers) DB.lecturers = [];
+    if (!DB.courseLecturers) DB.courseLecturers = {};
+
+    const defaultLecturers = [
+        { name: "Benan DURUKAN", title: "Öğr.Gör." },
+        { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
+        { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
+        { name: "Orkun Canbek", title: "Öğr. Gör." }
+    ];
+
+    let modified = false;
+
+    defaultLecturers.forEach(dl => {
+        const exists = DB.lecturers.some(l => 
+            l.name.toLocaleLowerCase('tr').trim() === dl.name.toLocaleLowerCase('tr').trim()
+        );
+        if (!exists) {
+            DB.lecturers.push(dl);
+            modified = true;
+        }
+    });
+
+    const defaultMappings = {
+        "Turkish I": "Öğr.Gör. Benan DURUKAN",
+        "Türk Dili I": "Öğr.Gör. Benan DURUKAN",
+        "Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "PHYS 113 - Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "Fizik I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "Principles of Atatürk and History of Turkish Revolution II": "Öğr. Gör. Orkun Canbek",
+        "Atatürk İlkeleri ve İnkılap Tarihi II": "Öğr. Gör. Orkun Canbek"
+    };
+
+    Object.entries(defaultMappings).forEach(([course, lecturer]) => {
+        if (!DB.courseLecturers[course]) {
+            DB.courseLecturers[course] = lecturer;
+            modified = true;
+        }
+    });
+
+    // E-posta şablonları kontrolü ve veri göçü
+    ensureTemplatesExist();
+
+    if (modified) {
+        console.log("Eksik varsayılan hocalar ve ders eşleştirmeleri DB'ye eklendi.");
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    }
+}
+
+function ensureTemplatesExist() {
+    if (!DB) return;
+    if (!DB.templates) DB.templates = {};
+    
+    let modified = false;
+
+    if (!DB.templates.cancel_email_subject) {
+        DB.templates.cancel_email_subject = "❌ Görev İptal Edildi: {sinav_adi} | {tarih}";
+        modified = true;
+    }
+    
+    if (!DB.templates.cancel_email_body) {
+        DB.templates.cancel_email_body = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f4f4; padding: 20px; border-radius: 10px;">
+  <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 22px;">&#10060; Görev İptal Bildirimi</h1>
+    <p style="color: #fca5a5; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
+  </div>
+  <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Atandığınız sınavdaki gözetmenlik göreviniz <strong>iptal edilmiştir</strong>. Bilgileri aşağıda bulabilirsiniz.</p>
+    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #991b1b; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #991b1b;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #991b1b;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #991b1b;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #991b1b;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
+      </table>
+    </div>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.</p>
+  </div>
+</div>`;
+        modified = true;
+    }
+
+    if (modified) {
+        console.log("Görev iptali e-posta şablonları eklendi.");
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
     }
 }
 

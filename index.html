@@ -631,6 +631,7 @@
                                 <button id="btn-reset-exams" class="dropdown-item" style="color:var(--accent-orange);">🧹 Programı Sıfırla (Puanlar Kalsın)</button>
                                 <button id="btn-resolve-conflicts" class="dropdown-item" style="color:var(--accent-red);">⚠️ Çakışmaları Otomatik Çöz</button>
                                 <button id="btn-email-settings" class="dropdown-item" style="color:var(--primary);">📧 E-posta Ayarları</button>
+                                <button id="btn-email-templates" class="dropdown-item" style="color:#a78bfa;">📝 E-posta Şablonları</button>
                             </div>
                         </div>
                         <div class="dropdown">
@@ -713,34 +714,86 @@
             <!-- Staff Section -->
             <section id="section-staff" class="content-section hidden admin-only">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
-                    <h2>Personel Listesi</h2>
+                    <h2>Personel & Hoca Yönetimi</h2>
                     <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
-                        <input type="text" id="staff-search" placeholder="🔍 Personel İsmi Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
-                        <button class="btn-primary admin-only" id="btn-add-staff">+ Yeni Personel</button>
-                        <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42;">📂 Excel’den Aktar</button>
-                        <div class="dropdown">
-                            <button class="btn-primary" style="background:#28a745;">📥 Dışa Aktar</button>
-                            <div class="dropdown-content">
-                                <button id="btn-export-staff" class="dropdown-item">🖼️ Resim Olarak Kaydet</button>
-                                <button id="btn-export-staff-pdf" class="dropdown-item">📄 PDF Olarak Kaydet</button>
+                        <!-- Gözetmen Kontrolleri -->
+                        <div id="proctors-controls" style="display: flex; align-items: center; gap: 12px;">
+                            <input type="text" id="staff-search" placeholder="🔍 Personel İsmi Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
+                            <button class="btn-primary admin-only" id="btn-add-staff">+ Yeni Personel</button>
+                            <button id="btn-import-excel" class="btn-primary admin-only" style="background:#1d6f42;">📂 Excel’den Aktar</button>
+                            <div class="dropdown">
+                                <button class="btn-primary" style="background:#28a745;">📥 Dışa Aktar</button>
+                                <div class="dropdown-content">
+                                    <button id="btn-export-staff" class="dropdown-item">🖼️ Resim Olarak Kaydet</button>
+                                    <button id="btn-export-staff-pdf" class="dropdown-item">📄 PDF Olarak Kaydet</button>
+                                </div>
                             </div>
+                        </div>
+                        <!-- Hoca Kontrolleri -->
+                        <div id="lecturers-controls" class="hidden" style="display: flex; align-items: center; gap: 12px;">
+                            <input type="text" id="lecturer-search" placeholder="🔍 Hoca Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
+                            <button class="btn-primary admin-only" id="btn-add-lecturer" onclick="showAddLecturerModal()">+ Yeni Hoca Ekle</button>
+                        </div>
+                        <!-- Ders-Hoca Eşleştirme Kontrolleri -->
+                        <div id="mappings-controls" class="hidden" style="display: flex; align-items: center; gap: 12px;">
+                            <input type="text" id="mapping-search" placeholder="🔍 Ders veya Hoca Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
+                            <button class="btn-primary admin-only" id="btn-add-mapping" onclick="showAddMappingModal()">+ Yeni Eşleştirme Ekle</button>
                         </div>
                     </div>
                 </div>
-                <div class="table-container">
-                    <table id="table-staff">
-                        <thead>
-                            <tr>
-                                <th>İsim Soyisim</th>
-                                <th>E-posta</th>
-                                <th>Toplam Puan</th>
-                                <th>Görev Sayısı</th>
-                                <th>Esneklik 🤖</th>
-                                <th class="admin-only">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+
+                <div class="profile-tabs" style="margin-bottom: 1.5rem;">
+                    <button class="tab-btn active" id="btn-staff-tab-proctors" onclick="switchStaffTab('proctors')">Gözetmenler (Asistanlar)</button>
+                    <button class="tab-btn" id="btn-staff-tab-lecturers" onclick="switchStaffTab('lecturers')">Ders Veren Hocalar</button>
+                    <button class="tab-btn" id="btn-staff-tab-mappings" onclick="switchStaffTab('mappings')">Ders-Hoca Eşleştirmeleri</button>
+                </div>
+
+                <div id="staff-tab-proctors-container">
+                    <div class="table-container">
+                        <table id="table-staff">
+                            <thead>
+                                <tr>
+                                    <th>İsim Soyisim</th>
+                                    <th>E-posta</th>
+                                    <th>Toplam Puan</th>
+                                    <th>Görev Sayısı</th>
+                                    <th>Esneklik 🤖</th>
+                                    <th class="admin-only">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="staff-tab-lecturers-container" class="hidden">
+                    <div class="table-container">
+                        <table id="table-lecturers">
+                            <thead>
+                                <tr>
+                                    <th>Unvan</th>
+                                    <th>İsim Soyisim</th>
+                                    <th class="admin-only" style="text-align: right;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="staff-tab-mappings-container" class="hidden">
+                    <div class="table-container">
+                        <table id="table-mappings">
+                            <thead>
+                                <tr>
+                                    <th>Ders Adı</th>
+                                    <th>Sorumlu Hoca</th>
+                                    <th class="admin-only" style="text-align: right;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -1231,9 +1284,8 @@
             </div>
         </div>
 
-        <!-- Bireysel Personel Takvimi Modalı -->
         <div id="modal-staff-schedule" class="modal hidden">
-            <div class="modal-content" style="max-width: 950px; padding: 2rem;">
+            <div id="individual-schedule-card" class="modal-content" style="max-width: 950px; padding: 2rem;">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h2 id="staff-name-title">Personel Sınav Programı</h2>
                     <div style="display: flex; gap: 10px; align-items:center;">
@@ -1313,6 +1365,72 @@
                         <div id="peer-approval-list"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- E-posta Şablonları Modalı -->
+        <div id="modal-email-templates" class="modal hidden admin-only">
+            <div class="modal-content" style="max-width: 800px; padding: 2rem;">
+                <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                    <h2>📝 E-posta Şablonlarını Düzenle</h2>
+                    <button class="btn-secondary" onclick="document.getElementById('modal-email-templates').classList.add('hidden')">Kapat</button>
+                </div>
+                <div style="margin-bottom: 15px; background: rgba(99, 102, 241, 0.1); border: 1px dashed var(--primary); padding: 10px; border-radius: 8px; font-size: 0.8rem; color: #cdd6f4;">
+                    <strong>💡 Kullanılabilir Değişkenler:</strong><br>
+                    <code>{personel_adi}</code>, <code>{sinav_adi}</code>, <code>{dersi_veren}</code>, <code>{tarih}</code>, <code>{saat}</code>, <code>{derslik}</code>, <code>{sure}</code>, <code>{puan}</code>, <code>{gozetmenler}</code>
+                </div>
+                
+                <form id="form-email-templates" onsubmit="saveEmailTemplates(event)">
+                    <div style="max-height: 50vh; overflow-y: auto; padding-right: 10px;">
+                        <!-- Tab selector inside modal for different email types -->
+                        <div class="modal-tabs" style="margin-bottom: 15px;">
+                            <button type="button" class="modal-tab-btn active" id="tpl-tab-btn-new" onclick="switchTemplateEditTab('new')">Yeni Görev</button>
+                            <button type="button" class="modal-tab-btn" id="tpl-tab-btn-update" onclick="switchTemplateEditTab('update')">Görev Güncelleme</button>
+                            <button type="button" class="modal-tab-btn" id="tpl-tab-btn-cancel" onclick="switchTemplateEditTab('cancel')">Görev İptali</button>
+                        </div>
+                        
+                        <!-- New Task Template -->
+                        <div id="tpl-edit-new-container">
+                            <div class="form-group">
+                                <label>Yeni Görev Mail Konusu</label>
+                                <input type="text" id="tpl-new-subject" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                            </div>
+                            <div class="form-group">
+                                <label>Yeni Görev Mail İçeriği (HTML Destekler)</label>
+                                <textarea id="tpl-new-body" rows="12" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white; font-family: monospace; font-size: 0.85rem;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Update Task Template -->
+                        <div id="tpl-edit-update-container" class="hidden">
+                            <div class="form-group">
+                                <label>Güncelleme Mail Konusu</label>
+                                <input type="text" id="tpl-update-subject" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                            </div>
+                            <div class="form-group">
+                                <label>Güncelleme Mail İçeriği (HTML Destekler)</label>
+                                <textarea id="tpl-update-body" rows="12" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white; font-family: monospace; font-size: 0.85rem;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Cancellation Task Template -->
+                        <div id="tpl-edit-cancel-container" class="hidden">
+                            <div class="form-group">
+                                <label>İptal Mail Konusu</label>
+                                <input type="text" id="tpl-cancel-subject" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
+                            </div>
+                            <div class="form-group">
+                                <label>İptal Mail İçeriği (HTML Destekler)</label>
+                                <textarea id="tpl-cancel-body" rows="12" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white; font-family: monospace; font-size: 0.85rem;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 15px;">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-email-templates').classList.add('hidden')">Vazgeç</button>
+                        <button type="submit" class="btn-primary">Şablonları Kaydet</button>
+                    </div>
+                </form>
             </div>
         </div>
 
