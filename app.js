@@ -1846,6 +1846,19 @@ window.showExamDetail = function(examName, date, time, location) {
         generateAttendancePDF(examName, date, time, location, relatedExams);
     };
 
+    const bulkCancelBtn = document.getElementById('btn-bulk-cancel-mail');
+    if (bulkCancelBtn) {
+        const baseEx = relatedExams[0];
+        if (baseEx && ((baseEx.proctorIds && baseEx.proctorIds.length > 0) || baseEx.proctorId)) {
+            bulkCancelBtn.style.display = 'flex';
+            bulkCancelBtn.onclick = () => {
+                window.sendBulkCancelMailViaOutlook(baseEx.id);
+            };
+        } else {
+            bulkCancelBtn.style.display = 'none';
+        }
+    }
+
     const formatDate = date.split('-').reverse().join('.');
     const duration = relatedExams.length > 0 ? relatedExams[0].duration : '-';
     const loc = location || (relatedExams.length > 0 ? relatedExams[0].location : '-');
@@ -1891,7 +1904,7 @@ window.showExamDetail = function(examName, date, time, location) {
 
     tbody.innerHTML = '';
     if (relatedExams.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamış.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamış.</td></tr>';
     } else {
         const now = new Date();
         // Tüm gözetmenleri (proctorIds içindeki her hoca için) tek tek listele
@@ -1907,14 +1920,21 @@ window.showExamDetail = function(examName, date, time, location) {
                 const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
                 const isPast = examEnd < now;
 
+                const isNotified = ex.notifiedStaffIds && ex.notifiedStaffIds.map(String).includes(String(staff.id));
+                const statusBadge = isNotified
+                    ? `<span class="badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:600;">📧 Gönderildi</span>`
+                    : `<span class="badge" style="background:rgba(148,163,184,0.15); color:#cbd5e1; border:1px solid rgba(148,163,184,0.3); font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:600;">✉️ Bekliyor</span>`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${globalIdx++}</td>
                     <td><span class="clickable-name" onclick="showStaffSchedule('${staff.name}')">${staff.name}</span></td>
                     <td>${staff.totalScore.toFixed(1)}</td>
                     <td>${staff.taskCount}</td>
-                    <td style="text-align: right;">
-                        ${!isPast ? `<button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px;" onclick="takeOverDuty('${ex.id}', '${staff.id}')">Yerine Geç</button>` : ''}
+                    <td>${statusBadge}</td>
+                    <td style="text-align: right; display: flex; gap: 8px; justify-content: flex-end;">
+                        ${!isPast ? `<button class="btn-secondary" style="font-size:0.75rem; padding: 4px 8px; border-color:#0ea5e9; color:#38bdf8; background:none; line-height: 1;" onclick="sendSingleProctorMailViaOutlook(${ex.id}, ${staff.id})" title="Hocaya Özel Görev Maili Gönder">📧 Mail</button>` : ''}
+                        ${!isPast ? `<button class="btn-swap" style="font-size:0.75rem; padding: 4px 10px; line-height: 1;" onclick="takeOverDuty('${ex.id}', '${staff.id}')">Yerine Geç</button>` : ''}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2120,10 +2140,15 @@ function renderExams() {
         const dayName = dayNames[dateObj.getDay()];
         const displayDate = ex.date.split("-").reverse().join(".") + " " + dayName;
 
-        const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
+        const pNamesHTML = (ex.proctorIds || [ex.proctorId]).map(pid => {
             const s = DB.staff.find(staff => staff.id === pid);
-            return s ? s.name : '???';
-        }).join(', ');
+            if (!s) return '???';
+            const isNotified = ex.notifiedStaffIds && ex.notifiedStaffIds.map(String).includes(String(pid));
+            const icon = isNotified 
+                ? `<span title="E-posta Gönderildi" style="color:#10b981; margin-left:4px; cursor:help; font-size:0.85rem;">📧</span>` 
+                : `<span title="E-posta Gönderilmedi" style="color:#94a3b8; margin-left:4px; cursor:help; font-size:0.85rem;">✉️</span>`;
+            return `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${s.name}${icon}</span>`;
+        }).join(' ') || '-';
 
         tr.innerHTML = `
             <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
@@ -2141,7 +2166,7 @@ function renderExams() {
             <td>${ex.duration}</td>
             <td>x${ex.katsayi.toFixed(1)}</td>
             <td>${ex.score.toFixed(1)}</td>
-            <td>${pNames}</td>
+            <td>${pNamesHTML}</td>
             <td style="display: flex; gap: 8px; justify-content: flex-end;">
                  ${conflicts.has(ex.id) ? `<button class="btn-primary" onclick="quickFixConflict(${ex.id})" title="Otomatik Çöz" style="padding: 0.45rem; background: var(--accent-orange); border-radius: 6px;"><span class="icon" style="margin:0; font-size: 0.9rem;">🧙‍♂️</span></button>` : ''}
                  ${(() => {
@@ -2771,6 +2796,16 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
     setTimeout(() => document.body.removeChild(a), 100);
 
     logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
+
+    // Bildirim durumunu güncelle (gönderilen gözetmenleri işaretle)
+    if (!exam.notifiedStaffIds) exam.notifiedStaffIds = [];
+    proctors.forEach(p => {
+        if (!exam.notifiedStaffIds.map(String).includes(String(p.id))) {
+            exam.notifiedStaffIds.push(p.id);
+        }
+    });
+    saveToLocalStorage();
+    renderExams();
 };
 
 /**
@@ -2840,32 +2875,330 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
     logAction('admin', 'Mail Gönderim', `"${examName}" sınavı için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
 };
 
-window.deleteExam = (id) => {
-    takeSnapshot("Sınav Silme");
-    const exIndex = DB.exams.findIndex(e => e.id === id);
-    if (exIndex > -1) {
-        const ex = DB.exams[exIndex];
-        
-        // Gözetmenlerin puanını ve görev sayılarını düşür, iptal maili gönder
-        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
-        pIds.forEach(pid => {
-            const staff = DB.staff.find(s => s.id === pid);
-            if (staff) {
-                staff.totalScore = Math.max(0, staff.totalScore - ex.score);
-                staff.taskCount = Math.max(0, staff.taskCount - 1);
-            }
-            if (!ex.isDraft) {
-                sendAssignmentEmail(pid, ex, 'cancel');
-            }
-        });
-
-        DB.exams.splice(exIndex, 1);
-        saveToLocalStorage();
-        logAction('admin', 'Sınav Silme', `${ex.name} sınavı sistemden silindi.`);
-        renderExams();
-        renderSchedule();
-        renderDashboard(); // Update dashboard scores
+/**
+ * Sınav iptali durumunda gözetmene Outlook üzerinden mail gönder (mailto: linki ile)
+ */
+window.sendCancelMailViaOutlook = (staffId, exam) => {
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff || !staff.email) {
+        alert('Bu gözetmenin e-posta adresi eksik.\nPersonel sekmesinden e-posta adresini ekleyin.');
+        return;
     }
+
+    const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
+    
+    let body = `Sayın ${staff.name} Hocam,
+ 
+Atandığınız sınavdaki gözetmenlik göreviniz iptal edilmiştir. Bilgileri aşağıda bulabilirsiniz.
+ 
+SINAV BİLGİLERİ
+----------------------------
+📚 Sınav Adı   : ${exam.name}
+👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
+📅 Tarih       : ${exam.date}
+🕒 Saat        : ${exam.time}
+🏫 Derslik     : ${exam.location || '-'}
+⏱ Süre        : ${exam.duration} dakika
+----------------------------
+ 
+Bu mesaj Gözetmenlik Takip ve Atama Sistemi üzerinden hazırlanmıştır.
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+    // E-posta şablonlarından temizlenmiş düz yazı kullanmaya çalış (varsa)
+    if (DB.templates && DB.templates.cancel_email_body) {
+        let tempText = DB.templates.cancel_email_body;
+        // HTML to plain text conversion
+        tempText = tempText.replace(/<br\s*\/?>/gi, '\n');
+        tempText = tempText.replace(/<\/p>/gi, '\n\n');
+        tempText = tempText.replace(/<\/tr>/gi, '\n');
+        tempText = tempText.replace(/<[^>]+>/g, '');
+        tempText = tempText.replace(/&nbsp;/g, ' ');
+        tempText = tempText.replace(/&#10060;/g, '❌');
+        tempText = tempText.replace(/&#128218;/g, '📚');
+        tempText = tempText.replace(/&#128100;/g, '👨‍🏫');
+        tempText = tempText.replace(/&#128197;/g, '📅');
+        tempText = tempText.replace(/&#128336;/g, '🕒');
+        tempText = tempText.replace(/&#127979;/g, '🏫');
+
+        const proctorIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+        const gozetmenler = proctorIds
+            .map(pid => { const s = DB.staff.find(x => String(x.id) === String(pid)); return s ? s.name : ''; })
+            .filter(n => n)
+            .join(', ') || exam.proctorName || '-';
+
+        body = tempText
+            .replace(/{personel_adi}/g, staff.name)
+            .replace(/{sinav_adi}/g, exam.name || '-')
+            .replace(/{dersi_veren}/g, exam.lecturer || '-')
+            .replace(/{tarih}/g, exam.date || '-')
+            .replace(/{saat}/g, exam.time || '-')
+            .replace(/{derslik}/g, exam.location || '-')
+            .replace(/{sure}/g, exam.duration || '-')
+            .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
+            .replace(/{gozetmenler}/g, gozetmenler);
+    }
+
+    const mailtoLink = `mailto:${encodeURIComponent(staff.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const a = document.createElement('a');
+    a.href = mailtoLink;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 100);
+
+    logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı iptali için ${staff.name} hocaya Outlook üzerinden mail hazırlandı.`);
+};
+
+window.removeProctorAndSendCancelMail = (staffId) => {
+    const examId = document.getElementById('edit-exam-id').value;
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
+    if (!exam) return;
+    
+    const staff = DB.staff.find(s => s.id === staffId);
+    if (!staff) return;
+    
+    if (confirm(`"${staff.name}" hocayı gözetmenlikten çıkarıp iptal maili hazırlamak istiyor musunuz?`)) {
+        window.sendCancelMailViaOutlook(staffId, exam);
+        window.removeProctorFromEditList(staffId);
+    }
+};
+
+
+window.sendSingleProctorMailViaOutlook = (examId, staffId) => {
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
+    if (!exam) return;
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff || !staff.email) {
+        alert('Bu gözetmenin e-posta adresi eksik.\nPersonel sekmesinden e-posta adresini ekleyin.');
+        return;
+    }
+
+    const gozetmenler = (exam.proctorIds || [exam.proctorId])
+        .map(pid => { const s = DB.staff.find(x => String(x.id) === String(pid)); return s ? s.name : ''; })
+        .filter(n => n)
+        .join(', ') || exam.proctorName || '-';
+
+    const scoreText = typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-');
+    const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
+    
+    const body = `Sayın ${staff.name} Hocam,
+ 
+${exam.date} tarihinde saat ${exam.time}'de yapılacak olan "${exam.name}" sınavına gözetmen olarak atandınız.
+ 
+SINAV BİLGİLERİ
+----------------------------
+📚 Sınav Adı : ${exam.name}
+👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
+📅 Tarih : ${exam.date}
+🕒 Saat : ${exam.time}
+🏫 Derslik : ${exam.location || '-'}
+⏱ Süre : ${exam.duration} dakika
+👥 Gözetmenler: ${gozetmenler}
+⭐ Puan : ${scoreText}
+----------------------------
+ 
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+    const mailtoLink = `mailto:${encodeURIComponent(staff.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const a = document.createElement('a');
+    a.href = mailtoLink;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 100);
+
+    // Bildirim durumunu güncelle (gönderilen gözetmeni işaretle)
+    if (!exam.notifiedStaffIds) exam.notifiedStaffIds = [];
+    if (!exam.notifiedStaffIds.map(String).includes(String(staffId))) {
+        exam.notifiedStaffIds.push(staffId);
+    }
+    saveToLocalStorage();
+    renderExams();
+    showExamDetail(exam.name, exam.date, exam.time, exam.location);
+};
+
+window.sendBulkCancelMailViaOutlook = (examId) => {
+    const exam = DB.exams.find(e => String(e.id) === String(examId));
+    if (!exam) return;
+
+    const proctorIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+    const proctors = proctorIds
+        .map(pid => DB.staff.find(s => String(s.id) === String(pid)))
+        .filter(Boolean);
+
+    if (proctors.length === 0) {
+        alert('Bu sınava atanmış gözetmen bulunamadı.');
+        return;
+    }
+
+    const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
+    if (!emailList) {
+        alert('Gözetmenlerin hiçbirinin e-posta adresi girilmemiş.');
+        return;
+    }
+
+    if (!confirm(`"${exam.name}" sınavı için ${proctors.length} gözetmene Outlook üzerinden Toplu İptal Maili hazırlansın mı?`)) {
+        return;
+    }
+
+    const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
+    let body = `Sayın Hocalarım,
+ 
+${exam.date} tarihindeki "${exam.name}" sınavı iptal edilmiştir. Bu sınavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
+ 
+İPTAL OLAN SINAV BİLGİLERİ
+----------------------------
+📚 Sınav Adı   : ${exam.name}
+👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
+📅 Tarih       : ${exam.date}
+🕒 Saat        : ${exam.time}
+🏫 Derslik     : ${exam.location || '-'}
+⏱ Süre        : ${exam.duration} dakika
+----------------------------
+ 
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+    if (DB.templates && DB.templates.cancel_email_body) {
+        let tempText = DB.templates.cancel_email_body;
+        tempText = tempText.replace(/<br\s*\/?>/gi, '\n');
+        tempText = tempText.replace(/<\/p>/gi, '\n\n');
+        tempText = tempText.replace(/<\/tr>/gi, '\n');
+        tempText = tempText.replace(/<[^>]+>/g, '');
+        tempText = tempText.replace(/&nbsp;/g, ' ');
+        tempText = tempText.replace(/&#10060;/g, '❌');
+        tempText = tempText.replace(/&#128218;/g, '📚');
+        tempText = tempText.replace(/&#128100;/g, '👨‍🏫');
+        tempText = tempText.replace(/&#128197;/g, '📅');
+        tempText = tempText.replace(/&#128336;/g, '🕒');
+        tempText = tempText.replace(/&#127979;/g, '🏫');
+
+        const gozetmenler = proctors.map(p => p.name).join(', ');
+
+        body = tempText
+            .replace(/{personel_adi}/g, 'Hocalarım')
+            .replace(/{sinav_adi}/g, exam.name || '-')
+            .replace(/{dersi_veren}/g, exam.lecturer || '-')
+            .replace(/{tarih}/g, exam.date || '-')
+            .replace(/{saat}/g, exam.time || '-')
+            .replace(/{derslik}/g, exam.location || '-')
+            .replace(/{sure}/g, exam.duration || '-')
+            .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
+            .replace(/{gozetmenler}/g, gozetmenler);
+    }
+
+    const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const a = document.createElement('a');
+    a.href = mailtoLink;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 100);
+
+    logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı toplu iptali için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
+};
+
+window.deleteExam = async (id) => {
+    const exIndex = DB.exams.findIndex(e => e.id === id);
+    if (exIndex === -1) return;
+    const ex = DB.exams[exIndex];
+
+    const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+    const proctors = pIds.map(pid => DB.staff.find(s => String(s.id) === String(pid))).filter(Boolean);
+
+    let wantMail = false;
+    if (proctors.length > 0) {
+        const hasEmails = proctors.some(p => p.email);
+        if (hasEmails) {
+            wantMail = confirm(`"${ex.name}" sınavı siliniyor.\nAtanmış gözetmenlere (${proctors.map(p=>p.name).join(', ')}) Outlook üzerinden Toplu İptal Maili hazırlamak ister misiniz?`);
+        } else {
+            if (!confirm(`"${ex.name}" sınavını silmek istediğinize emin misiniz?`)) return;
+        }
+    } else {
+        if (!confirm(`"${ex.name}" sınavını silmek istediğinize emin misiniz?`)) return;
+    }
+
+    takeSnapshot("Sınav Silme");
+
+    if (wantMail) {
+        // Toplu mailto hazırlığı
+        const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
+        const subject = `❌ Sınav İptali / Görev İptal Edildi: ${ex.name} | ${ex.date}`;
+        
+        let body = `Sayın Hocalarım,
+ 
+${ex.date} tarihindeki "${ex.name}" sınavı iptal edilmiştir. Bu sınavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
+ 
+İPTAL OLAN SINAV BİLGİLERİ
+----------------------------
+📚 Sınav Adı   : ${ex.name}
+👨‍🏫 Dersi Veren : ${ex.lecturer || '-'}
+📅 Tarih       : ${ex.date}
+🕒 Saat        : ${ex.time}
+🏫 Derslik     : ${ex.location || '-'}
+⏱ Süre        : ${ex.duration} dakika
+----------------------------
+ 
+İyi çalışmalar dileriz.
+GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+
+        if (DB.templates && DB.templates.cancel_email_body) {
+            let tempText = DB.templates.cancel_email_body;
+            tempText = tempText.replace(/<br\s*\/?>/gi, '\n');
+            tempText = tempText.replace(/<\/p>/gi, '\n\n');
+            tempText = tempText.replace(/<\/tr>/gi, '\n');
+            tempText = tempText.replace(/<[^>]+>/g, '');
+            tempText = tempText.replace(/&nbsp;/g, ' ');
+            tempText = tempText.replace(/&#10060;/g, '❌');
+            tempText = tempText.replace(/&#128218;/g, '📚');
+            tempText = tempText.replace(/&#128100;/g, '👨‍🏫');
+            tempText = tempText.replace(/&#128197;/g, '📅');
+            tempText = tempText.replace(/&#128336;/g, '🕒');
+            tempText = tempText.replace(/&#127979;/g, '🏫');
+
+            const gozetmenler = proctors.map(p => p.name).join(', ');
+
+            body = tempText
+                .replace(/{personel_adi}/g, 'Hocalarım')
+                .replace(/{sinav_adi}/g, ex.name || '-')
+                .replace(/{dersi_veren}/g, ex.lecturer || '-')
+                .replace(/{tarih}/g, ex.date || '-')
+                .replace(/{saat}/g, ex.time || '-')
+                .replace(/{derslik}/g, ex.location || '-')
+                .replace(/{sure}/g, ex.duration || '-')
+                .replace(/{puan}/g, typeof ex.score === 'number' ? ex.score.toFixed(1) : (ex.score || '-'))
+                .replace(/{gozetmenler}/g, gozetmenler);
+        }
+
+        const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        const a = document.createElement('a');
+        a.href = mailtoLink;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 100);
+    }
+
+    pIds.forEach(pid => {
+        const staff = DB.staff.find(s => s.id === pid);
+        if (staff) {
+            staff.totalScore = Math.max(0, staff.totalScore - ex.score);
+            staff.taskCount = Math.max(0, staff.taskCount - 1);
+        }
+        if (!ex.isDraft) {
+            sendAssignmentEmail(pid, ex, 'cancel');
+        }
+    });
+
+    DB.exams.splice(exIndex, 1);
+    saveToLocalStorage();
+    logAction('admin', 'Sınav Silme', `${ex.name} sınavı silindi ${wantMail ? '(Toplu iptal maili tetiklendi)' : ''}.`);
+    renderExams();
+    renderSchedule();
+    renderDashboard();
+    await saveToBackend();
 };
 
 window.showEditExamModal = (id) => {
@@ -2953,7 +3286,10 @@ window.showEditExamModal = (id) => {
             return `
                 <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
                     <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
-                    <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2);">🗑️</button>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button type="button" class="btn-icon" onclick="removeProctorAndSendCancelMail(${id})" title="Gözetmenliği İptal Et ve Mail Gönder" style="color:#38bdf8; font-size:1.1rem; cursor:pointer; background:none; border:none; padding:0;">📧</button>
+                        <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" title="Sadece Listeden Çıkar" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2); cursor:pointer; background:none; border:none; padding:0;">🗑️</button>
+                    </div>
                 </div>
             `;
         }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>';

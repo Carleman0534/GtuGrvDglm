@@ -902,6 +902,8 @@ function updateExam(id, newData, skipSave = false) {
     }
 
     // Sınavı her durumda güncelle (gözetmen yoksa eski gözetmeni koru)
+    const finalNotifiedStaffIds = (oldExam.notifiedStaffIds || []).filter(pid => newPIds.map(String).includes(String(pid)));
+
     DB.exams[exIndex] = {
         ...oldExam,
         ...newData,
@@ -909,7 +911,8 @@ function updateExam(id, newData, skipSave = false) {
         proctorId: newPIds[0] || 0,
         proctorName: newProctors.length > 0 ? newProctors.map(p => p.name).join(', ') : (newPIds.length === 0 ? "Atanmadı" : oldExam.proctorName),
         score: newScore,
-        katsayi: kts
+        katsayi: kts,
+        notifiedStaffIds: finalNotifiedStaffIds
     };
 
     if (!skipSave) {
@@ -1027,6 +1030,13 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
                     Body : body  // HTML body gönderiliyor
                 });
                 console.log(`✅ Email gönderildi: ${staff.email}`);
+                if (type !== 'cancel') {
+                    if (!exam.notifiedStaffIds) exam.notifiedStaffIds = [];
+                    if (!exam.notifiedStaffIds.map(String).includes(String(staffId))) {
+                        exam.notifiedStaffIds.push(staffId);
+                        saveToLocalStorage();
+                    }
+                }
             } else {
                 console.warn("SmtpJS (window.Email) yüklü değil!");
             }
@@ -1037,6 +1047,13 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
                 body: JSON.stringify({ to: staff.email, subject, body, isHtml: true })
             });
             console.log(`✅ Email API'ye iletildi: ${staff.email}`);
+            if (type !== 'cancel') {
+                if (!exam.notifiedStaffIds) exam.notifiedStaffIds = [];
+                if (!exam.notifiedStaffIds.map(String).includes(String(staffId))) {
+                    exam.notifiedStaffIds.push(staffId);
+                    saveToLocalStorage();
+                }
+            }
         } else {
             console.warn("E-posta ayarları tamamlanmamış! Panel > Sistem Ayarları > E-posta Ayarları kısmını kontrol edin.");
         }

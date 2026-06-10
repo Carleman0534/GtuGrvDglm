@@ -1439,7 +1439,10 @@
             <div class="modal-content" style="max-width: 700px;">
                 <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <h2 id="exam-detail-title">Sınav Detayı</h2>
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button id="btn-bulk-cancel-mail" class="btn-delete admin-only" style="background: #ef4444; border-color: #ef4444; display: flex; align-items: center; gap: 5px;">
+                            <span>📧</span> Toplu İptal Maili
+                        </button>
                         <button id="btn-download-attendance" class="btn-primary" style="background: var(--accent-orange); display: flex; align-items: center; gap: 5px;">
                             <span>📄</span> Yoklama Listesi (PDF)
                         </button>
@@ -1466,6 +1469,7 @@
                                 <th>Gözetmen</th>
                                 <th>Toplam Puan</th>
                                 <th>Görev Sayısı</th>
+                                <th>Bildirim</th>
                                 <th style="text-align: right;">İşlem</th>
                             </tr>
                         </thead>
