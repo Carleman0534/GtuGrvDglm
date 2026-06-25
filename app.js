@@ -1665,22 +1665,29 @@ function renderDashboard() {
     });
 
     DB.exams.forEach(ex => {
-        if (!stats[ex.proctorId]) return;
-        
-        const k = ex.katsayi;
-        if (k === 1.0) stats[ex.proctorId].hiG++;
-        else if (k === 1.5) stats[ex.proctorId].hiA++;
-        else if (k === 2.0) stats[ex.proctorId].hsG++;
-        else if (k === 2.5) stats[ex.proctorId].hsA++;
-        
-        stats[ex.proctorId].total++;
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        pIds.forEach(pid => {
+            if (!stats[pid]) return;
+            
+            const k = ex.katsayi;
+            if (k === 1.0) stats[pid].hiG++;
+            else if (k === 1.5) stats[pid].hiA++;
+            else if (k === 2.0) stats[pid].hsG++;
+            else if (k === 2.5) stats[pid].hsA++;
+            
+            stats[pid].total++;
+        });
     });
 
     // Sıralama (Puanı en çoktan aza)
-    const sortedStaff = [...DB.staff].sort((a, b) => b.totalScore - a.totalScore);
+    const sortedStaffExam = [...DB.staff].sort((a, b) => b.totalScore - a.totalScore);
+    const sortedStaffNonExam = [...DB.staff].sort((a, b) => (b.nonExamScore || 0) - (a.nonExamScore || 0));
 
-    sortedStaff.forEach((s, idx) => {
-        // Puan Sıralaması Tablosu
+    const tbodyNonExam = document.querySelector('#table-ranking-non-exam tbody');
+    if (tbodyNonExam) tbodyNonExam.innerHTML = '';
+
+    // 1. Sınav Gözetmenliği Puan Sıralaması (totalScore'a göre azalan)
+    sortedStaffExam.forEach((s, idx) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${idx + 1}</td>
@@ -1695,6 +1702,24 @@ function renderDashboard() {
             <td><span class="badge ${s.totalScore === 0 ? 'idle' : 'active'}">${s.totalScore === 0 ? 'Beklemede' : 'Görevli'}</span></td>
         `;
         tbody.appendChild(tr);
+    });
+
+    // 2. Sınav Dışı Görev Sıralaması (nonExamScore'a göre azalan)
+    sortedStaffNonExam.forEach((s, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>
+                <div class="name-with-avatar">
+                    ${getAvatarHtml(s.name)}
+                    <span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span>
+                </div>
+            </td>
+            <td>${(s.nonExamScore || 0).toFixed(1)}</td>
+            <td>${s.nonExamTaskCount || 0}</td>
+            <td><span class="badge ${!s.nonExamScore ? 'idle' : 'active'}">${!s.nonExamScore ? 'Beklemede' : 'Görevli'}</span></td>
+        `;
+        if (tbodyNonExam) tbodyNonExam.appendChild(tr);
 
         // Görev Dağılım Detay Tablosu
         if (tbodyBreakdown) {
@@ -2543,6 +2568,10 @@ function showAddExamModal() {
             <select id="exam-type" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
                 ${(DB.examTypes || []).map(t => `<option value="${t}">${t}</option>`).join('')}
             </select>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                <input type="checkbox" id="exam-is-non-exam" style="width: 16px; height: 16px;">
+                <label for="exam-is-non-exam" style="margin: 0; cursor: pointer; color: var(--accent-orange);">Sınav Dışı Görev (Sadece Görev Puanını Etkiler)</label>
+            </div>
         </div>
         <div class="form-group">
             <label>Sınav/Ders Adı</label>
@@ -2608,6 +2637,8 @@ function showAddExamModal() {
     document.getElementById('exam-date').addEventListener('change', updateAddSuggestions);
     document.getElementById('exam-time').addEventListener('change', updateAddSuggestions);
     document.getElementById('exam-duration').addEventListener('input', updateAddSuggestions);
+    const cbAdd = document.getElementById('exam-is-non-exam');
+    if (cbAdd) cbAdd.addEventListener('change', updateAddSuggestions);
 
     // --- KURS HAFIZASI (COURSE MEMORY) ---
     document.getElementById('exam-name').addEventListener('input', (e) => {
@@ -2648,6 +2679,7 @@ function showAddExamModal() {
     document.getElementById('modal-form').onsubmit = (e) => {
         e.preventDefault();
         const examData = {
+            isNonExam: document.getElementById('exam-is-non-exam')?.checked || false,
             type: document.getElementById('exam-type').value,
             name: document.getElementById('exam-name').value,
             lecturer: document.getElementById('exam-lecturer').value,
@@ -3217,11 +3249,25 @@ window.showEditExamModal = (id) => {
     }
 
     const typeSelect = document.getElementById('edit-exam-type');
+    if (typeSelect && !typeSelect._changeHandlerRegistered) {
+        typeSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            const isNonExam = ['Tercih Günü', 'Diğer'].includes(val);
+            const chk = document.getElementById('edit-exam-is-non-exam');
+            if (chk) {
+                chk.checked = isNonExam;
+                updateEditSuggestions();
+            }
+        });
+        typeSelect._changeHandlerRegistered = true;
+    }
     typeSelect.innerHTML = (DB.examTypes || []).map(t => 
         `<option value="${t}" ${t === ex.type ? 'selected' : ''}>${t}</option>`
     ).join('');
     
     document.getElementById('edit-exam-name').value = ex.name;
+    const isNonExamEl = document.getElementById('edit-exam-is-non-exam');
+    if (isNonExamEl) isNonExamEl.checked = !!ex.isNonExam;
     
     // Eğer DB.lecturers bir şekilde boş kalmışsa, hardcoded değerleri geri getir (Güvenlik önlemi)
     if (!DB.lecturers || DB.lecturers.length === 0) {
@@ -3390,6 +3436,7 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
     }
 
     const data = {
+        isNonExam: document.getElementById('edit-exam-is-non-exam')?.checked || false,
         type:       document.getElementById('edit-exam-type').value,
         name:       document.getElementById('edit-exam-name').value,
         lecturer:   document.getElementById('edit-exam-lecturer').value,
@@ -4388,7 +4435,7 @@ window.switchIndividualTab = function(tab) {
 /**
  * UI Öneri Listesini Güncelle
  */
-function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId, selectId = null) {
+function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId, selectId = null, isNonExam = false) {
     const area = document.getElementById(areaId);
     const list = document.getElementById(listId);
     if (!area || !list) return;
@@ -4398,7 +4445,7 @@ function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId
         return;
     }
 
-    const recs = getRecommendedProctors(date, time, duration, currentExamId);
+    const recs = getRecommendedProctors(date, time, duration, currentExamId, isNonExam);
     
     if (recs.length === 0) {
         area.classList.add('hidden');

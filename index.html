@@ -689,23 +689,51 @@
 
 
 
-                    <div class="card-large">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Genel Puan Sıralaması</h3>
-                        <div class="table-container">
-                            <table id="table-ranking">
-                                <thead>
-                                    <tr>
-                                        <th>Sıra</th>
-                                        <th>İsim Soyisim</th>
-                                        <th>Toplam Puan</th>
-                                        <th>Görev Sayısı</th>
-                                        <th>Durum</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Dinamik olarak dolacak -->
-                                </tbody>
-                            </table>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <!-- Sınav Gözetmenliği Puan Sıralaması -->
+                        <div class="card-large" style="margin-bottom: 0;">
+                            <h3 style="margin-bottom: 1.5rem; color: #818cf8; font-size: 0.875rem; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
+                                <span>📚</span> Sınav Gözetmenliği Puan Sıralaması
+                            </h3>
+                            <div class="table-container">
+                                <table id="table-ranking">
+                                    <thead>
+                                        <tr>
+                                            <th>Sıra</th>
+                                            <th>İsim Soyisim</th>
+                                            <th>Sınav Puanı</th>
+                                            <th>Görev Sayısı</th>
+                                            <th>Durum</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Dinamik olarak dolacak -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sınav Dışı Görev Sıralaması -->
+                        <div class="card-large" style="margin-bottom: 0;">
+                            <h3 style="margin-bottom: 1.5rem; color: #34d399; font-size: 0.875rem; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
+                                <span>🎪</span> Sınav Dışı Görev Sıralaması
+                            </h3>
+                            <div class="table-container">
+                                <table id="table-ranking-non-exam">
+                                    <thead>
+                                        <tr>
+                                            <th>Sıra</th>
+                                            <th>İsim Soyisim</th>
+                                            <th>Sınav Dışı Puan</th>
+                                            <th>Görev Sayısı</th>
+                                            <th>Durum</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Dinamik olarak dolacak -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1512,6 +1540,10 @@
                             <button type="button" class="btn-icon" onclick="openTypeManager()" style="font-size:0.8rem; padding:2px 5px; opacity:0.7;">⚙️ Yönet</button>
                         </div>
                         <select id="edit-exam-type" style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                            <input type="checkbox" id="edit-exam-is-non-exam" style="width: 16px; height: 16px;">
+                            <label for="edit-exam-is-non-exam" style="margin: 0; cursor: pointer; color: var(--accent-orange);">Sınav Dışı Görev (Sadece Görev Puanını Etkiler)</label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Ders / Sınav Adı</label>
