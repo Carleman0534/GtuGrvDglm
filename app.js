@@ -2004,14 +2004,18 @@ window.takeOverDuty = async function(examId, oldProctorId) {
 
         if (!confirm(`${oldProctor.name} hocanın görevini ${newProctor.name} hocaya devretmek istediğinize emin misiniz?`)) return;
 
-        // PUAN GÜNCELLEME
-        // Eskiden düş
-        oldProctor.totalScore = parseFloat((oldProctor.totalScore - exam.score).toFixed(2));
-        oldProctor.taskCount = Math.max(0, (oldProctor.taskCount || 1) - 1);
-
-        // Yeniye ekle
-        newProctor.totalScore = parseFloat((newProctor.totalScore + exam.score).toFixed(2));
-        newProctor.taskCount = (newProctor.taskCount || 0) + 1;
+        // PUAN GÜNCELLEME (nonExam/exam ayrımı)
+        if (shouldCountAsNonExam(exam)) {
+            oldProctor.nonExamScore = Math.max(0, parseFloat(((oldProctor.nonExamScore || 0) - exam.score).toFixed(2)));
+            oldProctor.nonExamTaskCount = Math.max(0, (oldProctor.nonExamTaskCount || 1) - 1);
+            newProctor.nonExamScore = parseFloat(((newProctor.nonExamScore || 0) + exam.score).toFixed(2));
+            newProctor.nonExamTaskCount = (newProctor.nonExamTaskCount || 0) + 1;
+        } else {
+            oldProctor.totalScore = parseFloat((oldProctor.totalScore - exam.score).toFixed(2));
+            oldProctor.taskCount = Math.max(0, (oldProctor.taskCount || 1) - 1);
+            newProctor.totalScore = parseFloat((newProctor.totalScore + exam.score).toFixed(2));
+            newProctor.taskCount = (newProctor.taskCount || 0) + 1;
+        }
 
         // SINAV GÜNCELLEME
         exam.proctorId = newProctor.id;
@@ -3216,8 +3220,13 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
     pIds.forEach(pid => {
         const staff = DB.staff.find(s => s.id === pid);
         if (staff) {
-            staff.totalScore = Math.max(0, staff.totalScore - ex.score);
-            staff.taskCount = Math.max(0, staff.taskCount - 1);
+            if (shouldCountAsNonExam(ex)) {
+                staff.nonExamScore = Math.max(0, parseFloat(((staff.nonExamScore || 0) - ex.score).toFixed(2)));
+                staff.nonExamTaskCount = Math.max(0, (staff.nonExamTaskCount || 0) - 1);
+            } else {
+                staff.totalScore = Math.max(0, staff.totalScore - ex.score);
+                staff.taskCount = Math.max(0, staff.taskCount - 1);
+            }
         }
         if (!ex.isDraft) {
             sendAssignmentEmail(pid, ex, 'cancel');
@@ -4364,11 +4373,17 @@ window.approveSwapPeer = async function(requestId, staffId) {
         const toStaff = DB.staff.find(s => s.id == staffId);
 
         if (exam && fromStaff && toStaff) {
-            fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
-            fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
-            
-            toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
-            toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+            if (shouldCountAsNonExam(exam)) {
+                fromStaff.nonExamScore = Math.max(0, parseFloat(((fromStaff.nonExamScore || 0) - exam.score).toFixed(2)));
+                fromStaff.nonExamTaskCount = Math.max(0, (fromStaff.nonExamTaskCount || 0) - 1);
+                toStaff.nonExamScore = parseFloat(((toStaff.nonExamScore || 0) + exam.score).toFixed(2));
+                toStaff.nonExamTaskCount = (toStaff.nonExamTaskCount || 0) + 1;
+            } else {
+                fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
+                fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+                toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
+                toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+            }
 
             exam.proctorId = toStaff.id;
             exam.proctorName = toStaff.name;
@@ -6754,14 +6769,23 @@ window.acceptOpenRequest = async function(requestId) {
         const fromStaff = DB.staff.find(s => s.id == req.initiatorId);
         const toStaff = staff;
 
-        // Puan ve Görev Sayısı Güncelleme
+        // Puan ve Görev Sayısı Güncelleme (nonExam/exam ayrımı)
         if (fromStaff) {
-            fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
-            fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+            if (shouldCountAsNonExam(exam)) {
+                fromStaff.nonExamScore = Math.max(0, parseFloat(((fromStaff.nonExamScore || 0) - exam.score).toFixed(2)));
+                fromStaff.nonExamTaskCount = Math.max(0, (fromStaff.nonExamTaskCount || 0) - 1);
+            } else {
+                fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
+                fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+            }
         }
-        
-        toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
-        toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+        if (shouldCountAsNonExam(exam)) {
+            toStaff.nonExamScore = parseFloat(((toStaff.nonExamScore || 0) + exam.score).toFixed(2));
+            toStaff.nonExamTaskCount = (toStaff.nonExamTaskCount || 0) + 1;
+        } else {
+            toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
+            toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+        }
 
         // Sınavı Güncelle
         if (!exam.proctorIds) exam.proctorIds = [exam.proctorId];
@@ -6819,11 +6843,17 @@ window.confirmOpenRequest = async function(requestId) {
         const toStaff = DB.staff.find(s => s.id == req.receiverId);
 
         if (exam && fromStaff && toStaff) {
-            fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
-            fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
-            
-            toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
-            toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+            if (shouldCountAsNonExam(exam)) {
+                fromStaff.nonExamScore = Math.max(0, parseFloat(((fromStaff.nonExamScore || 0) - exam.score).toFixed(2)));
+                fromStaff.nonExamTaskCount = Math.max(0, (fromStaff.nonExamTaskCount || 0) - 1);
+                toStaff.nonExamScore = parseFloat(((toStaff.nonExamScore || 0) + exam.score).toFixed(2));
+                toStaff.nonExamTaskCount = (toStaff.nonExamTaskCount || 0) + 1;
+            } else {
+                fromStaff.totalScore = Math.max(0, parseFloat((fromStaff.totalScore - exam.score).toFixed(2)));
+                fromStaff.taskCount = Math.max(0, fromStaff.taskCount - 1);
+                toStaff.totalScore = parseFloat((toStaff.totalScore + exam.score).toFixed(2));
+                toStaff.taskCount = (toStaff.taskCount || 0) + 1;
+            }
 
             exam.proctorId = toStaff.id;
             exam.proctorName = toStaff.name;
@@ -7271,8 +7301,13 @@ window.batchAutoAssign = async function() {
                 const score = calculateScore(new Date(`${ex.date}T${ex.time}`), ex.duration);
                 ex.score = score;
                 
-                best.totalScore = parseFloat((best.totalScore + score).toFixed(2));
-                best.taskCount = (best.taskCount || 0) + 1;
+                if (shouldCountAsNonExam(ex)) {
+                    best.nonExamScore = parseFloat(((best.nonExamScore || 0) + score).toFixed(2));
+                    best.nonExamTaskCount = (best.nonExamTaskCount || 0) + 1;
+                } else {
+                    best.totalScore = parseFloat((best.totalScore + score).toFixed(2));
+                    best.taskCount = (best.taskCount || 0) + 1;
+                }
                 assignedCount++;
             }
         });
@@ -7299,8 +7334,13 @@ window.quickFixConflict = async function(examId) {
         oldPIds.forEach(pid => {
             const s = DB.staff.find(staff => staff.id === pid);
             if (s) {
-                s.totalScore = Math.max(0, parseFloat((s.totalScore - exam.score).toFixed(2)));
-                s.taskCount = Math.max(0, s.taskCount - 1);
+                if (shouldCountAsNonExam(exam)) {
+                    s.nonExamScore = Math.max(0, parseFloat(((s.nonExamScore || 0) - exam.score).toFixed(2)));
+                    s.nonExamTaskCount = Math.max(0, (s.nonExamTaskCount || 0) - 1);
+                } else {
+                    s.totalScore = Math.max(0, parseFloat((s.totalScore - exam.score).toFixed(2)));
+                    s.taskCount = Math.max(0, s.taskCount - 1);
+                }
             }
         });
 
@@ -7310,9 +7350,14 @@ window.quickFixConflict = async function(examId) {
             exam.proctorId = best.id;
             exam.proctorIds = [best.id];
             exam.proctorName = best.name;
-            
-            best.totalScore = parseFloat((best.totalScore + exam.score).toFixed(2));
-            best.taskCount = (best.taskCount || 0) + 1;
+
+            if (shouldCountAsNonExam(exam)) {
+                best.nonExamScore = parseFloat(((best.nonExamScore || 0) + exam.score).toFixed(2));
+                best.nonExamTaskCount = (best.nonExamTaskCount || 0) + 1;
+            } else {
+                best.totalScore = parseFloat((best.totalScore + exam.score).toFixed(2));
+                best.taskCount = (best.taskCount || 0) + 1;
+            }
 
             saveToLocalStorage();
             await saveToBackend();
@@ -7327,8 +7372,13 @@ window.quickFixConflict = async function(examId) {
             oldPIds.forEach(pid => {
                 const s = DB.staff.find(staff => staff.id === pid);
                 if (s) {
-                    s.totalScore = parseFloat((s.totalScore + exam.score).toFixed(2));
-                    s.taskCount = (s.taskCount || 0) + 1;
+                    if (shouldCountAsNonExam(exam)) {
+                        s.nonExamScore = parseFloat(((s.nonExamScore || 0) + exam.score).toFixed(2));
+                        s.nonExamTaskCount = (s.nonExamTaskCount || 0) + 1;
+                    } else {
+                        s.totalScore = parseFloat((s.totalScore + exam.score).toFixed(2));
+                        s.taskCount = (s.taskCount || 0) + 1;
+                    }
                 }
             });
             alert("⚠️ Uygun yedek gözetmen bulunamadı!");
@@ -8248,12 +8298,21 @@ window.acceptSmartSwap = async function(requestId) {
     }
 
     if (confirm("Bu akıllı takas teklifini kabul etmek istiyor musunuz? Sınav görevleriniz karşılıklı olarak değiştirilecektir.")) {
-        // Puan ve görev sayılarını güncelle (Önce eskileri çıkar)
-        me.totalScore = Math.max(0, parseFloat((me.totalScore - myExam.score).toFixed(2)));
-        me.taskCount = Math.max(0, me.taskCount - 1);
-        
-        him.totalScore = Math.max(0, parseFloat((him.totalScore - hisExam.score).toFixed(2)));
-        him.taskCount = Math.max(0, him.taskCount - 1);
+        // Puan ve görev sayılarını güncelle – nonExam/exam ayrımına göre (Önce eskileri çıkar)
+        if (shouldCountAsNonExam(myExam)) {
+            me.nonExamScore = Math.max(0, parseFloat(((me.nonExamScore || 0) - myExam.score).toFixed(2)));
+            me.nonExamTaskCount = Math.max(0, (me.nonExamTaskCount || 0) - 1);
+        } else {
+            me.totalScore = Math.max(0, parseFloat((me.totalScore - myExam.score).toFixed(2)));
+            me.taskCount = Math.max(0, me.taskCount - 1);
+        }
+        if (shouldCountAsNonExam(hisExam)) {
+            him.nonExamScore = Math.max(0, parseFloat(((him.nonExamScore || 0) - hisExam.score).toFixed(2)));
+            him.nonExamTaskCount = Math.max(0, (him.nonExamTaskCount || 0) - 1);
+        } else {
+            him.totalScore = Math.max(0, parseFloat((him.totalScore - hisExam.score).toFixed(2)));
+            him.taskCount = Math.max(0, him.taskCount - 1);
+        }
 
         // Şimdi karşılıklı ata
         myExam.proctorId = him.id;
@@ -8265,11 +8324,20 @@ window.acceptSmartSwap = async function(requestId) {
         hisExam.proctorName = me.name;
 
         // Yeni puanları ekle
-        me.totalScore = parseFloat((me.totalScore + hisExam.score).toFixed(2));
-        me.taskCount += 1;
-        
-        him.totalScore = parseFloat((him.totalScore + myExam.score).toFixed(2));
-        him.taskCount += 1;
+        if (shouldCountAsNonExam(hisExam)) {
+            me.nonExamScore = parseFloat(((me.nonExamScore || 0) + hisExam.score).toFixed(2));
+            me.nonExamTaskCount = (me.nonExamTaskCount || 0) + 1;
+        } else {
+            me.totalScore = parseFloat((me.totalScore + hisExam.score).toFixed(2));
+            me.taskCount += 1;
+        }
+        if (shouldCountAsNonExam(myExam)) {
+            him.nonExamScore = parseFloat(((him.nonExamScore || 0) + myExam.score).toFixed(2));
+            him.nonExamTaskCount = (him.nonExamTaskCount || 0) + 1;
+        } else {
+            him.totalScore = parseFloat((him.totalScore + myExam.score).toFixed(2));
+            him.taskCount += 1;
+        }
 
         // Talebi tamamlandı olarak işaretle ve kaldır
         DB.requests.splice(reqIndex, 1);
@@ -8910,15 +8978,20 @@ function processAutoResolve(b64Key, saveLocally = false) {
     const capacity = matchingExams[0].capacity;
     const lecturer = matchingExams[0].lecturer;
     
-    // Gözetmenlerin görev sayısını rollback yap
+    // Gözetmenlerin görev sayısını rollback yap (nonExam/exam ayrımı)
     matchingExams.forEach(ex => {
         const pIds = ex.proctorIds || [ex.proctorId];
         pIds.forEach(pid => {
             let st = DB.staff.find(s => s.id === pid);
             if(st) {
                  const score = calculateScore(new Date(`${ex.date}T${ex.time}`), duration, ex.id);
-                 st.taskCount = Math.max(0, (st.taskCount || 0) - 1);
-                 st.totalScore = parseFloat(Math.max(0, st.totalScore - score).toFixed(2));
+                 if (shouldCountAsNonExam(ex)) {
+                     st.nonExamScore = Math.max(0, parseFloat(((st.nonExamScore || 0) - score).toFixed(2)));
+                     st.nonExamTaskCount = Math.max(0, (st.nonExamTaskCount || 0) - 1);
+                 } else {
+                     st.taskCount = Math.max(0, (st.taskCount || 0) - 1);
+                     st.totalScore = parseFloat(Math.max(0, st.totalScore - score).toFixed(2));
+                 }
             }
         });
     });
@@ -8936,10 +9009,18 @@ function processAutoResolve(b64Key, saveLocally = false) {
         if(best && best.id) {
             // Skoru hemen commitle ki bi sonrakinde tekrar önermesin
             let st = DB.staff.find(s => s.id === best.id);
+            // processAutoResolve için yeni sınav bilgisi henüz yok, bu kısım simülasyon değil gerçek atama
+            // isNonExam bilgisi matchingExams'den alınabilir
+            const refExam = matchingExams[0] || {};
             if(st) {
                  const score = calculateScore(new Date(`${date}T${time}`), duration);
-                 st.taskCount = (st.taskCount || 0) + 1;
-                 st.totalScore = parseFloat((st.totalScore + score).toFixed(2));
+                 if (shouldCountAsNonExam(refExam)) {
+                     st.nonExamScore = parseFloat(((st.nonExamScore || 0) + score).toFixed(2));
+                     st.nonExamTaskCount = (st.nonExamTaskCount || 0) + 1;
+                 } else {
+                     st.taskCount = (st.taskCount || 0) + 1;
+                     st.totalScore = parseFloat((st.totalScore + score).toFixed(2));
+                 }
             }
             
             DB.exams.push({

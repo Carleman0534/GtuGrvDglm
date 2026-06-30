@@ -26,9 +26,15 @@ function isFutureOrToday(dateStr) {
     return d >= today;
 }
 
+// 20.06.2026 tarihinden itibaren sınav dışı görevler ayrı kategoride (nonExamScore) sayılır.
+const NON_EXAM_SPLIT_DATE = new Date('2026-06-20T00:00:00');
+
 function shouldCountAsNonExam(exam) {
     if (!exam.isNonExam) return false;
-    return isFutureOrToday(exam.date);
+    if (!exam.date) return false;
+    const parts = exam.date.split('-');
+    const examDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    return examDate >= NON_EXAM_SPLIT_DATE;
 }
 
 const GLOBAL_LIMITS = {
@@ -606,8 +612,13 @@ function autoResolveConflicts() {
         } else {
             // Eski gözetmeni geri al (yetersiz yedek)
             if (oldStaff) {
-                oldStaff.totalScore += exam.score;
-                oldStaff.taskCount += 1;
+                if (shouldCountAsNonExam(exam)) {
+                    oldStaff.nonExamScore = parseFloat(((oldStaff.nonExamScore || 0) + exam.score).toFixed(2));
+                    oldStaff.nonExamTaskCount = (oldStaff.nonExamTaskCount || 0) + 1;
+                } else {
+                    oldStaff.totalScore += exam.score;
+                    oldStaff.taskCount += 1;
+                }
             }
             skippedCount++;
         }
@@ -688,7 +699,7 @@ function runGlobalOptimization() {
             ex.score = score;
             ex.katsayi = getKatsayi(new Date(`${date}T${time}`), duration, ex.id);
             
-            if (shouldCountAsNonExam(exam)) {
+            if (shouldCountAsNonExam(ex)) {
                 chosen.staff.nonExamScore = parseFloat(((chosen.staff.nonExamScore || 0) + score).toFixed(2));
                 chosen.staff.nonExamTaskCount = (chosen.staff.nonExamTaskCount || 0) + 1;
             } else {
@@ -884,14 +895,22 @@ function updateExam(id, newData, skipSave = false) {
 
     if (proctorChanged || dateTimeChanged || scoreChanged) {
         
+        // Eski gözetmenden puanı doğru kategoriden düş
         oldPIds.forEach(pid => {
             const s = DB.staff.find(staff => String(staff.id) === String(pid));
             if (s) {
-                const currentScore = parseFloat(s.totalScore) || 0;
-                s.totalScore = Math.max(0, parseFloat((currentScore - oldScore).toFixed(2)));
-                // Sadece gözetmen değişmişse veya sınav siliniyorsa görev sayısını azalt
-                if (proctorChanged) {
-                    s.taskCount = Math.max(0, s.taskCount - 1);
+                if (shouldCountAsNonExam(oldExam)) {
+                    s.nonExamScore = Math.max(0, parseFloat(((s.nonExamScore || 0) - oldScore).toFixed(2)));
+                    if (proctorChanged) {
+                        s.nonExamTaskCount = Math.max(0, (s.nonExamTaskCount || 0) - 1);
+                    }
+                } else {
+                    const currentScore = parseFloat(s.totalScore) || 0;
+                    s.totalScore = Math.max(0, parseFloat((currentScore - oldScore).toFixed(2)));
+                    // Sadece gözetmen değişmişse veya sınav siliniyorsa görev sayısını azalt
+                    if (proctorChanged) {
+                        s.taskCount = Math.max(0, s.taskCount - 1);
+                    }
                 }
             }
         });
