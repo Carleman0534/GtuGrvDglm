@@ -302,6 +302,12 @@ async function initApp() {
     // Initialize DB.requests if not present
     if (!DB.requests) DB.requests = [];
     if (!DB.feedbacks) DB.feedbacks = [];
+
+    // Sınav tarihi geçmiş talepleri otomatik sona erdir
+    const expireResult = autoExpireRequests();
+    if (expireResult.expired > 0) {
+        console.log(`🕐 ${expireResult.expired} süresi geçmiş talep otomatik kapatıldı.`);
+    }
     // Migration: Old single announcement to new announcements array
     if (DB.announcement && !DB.announcements) {
         DB.announcements = [{
@@ -6525,34 +6531,180 @@ function renderProfileConstraints() {
 
     if (userConstraints.length === 0) {
         container.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir kısıt girmediniz.</td></tr>';
-        return;
+    } else {
+        const TurkishDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+        userConstraints.forEach((c, idx) => {
+            let label = "";
+            if (c.day !== undefined) {
+                label = `Haftalık: ${TurkishDays[c.day]}`;
+            } else if (c.startDate && c.endDate) {
+                label = `Toplu Tarih: ${c.startDate} / ${c.endDate}`;
+            } else if (c.date) {
+                label = `Özel Tarih: ${c.date}`;
+            }
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${label}</strong></td>
+                <td>${c.start} - ${c.end}</td>
+                <td style="text-align: right;">
+                    <button class="btn-icon" style="color:var(--accent-red);" onclick="handleProfileConstraintDelete('${staff.name}', ${idx})">🗑️ Sil</button>
+                </td>
+            `;
+            container.appendChild(tr);
+        });
     }
 
-    const TurkishDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    // Görsel ızgarayı da yenile
+    vcgBuild(staff.name);
+}
 
-    userConstraints.forEach((c, idx) => {
-        let label = "";
-        if (c.day !== undefined) {
-            label = `Haftalık: ${TurkishDays[c.day]}`;
-        } else if (c.startDate && c.endDate) {
-            label = `Toplu Tarih: ${c.startDate} / ${c.endDate}`;
-        } else if (c.date) {
-            label = `Özel Tarih: ${c.date}`;
-        }
+/**
+ * GÖRSEL HAFTALIK KISIT IZGARASI
+ * Satırlar: 08:00–18:30 arası 30dk dilimler (21 satır)
+ * Sütunlar: Pzt(1) Sal(2) Çar(3) Per(4) Cum(5) Cmt(6) Paz(0)
+ */
+const VCG_SLOTS   = []; // ["08:00","08:30", ... "18:00"]
+const VCG_DAYS    = [1, 2, 3, 4, 5, 6, 0]; // JS getDay değerleri
+const VCG_DAYNAMES= ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"];
+// Izgara state: vcgState[dayIndex][slotIndex] = true (kapalı)
+let vcgState = Array.from({length: 7}, () => []);
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${label}</strong></td>
-            <td>${c.start} - ${c.end}</td>
-            <td style="text-align: right;">
-                <button class="btn-icon" style="color:var(--accent-red);" onclick="handleProfileConstraintDelete('${staff.name}', ${idx})">🗑️ Sil</button>
-            </td>
-        `;
-        container.appendChild(tr);
+(function initVcgSlots() {
+    for (let h = 8; h <= 18; h++) {
+        VCG_SLOTS.push(`${String(h).padStart(2,'0')}:00`);
+        if (h < 18) VCG_SLOTS.push(`${String(h).padStart(2,'0')}:30`);
+    }
+    VCG_SLOTS.push('18:30');
+})();
+
+function vcgBuild(staffName) {
+    const tbody = document.getElementById('vcg-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    // Mevcut kısıtlardan ızgara state'ini yükle
+    vcgState = Array.from({length: 7}, () => Array(VCG_SLOTS.length - 1).fill(false));
+    const constraints = (DB.constraints && DB.constraints[staffName]) || [];
+    constraints.forEach(c => {
+        if (c.day === undefined) return; // Sadece haftalık kısıtlar
+        const dayIdx = VCG_DAYS.indexOf(c.day);
+        if (dayIdx === -1) return;
+        const startMins = timeStrToMins(c.start);
+        const endMins   = timeStrToMins(c.end);
+        VCG_SLOTS.forEach((slotStr, si) => {
+            if (si >= VCG_SLOTS.length - 1) return;
+            const slotStart = timeStrToMins(slotStr);
+            const slotEnd   = timeStrToMins(VCG_SLOTS[si + 1]);
+            if (slotStart >= startMins && slotEnd <= endMins) {
+                vcgState[dayIdx][si] = true;
+            }
+        });
     });
 
-    renderMiniAvailabilityGrid(userConstraints);
+    VCG_SLOTS.forEach((slotStr, si) => {
+        if (si >= VCG_SLOTS.length - 1) return;
+        const tr = document.createElement('tr');
+        const nextSlot = VCG_SLOTS[si + 1];
+        tr.innerHTML = `<td style="padding:3px 6px; color:var(--text-muted); font-size:0.7rem; white-space:nowrap;">${slotStr}–${nextSlot}</td>`;
+        VCG_DAYS.forEach((_, di) => {
+            const td = document.createElement('td');
+            td.style.cssText = 'padding:2px 3px; text-align:center; cursor:pointer;';
+            td.dataset.day = di;
+            td.dataset.slot = si;
+            const isBlocked = vcgState[di][si];
+            td.innerHTML = `<div class="vcg-cell" style="
+                width:100%; min-width:28px; height:22px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:0.65rem;
+                background:${isBlocked ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.12)'};
+                border:1px solid ${isBlocked ? 'rgba(239,68,68,0.5)' : 'rgba(34,197,94,0.2)'};
+                color:${isBlocked ? '#f87171' : 'rgba(134,239,172,0.7)'};
+                transition:background 0.15s;
+            ">${isBlocked ? '🔴' : '✅'}</div>`;
+            td.addEventListener('click', () => vcgToggle(di, si, td));
+            // Sürükleyerek seçim
+            td.addEventListener('mouseenter', (e) => { if (e.buttons === 1) vcgToggle(di, si, td); });
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
 }
+
+function timeStrToMins(t) {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function vcgToggle(di, si, td) {
+    vcgState[di][si] = !vcgState[di][si];
+    const isBlocked = vcgState[di][si];
+    const cell = td.querySelector('.vcg-cell');
+    if (cell) {
+        cell.style.background    = isBlocked ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.12)';
+        cell.style.border        = `1px solid ${isBlocked ? 'rgba(239,68,68,0.5)' : 'rgba(34,197,94,0.2)'}`;
+        cell.style.color         = isBlocked ? '#f87171' : 'rgba(134,239,172,0.7)';
+        cell.textContent         = isBlocked ? '🔴' : '✅';
+    }
+}
+
+window.vcgSaveAll = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) return;
+
+    if (!DB.constraints) DB.constraints = {};
+
+    // Mevcut özel tarih kısıtlarını koru (sadece haftalık olanları sil ve yeniden yaz)
+    const oldConstraints = DB.constraints[staff.name] || [];
+    const nonDayConstraints = oldConstraints.filter(c => c.day === undefined);
+
+    // vcgState'den ardışık blokları birleştirerek kısıt oluştur
+    const newConstraints = [...nonDayConstraints];
+
+    VCG_DAYS.forEach((dayNum, di) => {
+        let blockStart = null;
+        for (let si = 0; si <= VCG_SLOTS.length - 1; si++) {
+            const isBlocked = si < VCG_SLOTS.length - 1 && vcgState[di][si];
+            if (isBlocked && blockStart === null) {
+                blockStart = si;
+            }
+            if (!isBlocked && blockStart !== null) {
+                newConstraints.push({ day: dayNum, start: VCG_SLOTS[blockStart], end: VCG_SLOTS[si] });
+                blockStart = null;
+            }
+        }
+        if (blockStart !== null) {
+            newConstraints.push({ day: dayNum, start: VCG_SLOTS[blockStart], end: VCG_SLOTS[VCG_SLOTS.length - 1] });
+        }
+    });
+
+    DB.constraints[staff.name] = newConstraints;
+    saveToLocalStorage();
+    renderProfileConstraints();
+    showToast('✅ Kısıtlarınız kaydedildi!', 'success');
+};
+
+window.vcgClearAll = function() {
+    if (!confirm('Tüm haftalık kısıtlarınız silinecek. Emin misiniz?')) return;
+    vcgState = Array.from({length: 7}, () => Array(VCG_SLOTS.length - 1).fill(false));
+    vcgBuild('__clear__'); // Tabloyu temizlemek için sahte isimle yenile
+    const myStaffId = localStorage.getItem('myStaffId');
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (staff) vcgBuild(staff.name);
+};
+
+window.toggleDateConstraintFields = function() {
+    const type = document.getElementById('profile-constraint-type')?.value;
+    const dateGrp      = document.getElementById('profile-constraint-date-group');
+    const daterangeGrp = document.getElementById('profile-constraint-daterange-group');
+    if (!dateGrp || !daterangeGrp) return;
+    if (type === 'date') {
+        dateGrp.classList.remove('hidden');
+        daterangeGrp.classList.add('hidden');
+    } else {
+        dateGrp.classList.add('hidden');
+        daterangeGrp.classList.remove('hidden');
+    }
+};
+
 
 function renderMiniAvailabilityGrid(constraints) {
     const grid = document.getElementById('profile-availability-grid');

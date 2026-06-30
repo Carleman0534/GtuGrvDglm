@@ -457,82 +457,99 @@
                             </div>
                         </div>
                         <div id="tab-availability" class="tab-pane hidden">
-                            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start;">
-                                <div class="card-large" style="padding: 2rem;">
-                                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem;">Yeni Kısıt Ekle</h3>
-                                    <form id="form-profile-add-constraint">
-                                        <div class="form-group">
-                                            <label>Kısıt Tipi</label>
-                                            <select id="profile-constraint-type" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                                <option value="day">Haftalık Tekrarla</option>
-                                                <option value="date">Sadece Belirli Gün</option>
-                                                <option value="daterange">Toplu Tarih (Tarih Aralığı)</option>
-                                            </select>
-                                        </div>
-                                        <div id="profile-constraint-day-group" class="form-group">
-                                            <label>Gün</label>
-                                            <select id="profile-constraint-day" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                                <option value="1">Pazartesi</option>
-                                                <option value="2">Salı</option>
-                                                <option value="3">Çarşamba</option>
-                                                <option value="4">Perşembe</option>
-                                                <option value="5">Cuma</option>
-                                                <option value="6">Cumartesi</option>
-                                                <option value="0">Pazar</option>
-                                            </select>
-                                        </div>
-                                        <div id="profile-constraint-date-group" class="form-group hidden">
-                                            <label>Tarih</label>
-                                            <input type="date" id="profile-constraint-date" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                        </div>
-                                        <div id="profile-constraint-daterange-group" class="form-group hidden">
-                                            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                                <div>
-                                                    <label>Başlangıç Tarihi</label>
-                                                    <input type="date" id="profile-constraint-daterange-start" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                                </div>
-                                                <div>
-                                                    <label>Bitiş Tarihi</label>
-                                                    <input type="date" id="profile-constraint-daterange-end" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                            <div class="form-group">
-                                                <label>Başlangıç</label>
-                                                <input type="time" id="profile-constraint-start" value="08:30" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                            </div>
-                                            <div class="form-group">
-                                                <label>Bitiş</label>
-                                                <input type="time" id="profile-constraint-end" value="17:30" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
-                                            </div>
-                                        </div>
-                                        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Kısıtı Kaydet</button>
-                                    </form>
-                                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.4;">
-                                        * Girdiğiniz saatlerde sistem size otomatik görev atamayacaktır.
-                                    </p>
+                            <!-- Görsel Haftalık Kısıt Izgarası -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">📅 Müsait Olmadığım Saatler</h3>
+                                <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem;">
+                                    Müsait <strong>olmadığınız</strong> saat bloklarına tıklayın. 🔴 = Kapalı &nbsp;|&nbsp; ✅ = Müsait
+                                </p>
+                                <!-- Izgara: 7 sütun (gün) × 9 satır (saat) -->
+                                <div id="visual-constraint-grid" style="overflow-x:auto;">
+                                    <table id="vcg-table" style="border-collapse:collapse; width:100%; min-width:500px; font-size:0.75rem;">
+                                        <thead>
+                                            <tr>
+                                                <th style="padding:6px 4px; color:var(--text-muted); font-weight:600; text-align:left; width:52px;">Saat</th>
+                                                <th style="padding:6px 4px; text-align:center;">Pzt</th>
+                                                <th style="padding:6px 4px; text-align:center;">Sal</th>
+                                                <th style="padding:6px 4px; text-align:center;">Çar</th>
+                                                <th style="padding:6px 4px; text-align:center;">Per</th>
+                                                <th style="padding:6px 4px; text-align:center;">Cum</th>
+                                                <th style="padding:6px 4px; text-align:center; color:#f87171;">Cmt</th>
+                                                <th style="padding:6px 4px; text-align:center; color:#f87171;">Paz</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="vcg-body"></tbody>
+                                    </table>
                                 </div>
-                                <div class="card-large" style="padding: 2rem;">
-                                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem;">Kayıtlı Kısıtlarım</h3>
+                                <div style="display:flex; gap:10px; margin-top:1rem; flex-wrap:wrap;">
+                                    <button onclick="vcgSaveAll()" class="btn-primary" style="padding:0.5rem 1.2rem; font-size:0.85rem;">💾 Kısıtları Kaydet</button>
+                                    <button onclick="vcgClearAll()" class="btn-secondary" style="padding:0.5rem 1rem; font-size:0.85rem; background:rgba(239,68,68,0.15); color:#f87171;">🗑️ Tümünü Temizle</button>
+                                </div>
+
+                                <!-- Özel Tarih Kısıtı -->
+                                <div class="card-large" style="margin-top:1.5rem; padding:1.2rem;">
+                                    <h4 style="margin-bottom:1rem; font-size:0.95rem;">📆 Belirli Tarih / Tarih Aralığı Kısıtı</h4>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:10px; align-items:end; flex-wrap:wrap;">
+                                        <div>
+                                            <label style="font-size:0.75rem; color:var(--text-muted);">Tip</label>
+                                            <select id="profile-constraint-type" onchange="toggleDateConstraintFields()" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
+                                                <option value="date">Belirli Gün</option>
+                                                <option value="daterange">Tarih Aralığı</option>
+                                            </select>
+                                        </div>
+                                        <div id="profile-constraint-date-group">
+                                            <label style="font-size:0.75rem; color:var(--text-muted);">Tarih</label>
+                                            <input type="date" id="profile-constraint-date" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
+                                        </div>
+                                        <div id="profile-constraint-daterange-group" class="hidden" style="display:contents;">
+                                            <div>
+                                                <label style="font-size:0.75rem; color:var(--text-muted);">Başlangıç</label>
+                                                <input type="date" id="profile-constraint-daterange-start" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
+                                            </div>
+                                            <div>
+                                                <label style="font-size:0.75rem; color:var(--text-muted);">Bitiş</label>
+                                                <input type="date" id="profile-constraint-daterange-end" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:0.75rem; color:var(--text-muted);">Saat Başlangıç</label>
+                                            <input type="time" id="profile-constraint-start" value="08:30" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
+                                        </div>
+                                        <div>
+                                            <label style="font-size:0.75rem; color:var(--text-muted);">Saat Bitiş</label>
+                                            <input type="time" id="profile-constraint-end" value="17:30" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
+                                        </div>
+                                        <div>
+                                            <button onclick="handleProfileConstraintAdd()" class="btn-primary" style="padding:0.6rem 1rem; font-size:0.8rem; white-space:nowrap;">+ Ekle</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Kayıtlı Kısıtlar Tablosu -->
+                                <div class="card-large" style="margin-top:1.2rem; padding:1.2rem;">
+                                    <h4 style="margin-bottom:1rem; font-size:0.95rem;">📋 Kayıtlı Kısıtlarım</h4>
                                     <div class="table-container">
                                         <table id="profile-table-constraints">
                                             <thead>
                                                 <tr>
                                                     <th>Tip / Zaman</th>
                                                     <th>Saat Aralığı</th>
-                                                    <th style="text-align: right;">İşlem</th>
+                                                    <th style="text-align:right;">İşlem</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
                                         </table>
                                     </div>
                                 </div>
+                                <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.8rem; line-height:1.5;">
+                                    * Kısıtlı saatlerinizde sistem size otomatik görev atamayacaktır.
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
+
 
             <!-- Geri Bildirim (Öneri & Şikayet) Section -->
             <section id="section-feedback" class="content-section hidden">

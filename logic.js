@@ -1418,6 +1418,83 @@ function ensureTemplatesExist() {
 }
 
 /**
+ * TALEP OTOMATİK SONA ERME
+ * Sınav tarihi geçmiş olan pending/open talepleri 'expired' olarak işaretler.
+ * - Hem talebi açan (initiator) hem de atanan (receiver) varsa her ikisine bildirim gider.
+ * - Admin günlüğüne kayıt düşülür.
+ * @returns {{ expired: number }} Sona erdirilen talep sayısı
+ */
+function autoExpireRequests() {
+    if (!DB.requests || DB.requests.length === 0) return { expired: 0 };
+
+    const now = new Date();
+    let expiredCount = 0;
+
+    DB.requests.forEach(req => {
+        // Zaten kapanmış talepler
+        if (!['pending', 'open'].includes(req.status)) return;
+
+        // İlgili sınavı bul
+        const exam = DB.exams.find(e => String(e.id) === String(req.examId));
+        let examEnd;
+
+        if (exam) {
+            const examStart = new Date(`${exam.date}T${exam.time}`);
+            examEnd = new Date(examStart.getTime() + (exam.duration || 60) * 60000);
+        } else if (req.examDate && req.examTime) {
+            // Sınav silinmişse talepteki tarihe bak
+            const examStart = new Date(`${req.examDate}T${req.examTime}`);
+            examEnd = new Date(examStart.getTime() + 60 * 60000);
+        } else {
+            // Sınav bilgisi hiç yoksa talebi sona erdir
+            examEnd = new Date(0);
+        }
+
+        if (examEnd <= now) {
+            req.status = 'expired';
+            req.expiredAt = now.toISOString();
+            expiredCount++;
+
+            // Bildirim: Talebi açan kişiye
+            if (!DB.notifications) DB.notifications = {};
+            const initiatorId = req.initiatorId;
+            if (initiatorId) {
+                if (!Array.isArray(DB.notifications[initiatorId])) DB.notifications[initiatorId] = [];
+                DB.notifications[initiatorId].unshift({
+                    id: Date.now() + Math.random(),
+                    message: `⏰ "${req.examName || 'Sınav'}" için açtığınız yer değiştirme talebi, sınav tarihi geçtiği için otomatik olarak sona erdi.`,
+                    type: 'request_expired',
+                    createdAt: now.toISOString(),
+                    isRead: false
+                });
+            }
+
+            // Bildirim: Alıcı varsa ona da
+            const receiverId = req.receiverId;
+            if (receiverId && receiverId !== initiatorId) {
+                if (!Array.isArray(DB.notifications[receiverId])) DB.notifications[receiverId] = [];
+                DB.notifications[receiverId].unshift({
+                    id: Date.now() + Math.random(),
+                    message: `⏰ "${req.examName || 'Sınav'}" için size yönlendirilmiş yer değiştirme talebi, sınav tarihi geçtiği için sona erdi.`,
+                    type: 'request_expired',
+                    createdAt: now.toISOString(),
+                    isRead: false
+                });
+            }
+        }
+    });
+
+    if (expiredCount > 0) {
+        saveToLocalStorage();
+        logAction('system', 'Talep Otomatik Sona Erme', `${expiredCount} talep sınav tarihi geçtiği için otomatik olarak sona erdirildi.`);
+        console.log(`✅ ${expiredCount} süresi dolmuş talep 'expired' olarak işaretlendi.`);
+    }
+
+    return { expired: expiredCount };
+}
+window.autoExpireRequests = autoExpireRequests;
+
+/**
  * Görev Çakışmalarını Tespit Et
  * @returns {Set<number>} Çakışan sınav ID'leri
  */
