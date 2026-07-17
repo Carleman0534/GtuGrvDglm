@@ -1336,8 +1336,8 @@ function initUI() {
 
                     const isDuplicate = DB.exams.some(ex => ex.name === name && ex.date === date && ex.time === time);
                     if (!isDuplicate) {
-                        const score = calculateScore(new Date(`${date}T${time}`), duration);
-                        const katsayi = getKatsayi(new Date(`${date}T${time}`));
+                        const score = calculateScore(getSafeDate(date, time), duration);
+                        const katsayi = getKatsayi(getSafeDate(date, time));
                         const newExam = {
                             id: Date.now() + Math.floor(Math.random() * 10000),
                             name, date, time, duration, location, lecturer,
@@ -1445,8 +1445,8 @@ function initUI() {
 
                     const isDuplicate = DB.exams.some(ex => ex.name === name && ex.date === date && ex.time === time);
                     if (!isDuplicate) {
-                        const score = calculateScore(new Date(`${date}T${time}`), duration);
-                        const katsayi = getKatsayi(new Date(`${date}T${time}`));
+                        const score = calculateScore(getSafeDate(date, time), duration);
+                        const katsayi = getKatsayi(getSafeDate(date, time));
                         
                         const newExam = {
                             id: Date.now() + Math.floor(Math.random() * 10000),
@@ -1947,7 +1947,7 @@ window.showExamDetail = function(examName, date, time, location) {
                 const staff = DB.staff.find(s => s.id === pid);
                 if (!staff) return;
 
-                const examDate = new Date(`${ex.date}T${ex.time}`);
+                const examDate = getSafeDate(ex.date, ex.time);
                 const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
                 const isPast = examEnd < now;
 
@@ -2137,7 +2137,7 @@ function renderExams() {
         // Archiving filter
         const examDateStr = ex.date || "";
         const examTimeStr = ex.time || "00:00";
-        const examDate = new Date(`${examDateStr}T${examTimeStr}`);
+        const examDate = getSafeDate(examDateStr, examTimeStr);
         const examEnd = new Date(examDate.getTime() + (ex.duration || 60) * 60000);
         const isPast = examEnd < now;
 
@@ -2277,7 +2277,7 @@ function renderSchedule() {
         // Tarihi geçmiş sınavları programda gösterme
         const examDateStr = ex.date || "";
         const examTimeStr = ex.time || "00:00";
-        const examDate = new Date(`${examDateStr}T${examTimeStr}`);
+        const examDate = getSafeDate(examDateStr, examTimeStr);
         const examEnd = new Date(examDate.getTime() + (ex.duration || 60) * 60000);
         
         if (examEnd < now) return;
@@ -2641,7 +2641,9 @@ function showAddExamModal() {
         const d = document.getElementById('exam-date').value;
         const t = document.getElementById('exam-time').value;
         const dur = parseInt(document.getElementById('exam-duration').value) || 60;
-        updateSuggestionsUI(d, t, dur, 'add-suggestions', 'add-suggestion-list', null);
+        const isNonExam = document.getElementById('exam-is-non-exam')?.checked || false;
+        const name = document.getElementById('new-exam-name')?.value || "";
+        updateSuggestionsUI(d, t, dur, 'add-suggestions', 'add-suggestion-list', null, null, isNonExam, name);
     };
 
     document.getElementById('exam-date').addEventListener('change', updateAddSuggestions);
@@ -2751,7 +2753,7 @@ function showAddExamModal() {
     const renderTempProctorList = () => {
         const list = document.getElementById('add-proctor-list');
         list.innerHTML = window.tempSelectedProctors.map(id => {
-            const staff = DB.staff.find(s => s.id === id);
+            const staff = DB.staff.find(s => String(s.id) === String(id));
             return `
                 <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
                     <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
@@ -3143,7 +3145,7 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
 };
 
 window.deleteExam = async (id) => {
-    const exIndex = DB.exams.findIndex(e => e.id === id);
+    const exIndex = DB.exams.findIndex(e => String(e.id) === String(id));
     if (exIndex === -1) return;
     const ex = DB.exams[exIndex];
 
@@ -3249,7 +3251,7 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
 };
 
 window.showEditExamModal = (id) => {
-    const ex = DB.exams.find(e => e.id === id);
+    const ex = DB.exams.find(e => String(e.id) === String(id));
     if (!ex) return;
 
     document.getElementById('edit-exam-id').value = ex.id;
@@ -3343,7 +3345,7 @@ window.showEditExamModal = (id) => {
     window.renderEditProctorList = () => {
         const list = document.getElementById('edit-proctor-list');
         list.innerHTML = window.tempEditProctors.map(id => {
-            const staff = DB.staff.find(s => s.id === id);
+            const staff = DB.staff.find(s => String(s.id) === String(id));
             return `
                 <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
                     <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
@@ -3394,7 +3396,9 @@ window.showEditExamModal = (id) => {
         const d   = document.getElementById('edit-exam-date').value;
         const t   = document.getElementById('edit-exam-time').value;
         const dur = parseInt(document.getElementById('edit-exam-duration').value) || 60;
-        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null);
+        const isNonExam = document.getElementById('edit-exam-is-non-exam')?.checked || false;
+        const name = document.getElementById('edit-exam-name')?.value || "";
+        updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null, isNonExam, name);
     };
 
     // Her açılışta listener'ları temizle ve yeniden ekle (flag ile)
@@ -3644,9 +3648,10 @@ function renderStaff() {
                     <span class="flex-score-text">%${calculateAvailabilityScore(s.id)}</span>
                 </div>
             </td>
-            <td class="admin-only">
-                <button class="btn-edit" onclick="showEditStaffModal(${s.id})">Düzenle</button>
-                <button class="btn-delete" onclick="deleteStaff(${s.id})">Sil</button>
+            <td class="admin-only" style="white-space: nowrap;">
+                <button class="btn-primary" style="background:#6366f1; padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="showStaffReportModal(${s.id})">🔍 Karne</button>
+                <button class="btn-edit" style="margin-left:4px;" onclick="showEditStaffModal(${s.id})">Düzenle</button>
+                <button class="btn-delete" style="margin-left:4px;" onclick="deleteStaff(${s.id})">Sil</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -3957,6 +3962,14 @@ function showAddStaffModal() {
             <label>E-posta Adresi</label>
             <input type="email" id="staff-email" placeholder="personel@gtu.edu.tr">
         </div>
+        <div class="form-group">
+            <label>Cinsiyet</label>
+            <select id="staff-gender" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                <option value="Belirtilmemiş">Belirtilmemiş (İsimden Tahmin Et)</option>
+                <option value="Erkek">Erkek</option>
+                <option value="Kadın">Kadın</option>
+            </select>
+        </div>
     `;
     modal.classList.remove('hidden');
 
@@ -3964,10 +3977,13 @@ function showAddStaffModal() {
         e.preventDefault();
         const name = document.getElementById('staff-name').value;
         const email = document.getElementById('staff-email').value;
+        const genderVal = document.getElementById('staff-gender').value;
+        const gender = genderVal === 'Belirtilmemiş' ? predictGender(name) : genderVal;
         const newStaff = {
             id: Date.now(),
             name: name,
             email: email,
+            gender: gender,
             totalScore: 0,
             taskCount: 0,
             baseScore: 0
@@ -3981,12 +3997,14 @@ function showAddStaffModal() {
 }
 
 window.showEditStaffModal = (id) => {
-    const staff = DB.staff.find(s => s.id === id);
+    const staff = DB.staff.find(s => String(s.id) === String(id));
     if (!staff) return;
 
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
     document.getElementById('modal-title').textContent = "Personel Düzenle";
+    
+    const gender = staff.gender || 'Belirtilmemiş';
     
     fields.innerHTML = `
         <div class="form-group">
@@ -3997,6 +4015,14 @@ window.showEditStaffModal = (id) => {
             <label>E-posta Adresi</label>
             <input type="email" id="staff-email" value="${staff.email || ''}">
         </div>
+        <div class="form-group">
+            <label>Cinsiyet</label>
+            <select id="staff-gender" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                <option value="Belirtilmemiş" ${gender === 'Belirtilmemiş' ? 'selected' : ''}>Belirtilmemiş (İsimden Tahmin Et)</option>
+                <option value="Erkek" ${gender === 'Erkek' ? 'selected' : ''}>Erkek</option>
+                <option value="Kadın" ${gender === 'Kadın' ? 'selected' : ''}>Kadın</option>
+            </select>
+        </div>
     `;
     modal.classList.remove('hidden');
 
@@ -4004,6 +4030,8 @@ window.showEditStaffModal = (id) => {
         e.preventDefault();
         staff.name = document.getElementById('staff-name').value;
         staff.email = document.getElementById('staff-email').value;
+        const genderVal = document.getElementById('staff-gender').value;
+        staff.gender = genderVal === 'Belirtilmemiş' ? predictGender(staff.name) : genderVal;
         
         saveToLocalStorage();
         logAction('admin', 'Personel Güncelleme', `${staff.name} bilgileri güncellendi.`);
@@ -4013,7 +4041,7 @@ window.showEditStaffModal = (id) => {
 };
 
 window.deleteStaff = (id) => {
-    const staff = DB.staff.find(s => s.id === id);
+    const staff = DB.staff.find(s => String(s.id) === String(id));
     if (staff && confirm(`${staff.name} kişisini silmek istediğinize emin misiniz?`)) {
         DB.staff = DB.staff.filter(s => s.id !== id);
         saveToLocalStorage();
@@ -4204,7 +4232,7 @@ window.showStaffSchedule = (staffName) => {
         const dateStr = ex.date.split("-").reverse().join(".");
         
         // Sınavın bitiş zamanını hesapla (yaklaşık)
-        const examDate = new Date(`${ex.date}T${ex.time}`);
+        const examDate = getSafeDate(ex.date, ex.time);
         const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
         
         tr.innerHTML = `
@@ -4313,7 +4341,7 @@ window.showStaffSchedule = (staffName) => {
 window.assignAsSubstitute = async function(targetStaffId, targetStaffName, currentUser) {
     const myExams = DB.exams.filter(ex => {
         const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
-        const examDate = new Date(`${ex.date}T${ex.time}`);
+        const examDate = getSafeDate(ex.date, ex.time);
         return pIds.includes(currentUser.id) && examDate > new Date();
     });
 
@@ -4456,7 +4484,7 @@ window.switchIndividualTab = function(tab) {
 /**
  * UI Öneri Listesini Güncelle
  */
-function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId, selectId = null, isNonExam = false) {
+function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId, selectId = null, isNonExam = false, examName = "") {
     const area = document.getElementById(areaId);
     const list = document.getElementById(listId);
     if (!area || !list) return;
@@ -4466,7 +4494,7 @@ function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId
         return;
     }
 
-    const recs = getRecommendedProctors(date, time, duration, currentExamId, isNonExam);
+    const recs = getRecommendedProctors(date, time, duration, currentExamId, isNonExam, examName);
     
     if (recs.length === 0) {
         area.classList.add('hidden');
@@ -4626,7 +4654,7 @@ window.showSwapModal = function(examId, forceInitiatorId = null) {
     checkSwapConflict();
 
     // Akıllı Önerileri Tetikle (Feature 4.1)
-    updateSuggestionsUI(exam.date, exam.time, exam.duration, 'swap-suggestions', 'swap-suggestion-list', exam.id, 'swap-receiver-select');
+    updateSuggestionsUI(exam.date, exam.time, exam.duration, 'swap-suggestions', 'swap-suggestion-list', exam.id, 'swap-receiver-select', exam.isNonExam, exam.name);
 
     document.getElementById('modal-swap').classList.remove('hidden');
 };
@@ -4763,7 +4791,7 @@ window.updateMarketplaceBadge = function() {
             // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
-            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examDate = getSafeDate(exam.date, exam.time);
             const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
             return examEnd >= now;
         })
@@ -4801,7 +4829,7 @@ window.renderMarketplaceDashboard = function() {
             // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
-            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examDate = getSafeDate(exam.date, exam.time);
             const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
             return examEnd >= now;
         });
@@ -4852,7 +4880,7 @@ window.updateProfileMarketplaceAnnouncement = function() {
             // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
-            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examDate = getSafeDate(exam.date, exam.time);
             const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
             return examEnd >= now;
         });
@@ -5164,7 +5192,7 @@ function calculateAchievements(myStaffId) {
 
     const now = new Date();
     const completedExams = exams.filter(ex => {
-        const examEnd = new Date(`${ex.date}T${ex.time}`).getTime() + (ex.duration || 60) * 60000;
+        const examEnd = getSafeDate(ex.date, ex.time).getTime() + (ex.duration || 60) * 60000;
         return examEnd < now.getTime();
     });
 
@@ -5420,6 +5448,11 @@ window.renderProfile = function() {
         const profileName = document.getElementById('profile-name');
         if (profileName) profileName.textContent = staff.name;
         
+        const btnProfileReport = document.getElementById('btn-profile-report');
+        if (btnProfileReport) {
+            btnProfileReport.onclick = () => showStaffReportModal(staff.id);
+        }
+        
         const avatarLetters = document.getElementById('profile-avatar-letters');
         if (avatarLetters) {
             const initials = staff.name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -5430,13 +5463,13 @@ window.renderProfile = function() {
         const myExams = DB.exams.filter(e => isStaffProctorById(e, myStaffId));
         const now = new Date();
         const activeExams = myExams.filter(e => {
-            const examDate = new Date(`${e.date}T${e.time}`);
+            const examDate = getSafeDate(e.date, e.time);
             const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
             return examEnd >= now;
         }).sort((a,b) => a.date.localeCompare(b.date));
 
         const archiveExams = myExams.filter(e => {
-            const examDate = new Date(`${e.date}T${e.time}`);
+            const examDate = getSafeDate(e.date, e.time);
             const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
             return examEnd < now;
         }).sort((a,b) => b.date.localeCompare(a.date));
@@ -5872,7 +5905,7 @@ function startProfileCountdown(staffId) {
 
     const now = new Date();
     const upcoming = DB.exams
-        .filter(e => isStaffProctorById(e, staffId) && new Date(`${e.date}T${e.time}`) > now)
+        .filter(e => isStaffProctorById(e, staffId) && getSafeDate(e.date, e.time) > now)
         .sort((a, b) => (a.date + 'T' + a.time).localeCompare(b.date + 'T' + b.time));
 
     if (upcoming.length === 0) {
@@ -5882,7 +5915,7 @@ function startProfileCountdown(staffId) {
     }
 
     const next = upcoming[0];
-    const targetDate = new Date(`${next.date}T${next.time}`);
+    const targetDate = getSafeDate(next.date, next.time);
     countTarget.textContent = `${next.name} (${next.date})`;
 
     const update = () => {
@@ -5943,7 +5976,7 @@ function renderResponsibleExamsTab(staffId, staff) {
             if (!isMe) return false;
 
             // Sınav bitmiş mi kontrolü (Sadece gelecek/aktif sınavları göster)
-            const exDate = new Date(`${ex.date}T${ex.time}`);
+            const exDate = getSafeDate(ex.date, ex.time);
             const exEnd = new Date(exDate.getTime() + (ex.duration || 60) * 60000);
             return exEnd > now;
         })
@@ -6013,7 +6046,7 @@ function renderLecturerExamsTab(staffId, staff) {
  * HOCA MESAJ MODALI FONKSİYONLARI
  */
 window.openLecturerMessageModal = function(id) {
-    const ex = DB.exams.find(e => e.id === id);
+    const ex = DB.exams.find(e => String(e.id) === String(id));
     if (!ex) return;
 
     document.getElementById('lecturer-message-exam-id').value = id;
@@ -6035,7 +6068,7 @@ window.saveLecturerMessage = function() {
     const id = parseInt(document.getElementById('lecturer-message-exam-id').value);
     const text = document.getElementById('lecturer-message-text').value;
     
-    const ex = DB.exams.find(e => e.id === id);
+    const ex = DB.exams.find(e => String(e.id) === String(id));
     if (ex) {
         ex.lecturerNote = text;
         ex.lecturerNoteTimestamp = Date.now(); // Bildirim için zaman damgası
@@ -6839,7 +6872,7 @@ window.renderMarketplace = function() {
             // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
-            const examDate = new Date(`${exam.date}T${exam.time}`);
+            const examDate = getSafeDate(exam.date, exam.time);
             const examEnd = new Date(examDate.getTime() + (exam.duration || 60) * 60000);
             return examEnd >= now;
         });
@@ -7125,7 +7158,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
     const targetExams = DB.exams.filter(e => {
         if (String(e.proctorId) !== String(targetStaffId)) return false;
         if (!e.date || !e.time) return false;
-        const examDate = new Date(`${e.date}T${e.time}`);
+        const examDate = getSafeDate(e.date, e.time);
         const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
         return examEnd >= now;
     });
@@ -7226,7 +7259,7 @@ window.openOfferSwapModal = function(requestId) {
         if (!e.proctorIds && e.proctorId !== parseInt(myStaffId)) return false;
         if (e.proctorIds && !e.proctorIds.includes(parseInt(myStaffId))) return false;
         if (!e.date || !e.time) return false;
-        const examDate = new Date(`${e.date}T${e.time}`);
+        const examDate = getSafeDate(e.date, e.time);
         const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
         return examEnd >= now;
     });
@@ -7450,7 +7483,7 @@ window.batchAutoAssign = async function() {
                 ex.proctorIds = [best.id];
                 ex.proctorName = best.name;
                 
-                const score = calculateScore(new Date(`${ex.date}T${ex.time}`), ex.duration);
+                const score = calculateScore(getSafeDate(ex.date, ex.time), ex.duration);
                 ex.score = score;
                 
                 if (shouldCountAsNonExam(ex)) {
@@ -8136,7 +8169,7 @@ function getNotifications() {
         const now = Date.now();
         const futureLimit = now + (48 * 60 * 60 * 1000);
         DB.exams.filter(ex => String(ex.proctorId) === String(myStaffId)).forEach(ex => {
-            const exDate = new Date(`${ex.date}T${ex.time}`).getTime();
+            const exDate = getSafeDate(ex.date, ex.time).getTime();
             if (exDate > now && exDate < futureLimit) {
                 notifs.push({
                     type: 'exam',
@@ -8765,7 +8798,7 @@ function processExcelRows(rows) {
                 if (!isAvailable(s.name, date, time, duration)) return false;
                 
                 // TempExams Conflict Check
-                const start = new Date(`${date}T${time}`);
+                const start = getSafeDate(date, time);
                 const end = new Date(start.getTime() + (duration + 15) * 60000); // 15dk tolerans
                 
                 const hasConflict = tempExams.some(ex => {
@@ -8773,7 +8806,7 @@ function processExcelRows(rows) {
                     if (!pIds.includes(s.id)) return false;
                     if (ex.date !== date) return false;
                     
-                    const exStart = new Date(`${ex.date}T${ex.time}`);
+                    const exStart = getSafeDate(ex.date, ex.time);
                     const exEnd = new Date(exStart.getTime() + (ex.duration + 15) * 60000);
                     return (start < exEnd && end > exStart);
                 });
@@ -8789,13 +8822,13 @@ function processExcelRows(rows) {
             if (available.length === 0) {
                 available = tempStaff.filter(s => {
                     if (!isAvailable(s.name, date, time, duration)) return false;
-                    const start = new Date(`${date}T${time}`);
+                    const start = getSafeDate(date, time);
                     const end = new Date(start.getTime() + (duration + 15) * 60000);
                     const hasConflict = tempExams.some(ex => {
                         const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
                         if (!pIds.includes(s.id)) return false;
                         if (ex.date !== date) return false;
-                        const exStart = new Date(`${ex.date}T${ex.time}`);
+                        const exStart = getSafeDate(ex.date, ex.time);
                         const exEnd = new Date(exStart.getTime() + (ex.duration + 15) * 60000);
                         return (start < exEnd && end > exStart);
                     });
@@ -9136,7 +9169,7 @@ function processAutoResolve(b64Key, saveLocally = false) {
         pIds.forEach(pid => {
             let st = DB.staff.find(s => s.id === pid);
             if(st) {
-                 const score = calculateScore(new Date(`${ex.date}T${ex.time}`), duration, ex.id);
+                 const score = calculateScore(getSafeDate(ex.date, ex.time), duration, ex.id);
                  if (shouldCountAsNonExam(ex)) {
                      st.nonExamScore = Math.max(0, parseFloat(((st.nonExamScore || 0) - score).toFixed(2)));
                      st.nonExamTaskCount = Math.max(0, (st.nonExamTaskCount || 0) - 1);
@@ -9165,7 +9198,7 @@ function processAutoResolve(b64Key, saveLocally = false) {
             // isNonExam bilgisi matchingExams'den alınabilir
             const refExam = matchingExams[0] || {};
             if(st) {
-                 const score = calculateScore(new Date(`${date}T${time}`), duration);
+                 const score = calculateScore(getSafeDate(date, time), duration);
                  if (shouldCountAsNonExam(refExam)) {
                      st.nonExamScore = parseFloat(((st.nonExamScore || 0) + score).toFixed(2));
                      st.nonExamTaskCount = (st.nonExamTaskCount || 0) + 1;
@@ -9370,7 +9403,7 @@ window.generateDonemlikTaslak = function() {
             const isDuplicate = DB.exams.some(e => e.name === courseName && e.date === dateStr && e.time === prefTime);
             if (isDuplicate) { skippedCount++; continue; }
 
-            const score = calculateScore(new Date(`${dateStr}T${prefTime}`), prefDur);
+            const score = calculateScore(getSafeDate(dateStr, prefTime), prefDur);
             DB.exams.push({
                 id: Date.now() + Math.random(),
                 name: courseName,
@@ -9380,7 +9413,7 @@ window.generateDonemlikTaslak = function() {
                 type: defaultType,
                 location: prefLoc,
                 lecturer: prefLect,
-                score, katsayi: getKatsayi(new Date(`${dateStr}T${prefTime}`), prefDur),
+                score, katsayi: getKatsayi(getSafeDate(dateStr, prefTime), prefDur),
                 proctorIds: [], proctorId: null, proctorName: '',
                 isDraft: true,   // Her zaman taslak
                 createdAt: new Date().toISOString()
@@ -9669,7 +9702,7 @@ window.submitFeedback = async function(e) {
 };
 
 window.updateFeedbackStatus = async function(id, newStatus) {
-    const feedback = DB.feedbacks.find(f => f.id === id);
+    const feedback = DB.feedbacks.find(f => String(f.id) === String(id));
     if (!feedback) return;
 
     feedback.status = newStatus;
@@ -9690,7 +9723,7 @@ window.toggleFeedbackReply = function(id) {
     replyForm.classList.toggle('hidden');
     if (!replyForm.classList.contains('hidden')) {
         const textarea = document.getElementById(`reply-text-${id}`);
-        const feedback = DB.feedbacks.find(f => f.id === id);
+        const feedback = DB.feedbacks.find(f => String(f.id) === String(id));
         if (textarea && feedback) {
             textarea.value = feedback.response || '';
             textarea.focus();
@@ -9703,7 +9736,7 @@ window.submitFeedbackReply = async function(id) {
     if (!textarea) return;
 
     const responseText = textarea.value.trim();
-    const feedback = DB.feedbacks.find(f => f.id === id);
+    const feedback = DB.feedbacks.find(f => String(f.id) === String(id));
     if (!feedback) return;
 
     feedback.response = responseText;
@@ -9762,3 +9795,131 @@ if ('serviceWorker' in navigator) {
         });
     });
 }
+
+/**
+ * Personel Karne Gösterimi
+ */
+window.showStaffReportModal = (id) => {
+    const staff = DB.staff.find(s => String(s.id) === String(id));
+    if (!staff) return;
+
+    document.getElementById('report-staff-name').textContent = staff.name + " - Puan Karnesi";
+    document.getElementById('report-base-score').textContent = (staff.baseScore || 0).toFixed(1);
+    
+    // Bağımsız helper fonksiyonu: isStaffProctorById'ye erişilememesine karşı
+    const sid = String(staff.id);
+    const duties = DB.exams.filter(ex => {
+        if (!ex || !sid) return false;
+        if (String(ex.proctorId) === sid) return true;
+        if (Array.isArray(ex.proctorIds) && ex.proctorIds.map(String).includes(sid)) return true;
+        return false;
+    });
+
+    const tbody = document.getElementById('report-tbody');
+    tbody.innerHTML = '';
+
+    let earnedScore = 0;
+
+    duties.forEach(ex => {
+        let points = parseFloat(ex.score);
+        if (isNaN(points)) {
+            try {
+                let timeStr = ex.time ? ex.time.split('-')[0].trim() : '09:00';
+                if (timeStr.length === 4) timeStr = '0' + timeStr; // 9:00 -> 09:00
+                const d = new Date(`${ex.date}T${timeStr}:00`);
+                points = calculateScore(d, parseFloat(ex.duration) || 60, ex.id);
+            } catch (err) {
+                console.error('Puan hesaplama hatası:', err);
+                points = 0;
+            }
+        }
+        if (isNaN(points)) points = 0;
+        
+        earnedScore += points;
+
+        const isNonExam = shouldCountAsNonExam(ex);
+        const typeStr = isNonExam ? `<span style="color:var(--accent-orange);">Sınav Dışı</span>` : `<span style="color:var(--primary);">Sınav</span>`;
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+        tr.innerHTML = `
+            <td style="padding: 0.75rem;">${ex.date} ${ex.time}</td>
+            <td style="padding: 0.75rem; font-weight: 500;">${ex.name}</td>
+            <td style="padding: 0.75rem;">${typeStr}</td>
+            <td style="padding: 0.75rem; text-align: right; color: var(--accent-green); font-weight: bold;">+${points.toFixed(1)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    if (duties.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 1rem; color: var(--text-muted);">Henüz bir görev bulunmuyor.</td></tr>`;
+    }
+
+    document.getElementById('report-earned-score').textContent = "+" + earnedScore.toFixed(1);
+    
+    const total = (staff.baseScore || 0) + earnedScore;
+    document.getElementById('report-total-score').textContent = total.toFixed(1);
+
+    document.getElementById('modal-staff-report').classList.remove('hidden');
+};
+
+/**
+ * Tarihi Geçmiş Kısıtları Temizle
+ */
+window.cleanExpiredConstraints = (silent = false) => {
+    if (!DB.constraints) return;
+
+    if (!silent && !confirm("Tarihi geçmiş tüm kısıtlar silinecek. Emin misiniz?")) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayYear = today.getFullYear();
+
+    let deletedCount = 0;
+
+    for (let staffName in DB.constraints) {
+        const oldLength = DB.constraints[staffName].length;
+        
+        DB.constraints[staffName] = DB.constraints[staffName].filter(c => {
+            // Eğer haftalık kısıtsa silme (hiçbir zaman tarihi geçmez)
+            if (c.day !== undefined) return true;
+
+            if (c.endDate) {
+                // Toplu tarih
+                const ed = new Date(c.endDate);
+                if (ed < today) return false; // süresi dolmuş
+            } else if (c.date) {
+                // Tekil tarih (MM-DD veya YYYY-MM-DD olabilir)
+                let parts = c.date.split('-');
+                let checkDate;
+                if (parts.length === 2) {
+                    checkDate = new Date(todayYear, parseInt(parts[0]) - 1, parseInt(parts[1]));
+                } else if (parts.length === 3) {
+                    checkDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                }
+                if (checkDate && checkDate < today) return false;
+            }
+            return true;
+        });
+
+        deletedCount += (oldLength - DB.constraints[staffName].length);
+    }
+
+    if (deletedCount > 0) {
+        saveToLocalStorage();
+        if (typeof renderConstraintsPage === 'function') renderConstraintsPage();
+        logAction('admin', 'Kısıt Temizliği', `${deletedCount} adet tarihi geçmiş kısıt silindi.`);
+        if (!silent) showToast(`${deletedCount} adet tarihi geçmiş kısıt başarıyla temizlendi.`, "success");
+    } else {
+        if (!silent) showToast("Tarihi geçmiş kısıt bulunamadı.", "info");
+    }
+};
+
+// Sayfa yüklendiğinde otomatik temizlik yap (sessizce)
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        if (typeof cleanExpiredConstraints === 'function') {
+            cleanExpiredConstraints(true);
+        }
+    }, 2000); // Veriler yüklendikten 2 sn sonra
+});

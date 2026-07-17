@@ -1,3 +1,13 @@
+function getSafeDate(dateStr, timeStr) {
+    if (!dateStr) return new Date();
+    if (!timeStr) return new Date(dateStr + 'T09:00:00');
+    let t = String(timeStr).split('-')[0].trim();
+    if (t.length === 4) t = '0' + t;
+    if (t.length === 5) t = t + ':00';
+    const d = new Date(dateStr + 'T' + t);
+    return isNaN(d.getTime()) ? new Date() : d;
+}
+
 // Şifreler artık backend'de tutuluyor. Frontend'de şifre YOKTUR.
 const DB_KEY = 'gozetmenlik_db_v25';
 
@@ -347,8 +357,10 @@ function calculateScore(date, duration, examId = null) {
 }
 
 function timeToMins(timeStr) {
+    if (!timeStr) return 0;
+    timeStr = String(timeStr).split('-')[0].trim();
     const parts = timeStr.split(':');
-    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
 }
 
 function getConstraintsForStaff(staffName) {
@@ -453,9 +465,29 @@ function calculateAvailabilityScore(staffId) {
 }
 
 /**
+ * İsme göre cinsiyet tahmini yapar
+ */
+function predictGender(name) {
+    if (!name) return 'Belirtilmemiş';
+    const lowerName = name.toLowerCase();
+    
+    const femaleNames = ['ayşe', 'fatma', 'saliha', 'çağla', 'cansu', 'ezgi', 'aysel', 'aslıhan', 'şeyma', 'nursel', 'gülden', 'feray', 'roghayeh', 'ayten', 'ışıl', 'hülya', 'gülşen', 'tuğba', 'samire', 'sibel', 'zeynep', 'begüm', 'sultan', 'yasemin', 'büşra', 'eda'];
+    for (const fName of femaleNames) {
+        if (lowerName.includes(fName)) return 'Kadın';
+    }
+    
+    const maleNames = ['oğuzhan', 'serdal', 'serkan', 'ömer', 'yasin', 'muhammed', 'mustafa', 'nuri', 'oğul', 'mansur', 'emil', 'coşkun', 'selçuk', 'hadi', 'keremcan', 'murat', 'fatih', 'orkun', 'yılmaz'];
+    for (const mName of maleNames) {
+        if (lowerName.includes(mName)) return 'Erkek';
+    }
+    
+    return 'Belirtilmemiş';
+}
+
+/**
  * Bir gözetmenin o saatte hem kısıt hem de mevcut sınavlar açısından gerçekten boş olup olmadığını kontrol et
  */
-function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) {
+function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null, isNonExam = false, examName = "") {
     const staff = DB.staff.find(s => s.id === staffId);
     if (!staff) return false;
 
@@ -463,7 +495,7 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) 
     if (!isAvailable(staff.name, date, time, duration)) return false;
 
     // 2. Mevcut sınavlarla çakışma kontrolü (15 dk buffer)
-    const start = new Date(`${date}T${time}`);
+    const start = getSafeDate(date, time);
     const end = new Date(start.getTime() + (duration + 15) * 60000);
 
     const hasConflict = DB.exams.some(ex => {
@@ -475,20 +507,47 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null) 
         if (!pIds.includes(staffId)) return false;
         if (ex.date !== date) return false;
 
-        const exStart = new Date(`${ex.date}T${ex.time}`);
+        const exStart = getSafeDate(ex.date, ex.time);
         const exEnd = new Date(exStart.getTime() + (ex.duration + 15) * 60000);
         return (start < exEnd && end > exStart);
     });
 
-    return !hasConflict;
+    if (hasConflict) return false;
+
+    // 3. Cuma Namazı Kısıtı (Cuma günü 12:30-14:00 arası erkeklere atama yapılmaz)
+    const isFriday = new Date(date).getDay() === 5;
+    const gender = staff.gender || predictGender(staff.name);
+    if (isFriday && gender === 'Erkek') {
+        const startMins = timeToMins(time);
+        const endMins = startMins + duration;
+        const pStart = timeToMins("12:30");
+        const pEnd = timeToMins("14:00");
+        if (startMins < pEnd && endMins > pStart) {
+            return false;
+        }
+    }
+
+    // 4. Sınav Dışı Görev Tekrarı Kısıtı
+    if (isNonExam && examName) {
+        const hasSameNonExam = DB.exams.some(ex => {
+            if (ignoreExamId && String(ex.id) === String(ignoreExamId)) return false;
+            if (!shouldCountAsNonExam(ex)) return false;
+            if (ex.name !== examName) return false;
+            const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+            return pIds.includes(staffId);
+        });
+        if (hasSameNonExam) return false;
+    }
+
+    return true;
 }
 
 /**
  * Akıllı Atama Asistanı için Gözetmen Önerileri Listesi oluştur
  */
-function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null) {
+function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "") {
     if (DB.staff.length === 0) return [];
-    const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId));
+    const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName));
     if (available.length === 0) return [];
 
     return available.map(s => {
@@ -509,11 +568,11 @@ window.getRecommendedProctors = getRecommendedProctors;
 /**
  * En adil gözetmen atamasını yap (hem kısıt hem sınav çakışması kontrolü ile)
  */
-function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null) {
+function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "") {
     if (DB.staff.length === 0) return null;
 
     let available = DB.staff.filter(s =>
-        isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId) &&
+        isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName) &&
         (s.taskCount || 0) < GLOBAL_LIMITS.MAX_TASKS
     );
 
@@ -643,8 +702,8 @@ function runGlobalOptimization() {
 
     // Sınavları zorluk derecesine (puanına) göre büyükten küçüke sırala
     const sortedExams = [...unassignedExams].sort((a, b) => {
-        const scoreA = calculateScore(new Date(`${a.date}T${a.time}`), a.duration);
-        const scoreB = calculateScore(new Date(`${b.date}T${b.time}`), b.duration);
+        const scoreA = calculateScore(getSafeDate(a.date, a.time), a.duration);
+        const scoreB = calculateScore(getSafeDate(b.date, b.time), b.duration);
         return scoreB - scoreA;
     });
 
@@ -664,14 +723,14 @@ function runGlobalOptimization() {
             }
 
             // Mevcut atamalarla çakışma (Ağır ceza)
-            const start = new Date(`${date}T${time}`);
+            const start = getSafeDate(date, time);
             const end = new Date(start.getTime() + (duration + 15) * 60000);
             const hasOverlappingExam = DB.exams.some(e => {
                 if (!e.proctorIds || !e.proctorIds.includes(s.id)) {
                     if (e.proctorId !== s.id) return false;
                 }
                 if (e.date !== date) return false;
-                const eStart = new Date(`${e.date}T${e.time}`);
+                const eStart = getSafeDate(e.date, e.time);
                 const eEnd = new Date(eStart.getTime() + (e.duration + 15) * 60000);
                 return (start < eEnd && end > eStart);
             });
@@ -692,12 +751,12 @@ function runGlobalOptimization() {
         const chosen = candidates[0];
 
         if (chosen.penalty < 10000) {
-            const score = calculateScore(new Date(`${date}T${time}`), duration, ex.id);
+            const score = calculateScore(getSafeDate(date, time), duration, ex.id);
             ex.proctorIds = [chosen.staff.id];
             ex.proctorId = chosen.staff.id;
             ex.proctorName = chosen.staff.name;
             ex.score = score;
-            ex.katsayi = getKatsayi(new Date(`${date}T${time}`), duration, ex.id);
+            ex.katsayi = getKatsayi(getSafeDate(date, time), duration, ex.id);
             
             if (shouldCountAsNonExam(ex)) {
                 chosen.staff.nonExamScore = parseFloat(((chosen.staff.nonExamScore || 0) + score).toFixed(2));
@@ -787,7 +846,7 @@ function addExam(examData) {
         return;
     }
 
-    const score = calculateScore(new Date(`${examData.date}T${examData.time}`), examData.duration);
+    const score = calculateScore(getSafeDate(examData.date, examData.time), examData.duration);
     
     const examId = Date.now();
     const newExam = {
@@ -803,7 +862,7 @@ function addExam(examData) {
         proctorId: proctors[0].id,
         proctorName: proctors.map(p => p.name).join(', '),
         score: score,
-        katsayi: getKatsayi(new Date(`${examData.date}T${examData.time}`), examData.duration, examId)
+        katsayi: getKatsayi(getSafeDate(examData.date, examData.time), examData.duration, examId)
     };
 
     DB.exams.push(newExam);
@@ -859,7 +918,7 @@ function updateExam(id, newData, skipSave = false) {
     const finalDuration = (newData.duration !== undefined) ? newData.duration : oldExam.duration;
     
     // Geçerli katsayı hesaplamak için date parse, eğer parse olmazsa eski katsayıyı kullan (NaN olmaması için)
-    const testDate = new Date(`${finalDate}T${finalTime}`);
+    const testDate = getSafeDate(finalDate, finalTime);
     const safeDuration = parseFloat(finalDuration) || 60;
     const newScore = calculateScore(testDate, safeDuration, id);
     const kts = getKatsayi(testDate, safeDuration, id);
@@ -1439,11 +1498,11 @@ function autoExpireRequests() {
         let examEnd;
 
         if (exam) {
-            const examStart = new Date(`${exam.date}T${exam.time}`);
+            const examStart = getSafeDate(exam.date, exam.time);
             examEnd = new Date(examStart.getTime() + (exam.duration || 60) * 60000);
         } else if (req.examDate && req.examTime) {
             // Sınav silinmişse talepteki tarihe bak
-            const examStart = new Date(`${req.examDate}T${req.examTime}`);
+            const examStart = getSafeDate(req.examDate, req.examTime);
             examEnd = new Date(examStart.getTime() + 60 * 60000);
         } else {
             // Sınav bilgisi hiç yoksa talebi sona erdir
@@ -1504,7 +1563,7 @@ function getConflicts() {
 
     for (let i = 0; i < sortedExams.length; i++) {
         const examA = sortedExams[i];
-        const startA = new Date(`${examA.date}T${examA.time}`);
+        const startA = getSafeDate(examA.date, examA.time);
         const endA = new Date(startA.getTime() + (examA.duration + 15) * 60000); // 15 dk geçiş süresi
 
         for (let j = i + 1; j < sortedExams.length; j++) {
@@ -1515,7 +1574,7 @@ function getConflicts() {
             
             // Aynı gözetmen mi?
             if (examA.proctorId === examB.proctorId) {
-                const startB = new Date(`${examB.date}T${examB.time}`);
+                const startB = getSafeDate(examB.date, examB.time);
                 
                 // Zaman çakışması kontrolü (A bitmeden B başlıyorsa)
                 if (startB < endA) {
@@ -1540,7 +1599,7 @@ function getLocationConflicts() {
         const examA = sortedExams[i];
         if (!examA.location || examA.location === "-") continue;
 
-        const startA = new Date(`${examA.date}T${examA.time}`);
+        const startA = getSafeDate(examA.date, examA.time);
         const endA = new Date(startA.getTime() + examA.duration * 60000);
 
         for (let j = i + 1; j < sortedExams.length; j++) {
@@ -1548,7 +1607,7 @@ function getLocationConflicts() {
             if (examA.date !== examB.date) break;
             if (!examB.location || examB.location === "-") continue;
 
-            const startB = new Date(`${examB.date}T${examB.time}`);
+            const startB = getSafeDate(examB.date, examB.time);
 
             // Aynı yer ve zaman kesişmesi mi?
             if (examA.location.trim() === examB.location.trim()) {
@@ -1574,12 +1633,12 @@ function getLocationConflicts() {
  * @param {number|null} currentExamId Düzenleme işlemiysek mevcut sınavı yoksaymak için
  * @returns {Array} En iyi 3 aday
  */
-function getRecommendedProctors(date, time, duration, currentExamId = null, isNonExam = false) {
+function getRecommendedProctors(date, time, duration, currentExamId = null, isNonExam = false, examName = "") {
     if (!date || !time) return [];
 
     // 1. Müsait olanları filtrele (Hem kısıt hem de çakışma)
     const availableStaff = DB.staff.filter(s => 
-        isProctorTrulyFree(s.id, date, time, duration, currentExamId)
+        isProctorTrulyFree(s.id, date, time, duration, currentExamId, isNonExam, examName)
     );
 
     // 2. Puana göre sırala ve ilk 5'i dön
@@ -1687,7 +1746,7 @@ function findSmartSwaps(myStaffId) {
         if (!isMyExam) return false;
         
         // Geçmiş sınavları ele (Sınavın bitiş saatini baz alıyoruz)
-        const examEnd = new Date(`${ex.date}T${ex.time}`).getTime() + (ex.duration || 60) * 60000;
+        const examEnd = getSafeDate(ex.date, ex.time).getTime() + (ex.duration || 60) * 60000;
         return examEnd > now;
     });
     
@@ -1702,7 +1761,7 @@ function findSmartSwaps(myStaffId) {
 
     DB.exams.forEach(otherEx => {
         // Geçmiş sınavları ele
-        const otherExamEnd = new Date(`${otherEx.date}T${otherEx.time}`).getTime() + (otherEx.duration || 60) * 60000;
+        const otherExamEnd = getSafeDate(otherEx.date, otherEx.time).getTime() + (otherEx.duration || 60) * 60000;
         if (otherExamEnd <= now) return;
 
         // Kendi sınavım olmasın
@@ -1869,7 +1928,7 @@ function recalculateAllScores() {
 
     // 2) Her sınavı yeni 17:00 parçalı formüle göre hesapla
     DB.exams.forEach(ex => {
-        const examDate = new Date(`${ex.date}T${ex.time}`);
+        const examDate = getSafeDate(ex.date, ex.time);
         if (isNaN(examDate.getTime())) return;
 
         const newScore = calculateScore(examDate, parseFloat(ex.duration) || 60, ex.id);

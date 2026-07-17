@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -1292,6 +1292,7 @@
                     <div class="card-large">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h3 id="current-constraints-title">Mevcut Kısıtlar</h3>
+                            <button class="btn-secondary" onclick="cleanExpiredConstraints()" style="font-size: 0.8rem; padding: 0.4rem 0.8rem; border-color: var(--accent-orange); color: var(--accent-orange);">🧹 Tarihi Geçenleri Temizle</button>
                         </div>
                         <div class="table-container">
                             <table id="table-constraints">
@@ -1633,7 +1634,7 @@
             </div>
             <div class="card-large" style="background:#0f172a; border:1px solid #334155;">
                 <p style="color:var(--text-muted); margin-bottom:1rem; font-size:0.875rem;">
-                    Excel dosyasınızı sisteme aktarın. Dosyanızın doğru formatta olması için önce şablonu indirin.
+                    Excel dosyanızı sisteme aktarın. Dosyanızın doğru formatta olması için önce şablonu indirin.
                 </p>
                 <div style="display:flex; gap:12px; margin-bottom:1.5rem; flex-wrap:wrap;">
                     <button id="btn-download-staff-template" class="btn-secondary">Personel Şablonunu İndir</button>
@@ -1957,7 +1958,9 @@
                 </div>
             </div>
         </div>
-    </div>
-
+                            </div>
+    <script src="logic.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>
+
