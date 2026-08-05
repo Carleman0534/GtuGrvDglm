@@ -1059,6 +1059,9 @@ function initUI() {
             if (tabId === 'responsible') {
                 clearMessageBadge();
             }
+            if (tabId === 'scorecard') {
+                if (typeof renderScorecard === 'function') renderScorecard();
+            }
         });
     });
 
@@ -2531,8 +2534,16 @@ function renderSchedule() {
 
     const year = currentScheduleDate.getFullYear();
     const month = currentScheduleDate.getMonth();
+    const nextMonthDate = new Date(year, month + 1, 1);
+    const nextYear = nextMonthDate.getFullYear();
+    const nextMonth = nextMonthDate.getMonth();
+
     const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-    title.textContent = `${monthNames[month]} ${year}`;
+    if (year === nextYear) {
+        title.textContent = `${monthNames[month]} - ${monthNames[nextMonth]} ${year}`;
+    } else {
+        title.textContent = `${monthNames[month]} ${year} - ${monthNames[nextMonth]} ${nextYear}`;
+    }
 
     // Gruplama
     const groups = {};
@@ -2578,11 +2589,12 @@ function renderSchedule() {
     const scheduleList = Object.values(groups);
     const searchTerm = document.getElementById('schedule-search')?.value.toLowerCase() || '';
 
-    // Filtreleme (Ay + Tür + Arama)
+    // Filtreleme (2 Aylık Dönem + Tür + Arama)
     const filteredSchedule = scheduleList.filter(ex => {
         if (!ex.date) return false;
         const d = new Date(ex.date.replace(/-/g, "/"));
-        const matchesMonth = d.getMonth() === month && d.getFullYear() === year;
+        const matchesMonth = (d.getMonth() === month && d.getFullYear() === year) || 
+                             (d.getMonth() === nextMonth && d.getFullYear() === nextYear);
         const matchesType = currentScheduleType === 'all' || ex.type === currentScheduleType;
         
         let matchesSearch = true;
@@ -2700,7 +2712,7 @@ function renderSchedule() {
         tbodyActive.appendChild(tr);
     });
 
-    if (tbodyActive.children.length === 0) tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu ay için program bulunmuyor.</td></tr>';
+    if (tbodyActive.children.length === 0) tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu 2 aylık dönem için sınav programı bulunmuyor.</td></tr>';
 
     // 2. Takvim Görünümü Render
     if (currentScheduleView === 'calendar' && grid) {
@@ -2709,43 +2721,82 @@ function renderSchedule() {
 }
 
 function renderCalendarGrid(exams, year, month) {
-    const grid = document.getElementById('calendar-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    const mainGrid = document.getElementById('calendar-grid');
+    if (!mainGrid) return;
+    mainGrid.innerHTML = '';
 
-    const dayNames = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-    dayNames.forEach(d => {
-        const div = document.createElement('div');
-        div.className = 'calendar-day-head';
-        div.textContent = d;
-        grid.appendChild(div);
-    });
+    // 2 ayı alt alta modern kartlar halinde yerleştirecek yapı
+    mainGrid.style.display = 'flex';
+    mainGrid.style.flexDirection = 'column';
+    mainGrid.style.gap = '2.5rem';
+    mainGrid.className = ''; // calendar-grid CSS ızgara sınıfını iptal edip iç bloklara veriyoruz
 
-    const firstDay = new Date(year, month, 1);
-    let startDayIdx = (firstDay.getDay() + 6) % 7; // Pzt=0
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
-    // Önceki Ay
-    for (let i = startDayIdx - 1; i >= 0; i--) {
-        grid.appendChild(createScheduleDayCell(daysInPrevMonth - i, true));
-    }
+    // İki aylık döngü (seçilen ay ve hemen sonraki ay)
+    for (let offset = 0; offset <= 1; offset++) {
+        const targetDate = new Date(year, month + offset, 1);
+        const curYear = targetDate.getFullYear();
+        const curMonth = targetDate.getMonth();
 
-    // Bu Ay
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const isToday = dateStr === todayStr;
-        const dayExams = exams.filter(e => e.date === dateStr);
-        grid.appendChild(createScheduleDayCell(d, false, isToday, dayExams));
-    }
+        const monthBox = document.createElement('div');
+        monthBox.className = 'month-calendar-box';
+        monthBox.style.background = 'rgba(255, 255, 255, 0.02)';
+        monthBox.style.padding = '1.5rem';
+        monthBox.style.borderRadius = '16px';
+        monthBox.style.border = '1px solid var(--glass-border)';
+        monthBox.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.25)';
 
-    // Gelecek Ay
-    const totalCells = grid.children.length - 7;
-    const remaining = 42 - totalCells;
-    for (let i = 1; i <= remaining; i++) {
-        grid.appendChild(createScheduleDayCell(i, true));
+        const heading = document.createElement('h3');
+        heading.style.textAlign = 'center';
+        heading.style.margin = '0 0 1.2rem 0';
+        heading.style.color = 'var(--primary)';
+        heading.style.fontSize = '1.25rem';
+        heading.style.fontWeight = '700';
+        heading.style.letterSpacing = '0.05em';
+        heading.textContent = `${monthNames[curMonth]} ${curYear}`;
+        monthBox.appendChild(heading);
+
+        const subGrid = document.createElement('div');
+        subGrid.className = 'calendar-grid';
+
+        const dayNames = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+        dayNames.forEach(d => {
+            const div = document.createElement('div');
+            div.className = 'calendar-day-head';
+            div.textContent = d;
+            subGrid.appendChild(div);
+        });
+
+        const firstDay = new Date(curYear, curMonth, 1);
+        let startDayIdx = (firstDay.getDay() + 6) % 7; // Pzt=0
+        const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(curYear, curMonth, 0).getDate();
+
+        // Önceki Ay
+        for (let i = startDayIdx - 1; i >= 0; i--) {
+            subGrid.appendChild(createScheduleDayCell(daysInPrevMonth - i, true));
+        }
+
+        // Bu Ay
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isToday = dateStr === todayStr;
+            const dayExams = exams.filter(e => e.date === dateStr);
+            subGrid.appendChild(createScheduleDayCell(d, false, isToday, dayExams));
+        }
+
+        // Gelecek Ay
+        const totalCells = subGrid.children.length - 7;
+        const remaining = 42 - totalCells;
+        for (let i = 1; i <= remaining; i++) {
+            subGrid.appendChild(createScheduleDayCell(i, true));
+        }
+
+        monthBox.appendChild(subGrid);
+        mainGrid.appendChild(monthBox);
     }
 }
 
@@ -5812,6 +5863,7 @@ window.renderProfile = function() {
             const pwSection = document.getElementById('profile-password-section');
             if (pwSection) pwSection.innerHTML = '';
         }
+        if (typeof renderScorecard === 'function') renderScorecard();
     }
 };
 
@@ -10188,3 +10240,238 @@ window.addEventListener('load', () => {
         }
     }, 2000); // Veriler yüklendikten 2 sn sonra
 });
+
+// ===== KARNE (SCORECARD) MODÜLÜ =====
+window.renderScorecard = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const baseEl = document.getElementById('sc-base-score');
+    const examEl = document.getElementById('sc-exam-score');
+    const nonExamEl = document.getElementById('sc-nonexam-score');
+    const totalEl = document.getElementById('sc-total-score');
+    const examHint = document.getElementById('sc-exam-hint');
+    const nonExamHint = document.getElementById('sc-nonexam-hint');
+    const listContainer = document.getElementById('scorecard-accordion-list');
+
+    if (!myStaffId || !listContainer) return;
+
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    if (!staff) {
+        listContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:2rem;">Personel kaydı bulunamadı. Lütfen profilinizi tekrar seçin.</div>';
+        return;
+    }
+
+    const baseScore = parseFloat(staff.baseScore || 0);
+    const examTotal = parseFloat(staff.totalScore || 0); // Bu baseScore + gözetmenlik puanlarını içerir
+    const examOnlyGained = parseFloat((examTotal - baseScore).toFixed(2));
+    const nonExamScore = parseFloat(staff.nonExamScore || 0);
+    const grandTotal = parseFloat((examTotal + nonExamScore).toFixed(2));
+
+    if (baseEl) baseEl.textContent = baseScore.toFixed(1);
+    if (examEl) examEl.textContent = examTotal.toFixed(1);
+    if (nonExamEl) nonExamEl.textContent = `+${nonExamScore.toFixed(1)}`;
+    if (totalEl) totalEl.textContent = grandTotal.toFixed(1);
+
+    if (examHint) examHint.textContent = `Sınav Gözetmenliği: +${examOnlyGained.toFixed(1)} Puan`;
+    if (nonExamHint) nonExamHint.textContent = `${staff.nonExamTaskCount || 0} Adet Sınav Dışı Görev`;
+
+    // Personelin görevli olduğu tüm sınav ve görevleri topla
+    const myExams = DB.exams.filter(e => {
+        if (typeof isStaffProctorById === 'function') {
+            return isStaffProctorById(e, myStaffId);
+        }
+        return (e.proctorIds || [e.proctorId]).map(String).includes(String(myStaffId));
+    });
+
+    // Sınav ve görevleri ay ve yıla göre grupla
+    const monthsMap = {};
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+    myExams.forEach(ex => {
+        if (!ex.date) return;
+        const d = new Date(ex.date.replace(/-/g, "/"));
+        if (isNaN(d.getTime())) return;
+
+        const year = d.getFullYear();
+        const monthIdx = d.getMonth();
+        const key = `${year}_${String(monthIdx).padStart(2, '0')}`; // Örn: "2026_07"
+
+        if (!monthsMap[key]) {
+            monthsMap[key] = {
+                year: year,
+                monthIdx: monthIdx,
+                monthName: `${monthNames[monthIdx]} ${year}`,
+                examTasks: [],
+                nonExamTasks: [],
+                examTotalScore: 0,
+                nonExamTotalScore: 0
+            };
+        }
+
+        const scoreVal = parseFloat(ex.score || 0);
+        const isNonExam = (typeof shouldCountAsNonExam === 'function') ? shouldCountAsNonExam(ex) : Boolean(ex.isNonExam);
+
+        const taskItem = {
+            id: ex.id,
+            name: ex.name,
+            date: ex.date,
+            time: ex.time || '-',
+            location: ex.location || '-',
+            type: ex.type || (isNonExam ? 'Sınav Dışı Görev' : 'Sınav Gözetmenliği'),
+            score: scoreVal
+        };
+
+        if (isNonExam) {
+            monthsMap[key].nonExamTasks.push(taskItem);
+            monthsMap[key].nonExamTotalScore = parseFloat((monthsMap[key].nonExamTotalScore + scoreVal).toFixed(2));
+        } else {
+            monthsMap[key].examTasks.push(taskItem);
+            monthsMap[key].examTotalScore = parseFloat((monthsMap[key].examTotalScore + scoreVal).toFixed(2));
+        }
+    });
+
+    const sortedKeys = Object.keys(monthsMap).sort().reverse(); // En yeni ay en üstte
+    listContainer.innerHTML = '';
+
+    if (sortedKeys.length === 0) {
+        listContainer.innerHTML = '<div style="text-align:center; padding: 2.5rem; color: #64748b; background: rgba(255,255,255,0.01); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">Dönem içinde puan kazancı sağladığınız kayıtlı bir görev bulunmamaktadır.</div>';
+        return;
+    }
+
+    sortedKeys.forEach((key, index) => {
+        const monthItem = monthsMap[key];
+        const totalMonthScore = parseFloat((monthItem.examTotalScore + monthItem.nonExamTotalScore).toFixed(2));
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'accordion-item';
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'accordion-header';
+
+        let badgesHtml = '';
+        if (monthItem.examTotalScore > 0 || monthItem.examTasks.length > 0) {
+            badgesHtml += `<span class="month-badge" style="background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); margin-right: 6px;">✍️ Gözetmenlik: +${monthItem.examTotalScore.toFixed(1)}</span>`;
+        }
+        if (monthItem.nonExamTotalScore > 0 || monthItem.nonExamTasks.length > 0) {
+            badgesHtml += `<span class="month-badge" style="background: rgba(249, 115, 22, 0.15); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.3); margin-right: 6px;">🏢 Sınav Dışı: +${monthItem.nonExamTotalScore.toFixed(1)}</span>`;
+        }
+        badgesHtml += `<span class="month-badge badge-plus" style="font-size: 0.9rem;">Toplam: +${totalMonthScore.toFixed(1)} Puan</span>`;
+
+        headerDiv.innerHTML = `
+            <div class="month-info">
+                <span class="month-title" style="min-width: 130px;">${monthItem.monthName}</span>
+                <div>${badgesHtml}</div>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        `;
+
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'accordion-body';
+
+        monthItem.examTasks.sort((a, b) => (a.date > b.date ? -1 : 1));
+        monthItem.nonExamTasks.sort((a, b) => (a.date > b.date ? -1 : 1));
+
+        let contentHtml = `<div style="padding: 1.2rem; display: flex; flex-direction: column; gap: 1.5rem;">`;
+
+        // 1. Bölüm: Sınav Gözetmenlikleri
+        if (monthItem.examTasks.length > 0) {
+            contentHtml += `
+                <div>
+                    <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(99,102,241,0.2);">
+                        <span style="font-size: 1.1rem;">✍️</span>
+                        <strong style="color: #818cf8; font-size: 0.95rem;">Sınav Gözetmenlikleri (${monthItem.examTasks.length} Görev)</strong>
+                    </div>
+                    <table class="task-list-table">
+                        <thead>
+                            <tr>
+                                <th>Tarih & Saat</th>
+                                <th>Sınav Adı</th>
+                                <th>Konum</th>
+                                <th style="text-align:right;">Puan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${monthItem.examTasks.map(t => `
+                                <tr>
+                                    <td style="color:#cbd5e1; font-weight:600; white-space:nowrap;">${t.date} (${t.time})</td>
+                                    <td><strong style="color:#fff;">${t.name}</strong></td>
+                                    <td><span class="badge-location" style="font-size:0.75rem;">${t.location}</span></td>
+                                    <td style="color:#818cf8; font-weight:700; text-align:right;">+${t.score.toFixed(1)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // 2. Bölüm: Sınav Dışı Görevler (Tercih Günleri vs.)
+        if (monthItem.nonExamTasks.length > 0) {
+            contentHtml += `
+                <div>
+                    <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(249,115,22,0.2);">
+                        <span style="font-size: 1.1rem;">🏢</span>
+                        <strong style="color: #fb923c; font-size: 0.95rem;">Sınav Dışı Görevler (${monthItem.nonExamTasks.length} Görev)</strong>
+                    </div>
+                    <table class="task-list-table">
+                        <thead>
+                            <tr>
+                                <th>Tarih & Saat</th>
+                                <th>Görev Adı</th>
+                                <th>Konum</th>
+                                <th>Tür</th>
+                                <th style="text-align:right;">Puan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${monthItem.nonExamTasks.map(t => `
+                                <tr>
+                                    <td style="color:#cbd5e1; font-weight:600; white-space:nowrap;">${t.date} (${t.time})</td>
+                                    <td><strong style="color:#fff;">${t.name}</strong></td>
+                                    <td><span class="badge-location" style="font-size:0.75rem;">${t.location}</span></td>
+                                    <td><span style="color:#fdba74; font-size:0.8rem; background:rgba(249,115,22,0.1); padding:2px 8px; border-radius:6px; border:1px solid rgba(249,115,22,0.25);">${t.type}</span></td>
+                                    <td style="color:#fdba74; font-weight:700; text-align:right;">+${t.score.toFixed(1)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        contentHtml += `</div>`;
+        bodyDiv.innerHTML = contentHtml;
+
+        headerDiv.addEventListener('click', () => {
+            const isActive = itemDiv.classList.contains('active');
+            
+            document.querySelectorAll('#scorecard-accordion-list .accordion-item.active').forEach(openEl => {
+                if (openEl !== itemDiv) {
+                    openEl.classList.remove('active');
+                    const openBody = openEl.querySelector('.accordion-body');
+                    if (openBody) openBody.style.maxHeight = null;
+                }
+            });
+
+            if (isActive) {
+                itemDiv.classList.remove('active');
+                bodyDiv.style.maxHeight = null;
+            } else {
+                itemDiv.classList.add('active');
+                bodyDiv.style.maxHeight = (bodyDiv.scrollHeight + 80) + "px";
+            }
+        });
+
+        itemDiv.appendChild(headerDiv);
+        itemDiv.appendChild(bodyDiv);
+        listContainer.appendChild(itemDiv);
+
+        // En güncel ayın detayını varsayılan olarak açık getir
+        if (index === 0 && (monthItem.examTasks.length > 0 || monthItem.nonExamTasks.length > 0)) {
+            setTimeout(() => {
+                headerDiv.click();
+            }, 150);
+        }
+    });
+};
+
+
