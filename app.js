@@ -492,6 +492,9 @@ async function initApp() {
         if (changed) saveToLocalStorage();
     }
 
+    processTercihGunleri2026(); // 2026 Tercih Günleri Görevlerini otomatik işleyip ekle
+    processAgustos2026Vizeler(); // Ağustos 2026 Vize (PHYS113/114 & MATH111/112) sınavlarını otomatik işleyip ekle
+
     initNavigation();
     initUI();
     applyTheme(); // Theme on load
@@ -505,6 +508,268 @@ async function initApp() {
     loadStaffSelects(); // Personel seçim dropdownlarını yükle
     updateDraftBanner(); // Taslak Modu Banner'ı Güncelle
     if (typeof updateUndoUI === 'function') updateUndoUI(); // Undo UI
+
+    // Günlük otomatik yedeklemeyi tetikle (arayüz açıldıktan 2 saniye sonra)
+    setTimeout(checkAndPerformDailyBackup, 2000);
+    // Gece yarısı dönümü ihtimaline karşı her saat başı tekrar kontrol et
+    setInterval(checkAndPerformDailyBackup, 60 * 60 * 1000);
+}
+
+/**
+ * GÜNLÜK OTOMATİK YEDEKLEME SİSTEMİ
+ * Yönetici (Admin) olarak giriş yapıldığında ve o gün henüz yedek indirilmemişse otomatik olarak JSON dosyasını indirir.
+ */
+function checkAndPerformDailyBackup() {
+    if (sessionStorage.getItem('isAdmin') !== 'true') return;
+    if (!DB || (!DB.staff && !DB.exams)) return;
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const lastBackupDate = localStorage.getItem('last_auto_backup_date');
+
+    if (lastBackupDate !== todayStr) {
+        console.log(`⏳ Günlük otomatik yedekleme başlatılıyor: ${todayStr}`);
+        try {
+            const dataStr = JSON.stringify(DB, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Gozetmenlik_Otomatik_Yedek_${todayStr}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            localStorage.setItem('last_auto_backup_date', todayStr);
+
+            if (typeof window.showToast === 'function') {
+                window.showToast(`📅 Günlük Otomatik Yedek İndirildi (${todayStr})`, 'success');
+            }
+            console.log(`✅ Günlük otomatik yedek başarıyla indirildi (${todayStr}).`);
+        } catch (e) {
+            console.error("Otomatik yedek alma hatası:", e);
+        }
+    }
+}
+
+/**
+ * 2026 TERCİH GÜNLERİ ETKİNLİĞİ GÖREVLERİNİ SİSTEME İŞLEME
+ * Kongre Merkezi Fuaye Alanı Görevleri (10:30 - 16:00 / 330 Dakika)
+ */
+function processTercihGunleri2026() {
+    if (!DB || !DB.exams || !DB.staff) return;
+
+    // Daha önce eklenmiş mi kontrol et (23.07.2026 tarihli Tercih Günü görevi var mı)
+    const alreadyAdded = DB.exams.some(ex => (ex.name || "").includes("Tercih") && ex.date === "2026-07-23");
+    if (alreadyAdded) return;
+
+    console.log("⏳ 2026 Tercih Günleri Etkinliği görevleri sisteme işleniyor...");
+
+    const normalize = (str) => (str || "").toLocaleLowerCase('tr-TR')
+        .replace(/prof\.|dr\.|öğr\.|üyesi|doç\.|arş\.|gör\.|[\.\(\)]/g, '')
+        .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ı/g, 'i')
+        .replace(/\s+/g, ' ').trim().toUpperCase();
+
+    const tasks = [
+        { date: "2026-07-23", lecturer: "Dr. Fatih YETGİN", proctorKey: "Şeyma YAŞAR" },
+        { date: "2026-07-24", lecturer: "Dr. Yasemin BÜYÜKÇOLAK", proctorKey: "Cansu ŞAHİN" },
+        { date: "2026-07-25", lecturer: "Doç. Dr. Ayten KOÇ", proctorKey: "Yasin TURAN" },
+        { date: "2026-07-27", lecturer: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", proctorKey: "Aysel ŞAHİN" },
+        { date: "2026-07-28", lecturer: "Dr. Öğr. Üyesi Keremcan DOĞAN", proctorKey: "Çağla ÖZATAR" },
+        { date: "2026-07-29", lecturer: "Dr. Saliha DEMİRBÜKEN", proctorKey: "Aslıhan GÜR" },
+        { date: "2026-07-30", lecturer: "Doç. Dr. Gülşen ULUCAK", proctorKey: "Serdal ÇÖMLEKCİ" },
+        { date: "2026-07-31", lecturer: "Doç. Dr. Hülya ÖZTÜRK", proctorKey: "Oğuzhan SELÇUK" },
+        { date: "2026-08-01", lecturer: "Dr. Öğr. Üyesi Hadi ALİZADEH", proctorKey: "Ezgi ÖZTEKİN" },
+        { date: "2026-08-02", lecturer: "Doç. Dr. Fatma KARAOĞLU CEYHAN", proctorKey: "Ömer DEMİR" }
+    ];
+
+    const baseId = Date.now();
+    let count = 0;
+
+    tasks.forEach((item, idx) => {
+        // Görevliyi DB.staff içinde ismine veya soyismine göre güvenilir şekilde bul
+        const matchedStaff = DB.staff.find(s => {
+            const normStaff = normalize(s.name);
+            const normKey = normalize(item.proctorKey);
+            if (item.proctorKey.includes("Serdal") && (normStaff.includes("SERDAL") || normStaff.includes("COMLEK"))) return true;
+            return normStaff.includes(normKey);
+        });
+
+        if (matchedStaff) {
+            const examId = baseId + idx + 500;
+            const newTask = {
+                id: examId,
+                name: "2026 Tercih Günleri Etkinliği",
+                date: item.date,
+                time: "10:30",
+                duration: 330,
+                type: "Tercih Günü",
+                isNonExam: true,
+                location: "Kongre Merkezi Fuaye Alanı",
+                capacity: 1,
+                lecturer: item.lecturer,
+                proctorId: matchedStaff.id,
+                proctorIds: [matchedStaff.id],
+                proctorName: matchedStaff.name,
+                isDraft: false
+            };
+
+            const dObj = typeof getSafeDate === 'function' ? getSafeDate(newTask.date, newTask.time) : new Date(`${newTask.date}T${newTask.time}`);
+            if (!isNaN(dObj.getTime())) {
+                if (typeof calculateScore === 'function') newTask.score = calculateScore(dObj, newTask.duration, examId);
+                if (typeof getKatsayi === 'function') newTask.katsayi = getKatsayi(dObj, newTask.duration, examId);
+            }
+
+            DB.exams.push(newTask);
+            count++;
+        } else {
+            console.warn("Tercih günleri için personel bulunamadı:", item.proctorKey);
+        }
+    });
+
+    if (count > 0) {
+        if (typeof recalculateAllScores === 'function') recalculateAllScores();
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof logAction === 'function') logAction('system', 'Görev Eşleşmesi', `2026 Tercih Günleri kapsamında ${count} adet görev (330'ar dk) işlendi.`);
+        
+        setTimeout(() => {
+            if (typeof window.showToast === 'function') {
+                window.showToast(`✨ 2026 Tercih Günleri (${count} Görev - 330 Dk) Sisteme İşlendi!`, 'success');
+            }
+        }, 1200);
+        console.log(`✅ 2026 Tercih Günleri Etkinliği kapsamında ${count} görev sisteme başarıyla işlendi!`);
+    }
+}
+
+/**
+ * AĞUSTOS 2026 VİZE SINAV PROGRAMINI SİSTEME İŞLEME (PHYS113, PHYS114, MATH111, MATH112)
+ * Not: Tercih Günleri daha önce işlendiği için burada tekrar edilmemiştir.
+ */
+function processAgustos2026Vizeler() {
+    if (!DB || !DB.exams || !DB.staff) return;
+
+    // Daha önce eklenip eklenmediğini kontrol et (10.08.2026 tarihli MATH111 veya 06.08.2026 PHYS 114 sınavı)
+    const alreadyAdded = DB.exams.some(ex => (ex.name || "").toUpperCase().includes("MATH111") && ex.date === "2026-08-10");
+    if (alreadyAdded) return;
+
+    console.log("⏳ Ağustos 2026 Vize sınavları sisteme işleniyor...");
+
+    const normalize = (str) => (str || "").toLocaleLowerCase('tr-TR')
+        .replace(/prof\.|dr\.|öğr\.|üyesi|doç\.|arş\.|gör\.|[\.\(\)]/g, '')
+        .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ı/g, 'i')
+        .replace(/\s+/g, ' ').trim().toUpperCase();
+
+    const newExams = [
+        {
+            name: "PHYS 114 - Physics for Natural Sciences II",
+            date: "2026-08-06",
+            time: "18:00",
+            duration: 120,
+            location: "Elektronik Müh. Z02+Z03+Z09 (Derslik ile ilgili Ek Bilgilendirme yapılacaktır.)",
+            capacity: "200",
+            proctorKeys: ["Yasin Turan"]
+        },
+        {
+            name: "MATH 112 - Analysis II",
+            date: "2026-08-07",
+            time: "10:00",
+            duration: 120,
+            location: "Merkez Amfiler",
+            capacity: "200",
+            proctorKeys: ["Aslıhan Gür", "Aysel Şahin", "Cansu Şahin", "Ezgi Öztekin", "Ömer Demir", "Şeyma Yaşar"]
+        },
+        {
+            name: "PHYS113 Physics for Natural Sciences I",
+            date: "2026-08-05",
+            time: "18:00",
+            duration: 120,
+            location: "Elektronik Müh. Z04+Z07+Z09 (Derslik ile ilgili ek bilgilendirme yapılacaktır.)",
+            capacity: "200",
+            proctorKeys: ["Ezgi Öztekin"]
+        },
+        {
+            name: "MATH111 Mathematical Analysis I",
+            date: "2026-08-10",
+            time: "18:00",
+            duration: 120,
+            location: "Elektronik Müh. Z16+Z40+Z42+Z46+Z50",
+            capacity: "200",
+            proctorKeys: ["Cansu Şahin", "Muhammed Ergen", "Oğuzhan Selçuk", "Serdal Çömlekçi", "Serkan Ayrıca"]
+        }
+    ];
+
+    const baseId = Date.now() + 2000;
+    let count = 0;
+
+    newExams.forEach((item, idx) => {
+        const matchedStaffIds = [];
+        const matchedStaffNames = [];
+
+        item.proctorKeys.forEach(proctorKey => {
+            const matchedStaff = DB.staff.find(s => {
+                const normStaff = normalize(s.name);
+                const normKey = normalize(proctorKey);
+                if (proctorKey.toLowerCase().includes("serdal") && (normStaff.includes("SERDAL") || normStaff.includes("COMLEK"))) return true;
+                return normStaff.includes(normKey);
+            });
+
+            if (matchedStaff) {
+                matchedStaffIds.push(matchedStaff.id);
+                matchedStaffNames.push(matchedStaff.name);
+            } else {
+                console.warn("Vize sınavı için personel bulunamadı:", proctorKey);
+            }
+        });
+
+        if (matchedStaffIds.length > 0) {
+            const examId = baseId + idx + 100;
+            const newTask = {
+                id: examId,
+                name: item.name,
+                date: item.date,
+                time: item.time,
+                duration: item.duration,
+                type: "Vize",
+                isNonExam: false,
+                location: item.location,
+                capacity: item.capacity,
+                lecturer: "-",
+                proctorId: matchedStaffIds[0],
+                proctorIds: matchedStaffIds,
+                proctorName: matchedStaffNames.join(', '),
+                isDraft: false
+            };
+
+            const dObj = typeof getSafeDate === 'function' ? getSafeDate(newTask.date, newTask.time) : new Date(`${newTask.date}T${newTask.time}`);
+            if (!isNaN(dObj.getTime())) {
+                if (typeof calculateScore === 'function') newTask.score = calculateScore(dObj, newTask.duration, examId);
+                if (typeof getKatsayi === 'function') newTask.katsayi = getKatsayi(dObj, newTask.duration, examId);
+            }
+
+            DB.exams.push(newTask);
+            count++;
+        }
+    });
+
+    if (count > 0) {
+        if (typeof recalculateAllScores === 'function') recalculateAllScores();
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof logAction === 'function') logAction('system', 'Görev Eşleşmesi', `Ağustos 2026 programından ${count} adet vize sınavı (120'şer dk) eklendi.`);
+        
+        setTimeout(() => {
+            if (typeof window.showToast === 'function') {
+                window.showToast(`✨ Ağustos 2026 Vize Programı (${count} Sınav) Sisteme İşlendi!`, 'success');
+            }
+        }, 1800);
+        console.log(`✅ Ağustos 2026 Vize Programı kapsamında ${count} sınav başarıyla işlendi!`);
+    }
 }
 
 /**
