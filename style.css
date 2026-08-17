@@ -2639,3 +2639,7 @@ th, .table-container th, .avail-table th, .task-list-table th, #table-audit th {
 /* --- FIX: FORCE DARK THEME OVERRIDES --- */
 body.dark-theme { --bg-main: radial-gradient(circle at top left, hsl(220, 10%, 14%), hsl(220, 10%, 8%)) !important; --primary: hsl(212, 100%, 65%) !important; --primary-hover: hsl(212, 100%, 75%) !important; --glass-bg: rgba(255, 255, 255, 0.03) !important; --glass-border: rgba(255, 255, 255, 0.06) !important; --text-primary: hsl(0, 0%, 95%) !important; --text-secondary: hsl(220, 10%, 65%) !important; --text-muted: hsl(220, 10%, 50%) !important; }
 body.theme-female.dark-theme { --bg-main: radial-gradient(circle at top left, hsl(340, 20%, 14%), hsl(340, 20%, 8%)) !important; --primary: hsl(340, 80%, 65%) !important; --primary-hover: hsl(340, 80%, 75%) !important; }
+
+/* --- GTU WATERMARK BACKGROUND --- */
+body::after { content: ''; position: fixed; top: 50%; left: 50%; width: 70vw; max-width: 600px; height: 70vh; max-height: 600px; transform: translate(-50%, -50%); background-image: url('https://upload.wikimedia.org/wikipedia/tr/1/13/Gebze_Teknik_%C3%9Cniversitesi_logo.png'); background-size: contain; background-repeat: no-repeat; background-position: center; opacity: 0.04; z-index: -1; pointer-events: none; transition: opacity 0.3s; }
+body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); }
