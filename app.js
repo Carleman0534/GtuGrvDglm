@@ -5667,6 +5667,7 @@ window.saveQuickNotes = async function() {
  * Profil Sayfasını Yönet
  */
 window.renderProfile = function() {
+    if (typeof applyGenderTheme === 'function') applyGenderTheme();
     renderCollaborators();
     renderAchievements();
     renderSmartSwaps();
@@ -8289,23 +8290,25 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
  * Tema Kontrolü
  */
 function toggleTheme() {
-    const isLight = document.body.classList.toggle('light-theme');
+    const isDark = document.body.classList.toggle('dark-theme');
     const toggleBtn = document.getElementById('btn-theme-toggle');
     if (toggleBtn) {
-        toggleBtn.textContent = isLight ? '☀️' : '🌓';
+        toggleBtn.textContent = isDark ? '🌙' : '☀️';
     }
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
 
 function applyTheme() {
     const savedTheme = localStorage.getItem('theme');
     const toggleBtn = document.getElementById('btn-theme-toggle');
-    if (savedTheme === 'light') {
-        document.body.classList.add('light-theme');
-        if (toggleBtn) toggleBtn.textContent = '☀️';
+    
+    // Varsayılan tema artık 'light' (Akademik Tema). Sadece 'dark' ise dark-theme class'ı ekle.
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        if (toggleBtn) toggleBtn.textContent = '🌙';
     } else {
-        document.body.classList.remove('light-theme');
-        if (toggleBtn) toggleBtn.textContent = '🌓';
+        document.body.classList.remove('dark-theme');
+        if (toggleBtn) toggleBtn.textContent = '☀️';
     }
 }
 
@@ -10474,4 +10477,19 @@ window.renderScorecard = function() {
     });
 };
 
+
+
+
+/* --- DYNAMIC GENDER THEME --- */
+const FEMALE_NAMES = ['SIBEL','NURSEL','GULDEN','FERAY','ROGHAYEH','FATMA','AYTEN','ISIL','HULYA','AYSE','GULSEN','TUGBA','SAMIRE','SALIHA','ASLIHAN','CAGLA','EZGI','AYSEL','CANSU','SEYMA','BEGUM','SULTAN','YASEMIN','BUSRA','RUMEYSA','ZEYNEP'];
+function applyGenderTheme() {
+    const staffId = localStorage.getItem('myStaffId');
+    if (!staffId || typeof DB === 'undefined' || !DB.staff) { document.body.classList.remove('theme-female'); return; }
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff || !staff.name) { document.body.classList.remove('theme-female'); return; }
+    const normalized = staff.name.toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C').replace(/Ğ/g, 'G');
+    const isFemale = FEMALE_NAMES.some(n => normalized.includes(n));
+    if (isFemale) document.body.classList.add('theme-female');
+    else document.body.classList.remove('theme-female');
+}
 
