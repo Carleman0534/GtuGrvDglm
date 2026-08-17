@@ -1210,8 +1210,7 @@ async function saveToBackend() {
         const response = await fetch(API_URL, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'x-api-secret': encodedSecret
+                'Content-Type': 'application/json'
             },
             body: payload
         });
