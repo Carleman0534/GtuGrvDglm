@@ -13,7 +13,7 @@ const DB_KEY = 'gozetmenlik_db_v25';
 
 // Backend API Adresi
 // const API_BASE_URL = "http://localhost:8082";
-const API_BASE_URL = "https://gtumath.oguzhanselcuk.me"; // Cloudflare Tunnel ile açtığınızda bunu kullanın.
+const API_BASE_URL = "https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app"; // Firebase Realtime Database
 
 const KATSAYILAR = {
     HAFTA_ICI_MESAI: 1.0,
@@ -1184,7 +1184,7 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
 window.sendAssignmentEmail = sendAssignmentEmail;
 
 
-const API_URL = API_BASE_URL + "/api/data";
+const API_URL = API_BASE_URL + "/gizli_yol_gtu_admin_data.json";
 
 async function saveToBackend() {
     console.log("Sunucuya kaydediliyor...", API_URL);
@@ -1208,7 +1208,7 @@ async function saveToBackend() {
         const encodedSecret = btoa(unescape(encodeURIComponent(secret)));
 
         const response = await fetch(API_URL, {
-            method: 'POST',
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-secret': encodedSecret
@@ -1313,7 +1313,13 @@ async function loadFromDataJSON() {
         if (!response.ok) throw new Error(`Ağ hatası: ${response.status}`);
         const data = await response.json();
         
-        if (data && typeof data === 'object' && Array.isArray(data.staff)) {
+        if (data === null) {
+            console.log("Firebase veritabanı boş. Yerel/varsayılan verilerle devam ediliyor.");
+            // Admin isek ilk veriyi hemen Firebase'e yazalım
+            if (sessionStorage.getItem('isAdmin') === 'true') {
+                setTimeout(saveToBackend, 1000);
+            }
+        } else if (data && typeof data === 'object' && Array.isArray(data.staff)) {
             // Preserve hardcoded lecturers and Math-focused staff if missing in loaded data
             if (!data.lecturers || data.lecturers.length === 0) {
                 data.lecturers = DB.lecturers;
