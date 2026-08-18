@@ -1,36 +1,36 @@
 :root {
     /* Color Palette - Academic (Oxford Blue & Burgundy) */
-    --primary: hsl(212, 100%, 14%);       /* Oxford Blue */
-    --primary-hover: hsl(212, 80%, 25%);
-    --secondary: hsl(348, 83%, 25%);      /* Burgundy / Crimson */
+    --primary: hsl(212, 85%, 22%);       /* Balanced Oxford Blue */
+    --primary-hover: hsl(212, 80%, 30%);
+    --secondary: hsl(348, 70%, 32%);      /* Refined Burgundy */
     --accent-green: hsl(158, 64%, 35%);
     --accent-orange: hsl(35, 92%, 45%);
     --accent-red: hsl(3, 78%, 50%);
     
-    /* Academic Theme Backgrounds (Off-White/Clean) */
-    --bg-main: hsl(0, 0%, 97%);           /* Paper white background */
-    --glass-bg: rgba(255, 255, 255, 1);   /* Solid white for cards/modals */
-    --glass-border: rgba(0, 33, 71, 0.1); /* Subtle blueish border */
-    --glass-glow: transparent;            /* No glow for academic theme */
+    /* Academic Theme Backgrounds (Soft Eye-Friendly Slate) */
+    --bg-main: #f1f5f9;                   /* Dinlendirici, parlamayan yumuşak arka plan */
+    --glass-bg: #ffffff;                  /* Net beyaz kartlar */
+    --glass-border: #e2e8f0;              /* Zarif, belirgin kenarlık */
+    --glass-glow: transparent;
     
-    /* Text Colors (High Contrast) */
-    --text-primary: hsl(220, 25%, 15%);
-    --text-secondary: hsl(220, 15%, 40%);
-    --text-muted: hsl(220, 10%, 55%);
+    /* Text Colors (Eye-friendly Slate) */
+    --text-primary: #0f172a;              /* Okunaklı derin arduvaz siyahı */
+    --text-secondary: #475569;            /* İkincil metinler */
+    --text-muted: #64748b;                /* Açıklama metinleri */
     
     /* Effects (Flat & Professional) */
     --glass-blur: none;
-    --card-shadow: 0 4px 12px rgba(0, 33, 71, 0.06);
+    --card-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
     --glow-shadow: none;
-    --transition-smooth: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    --transition-smooth: all 0.25s ease;
 
     /* Avatar Colors - Professional */
     --av-1: #002147; --av-2: #800000; --av-3: #10b981; --av-4: #ef4444; 
     --av-5: #3b82f6; --av-6: #14b8a6; --av-7: #475569; --av-8: #f97316;
 
     /* Special States */
-    --draft-bg: hsla(212, 100%, 14%, 0.05);
-    --draft-border: hsla(212, 100%, 14%, 0.2);
+    --draft-bg: hsla(212, 85%, 22%, 0.06);
+    --draft-border: hsla(212, 85%, 22%, 0.2);
 }
 
 /* Dark Theme Overrides */
@@ -2080,13 +2080,12 @@ table {
     border-radius: 16px;
     overflow: hidden;
     margin-top: 1rem;
-    background: rgba(255,255,255,0.05);
 }
 
 .calendar-day-head {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.04);
     color: var(--primary);
-    padding: 1rem;
+    padding: 0.75rem;
     text-align: center;
     font-size: 0.75rem;
     font-weight: 800;
@@ -2095,41 +2094,42 @@ table {
 }
 
 .calendar-day {
-    background: rgba(15, 23, 42, 0.4);
+    background: var(--glass-bg);
     min-height: 120px;
     padding: 0.75rem;
     position: relative;
-    transition: background 0.3s ease;
+    transition: background 0.2s ease;
 }
 
 .calendar-day:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(0, 0, 0, 0.02);
 }
 
 .calendar-day.other-month {
-    opacity: 0.2;
+    opacity: 0.35;
+    background: rgba(0, 0, 0, 0.02);
 }
 
 .calendar-day.today {
-    background: rgba(16, 185, 129, 0.08);
+    background: rgba(99, 102, 241, 0.04);
 }
 
 .calendar-day.today .day-number {
     background: var(--primary);
-    color: var(--text-primary);
+    color: white !important;
     border-radius: 50%;
     width: 26px;
     height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
 }
 
 .day-number {
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--text-primary);
     margin-bottom: 0.75rem;
 }
 
@@ -2184,13 +2184,15 @@ table {
     align-items: center;
     justify-content: center;
     min-height: 42px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
 }
 
 .profile-cal-day[onclick]:hover {
-    background: rgba(16, 185, 129, 0.2) !important;
+    background: rgba(99, 102, 241, 0.1) !important;
     transform: translateY(-2px);
-    border-color: rgba(16, 185, 129, 0.4) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: var(--primary) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .profile-cal-day[onclick]:active {
@@ -2629,7 +2631,7 @@ input:checked + .slider:before {
 .toast * { color: white !important; }
 
 /* --- THEME FEMALE --- */
-body.theme-female { --primary: hsl(340, 80%, 45%); --primary-hover: hsl(340, 80%, 35%); --secondary: hsl(330, 80%, 30%); --accent-green: hsl(340, 64%, 45%); --bg-main: hsl(340, 30%, 98%); --glass-border: rgba(200, 0, 100, 0.15); --text-primary: hsl(340, 30%, 15%); --text-secondary: hsl(340, 15%, 40%); --card-shadow: 0 4px 12px rgba(200, 0, 100, 0.08); }
+body.theme-female { --primary: hsl(340, 70%, 42%); --primary-hover: hsl(340, 70%, 34%); --secondary: hsl(330, 70%, 30%); --accent-green: hsl(340, 64%, 42%); --bg-main: #fdf2f4; --glass-border: #fce7eb; --text-primary: #3b0714; --text-secondary: #881337; --text-muted: #9f1239; --card-shadow: 0 2px 8px rgba(190, 24, 93, 0.06); }
 
 /* --- FIX: WHITE TEXT FOR PANEL & SCHEDULE --- */
 th, .table-container th, .avail-table th, .task-list-table th, #table-audit th { background: var(--primary) !important; color: white !important; border-bottom: 2px solid rgba(255,255,255,0.1); }

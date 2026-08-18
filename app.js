@@ -5897,7 +5897,7 @@ function renderMyTimeline() {
 
     // Empty leading cells
     for (let i = 0; i < startOffset; i++) {
-        html += `<div style="border-radius:10px; background:rgba(255,255,255,0.01); min-height:70px;"></div>`;
+        html += `<div style="border-radius:10px; background:transparent; min-height:70px;"></div>`;
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -5922,14 +5922,14 @@ function renderMyTimeline() {
         const allDayExams = [...new Map([...dayProctored, ...dayResponsible].map(e => [e.id, e])).values()];
         
         const border = isToday
-            ? 'border: 2px solid var(--primary); box-shadow: 0 0 12px rgba(99,102,241,0.3);'
+            ? 'border: 2px solid var(--primary); box-shadow: 0 0 10px rgba(99,102,241,0.25);'
             : 'border: 1px solid var(--glass-border);';
 
         const examsBadges = allDayExams.slice(0, 2).map(ex => {
             const isProc = dayProctored.some(e => e.id === ex.id);
             const isResp = dayResponsible.some(e => e.id === ex.id);
-            let bg = isProc && isResp ? 'var(--accent-red)' : isProc ? 'rgba(99,102,241,0.7)' : 'rgba(245,158,11,0.7)';
-            return `<div style="font-size:0.55rem; background:${bg}; color:white; padding:2px 4px; border-radius:4px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${ex.name} ${ex.time}">${ex.time} ${ex.name.substring(0,8)}${ex.name.length>8?'..':''}</div>`;
+            let bg = isProc && isResp ? 'var(--accent-red)' : isProc ? 'var(--primary)' : 'var(--accent-orange)';
+            return `<div style="font-size:0.55rem; background:${bg}; color:white !important; padding:2px 4px; border-radius:4px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${ex.name} ${ex.time}">${ex.time} ${ex.name.substring(0,8)}${ex.name.length>8?'..':''}</div>`;
         }).join('');
 
         const moreCount = allDayExams.length > 2 ? `<div style="font-size:0.55rem; color:var(--text-muted); margin-top:2px;">+${allDayExams.length - 2} daha</div>` : '';
@@ -5939,10 +5939,10 @@ function renderMyTimeline() {
             : '';
 
         html += `
-            <div ${clickAction} style="border-radius:10px; ${border} background:${allDayExams.length ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.02)'}; min-height:70px; padding:6px 5px; cursor:${allDayExams.length?'pointer':'default'}; transition: all 0.2s ease;" 
-                onmouseenter="${allDayExams.length ? 'this.style.background=\'rgba(99,102,241,0.1)\';this.style.transform=\'translateY(-2px)\'' : ''}" 
-                onmouseleave="${allDayExams.length ? 'this.style.background=\'rgba(99,102,241,0.04)\';this.style.transform=\'translateY(0)\'' : ''}">
-                <div style="font-size:0.72rem; font-weight:${isToday?'800':'500'}; color:${isToday?'var(--primary)':'var(--text-secondary)'}; margin-bottom:2px;">${day}</div>
+            <div ${clickAction} style="border-radius:10px; ${border} background:${allDayExams.length ? 'rgba(99,102,241,0.08)' : 'var(--glass-bg)'}; min-height:70px; padding:6px 5px; cursor:${allDayExams.length?'pointer':'default'}; transition: all 0.2s ease;" 
+                onmouseenter="${allDayExams.length ? 'this.style.background=\'rgba(99,102,241,0.15)\';this.style.transform=\'translateY(-2px)\'' : ''}" 
+                onmouseleave="${allDayExams.length ? 'this.style.background=\'rgba(99,102,241,0.08)\';this.style.transform=\'translateY(0)\'' : ''}">
+                <div style="font-size:0.75rem; font-weight:${isToday?'800':'600'}; color:${isToday?'var(--primary)':'var(--text-primary)'}; margin-bottom:2px;">${day}</div>
                 ${examsBadges}
                 ${moreCount}
             </div>
@@ -6082,15 +6082,15 @@ function renderPersonalCalendar(staffId) {
         const combinedExamsOnDay = [...new Map([...proctorExamsAtDate, ...responsibleExamsAtDate].map(e => [e.id, e])).values()]
             .sort((a,b) => a.time.localeCompare(b.time));
 
-        let bgColor = 'rgba(255,255,255,0.02)';
+        let bgColor = 'var(--glass-bg)';
         let indicator = '';
 
         if (isProctor && isResponsible) {
-            bgColor = 'rgba(239, 68, 68, 0.08)'; // K\u0131rm\u0131z\u0131 (Her ikisi)
+            bgColor = 'rgba(239, 68, 68, 0.12)';
         } else if (isProctor) {
-            bgColor = 'rgba(99,102,241,0.05)'; // Mor (G\u00f6zetmen)
+            bgColor = 'rgba(99, 102, 241, 0.08)';
         } else if (isResponsible) {
-            bgColor = 'rgba(245, 158, 11, 0.08)'; // Turuncu (Sorumlu Hoca)
+            bgColor = 'rgba(245, 158, 11, 0.12)';
         }
 
         const examPreviews = combinedExamsOnDay.slice(0, 2).map(ex => {
@@ -6100,15 +6100,15 @@ function renderPersonalCalendar(staffId) {
             if (isP && isR) roleColor = 'var(--accent-red)';
             else if (isR) roleColor = 'var(--accent-orange)';
             
-            return `<div style="font-size:0.52rem; background:${roleColor}; color:white; padding:1px 3px; border-radius:3px; margin:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ex.time} ${ex.name.substring(0,6)}..</div>`;
+            return `<div style="font-size:0.52rem; background:${roleColor}; color:white !important; padding:1px 3px; border-radius:3px; margin:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ex.time} ${ex.name.substring(0,6)}..</div>`;
         }).join('');
 
-        const todayStyle = isToday ? 'border: 1px solid var(--primary); box-shadow: 0 0 8px rgba(99,102,241,0.2);' : 'border: 1px solid rgba(255,255,255,0.05);';
-        const hasClick = (combinedExamsOnDay.length > 0) ? `onclick="showProfileCalDayDetail('${dateStr}')" style="cursor:pointer; ${todayStyle} background:${bgColor};"` : `style="${todayStyle} background:${bgColor}; opacity:0.6;"`;
+        const todayStyle = isToday ? 'border: 2px solid var(--primary); box-shadow: 0 0 8px rgba(99,102,241,0.25);' : 'border: 1px solid var(--glass-border);';
+        const hasClick = (combinedExamsOnDay.length > 0) ? `onclick="showProfileCalDayDetail('${dateStr}')" style="cursor:pointer; ${todayStyle} background:${bgColor};"` : `style="${todayStyle} background:${bgColor};"`;
 
         html += `
             <div ${hasClick} class="profile-cal-day" style="display: flex; flex-direction: column; align-items: stretch; justify-content: start; min-height: 55px; padding: 4px 3px; border-radius: 8px; transition: all 0.2s;">
-                <div style="font-size:0.65rem; font-weight: ${isToday ? '800' : '500'}; color: ${isToday ? 'var(--primary)' : 'white'}; margin-bottom: 2px; text-align:center;">${d}</div>
+                <div style="font-size:0.68rem; font-weight: ${isToday ? '800' : '600'}; color: ${isToday ? 'var(--primary)' : 'var(--text-primary)'}; margin-bottom: 2px; text-align:center;">${d}</div>
                 <div style="display: flex; flex-direction: column;">
                     ${examPreviews}
                     ${combinedExamsOnDay.length > 2 ? `<div style="font-size:0.5rem; color:var(--text-muted); text-align:center; margin-top:1px;">+${combinedExamsOnDay.length - 2}</div>` : ''}
@@ -6896,8 +6896,10 @@ function renderProfileConstraints() {
         });
     }
 
-    // Görsel ızgarayı da yenile
+    // Görsel ızgarayı ve mini takvimi anında yenile
     vcgBuild(staff.name);
+    if (typeof renderMiniAvailabilityGrid === 'function') renderMiniAvailabilityGrid(userConstraints);
+    if (typeof renderPersonalCalendar === 'function') renderPersonalCalendar(myStaffId);
 }
 
 /**
