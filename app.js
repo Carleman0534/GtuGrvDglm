@@ -280,26 +280,7 @@ async function initApp() {
     // Sitenin en güncel veriyi Backend API'den asenkron olarak okumasını bekliyoruz
     await loadFromDataJSON();
 
-    // Hotfix: Correct Oğuzhan Selçuk's constraints if they are duplicated from Cansu Şahin
-    if (DB.constraints) {
-        const cansuConstraints = DB.constraints["Cansu Şahin"];
-        const oguzhanConstraints = DB.constraints["Oğuzhan Selçuk"];
-        
-        if (cansuConstraints && oguzhanConstraints && JSON.stringify(cansuConstraints) === JSON.stringify(oguzhanConstraints)) {
-            DB.constraints["Oğuzhan Selçuk"] = [
-                { "day": 1, "start": "08:30", "end": "13:30" },
-                { "day": 4, "start": "12:30", "end": "15:30" },
-                { "day": 5, "start": "08:30", "end": "13:30" }
-            ];
-            saveToLocalStorage();
-            console.log("Hotfixed Oğuzhan Selçuk's constraints to his original values.");
-        }
-    }
-
-    // Tüm eski yamalar (v2-v20) kaldırıldı. Veriler artık backend'deki data.json'dan geliyor.
-    // Eski yama kodları gereksizdir çünkü data.json zaten tüm düzeltmeleri içermektedir.
-
-    // Initialize DB.requests if not present
+    if (!DB.constraints) DB.constraints = {};
     if (!DB.requests) DB.requests = [];
     if (!DB.feedbacks) DB.feedbacks = [];
 
@@ -2060,9 +2041,11 @@ function renderConstraintsPage() {
 }
 
 function renderConstraintsList(staffName) {
+    if (!DB.constraints) DB.constraints = {};
     const tbody = document.querySelector('#table-constraints tbody');
     const title = document.getElementById('current-constraints-title');
-    title.textContent = `${staffName} - Mevcut Kısıtlar`;
+    if (title) title.textContent = `${staffName} - Mevcut Kısıtlar`;
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     const constraints = DB.constraints[staffName] || [];
@@ -2079,6 +2062,8 @@ function renderConstraintsList(staffName) {
         let timeLabel = "";
         if (c.day !== undefined) {
              timeLabel = `📅 Her ${dayNames[c.day]}`;
+        } else if (c.startDate && c.endDate) {
+             timeLabel = `📆 ${c.startDate} / ${c.endDate}`;
         } else {
              timeLabel = `🗓️ ${c.date}`;
         }
@@ -2095,7 +2080,10 @@ function renderConstraintsList(staffName) {
 }
 
 function addConstraint() {
+    if (!DB.constraints) DB.constraints = {};
     const staffName = document.getElementById('constraint-staff-select').value;
+    if (!staffName) { alert("Lütfen bir gözetmen seçin!"); return; }
+
     const type = document.getElementById('constraint-type').value;
     const start = document.getElementById('constraint-start').value;
     const end = document.getElementById('constraint-end').value;
@@ -2122,9 +2110,12 @@ function addConstraint() {
 
 window.deleteConstraint = function(staffName, index) {
     if (confirm("Bu kısıtlamayı silmek istediğinize emin misiniz?")) {
-        DB.constraints[staffName].splice(index, 1);
-        saveToLocalStorage();
-        renderConstraintsList(staffName);
+        if (!DB.constraints) DB.constraints = {};
+        if (DB.constraints[staffName]) {
+            DB.constraints[staffName].splice(index, 1);
+            saveToLocalStorage();
+            renderConstraintsList(staffName);
+        }
     }
 }
 
@@ -6999,7 +6990,10 @@ function vcgToggle(di, si, td) {
 window.vcgSaveAll = function() {
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-    if (!staff) return;
+    if (!staff) {
+        alert("Lütfen önce profil sayfasından kimliğinizi seçin.");
+        return;
+    }
 
     if (!DB.constraints) DB.constraints = {};
 
@@ -7035,11 +7029,19 @@ window.vcgSaveAll = function() {
 
 window.vcgClearAll = function() {
     if (!confirm('Tüm haftalık kısıtlarınız silinecek. Emin misiniz?')) return;
-    vcgState = Array.from({length: 7}, () => Array(VCG_SLOTS.length - 1).fill(false));
-    vcgBuild('__clear__'); // Tabloyu temizlemek için sahte isimle yenile
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-    if (staff) vcgBuild(staff.name);
+    if (!staff) {
+        alert("Lütfen önce profil sayfasından kimliğinizi seçin.");
+        return;
+    }
+    if (!DB.constraints) DB.constraints = {};
+    const oldConstraints = DB.constraints[staff.name] || [];
+    DB.constraints[staff.name] = oldConstraints.filter(c => c.day === undefined);
+    vcgState = Array.from({length: 7}, () => Array(VCG_SLOTS.length - 1).fill(false));
+    saveToLocalStorage();
+    renderProfileConstraints();
+    showToast('Tüm haftalık kısıtlarınız temizlendi.', 'info');
 };
 
 window.toggleDateConstraintFields = function() {
@@ -7082,7 +7084,10 @@ function renderMiniAvailabilityGrid(constraints) {
 function handleProfileConstraintAdd() {
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-    if (!staff) return;
+    if (!staff) {
+        alert("Lütfen önce profil sayfasından kimliğinizi seçin.");
+        return;
+    }
 
     const type = document.getElementById('profile-constraint-type').value;
     const start = document.getElementById('profile-constraint-start').value;
@@ -7090,7 +7095,8 @@ function handleProfileConstraintAdd() {
 
     const newConstraint = { start, end };
     if (type === 'day') {
-        newConstraint.day = parseInt(document.getElementById('profile-constraint-day').value);
+        const dayEl = document.getElementById('profile-constraint-day');
+        if (dayEl) newConstraint.day = parseInt(dayEl.value);
     } else if (type === 'date') {
         const dateVal = document.getElementById('profile-constraint-date').value; // YYYY-MM-DD
         if (!dateVal) { alert("Lütfen tarih seçin!"); return; }
@@ -7105,20 +7111,23 @@ function handleProfileConstraintAdd() {
         newConstraint.endDate = endVal;
     }
 
+    if (!DB.constraints) DB.constraints = {};
     if (!DB.constraints[staff.name]) DB.constraints[staff.name] = [];
     DB.constraints[staff.name].push(newConstraint);
 
     saveToLocalStorage();
     renderProfileConstraints();
-    alert("✓ Müsaitlik kısıtı profilinize eklendi.");
+    showToast("✓ Müsaitlik kısıtı profilinize eklendi.", "success");
 }
 
 window.handleProfileConstraintDelete = function(name, idx) {
     if (confirm("Bu kısıtı silmek istediğinize emin misiniz?")) {
+        if (!DB.constraints) DB.constraints = {};
         if (DB.constraints[name]) {
             DB.constraints[name].splice(idx, 1);
             saveToLocalStorage();
             renderProfileConstraints();
+            showToast("Kısıt silindi.", "info");
         }
     }
 }
@@ -10234,15 +10243,6 @@ window.cleanExpiredConstraints = (silent = false) => {
         if (!silent) showToast("Tarihi geçmiş kısıt bulunamadı.", "info");
     }
 };
-
-// Sayfa yüklendiğinde otomatik temizlik yap (sessizce)
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        if (typeof cleanExpiredConstraints === 'function') {
-            cleanExpiredConstraints(true);
-        }
-    }, 2000); // Veriler yüklendikten 2 sn sonra
-});
 
 // ===== KARNE (SCORECARD) MODÜLÜ =====
 window.renderScorecard = function() {

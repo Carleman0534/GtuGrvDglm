@@ -420,7 +420,7 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
         
         if (isDayMatch || isDateMatch || isDaterangeMatch) {
             const constraintStart = timeToMins(c.start);
-            const constraintEnd = Math.min(timeToMins(c.end), timeToMins("17:30"));
+            const constraintEnd = timeToMins(c.end);
             
             // Çakışma kontrolü
             if (examStart < constraintEnd && examEnd > constraintStart) {
@@ -1328,22 +1328,23 @@ async function loadFromDataJSON() {
             }
             
 
-            // KRİTİK: Eğer yerel kısıtlar varsa ve biz bir kullanıcıysak, yerel kısıtlarımızı koruyalım
-            // Çünkü guest modunda sunucuya kayıt yapılamıyor, refresh sonrası silinmemeli.
-            if (localConstraints) {
-                const myStaffId = localStorage.getItem('myStaffId');
-                const me = data.staff.find(s => String(s.id) === String(myStaffId));
-                if (me && localConstraints[me.name]) {
-                    if (!data.constraints) data.constraints = {};
-                    data.constraints[me.name] = localConstraints[me.name];
-                    console.log(`Yerel kısıtlar (${me.name}) geri yüklendi.`);
+            if (!data.constraints) data.constraints = {};
+            
+            // Sunucuda kısıtlar boşsa veya yerel kısıt varsa güvenli birleştirme yap
+            if (localConstraints && typeof localConstraints === 'object') {
+                for (let staffName in localConstraints) {
+                    if (!data.constraints[staffName] || data.constraints[staffName].length === 0) {
+                        data.constraints[staffName] = localConstraints[staffName];
+                    }
                 }
             }
 
             DB = data;
+            if (!DB.constraints) DB.constraints = {};
             if (!DB.requests) DB.requests = []; // Eksikse başlat
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
+            console.log("Veriler başarıyla yüklendi. Kısıt sayısı:", Object.keys(DB.constraints).length);
             console.log("Veriler başarıyla yüklendi.");
             // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
             recalculateAllScores();

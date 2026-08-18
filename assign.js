@@ -147,7 +147,7 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
         
         if (isDayMatch || isDateMatch || isDaterangeMatch) {
             const constraintStart = timeToMins(c.start);
-            const constraintEnd = Math.min(timeToMins(c.end), timeToMins("17:30"));
+            const constraintEnd = timeToMins(c.end);
             if (examStart < constraintEnd && examEnd > constraintStart) {
                 return false; 
             }
