@@ -11799,3 +11799,457 @@ window.handleAutoFixIntegrity = function() {
     }, 400);
 };
 
+// ==========================================
+// 📅 GOOGLE / APPLE TAKVİM (.ICS) ENTEGRASYONU
+// ==========================================
+
+function generateICalContent(exams, calendarName = "Sınav Görevleri") {
+    let ics = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//GTU//Gozetmenlik Katsayi Sistemi//TR",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        `X-WR-CALNAME:${calendarName}`,
+        "X-WR-TIMEZONE:Europe/Istanbul"
+    ];
+
+    exams.forEach((ex, idx) => {
+        if (!ex.date) return;
+        const timeStr = ex.time || "09:00";
+        const dateParts = ex.date.split('-');
+        if (dateParts.length < 3) return;
+
+        const y = dateParts[0];
+        const m = dateParts[1].padStart(2, '0');
+        const d = dateParts[2].padStart(2, '0');
+
+        const timeParts = timeStr.split(':');
+        const sh = (timeParts[0] || "09").padStart(2, '0');
+        const sm = (timeParts[1] || "00").padStart(2, '0');
+
+        const startStr = `${y}${m}${d}T${sh}${sm}00`;
+        const dur = parseInt(ex.duration || 60, 10);
+
+        const startDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), parseInt(sh, 10), parseInt(sm, 10));
+        const endDate = new Date(startDate.getTime() + dur * 60000);
+
+        const ey = endDate.getFullYear();
+        const em = String(endDate.getMonth() + 1).padStart(2, '0');
+        const ed = String(endDate.getDate()).padStart(2, '0');
+        const eh = String(endDate.getHours()).padStart(2, '0');
+        const emin = String(endDate.getMinutes()).padStart(2, '0');
+        const endStr = `${ey}${em}${ed}T${eh}${emin}00`;
+
+        const summary = `${ex.name || 'Sınav'} Gözetmenliği`;
+        const location = ex.location || 'Belirtilmedi';
+        const description = `Ders: ${ex.name}\\nÖğretim Üyesi: ${ex.lecturer || '-'}\\nDerslik: ${location}\\nSüre: ${dur} dk\\nMevcut: ${ex.capacity || '-'}`;
+        const uid = `gtu-exam-${ex.id || idx}-${y}${m}${d}-${sh}${sm}@gtu.edu.tr`;
+
+        ics.push(
+            "BEGIN:VEVENT",
+            `UID:${uid}`,
+            `DTSTAMP:${new Date().toISOString().replace(/[-:]/g,'').split('.')[0]}Z`,
+            `DTSTART;TZID=Europe/Istanbul:${startStr}`,
+            `DTEND;TZID=Europe/Istanbul:${endStr}`,
+            `SUMMARY:${summary.replace(/,/g,'\\,')}`,
+            `LOCATION:${location.replace(/,/g,'\\,')}`,
+            `DESCRIPTION:${description}`,
+            "STATUS:CONFIRMED",
+            "BEGIN:VALARM",
+            "TRIGGER:-PT30M",
+            "ACTION:DISPLAY",
+            "DESCRIPTION:Sınav görevine 30 dakika kaldı",
+            "END:VALARM",
+            "END:VEVENT"
+        );
+    });
+
+    ics.push("END:VCALENDAR");
+    return ics.join("\r\n");
+}
+
+function downloadICalFile(icsContent, filename) {
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}
+
+window.exportMyExamsToICal = function() {
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (!myStaffId) {
+        showToast('Lütfen önce kimliğinizi seçin.', 'warning');
+        return;
+    }
+
+    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    const myExams = DB.exams.filter(e => {
+        if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, myStaffId);
+        return (e.proctorIds || [e.proctorId]).map(String).includes(String(myStaffId));
+    });
+
+    if (myExams.length === 0) {
+        showToast('Takvime aktarılacak aktif sınav göreviniz bulunmuyor.', 'info');
+        return;
+    }
+
+    const name = staff ? staff.name : 'Gozetmen';
+    const icsData = generateICalContent(myExams, `${name} Sınav Görevleri`);
+    downloadICalFile(icsData, `${name.replace(/\s+/g,'_')}_Sinav_Gorevleri.ics`);
+    showToast(`📅 ${myExams.length} sınav görevi takvim (.ics) dosyası olarak indirildi!`, 'success');
+};
+
+window.exportStaffExamsToICal = function(staffName) {
+    const staff = DB.staff.find(s => s.name === staffName);
+    if (!staff) return;
+
+    const staffExams = DB.exams.filter(e => {
+        if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, staff.id);
+        return (e.proctorIds || [e.proctorId]).map(String).includes(String(staff.id));
+    });
+
+    if (staffExams.length === 0) {
+        showToast(`${staffName} için sınav görevi bulunamadı.`, 'info');
+        return;
+    }
+
+    const icsData = generateICalContent(staffExams, `${staffName} Sınav Programı`);
+    downloadICalFile(icsData, `${staffName.replace(/\s+/g,'_')}_Sinavlar.ics`);
+    showToast(`📅 ${staffName} için takvim (.ics) dosyası indirildi!`, 'success');
+};
+
+window.exportAllExamsToICal = function() {
+    const allExams = DB.exams || [];
+    if (allExams.length === 0) {
+        showToast('İndirilecek sınav bulunamadı.', 'warning');
+        return;
+    }
+
+    const icsData = generateICalContent(allExams, "GTÜ Bölüm Sınav Programı");
+    downloadICalFile(icsData, `Genel_Sinav_Programi_${new Date().toISOString().split('T')[0]}.ics`);
+    showToast(`📅 Toplam ${allExams.length} sınav takvim (.ics) dosyası olarak indirildi!`, 'success');
+};
+
+// =======================================================
+// 🏛️ DÖNEM SONU DEKANLIK & BÖLÜM İCMAL RAPORU MODÜLÜ
+// =======================================================
+
+window.openDekanlikReportModal = function() {
+    const modal = document.getElementById('modal-dekanlik-report');
+    if (!modal) return;
+    renderDekanlikReportData();
+    modal.classList.remove('hidden');
+};
+
+window.renderDekanlikReportData = function() {
+    const tbody = document.querySelector('#table-dekanlik-report tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const filterType = document.getElementById('dekanlik-report-type-filter')?.value || 'all';
+
+    let filteredExams = (DB.exams || []).slice();
+    if (filterType !== 'all') {
+        filteredExams = filteredExams.filter(e => {
+            const t = (e.type || '').toLowerCase();
+            return t.includes(filterType);
+        });
+    }
+
+    let staffList = (DB.staff || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+
+    let totalStaffCount = staffList.length;
+    let totalAssignments = 0;
+    let totalDurationMins = 0;
+
+    staffList.forEach((s, idx) => {
+        const assignedExams = filteredExams.filter(e => {
+            if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, s.id);
+            return (e.proctorIds || [e.proctorId]).map(String).includes(String(s.id));
+        });
+
+        const examCount = assignedExams.length;
+        totalAssignments += examCount;
+
+        const staffMins = assignedExams.reduce((acc, e) => acc + parseInt(e.duration || 60, 10), 0);
+        totalDurationMins += staffMins;
+
+        const hours = Math.floor(staffMins / 60);
+        const mins = staffMins % 60;
+        const durationStr = `${hours} sa ${mins > 0 ? mins + ' dk' : ''}`;
+
+        const baseScore = parseFloat(s.baseScore || 0);
+        const totalScore = parseFloat(s.totalScore || 0);
+        const examScore = Math.max(0, parseFloat((totalScore - baseScore).toFixed(2)));
+        const flexScore = calculateAvailabilityScore(s.id);
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        tr.innerHTML = `
+            <td style="color:var(--text-muted); font-size:0.85rem;">${idx + 1}</td>
+            <td>
+                <div class="name-with-avatar">
+                    ${getAvatarHtml(s.name)}
+                    <strong style="color:white; font-size:0.9rem;">${s.name}</strong>
+                </div>
+            </td>
+            <td><span class="email-text">${s.email || '-'}</span></td>
+            <td style="text-align: center; font-weight: 700; color: #38bdf8;">${examCount}</td>
+            <td style="text-align: center; color: var(--text-muted); font-size:0.85rem;">${durationStr}</td>
+            <td style="text-align: center; color: #94a3b8;">${baseScore.toFixed(1)}</td>
+            <td style="text-align: center; color: #f59e0b; font-weight: 600;">${examScore.toFixed(1)}</td>
+            <td style="text-align: center; font-weight: 800; color: #10b981; font-size:0.95rem;">${totalScore.toFixed(1)}</td>
+            <td style="text-align: center;">
+                <span class="badge" style="background:${getScoreColor(flexScore)}22; color:${getScoreColor(flexScore)}; border:1px solid ${getScoreColor(flexScore)}44; font-weight:700;">
+                    %${flexScore}
+                </span>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const totalHours = (totalDurationMins / 60).toFixed(1);
+    const avgTasks = totalStaffCount > 0 ? (totalAssignments / totalStaffCount).toFixed(1) : '0';
+
+    const elStaff = document.getElementById('dekanlik-stat-staff-count');
+    const elExams = document.getElementById('dekanlik-stat-exam-count');
+    const elHours = document.getElementById('dekanlik-stat-hours-count');
+    const elAvg   = document.getElementById('dekanlik-stat-avg-tasks');
+
+    if (elStaff) elStaff.textContent = totalStaffCount;
+    if (elExams) elExams.textContent = totalAssignments;
+    if (elHours) elHours.textContent = `${totalHours} Saat`;
+    if (elAvg) elAvg.textContent = `${avgTasks} Sınav / Kişi`;
+};
+
+window.exportDekanlikReportExcel = function() {
+    const filterType = document.getElementById('dekanlik-report-type-filter')?.value || 'all';
+    let filteredExams = (DB.exams || []).slice();
+    if (filterType !== 'all') {
+        filteredExams = filteredExams.filter(e => (e.type || '').toLowerCase().includes(filterType));
+    }
+
+    const staffList = (DB.staff || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+
+    const headers = [
+        "Sıra No",
+        "Personel Unvan & Ad Soyad",
+        "E-posta",
+        "Sınav Görevi Sayısı",
+        "Toplam Görev Süresi (Saat)",
+        "Taban Puan",
+        "Sınav Katsayı Puanı",
+        "Genel Toplam Puan",
+        "Müsaitlik Esneklik Skoru (%)"
+    ];
+
+    const data = [
+        ["T.C. GEBZE TEKNİK ÜNİVERSİTESİ"],
+        ["DÖNEM SONU SINAV GÖZETMENLİK VE ASİSTAN İŞ YÜKÜ İCMAL RAPORU"],
+        [`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Dönem Filtresi: ${filterType.toUpperCase()}`],
+        [],
+        headers
+    ];
+
+    let totalExamsAll = 0;
+    let totalHoursAll = 0;
+
+    staffList.forEach((s, idx) => {
+        const assignedExams = filteredExams.filter(e => {
+            if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, s.id);
+            return (e.proctorIds || [e.proctorId]).map(String).includes(String(s.id));
+        });
+
+        const examCount = assignedExams.length;
+        totalExamsAll += examCount;
+
+        const staffMins = assignedExams.reduce((acc, e) => acc + parseInt(e.duration || 60, 10), 0);
+        const hoursNum = parseFloat((staffMins / 60).toFixed(1));
+        totalHoursAll += hoursNum;
+
+        const baseScore = parseFloat(s.baseScore || 0);
+        const totalScore = parseFloat(s.totalScore || 0);
+        const examScore = Math.max(0, parseFloat((totalScore - baseScore).toFixed(2)));
+        const flexScore = calculateAvailabilityScore(s.id);
+
+        data.push([
+            idx + 1,
+            s.name,
+            s.email || '-',
+            examCount,
+            hoursNum,
+            parseFloat(baseScore.toFixed(1)),
+            parseFloat(examScore.toFixed(1)),
+            parseFloat(totalScore.toFixed(1)),
+            flexScore
+        ]);
+    });
+
+    data.push([]);
+    data.push([
+        "GENEL TOPLAM / ORTALAMA",
+        `Toplam ${staffList.length} Personel`,
+        "",
+        totalExamsAll,
+        parseFloat(totalHoursAll.toFixed(1)),
+        "",
+        "",
+        "",
+        ""
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [
+        { wch: 8 },  // No
+        { wch: 30 }, // Ad Soyad
+        { wch: 28 }, // Eposta
+        { wch: 20 }, // Sınav Sayısı
+        { wch: 25 }, // Toplam Süre
+        { wch: 14 }, // Taban Puan
+        { wch: 18 }, // Sınav Puanı
+        { wch: 18 }, // Genel Toplam
+        { wch: 25 }  // Esneklik
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dekanlık İcmal Raporu');
+    XLSX.writeFile(wb, `Dekanlik_Donem_Sonu_Icmal_Raporu_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast('📊 Dekanlık İcmal Raporu Excel olarak indirildi!', 'success');
+};
+
+window.printDekanlikReportPDF = function() {
+    const filterType = document.getElementById('dekanlik-report-type-filter')?.value || 'all';
+    let filteredExams = (DB.exams || []).slice();
+    if (filterType !== 'all') {
+        filteredExams = filteredExams.filter(e => (e.type || '').toLowerCase().includes(filterType));
+    }
+
+    const staffList = (DB.staff || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+
+    let totalAssignments = 0;
+    let totalDurationMins = 0;
+
+    const rowsHtml = staffList.map((s, idx) => {
+        const assignedExams = filteredExams.filter(e => {
+            if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, s.id);
+            return (e.proctorIds || [e.proctorId]).map(String).includes(String(s.id));
+        });
+
+        const examCount = assignedExams.length;
+        totalAssignments += examCount;
+        const staffMins = assignedExams.reduce((acc, e) => acc + parseInt(e.duration || 60, 10), 0);
+        totalDurationMins += staffMins;
+
+        const hours = (staffMins / 60).toFixed(1);
+        const baseScore = parseFloat(s.baseScore || 0).toFixed(1);
+        const totalScore = parseFloat(s.totalScore || 0).toFixed(1);
+        const examScore = Math.max(0, (totalScore - baseScore)).toFixed(1);
+        const flexScore = calculateAvailabilityScore(s.id);
+
+        return `
+            <tr>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc;">${idx + 1}</td>
+                <td style="padding:6px; border:1px solid #ccc; font-weight:600;">${s.name}</td>
+                <td style="padding:6px; border:1px solid #ccc; font-size:12px;">${s.email || '-'}</td>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc; font-weight:bold;">${examCount}</td>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc;">${hours} Saat</td>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc;">${baseScore}</td>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc;">${examScore}</td>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc; font-weight:bold;">${totalScore}</td>
+                <td style="text-align:center; padding:6px; border:1px solid #ccc;">%${flexScore}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const totalHours = (totalDurationMins / 60).toFixed(1);
+    const avgTasks = staffList.length > 0 ? (totalAssignments / staffList.length).toFixed(1) : '0';
+
+    const printWin = window.open('', '_blank');
+    printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Dönem Sonu Sınav İcmal Raporu - GTÜ</title>
+            <style>
+                body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #111; }
+                .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 16px; }
+                .header h2 { margin: 0; font-size: 18px; text-transform: uppercase; }
+                .header h3 { margin: 4px 0; font-size: 15px; font-weight: 500; }
+                .header p { margin: 4px 0 0 0; font-size: 12px; color: #555; }
+                .stats-grid { display: flex; justify-content: space-around; background: #f4f4f5; padding: 10px; border-radius: 6px; margin-bottom: 16px; border: 1px solid #e4e4e7; font-size: 13px; }
+                table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 25px; }
+                th { background: #e2e8f0; padding: 8px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; }
+                .signatures { display: flex; justify-content: space-between; margin-top: 40px; padding: 0 40px; }
+                .sig-box { text-align: center; width: 220px; }
+                .sig-line { border-bottom: 1px dashed #333; height: 50px; margin-bottom: 6px; }
+                @media print {
+                    @page { size: A4 landscape; margin: 12mm; }
+                    body { padding: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>T.C. GEBZE TEKNİK ÜNİVERSİTESİ</h2>
+                <h3>DÖNEM SONU SINAV GÖZETMENLİK VE ASİSTAN İŞ YÜKÜ İCMAL RAPORU</h3>
+                <p>Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Kapsam: ${filterType.toUpperCase()} SINAVLARI</p>
+            </div>
+
+            <div class="stats-grid">
+                <div><strong>Toplam Personel:</strong> ${staffList.length}</div>
+                <div><strong>Toplam Görevlendirme:</strong> ${totalAssignments} Adet</div>
+                <div><strong>Toplam Gözetmenlik Süresi:</strong> ${totalHours} Saat</div>
+                <div><strong>Ortalama Görev / Asistan:</strong> ${avgTasks} Sınav</div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:30px;">No</th>
+                        <th style="text-align:left;">Personel Unvan & Ad Soyad</th>
+                        <th>E-posta</th>
+                        <th>Sınav Sayısı</th>
+                        <th>Toplam Süre</th>
+                        <th>Taban Puan</th>
+                        <th>Sınav Puanı</th>
+                        <th>Genel Toplam</th>
+                        <th>Esneklik</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+
+            <div class="signatures">
+                <div class="sig-box">
+                    <div style="font-weight:700;">Hazırlayan / Koordinatör</div>
+                    <div class="sig-line"></div>
+                    <div style="font-size:12px; color:#555;">İmza / Tarih</div>
+                </div>
+                <div class="sig-box">
+                    <div style="font-weight:700;">Bölüm Başkanı Onayı</div>
+                    <div class="sig-line"></div>
+                    <div style="font-size:12px; color:#555;">İmza / Mühür</div>
+                </div>
+                <div class="sig-box">
+                    <div style="font-weight:700;">Dekanlık Tasdiki</div>
+                    <div class="sig-line"></div>
+                    <div style="font-size:12px; color:#555;">İmza / Mühür</div>
+                </div>
+            </div>
+            <script>
+                window.onload = function() { window.print(); };
+            <\/script>
+        </body>
+        </html>
+    `);
+    printWin.document.close();
+};
+

@@ -57,6 +57,8 @@
                 <button id="btn-stats">İstatistikler</button>
                 <button id="btn-exams">Sınavlar</button>
                 <button id="btn-staff" class="admin-only">Personel</button>
+                <button id="btn-nav-constraints" class="admin-only" onclick="document.getElementById('btn-staff').click(); switchStaffTab('constraints');" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);"><span class="icon" style="margin:0; margin-right:4px;">🚫</span>Kısıt Matrisi</button>
+                <button id="btn-nav-dekanlik-report" class="admin-only" onclick="openDekanlikReportModal()" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4);"><span class="icon" style="margin:0; margin-right:4px;">🏛️</span>Dekanlık İcmali</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
                 <button id="btn-audit" class="admin-only">📜 İşlem Geçmişi</button>
                 <button id="btn-header-vault" class="admin-only" onclick="openSnapshotVault()" title="Yedek Geçmişi & Kurtarma Kasası" style="background: rgba(2, 132, 199, 0.15); color: #38bdf8; border: 1px solid rgba(2, 132, 199, 0.4);"><span class="icon" style="margin:0; margin-right:4px;">📁</span>Snapshot Kasası</button>
@@ -150,6 +152,9 @@
                             </div>
                         </div>
                         <div class="profile-hero-actions">
+                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="exportMyExamsToICal()">
+                                <span>📅</span> Takvimime Ekle (.ics)
+                            </button>
                             <button id="btn-change-identity" class="btn-identity-switch">
                                 <span>🔄 Kimliği Değiştir</span>
                             </button>
@@ -1001,6 +1006,7 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
                         <input type="text" id="schedule-search" placeholder="🔍 Programda Ara..." style="max-width:250px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
+                        <button id="btn-export-schedule-ical" class="btn-primary" style="background:#0284c7;" onclick="exportAllExamsToICal()">📅 Takvim (.ics)</button>
                         <button id="btn-export-schedule-excel" class="btn-primary" style="background:#1d6f42;">Excel İndir</button>
                         <button id="btn-export-schedule" class="btn-primary" style="background:#28a745;">🖼️ Resim</button>
                         <button id="btn-export-schedule-pdf" class="btn-primary" style="background:#dc2626;">📄 PDF</button>
@@ -2188,6 +2194,89 @@
             <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <button type="button" class="btn-secondary" style="color: #ef4444; border: 1px solid rgba(239,68,68,0.4);" onclick="clearAllStaffConstraintsAdmin()">🗑️ Tüm Kısıtları Temizle</button>
                 <button type="button" class="btn-secondary" onclick="document.getElementById('modal-staff-constraints-admin').classList.add('hidden')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dönem Sonu Dekanlık İcmal Raporu Modalı -->
+    <div id="modal-dekanlik-report" class="modal hidden admin-only" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-content card-large" style="max-width: 1200px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 2rem;">🏛️</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.25rem; color: #a78bfa;">Dönem Sonu Dekanlık & Bölüm Sınav İcmal Raporu</h2>
+                        <p style="margin: 2px 0 0 0; color: var(--text-muted); font-size: 0.8rem;">Resmi Görevlendirme, Katsayı Puan ve Asistan İş Yükü Dağılım İcmali</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-dekanlik-report').classList.add('hidden')" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+
+            <!-- Filtreleme ve Dönem Seçimi -->
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; background: rgba(0,0,0,0.3); padding: 10px 16px; border-radius: 10px; border: 1px solid var(--glass-border); flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Dönem / Sınav Filtresi:</label>
+                    <select id="dekanlik-report-type-filter" style="background: rgba(15,23,42,0.8); border: 1px solid var(--glass-border); padding: 0.45rem 0.9rem; border-radius: 8px; color: white; font-size: 0.85rem; cursor: pointer;" onchange="renderDekanlikReportData()">
+                        <option value="all">Tüm Sınavlar (Genel Dönem)</option>
+                        <option value="vize">Sadece Vizeler (Ara Sınavlar)</option>
+                        <option value="final">Sadece Finaller (Dönem Sonu)</option>
+                        <option value="but">Sadece Bütünlemeler</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-primary" style="background: #1d6f42; font-size: 0.85rem; padding: 0.5rem 1rem; display: inline-flex; align-items: center; gap: 6px;" onclick="exportDekanlikReportExcel()">
+                        <span>📥</span> Excel İndir (.xlsx)
+                    </button>
+                    <button type="button" class="btn-primary" style="background: #dc2626; font-size: 0.85rem; padding: 0.5rem 1rem; display: inline-flex; align-items: center; gap: 6px;" onclick="printDekanlikReportPDF()">
+                        <span>📄</span> Resmi İmzalı PDF Çıktısı Al
+                    </button>
+                </div>
+            </div>
+
+            <!-- Özet İstatistik Kartları -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                <div style="background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #a5b4fc; text-transform: uppercase;">Toplam Görevli Personel</div>
+                    <div id="dekanlik-stat-staff-count" style="font-size: 1.5rem; font-weight: 800; color: white; margin-top: 4px;">0</div>
+                </div>
+                <div style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #6ee7b7; text-transform: uppercase;">Toplam Sınav Görevi</div>
+                    <div id="dekanlik-stat-exam-count" style="font-size: 1.5rem; font-weight: 800; color: white; margin-top: 4px;">0</div>
+                </div>
+                <div style="background: rgba(14,165,233,0.12); border: 1px solid rgba(14,165,233,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #7dd3fc; text-transform: uppercase;">Toplam Gözetmenlik Saati</div>
+                    <div id="dekanlik-stat-hours-count" style="font-size: 1.5rem; font-weight: 800; color: white; margin-top: 4px;">0 Saat</div>
+                </div>
+                <div style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #fcd34d; text-transform: uppercase;">Ortalama Görev / Asistan</div>
+                    <div id="dekanlik-stat-avg-tasks" style="font-size: 1.5rem; font-weight: 800; color: white; margin-top: 4px;">0</div>
+                </div>
+            </div>
+
+            <!-- Detaylı İcmal Tablosu -->
+            <div class="table-container" style="flex: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; margin-bottom: 12px;">
+                <table id="table-dekanlik-report">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">No</th>
+                            <th>Personel Unvan & Ad Soyad</th>
+                            <th>E-posta</th>
+                            <th style="width: 100px; text-align: center;">Sınav Sayısı</th>
+                            <th style="width: 100px; text-align: center;">Toplam Süre</th>
+                            <th style="width: 90px; text-align: center;">Taban Puan</th>
+                            <th style="width: 90px; text-align: center;">Sınav Puanı</th>
+                            <th style="width: 100px; text-align: center;">Genel Toplam</th>
+                            <th style="width: 90px; text-align: center;">Esneklik %</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">💡 Bu rapor Dekanlık ve Bölüm Başkanlığı resmi görevlendirme dağılım tutanağı formatına uygundur.</span>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('modal-dekanlik-report').classList.add('hidden')">Kapat</button>
             </div>
         </div>
     </div>
