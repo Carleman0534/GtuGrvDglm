@@ -2728,6 +2728,7 @@ function renderSchedule() {
                 isDraft: ex.isDraft,
                 proctors: []
             };
+        }
         const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
             if (!pid) return '';
             const s = DB.staff.find(staff => String(staff.id) === String(pid));
@@ -6395,7 +6396,6 @@ window.renderProfile = function() {
         renderLecturerExamsTab(staffIdNum, staff);
 
         // Şifre Ayarlama Bölümünü Render Et (sadece gözetmen modunda)
-        const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
         if (!isAdmin) {
             renderPasswordSection(staff);
         } else {
@@ -9605,25 +9605,56 @@ function initExcelImport() {
     if (btnAllImport) btnAllImport.addEventListener('click', importAllExcelExams);
 }
 
-function parseTurkishDateTime(rawStr) {
+function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 60) {
     let dateStr = "";
     let timeStr = "09:00";
+    let duration = defaultDuration;
+    let endTimeStr = "";
     
-    if (typeof rawStr === 'number') {
-        const excelDate = new Date((rawStr - (25567 + 1)) * 86400 * 1000);
-        const d = String(excelDate.getDate()).padStart(2, '0');
-        const m = String(excelDate.getMonth() + 1).padStart(2, '0');
-        const y = excelDate.getFullYear();
-        dateStr = `${y}-${m}-${d}`;
-        timeStr = `${String(excelDate.getUTCHours()).padStart(2,'0')}:${String(excelDate.getUTCMinutes()).padStart(2,'0')}`;
-        return { date: dateStr, time: timeStr };
+    if (rawStr === null || rawStr === undefined || rawStr === "") {
+        return { date: new Date().toISOString().split('T')[0], time: "09:00", duration: defaultDuration, endTime: "10:00" };
     }
 
-    rawStr = String(rawStr).trim();
+    if (typeof rawStr === 'number') {
+        const excelDate = new Date((rawStr - (25567 + 1)) * 86400 * 1000);
+        const d = String(excelDate.getUTCDate()).padStart(2, '0');
+        const m = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
+        const y = excelDate.getUTCFullYear();
+        dateStr = `${y}-${m}-${d}`;
+        timeStr = `${String(excelDate.getUTCHours()).padStart(2,'0')}:${String(excelDate.getUTCMinutes()).padStart(2,'0')}`;
+        return { date: dateStr, time: timeStr, duration: defaultDuration, endTime: "" };
+    }
+
+    rawStr = String(rawStr).replace(/\r?\n/g, ' ').trim();
     
-    const timeMatch = rawStr.match(/(\d{1,2})[:.](\d{2})/);
-    if (timeMatch) {
-        timeStr = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+    // 1. Saat Aralığı Kontrolü: "09:30-11:20", "13:30-15:20", "09:30 - 11:20", "15:30-16:20"
+    const timeRangeMatch = rawStr.match(/(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/);
+    if (timeRangeMatch) {
+        const startH = parseInt(timeRangeMatch[1], 10);
+        const startM = parseInt(timeRangeMatch[2], 10);
+        const endH = parseInt(timeRangeMatch[3], 10);
+        const endM = parseInt(timeRangeMatch[4], 10);
+        
+        timeStr = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`;
+        endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+        
+        const startTotalMin = startH * 60 + startM;
+        const endTotalMin = endH * 60 + endM;
+        if (endTotalMin > startTotalMin) {
+            duration = endTotalMin - startTotalMin;
+        }
+    } else {
+        // Tekil saat: "10:30", "09:00"
+        const singleTimeMatch = rawStr.match(/(\d{1,2})[:.](\d{2})/);
+        if (singleTimeMatch) {
+            const h = parseInt(singleTimeMatch[1], 10);
+            const m = parseInt(singleTimeMatch[2], 10);
+            timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            const endTotal = h * 60 + m + defaultDuration;
+            const endH = Math.floor(endTotal / 60) % 24;
+            const endM = endTotal % 60;
+            endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+        }
     }
     
     const months = {
@@ -9631,30 +9662,41 @@ function parseTurkishDateTime(rawStr) {
         "temmuz": "07", "ağustos": "08", "agustos": "08", "eylül": "09", "eylul": "09", "ekim": "10", "kasım": "11", "kasim": "11", "aralık": "12", "aralik": "12"
     };
     
+    // Ay ismi içeren Türkçe Tarih: "16 Haziran 2026 Salı 10:30", "11 Haziran 2026"
     const regexTurkishDate = /(\d{1,2})\s+([a-zA-ZğüşıöçĞÜŞİÖÇ]+)\s+(\d{4})/;
     const dateMatch = rawStr.match(regexTurkishDate);
     
-    if (dateMatch) {
+    if (dateMatch && months[dateMatch[2].toLowerCase()]) {
         const d = dateMatch[1].padStart(2, '0');
-        const mStr = dateMatch[2].toLowerCase();
+        const m = months[dateMatch[2].toLowerCase()];
         const y = dateMatch[3];
-        const m = months[mStr] || "01";
         dateStr = `${y}-${m}-${d}`;
     } else {
-        const stdMatch = rawStr.match(/(\d{1,4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,4})/);
+        // Noktalı veya tireli tarih: "08.06.2026", "9.06.2026", "15.06.2026Pazartesi"
+        const stdMatch = rawStr.match(/(\d{1,4})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
         if (stdMatch) {
             let p1 = stdMatch[1], p2 = stdMatch[2], p3 = stdMatch[3];
             if (p1.length === 4) {
                 dateStr = `${p1}-${p2.padStart(2,'0')}-${p3.padStart(2,'0')}`;
             } else if (p3.length === 4) {
                 dateStr = `${p3}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
-            } else {
+            } else if (p3.length === 2) {
                 dateStr = `20${p3}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
             }
         }
     }
     
-    return { date: dateStr || new Date().toISOString().split('T')[0], time: timeStr };
+    if (!dateStr) {
+        dateStr = new Date().toISOString().split('T')[0];
+    }
+    
+    return { date: dateStr, time: timeStr, duration: duration, endTime: endTimeStr };
+}
+
+// Eski fonksiyon uyumluluğu
+function parseTurkishDateTime(rawStr) {
+    const res = parseTurkishDateTimeAndDuration(rawStr);
+    return { date: res.date, time: res.time };
 }
 
 async function handleExcelExamsFile(e) {
@@ -9666,7 +9708,7 @@ async function handleExcelExamsFile(e) {
     const iconObj = document.getElementById('excel-drop-icon');
     
     if (textObj) textObj.innerHTML = "Yükleniyor ve Yapay Zeka Hesaplanıyor...";
-    if (subObj) subObj.innerHTML = "Lütfen bekleyin, bu işlem çok sayıda sınav varsa birkaç saniye sürebilir.";
+    if (subObj) subObj.innerHTML = "Lütfen bekleyin, sınavlar ve gözetmenler adil katsayı puanlarıyla hesaplanıyor...";
     if (iconObj) iconObj.innerHTML = "⏳";
 
     const reader = new FileReader();
@@ -9682,11 +9724,11 @@ async function handleExcelExamsFile(e) {
                 
                 let headerRowIndex = -1;
                 let headers = [];
-                for(let i=0; i<rawRows.length; i++) {
+                for(let i = 0; i < Math.min(10, rawRows.length); i++) {
                     const r = rawRows[i];
                     if (!r) continue;
                     const rowStr = r.join(' ').toLowerCase();
-                    if (rowStr.includes('dersin adı') || rowStr.includes('sınav adı') || rowStr.includes('ders') || rowStr.includes('kodu')) {
+                    if (rowStr.includes('dersin adı') || rowStr.includes('sınav adı') || rowStr.includes('ders') || rowStr.includes('kodu') || rowStr.includes('hocalar')) {
                         headerRowIndex = i;
                         headers = r.map(h => h ? String(h).trim().toLowerCase() : '');
                         break;
@@ -9694,7 +9736,7 @@ async function handleExcelExamsFile(e) {
                 }
 
                 if (headerRowIndex === -1) {
-                    showToast('Excel dosyasında geçerli bir başlık satırı ("Dersin Adı", "Sınav Adı" vb.) bulunamadı!', 'error');
+                    showToast('Excel dosyasında geçerli bir başlık satırı ("Dersin Kodu", "Dersin Adı", "Hocalar" vb.) bulunamadı!', 'error');
                     if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
                     if (iconObj) iconObj.innerHTML = "📥";
                     return;
@@ -9703,12 +9745,17 @@ async function handleExcelExamsFile(e) {
                 const mappedRows = [];
                 for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
                     const r = rawRows[i];
-                    if (!r || r.length === 0 || !r.some(v => v !== "" && v !== undefined)) continue;
+                    if (!r || r.length === 0 || !r.some(v => v !== "" && v !== undefined && v !== null)) continue;
                     
                     const obj = {};
-                    headers.forEach((h, idx) => {
-                        if (h) obj[h] = r[idx];
-                    });
+                    const maxLen = Math.max(headers.length, r.length);
+                    for (let idx = 0; idx < maxLen; idx++) {
+                        const h = headers[idx] ? String(headers[idx]).trim().toLowerCase() : `__col_${idx}`;
+                        if (r[idx] !== undefined && r[idx] !== null) {
+                            obj[h] = r[idx];
+                            obj[`__raw_col_${idx}`] = r[idx];
+                        }
+                    }
                     mappedRows.push(obj);
                 }
 
@@ -9739,8 +9786,10 @@ function processExcelRows(rows) {
     draftExams = [];
     
     // Geçici durum (state) kopyaları
-    let tempStaff = JSON.parse(JSON.stringify(DB.staff));
-    let tempExams = JSON.parse(JSON.stringify(DB.exams));
+    let tempStaff = JSON.parse(JSON.stringify(DB.staff || []));
+    let tempExams = JSON.parse(JSON.stringify(DB.exams || []));
+
+    let currentYearTag = "Genel";
 
     rows.forEach((row, index) => {
         const getVal = (possibleNames) => {
@@ -9754,38 +9803,112 @@ function processExcelRows(rows) {
             return null;
         };
 
-        const type = getVal(["tür", "type"]) || "Vize";
+        // 1. Sınıf / Yıl Başlığı Tespiti: "1. YIL", "2. YIL", "3. YIL", "4. YIL", "HAZIRLIK"
+        const allVals = Object.values(row).map(v => String(v).trim()).filter(v => v !== "" && !v.startsWith("__"));
+        const firstVal = allVals[0] || "";
+        const isYearHeader = (/^(\d+)\.\s*y[ıi]l/i.test(firstVal) || /^(haz[ıi]rl[ıi]k|dönem|sinif|sınıf)/i.test(firstVal)) && allVals.length <= 2;
+        if (isYearHeader) {
+            currentYearTag = firstVal;
+            return; // Sınav satırı değil, atla
+        }
+
+        // 2. Ders Kodu ve Ders Adı
+        const courseCode = (getVal(["dersin kodu", "ders kodu", "kodu", "kod", "code"]) || "").toString().trim();
+        let courseName = (getVal(["dersin adı", "sınav adı", "ders adı", "ders", "name", "course"]) || "").toString().trim();
         
-        let name = getVal(["sınav adı", "dersin adı", "ders"]);
-        if (!name) name = getVal(["kodu", "kod"]) || "Bilinmeyen Sınav";
-        
-        const lecturer = getVal(["öğretim üyesi", "hoca", "lecturer", "öğr", "veren"]) || "";
-        const locationRaw = getVal(["derslik", "yer", "location", "sınıf mevcudu", "sınıf", "salon"]) || "";
-        
-        const location = String(locationRaw).replace(/\n/g, ' ').trim();
-        const capacityMatch = String(locationRaw).match(/\d+/);
-        const capacity = capacityMatch ? parseInt(capacityMatch[0]) : 0;
-        
-        const duration = parseInt(getVal(["süre", "duration"]) || 60);
-        
-        const dateTimeRaw = getVal(["sınav tarihi", "tarih ve saat", "tarih", "date"]);
-        const parsedDT = parseTurkishDateTime(dateTimeRaw);
-        
+        // Eğer dersin adı bulunamadıysa ama ilk sütunda ders kodu varsa
+        if (!courseName && !courseCode) {
+            courseName = firstVal || "Bilinmeyen Sınav";
+        }
+
+        let displayName = "";
+        if (courseCode && courseName && !courseName.toLowerCase().includes(courseCode.toLowerCase())) {
+            displayName = `${courseCode} - ${courseName}`;
+        } else {
+            displayName = courseName || courseCode || "Bilinmeyen Sınav";
+        }
+
+        // 3. Öğretim Üyesi / Dersi Veren Hocalar
+        const lecturer = (getVal(["öğretim üyesi", "hocalar", "hoca", "lecturer", "öğr", "veren", "sorumlu"]) || "").toString().trim();
+
+        // 4. Sınıf Mevcudu ve Sınav Yerleri
+        let locationRaw = getVal(["sınıf mevcudu", "sınav yerleri", "derslik", "yer", "location", "sınıf", "salon", "mevcut"]);
+        if (!locationRaw) {
+            // Sütun ismi eşleşmediyse hücre değerlerinden derslik ara
+            for (let k of Object.keys(row)) {
+                const val = String(row[k] || '');
+                if (/amfi|derslik|salon|\bd\d+\b/i.test(val) && !/pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar|haziran|ocak|mayıs/i.test(val)) {
+                    locationRaw = val;
+                    break;
+                }
+            }
+        }
+
+        let capacity = 0;
+        let cleanLocation = "";
+        if (locationRaw) {
+            const strLoc = String(locationRaw).replace(/\r?\n/g, ' ').trim();
+            // Örn: "73 - Amfi 2", "118-Amfi 2+D1+", "55/ Amfi 2", "12- D1"
+            const capMatch = strLoc.match(/^(\d+)\s*[-\/\:]\s*(.*)$/);
+            if (capMatch) {
+                capacity = parseInt(capMatch[1], 10);
+                cleanLocation = capMatch[2].replace(/\++$/, '').trim();
+            } else {
+                const onlyNum = strLoc.match(/\b(\d+)\b/);
+                if (onlyNum) capacity = parseInt(onlyNum[1], 10);
+                cleanLocation = strLoc.replace(/\b\d+\b/g, '').replace(/^[\s\-\/\:]+/, '').trim();
+            }
+
+            cleanLocation = cleanLocation
+                .replace(/(amfi)(\d+)/gi, '$1 $2')
+                .replace(/\s*\+\s*/g, ' + ')
+                .trim();
+            if (!cleanLocation) cleanLocation = strLoc;
+        } else {
+            // Havuz / Servis dersi kontrolü
+            cleanLocation = "Ortak / Havuz Sınavı";
+        }
+
+        // 5. Tarih, Saat ve Süre
+        let dateTimeRaw = getVal(["sınav tarihi", "tarih ve saat", "tarih", "saat", "date", "time"]);
+        if (!dateTimeRaw) {
+            for (let k of Object.keys(row)) {
+                const val = String(row[k] || '');
+                if (/\d{1,2}[\.\/\-]\d{1,2}[\.\/\-]\d{2,4}/.test(val) || /ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık/i.test(val)) {
+                    dateTimeRaw = val;
+                    break;
+                }
+            }
+        }
+
+        const parsedDT = parseTurkishDateTimeAndDuration(dateTimeRaw, 60);
         const date = parsedDT.date;
         const time = parsedDT.time;
+        const duration = parsedDT.duration;
+        const endTime = parsedDT.endTime;
 
-        // Hesaplama: Her 50 kişiye 1 gözetmen (veya min 1)
+        // 6. Gözetmen İhtiyacı Hesabı (Kapasite + Çoklu Salon)
+        let roomCount = 1;
+        if (cleanLocation.includes('+')) {
+            roomCount = cleanLocation.split('+').filter(Boolean).length;
+        }
+
         let requiredProctors = 1;
-        if (capacity > 50) requiredProctors = Math.ceil(capacity / 50);
-        
+        if (capacity > 100) {
+            requiredProctors = Math.max(3, roomCount);
+        } else if (capacity > 50) {
+            requiredProctors = Math.max(2, roomCount);
+        } else {
+            requiredProctors = Math.max(1, roomCount);
+        }
+
+        // 7. Akıllı Gözetmen Atama (Simülasyon)
         let assignedProctors = [];
         
-        // Atama Simülasyon Döngüsü
         for (let i = 0; i < requiredProctors; i++) {
             let available = tempStaff.filter(s => {
                 if (!isAvailable(s.name, date, time, duration)) return false;
                 
-                // TempExams Conflict Check
                 const start = getSafeDate(date, time);
                 const end = new Date(start.getTime() + (duration + 15) * 60000); // 15dk tolerans
                 
@@ -9800,8 +9923,6 @@ function processExcelRows(rows) {
                 });
                 
                 if (hasConflict) return false;
-                
-                // Aynı sınava birden kez atanmasını engelle
                 if (assignedProctors.find(p => p.id === s.id)) return false;
                 
                 return (s.taskCount || 0) < GLOBAL_LIMITS.MAX_TASKS;
@@ -9837,37 +9958,46 @@ function processExcelRows(rows) {
                 const chosen = available[0];
                 assignedProctors.push(chosen);
                 
-                // Simülasyon Puanını Arttır (Bir sonraki aramada aynısını önermemesi için)
-                let scoreToAdd = parseFloat((duration * 1.5).toFixed(2));
+                // Simülasyon Puanını Arttır
+                const weight = typeof getRoleWeight === 'function' ? getRoleWeight(chosen.role) : 1.0;
+                let scoreToAdd = parseFloat((duration * 1.5 * weight).toFixed(2));
                 chosen.totalScore = parseFloat(((chosen.totalScore || 0) + scoreToAdd).toFixed(2));
                 chosen.taskCount = (chosen.taskCount || 0) + 1;
             }
         }
         
         let pIds = assignedProctors.map(p => p.id);
+        let pNames = assignedProctors.map(p => p.name);
         
         let pNamesDisplay;
         if (assignedProctors.length === 0) {
-             pNamesDisplay = "🤖 Atanmadı";
+             pNamesDisplay = '<span style="color:#ef4444; font-weight:700;">⚠️ Atanmadı</span>';
         } else if (assignedProctors.length === 1) {
-             pNamesDisplay = assignedProctors[0].name;
+             pNamesDisplay = `<span class="badge" style="background:rgba(99,102,241,0.2); color:#818cf8; font-weight:600; padding:4px 8px; border-radius:6px;">👤 ${assignedProctors[0].name}</span>`;
         } else {
-             pNamesDisplay = assignedProctors.map(p => `<span class="badge" style="background:rgba(99,102,241,0.2); margin-top:2px; display:inline-block;">${p.name}</span>`).join(' ');
+             pNamesDisplay = assignedProctors.map(p => `<span class="badge" style="background:rgba(99,102,241,0.2); color:#818cf8; font-weight:600; padding:4px 8px; border-radius:6px; margin:2px; display:inline-block;">👤 ${p.name}</span>`).join(' ');
         }
 
         const newEx = {
             id: Date.now() + index,
-            type,
-            name,
-            lecturer,
-            location,
-            capacity,
-            date,
-            time,
-            duration,
+            type: getVal(["tür", "type"]) || "Vize",
+            name: displayName,
+            code: courseCode,
+            title: courseName,
+            yearTag: currentYearTag,
+            lecturer: lecturer,
+            location: cleanLocation,
+            capacity: capacity,
+            requiredProctors: requiredProctors,
+            date: date,
+            time: time,
+            endTime: endTime,
+            duration: duration,
             proctorIds: pIds,
             proctorId: pIds[0] || 0,
-            proctorName: pNamesDisplay
+            proctorName: pNames.join(', ') || "Atanmadı",
+            proctorDisplay: pNamesDisplay,
+            proctors: assignedProctors
         };
         
         draftExams.push(newEx);
@@ -9882,18 +10012,37 @@ function renderExcelPreview() {
     const tbody = document.querySelector('#table-excel-preview tbody');
     if (!modal || !tbody) return;
 
+    const totalProctorsAssigned = draftExams.reduce((acc, e) => acc + (e.proctorIds ? e.proctorIds.length : 0), 0);
+    const totalRequiredProctors = draftExams.reduce((acc, e) => acc + (e.requiredProctors || 1), 0);
+
+    const subText = modal.querySelector('p');
+    if (subText) {
+        subText.innerHTML = `Toplam <strong>${draftExams.length}</strong> sınav Excel'den okundu. 🤖 <strong>Akıllı Atama</strong> sistemi <strong>${totalProctorsAssigned} / ${totalRequiredProctors}</strong> gözetmen görevlendirmesini adil puan dengesine göre tamamladı.`;
+    }
+
     tbody.innerHTML = '';
     draftExams.forEach(ex => {
         const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        
+        const yearBadge = ex.yearTag && ex.yearTag !== "Genel" 
+            ? `<span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; font-size:0.75rem; margin-right:4px;">${ex.yearTag}</span>` 
+            : '';
+
+        const durationBadge = `<span style="color:#38bdf8; font-weight:600;">${ex.time}${ex.endTime ? ' - ' + ex.endTime : ''}</span> <span style="font-size:0.8rem; color:var(--text-muted);">(${ex.duration} dk)</span>`;
+
+        const locBadge = ex.capacity > 0 
+            ? `<strong>${ex.location}</strong> <small style="color:#a5b4fc; display:block;">👥 ${ex.capacity} Kişi (${ex.requiredProctors} Gözetmen)</small>`
+            : `<strong>${ex.location}</strong>`;
+
         tr.innerHTML = `
-            <td><span class="badge" style="background: rgba(255,255,255,0.05); color:white;">${ex.type}</span></td>
-            <td><strong>${ex.name}</strong><br><small style="color:var(--text-muted)">${ex.lecturer}</small></td>
-            <td>${ex.date}</td>
-            <td>${ex.time}</td>
-            <td>${ex.location}</td>
-            <td>${ex.duration} dk</td>
-            <td style="color:var(--primary); font-weight:700;">
-                <span title="AI Önerisi">🤖</span> ${ex.proctorName}
+            <td>${yearBadge}<span class="badge" style="background: rgba(255,255,255,0.08); color:white;">${ex.type}</span></td>
+            <td><strong>${ex.name}</strong><br><small style="color:var(--text-muted); font-size:0.8rem;">👨‍🏫 ${ex.lecturer || 'Belirtilmedi'}</small></td>
+            <td>📅 ${ex.date}</td>
+            <td>${durationBadge}</td>
+            <td>📍 ${locBadge}</td>
+            <td style="vertical-align:middle;">
+                ${ex.proctorDisplay || ex.proctorName}
             </td>
         `;
         tbody.appendChild(tr);
@@ -9902,13 +10051,71 @@ function renderExcelPreview() {
     modal.classList.remove('hidden');
 }
 
+window.exportExcelWithProctors = function() {
+    if (!draftExams || draftExams.length === 0) {
+        showToast('İndirilecek sınav verisi bulunamadı!', 'warning');
+        return;
+    }
+
+    const headers = [
+        "Dersin Kodu",
+        "Dersin Adı",
+        "Dersi veren Hocalar",
+        "Sınıf mevcudu ve Sınav yerleri",
+        "Sınav Tarihi ve Saati",
+        "GÖZETMEN"
+    ];
+
+    const data = [headers];
+
+    let lastYear = "";
+    draftExams.forEach(ex => {
+        if (ex.yearTag && ex.yearTag !== "Genel" && ex.yearTag !== lastYear) {
+            lastYear = ex.yearTag;
+            data.push([`--- ${ex.yearTag.toUpperCase()} ---`, "", "", "", "", ""]);
+        }
+
+        const proctorStr = ex.proctors && ex.proctors.length > 0 
+            ? ex.proctors.map(p => p.name).join(', ') 
+            : (ex.proctorName ? ex.proctorName.replace(/<[^>]*>?/gm, '') : '');
+
+        const locStr = ex.capacity > 0 ? `${ex.capacity} - ${ex.location}` : ex.location;
+        const timeStr = `${ex.date} ${ex.time}${ex.endTime ? ' - ' + ex.endTime : ''}`;
+
+        data.push([
+            ex.code || (ex.name ? ex.name.split(' - ')[0] : ""),
+            ex.title || (ex.name ? ex.name.split(' - ')[1] || ex.name : ""),
+            ex.lecturer || "",
+            locStr || "",
+            timeStr || "",
+            proctorStr || "Atanmadı"
+        ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    
+    ws['!cols'] = [
+        { wch: 15 }, // Dersin Kodu
+        { wch: 32 }, // Dersin Adı
+        { wch: 30 }, // Dersi veren Hocalar
+        { wch: 28 }, // Sınıf mevcudu ve Sınav yerleri
+        { wch: 30 }, // Sınav Tarihi ve Saati
+        { wch: 40 }  // GÖZETMEN
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sınav Programı');
+    XLSX.writeFile(wb, `Sinav_Programi_Gozetmenli_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast('Gözetmen sütunları doldurulmuş Excel dosyası indirildi!', 'success');
+};
+
 async function importAllExcelExams() {
     if (draftExams.length === 0) return;
 
     if (!confirm(`${draftExams.length} sınavı sisteme aktarmak istediğinize emin misiniz?`)) return;
 
     takeSnapshot("Excel İçe Aktarma");
-    // Her birini DB'ye ekle
+    
     draftExams.forEach(ex => {
         const examData = {
             type: ex.type,
@@ -9921,7 +10128,7 @@ async function importAllExcelExams() {
             duration: ex.duration,
             proctorId: ex.proctorId,
             proctorName: ex.proctorName,
-            proctorIds: ex.proctorId ? [ex.proctorId] : []
+            proctorIds: ex.proctorIds && ex.proctorIds.length > 0 ? ex.proctorIds : (ex.proctorId ? [ex.proctorId] : [])
         };
         addExam(examData);
     });
@@ -9934,7 +10141,6 @@ async function importAllExcelExams() {
     renderSchedule();
     renderDashboard();
     
-    // Backend'e kaydet (addExam zaten saveToLocalStorage çağırıyor)
     await saveToBackend();
 }
 

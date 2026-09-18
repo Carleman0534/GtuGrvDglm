@@ -1980,34 +1980,40 @@
 
     <!-- Excel Import Preview Modal -->
     <div id="modal-excel-preview" class="modal hidden">
-        <div class="modal-content" style="max-width: 95vw; width: 1100px;">
+        <div class="modal-content card-large" style="max-width: 95vw; width: 1150px;">
             <div class="modal-header">
-                <h2>📊 Excel'den Aktarılan Sınavlar</h2>
+                <h2>📊 Excel'den Aktarılan Sınavlar ve Akıllı Dağıtım</h2>
                 <button id="btn-close-excel-preview" class="btn-icon" style="font-size:1.5rem; background:none; border:none; color:white; cursor:pointer;" onclick="document.getElementById('modal-excel-preview').classList.add('hidden')">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Aşağıdaki sınavlar Excel dosyanızdan okundu. 🤖 **Akıllı Atama** sistemi otomatik olarak en uygun gözetmenleri önerdi. İsterseniz listeden değiştirebilirsiniz.</p>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem;">Aşağıdaki sınavlar Excel dosyanızdan okundu. 🤖 <strong>Akıllı Atama</strong> sistemi gözetmenleri adil katsayı puanlarıyla dağıttı.</p>
                 
-                <div class="table-container" style="max-height: 50vh; overflow-y: auto; margin-bottom: 20px;">
+                <div class="table-container" style="max-height: 55vh; overflow-y: auto; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
                     <table id="table-excel-preview">
                         <thead>
                             <tr>
-                                <th>Tür</th>
-                                <th>Sınav Adı</th>
-                                <th>Tarih</th>
-                                <th>Saat</th>
-                                <th>Derslik</th>
-                                <th>Süre</th>
-                                <th>AI Gözetmen Önerisi</th>
+                                <th style="width: 110px;">Sınıf / Tür</th>
+                                <th>Ders Kodu & Adı / Hoca</th>
+                                <th style="width: 130px;">Tarih</th>
+                                <th style="width: 170px;">Saat & Süre</th>
+                                <th style="width: 180px;">Derslik & Kapasite</th>
+                                <th>AI Atanan Gözetmen(ler)</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
                 </div>
 
-                <div style="display: flex; justify-content: flex-end; gap: 15px;">
-                    <button class="btn-secondary" onclick="document.getElementById('modal-excel-preview').classList.add('hidden')">İptal</button>
-                    <button id="btn-import-all-excel" class="btn-primary" style="background: var(--accent-green);">✓ Hepsini Sisteme Ekle</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <div>
+                        <button type="button" class="btn-secondary" style="background: rgba(16,185,129,0.15); border: 1px solid #10b981; color: #34d399; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;" onclick="window.exportExcelWithProctors()">
+                            📥 Gözetmenli Excel İndir (.xlsx)
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-secondary" onclick="document.getElementById('modal-excel-preview').classList.add('hidden')">İptal</button>
+                        <button id="btn-import-all-excel" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700;">✓ Hepsini Sisteme Aktar</button>
+                    </div>
                 </div>
             </div>
         </div>
