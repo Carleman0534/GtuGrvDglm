@@ -4581,76 +4581,279 @@ window.deleteStaff = (id) => {
 window.showEmailSettingsModal = () => {
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
-    document.getElementById('modal-title').textContent = "📧 E-posta Bildirim Ayarları";
+    document.getElementById('modal-title').textContent = "📢 Bildirim & Webhook Ayarları";
     
     if (!DB.emailSettings) {
-        DB.emailSettings = { enabled: false, provider: 'smtpjs', smtpToken: '', apiEndpoint: '', fromEmail: 'noreply@gtu.edu.tr' };
+        DB.emailSettings = {
+            enabled: false,
+            provider: 'emailjs',
+            smtpToken: '',
+            apiEndpoint: '',
+            fromEmail: 'noreply@gtu.edu.tr',
+            emailjsServiceId: '',
+            emailjsTemplateId: '',
+            emailjsPublicKey: '',
+            webhookEnabled: false,
+            webhookUrl: '',
+            eventToggles: {
+                marketplace_drop: true,
+                swap_offer: true,
+                swap_accepted: true,
+                swap_rejected: true
+            }
+        };
     }
+    const es = DB.emailSettings;
+    const toggles = es.eventToggles || { marketplace_drop: true, swap_offer: true, swap_accepted: true, swap_rejected: true };
 
     fields.innerHTML = `
-        <div class="form-group" style="display: flex; align-items: center; gap: 10px; background: rgba(99,102,241,0.1); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
-            <label style="flex: 1; margin: 0;">E-posta Bildirimlerini Etkinleştir</label>
-            <label class="switch">
-                <input type="checkbox" id="email-enabled" ${DB.emailSettings.enabled ? 'checked' : ''}>
-                <span class="slider round"></span>
-            </label>
-        </div>
-        
-        <div class="form-group">
-            <label>Gönderen E-posta (From)</label>
-            <input type="text" id="email-from" value="${DB.emailSettings.fromEmail || 'noreply@gtu.edu.tr'}" placeholder="noreply@gtu.edu.tr">
-        </div>
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <!-- WEBHOOK BÖLÜMÜ -->
+            <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 12px; padding: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <strong style="color: #6366f1; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
+                            <span>🚀</span> Discord / Webhook Anlık Bildirimi
+                        </strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                            Takas teklifleri ve pazar yeri hareketleri Discord / Telegram / Slack kanalına zengin formatta anında iletilir.
+                        </p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="webhook-enabled" ${es.webhookEnabled ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
 
-        <div class="form-group">
-            <label>Servis Sağlayıcı</label>
-            <select id="email-provider" onchange="toggleEmailProviderFields()">
-                <option value="smtpjs" ${DB.emailSettings.provider === 'smtpjs' ? 'selected' : ''}>SmtpJS (Önerilen - Ücretsiz)</option>
-                <option value="api" ${DB.emailSettings.provider === 'api' ? 'selected' : ''}>Özel API Endpoint</option>
-            </select>
-        </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; font-weight: 600;">Webhook URL (Discord / Slack / Genel HTTP)</label>
+                    <input type="text" id="webhook-url" value="${es.webhookUrl || ''}" placeholder="https://discord.com/api/webhooks/..." style="font-size: 0.85rem; font-family: monospace;">
+                </div>
+            </div>
 
-        <div id="group-smtpjs" class="form-group ${DB.emailSettings.provider !== 'smtpjs' ? 'hidden' : ''}">
-            <label>SmtpJS Secure Token</label>
-            <input type="password" id="email-token" value="${DB.emailSettings.smtpToken || ''}" placeholder="SmtpJS'ten aldığınız token...">
-            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">* SmtpJS.com üzerinden ücretsiz token alabilirsiniz.</p>
-        </div>
+            <!-- E-POSTA BÖLÜMÜ -->
+            <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); border-radius: 12px; padding: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                    <div>
+                        <strong style="color: #10b981; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
+                            <span>📧</span> E-Posta Bildirim Sistemi
+                        </strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                            Gözetmenlerin kurumsal e-posta adreslerine (@gtu.edu.tr) doğrudan bildirim gönderir.
+                        </p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="email-enabled" ${es.enabled ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
 
-        <div id="group-api" class="form-group ${DB.emailSettings.provider !== 'api' ? 'hidden' : ''}">
-            <label>API Endpoint (POST)</label>
-            <input type="text" id="email-api" value="${DB.emailSettings.apiEndpoint || ''}" placeholder="https://siteniz.com/api/send-email">
-        </div>
+                <div class="form-group">
+                    <label style="font-size: 0.8rem;">E-Posta Servis Sağlayıcı</label>
+                    <select id="email-provider" onchange="toggleEmailProviderFields()" style="font-size: 0.85rem;">
+                        <option value="emailjs" ${es.provider === 'emailjs' ? 'selected' : ''}>EmailJS (Önerilen - Sunucusuz & Ücretsiz)</option>
+                        <option value="smtpjs" ${es.provider === 'smtpjs' ? 'selected' : ''}>SmtpJS</option>
+                        <option value="api" ${es.provider === 'api' ? 'selected' : ''}>Özel API Endpoint (POST)</option>
+                    </select>
+                </div>
 
-        <div style="background: rgba(245, 158, 11, 0.1); border: 1px dashed #f59e0b; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
-             <h4 style="color: #f59e0b; font-size: 0.8rem; margin-bottom: 5px;">⚠️ Dikkat</h4>
-             <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
-                E-postalar, sadece <b>Taslak Modu kapalıyken</b> yeni sınav eklendiğinde veya sınav güncellendiğinde gönderilir. 
-                Taslaklar yayınlandığında ise toplu olarak gönderilir.
-             </p>
+                <!-- EmailJS Alanları -->
+                <div id="group-emailjs" class="${es.provider !== 'emailjs' ? 'hidden' : ''}">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">EmailJS Service ID</label>
+                        <input type="text" id="emailjs-service-id" value="${es.emailjsServiceId || ''}" placeholder="service_xxxxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">EmailJS Template ID</label>
+                        <input type="text" id="emailjs-template-id" value="${es.emailjsTemplateId || ''}" placeholder="template_xxxxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">EmailJS Public Key</label>
+                        <input type="password" id="emailjs-public-key" value="${es.emailjsPublicKey || ''}" placeholder="EmailJS Public Key">
+                        <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">* Emailjs.com adresinden ücretsiz hesap açarak Service ID, Template ID ve Public Key alabilirsiniz.</p>
+                    </div>
+                </div>
+
+                <!-- SmtpJS Alanları -->
+                <div id="group-smtpjs" class="${es.provider !== 'smtpjs' ? 'hidden' : ''}">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">Gönderen E-posta (From)</label>
+                        <input type="text" id="email-from" value="${es.fromEmail || 'noreply@gtu.edu.tr'}" placeholder="noreply@gtu.edu.tr">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">SmtpJS Secure Token</label>
+                        <input type="password" id="email-token" value="${es.smtpToken || ''}" placeholder="SmtpJS Token...">
+                        <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">* SmtpJS.com üzerinden token alabilirsiniz.</p>
+                    </div>
+                </div>
+
+                <!-- Özel API Alanları -->
+                <div id="group-api" class="${es.provider !== 'api' ? 'hidden' : ''}">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">API Endpoint (POST)</label>
+                        <input type="text" id="email-api" value="${es.apiEndpoint || ''}" placeholder="https://api.siteniz.com/send-email">
+                    </div>
+                </div>
+            </div>
+
+            <!-- BİLDİRİM OLAY SEÇİMLERİ -->
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.25rem;">
+                <strong style="font-size: 0.9rem; display: block; margin-bottom: 0.75rem;">🔔 Bildirim Gönderilecek Olaylar</strong>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
+                        <input type="checkbox" id="toggle-event-marketplace" ${toggles.marketplace_drop !== false ? 'checked' : ''}>
+                        <span>📢 Pazar Yeri Açık İlanları</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
+                        <input type="checkbox" id="toggle-event-swap-offer" ${toggles.swap_offer !== false ? 'checked' : ''}>
+                        <span>🔄 Birebir Takas Teklifleri</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
+                        <input type="checkbox" id="toggle-event-swap-accepted" ${toggles.swap_accepted !== false ? 'checked' : ''}>
+                        <span>✅ Onaylanan / Biten Takaslar</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
+                        <input type="checkbox" id="toggle-event-swap-rejected" ${toggles.swap_rejected !== false ? 'checked' : ''}>
+                        <span>❌ Reddedilen / İptal Talepler</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- TEST BUTONU -->
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-secondary" onclick="sendTestNotificationUI()" style="background: rgba(99,102,241,0.2); color: #818cf8; border-color: rgba(99,102,241,0.4);">
+                    🔔 Test Bildirimi Gönder
+                </button>
+            </div>
         </div>
     `;
 
     window.toggleEmailProviderFields = () => {
         const provider = document.getElementById('email-provider').value;
-        document.getElementById('group-smtpjs').classList.toggle('hidden', provider !== 'smtpjs');
-        document.getElementById('group-api').classList.toggle('hidden', provider !== 'api');
+        document.getElementById('group-emailjs')?.classList.toggle('hidden', provider !== 'emailjs');
+        document.getElementById('group-smtpjs')?.classList.toggle('hidden', provider !== 'smtpjs');
+        document.getElementById('group-api')?.classList.toggle('hidden', provider !== 'api');
+    };
+
+    window.sendTestNotificationUI = async () => {
+        const webhookUrl = document.getElementById('webhook-url')?.value?.trim();
+        const webhookEnabled = document.getElementById('webhook-enabled')?.checked;
+        const emailEnabled = document.getElementById('email-enabled')?.checked;
+        const provider = document.getElementById('email-provider')?.value;
+        const emailjsServiceId = document.getElementById('emailjs-service-id')?.value?.trim();
+        const emailjsTemplateId = document.getElementById('emailjs-template-id')?.value?.trim();
+        const emailjsPublicKey = document.getElementById('emailjs-public-key')?.value?.trim();
+        const emailFrom = document.getElementById('email-from')?.value?.trim();
+        const smtpToken = document.getElementById('email-token')?.value?.trim();
+        const apiEndpoint = document.getElementById('email-api')?.value?.trim();
+
+        let results = [];
+
+        // 1. Webhook Testi
+        if (webhookEnabled && webhookUrl) {
+            try {
+                const res = await sendWebhookNotification({
+                    title: "🧪 GTÜ Gözetmenlik Sistemi - Canlı Test Bildirimi",
+                    description: "Tebrikler! Webhook entegrasyonu başarıyla çalışıyor. Takas ve pazar yeri hareketleri anlık olarak bu kanala iletilecektir.",
+                    fields: [
+                        { name: "📡 Servis Durumu", value: "Aktif / Canlı", inline: true },
+                        { name: "🕒 Tarih & Saat", value: new Date().toLocaleString('tr-TR'), inline: true },
+                        { name: "⚖️ Sistem", value: "GTÜ Matematik Gözetmenlik Katsayı Sistemi", inline: false }
+                    ],
+                    color: 0x10b981,
+                    eventType: 'test_notification',
+                    url: webhookUrl
+                });
+                if (res.success) {
+                    results.push("✅ Webhook testi başarılı!");
+                } else {
+                    results.push("⚠️ Webhook testi başarısız: " + (res.error || res.statusText || 'Bilinmeyen hata'));
+                }
+            } catch (err) {
+                results.push("⚠️ Webhook testi hatası: " + err.message);
+            }
+        } else if (webhookEnabled && !webhookUrl) {
+            results.push("⚠️ Webhook etkin ancak Webhook URL girilmemiş.");
+        }
+
+        // 2. E-posta Testi
+        if (emailEnabled) {
+            const myStaffId = localStorage.getItem('myStaffId');
+            const targetStaff = DB.staff.find(s => String(s.id) === String(myStaffId)) || DB.staff[0];
+            const testEmail = targetStaff ? targetStaff.email : 'test@gtu.edu.tr';
+
+            try {
+                const origSettings = { ...DB.emailSettings };
+                DB.emailSettings = {
+                    ...DB.emailSettings,
+                    enabled: true,
+                    provider,
+                    fromEmail,
+                    smtpToken,
+                    apiEndpoint,
+                    emailjsServiceId,
+                    emailjsTemplateId,
+                    emailjsPublicKey
+                };
+
+                const res = await sendSwapNotificationEmail({
+                    toEmail: testEmail,
+                    subject: "🧪 GTÜ Gözetmenlik - E-posta Test Bildirimi",
+                    body: `Sayın ${targetStaff ? targetStaff.name : 'Gözetmen'},\n\nBu bir test e-postasıdır. E-posta bildirim entegrasyonunuz başarıyla çalışmaktadır.\n\nTarih: ${new Date().toLocaleString('tr-TR')}\nGTÜ Matematik Bölümü`,
+                    templateParams: {
+                        to_name: targetStaff ? targetStaff.name : 'Gözetmen',
+                        test_time: new Date().toLocaleString('tr-TR')
+                    },
+                    eventType: 'test_notification'
+                });
+
+                DB.emailSettings = origSettings;
+
+                if (res.success) {
+                    results.push(`✅ E-posta testi başarılı (${testEmail} adresine gönderildi)!`);
+                } else {
+                    results.push(`⚠️ E-posta testi başarısız: ${res.reason || res.error || 'Ayrıntı konsolda'}`);
+                }
+            } catch (err) {
+                results.push("⚠️ E-posta gönderim hatası: " + err.message);
+            }
+        }
+
+        if (results.length === 0) {
+            alert("Test gönderilecek bir servis (Webhook veya E-posta) etkinleştirilmemiş.");
+        } else {
+            alert(results.join('\n\n'));
+        }
     };
 
     modal.classList.remove('hidden');
 
-    document.getElementById('modal-form').onsubmit = (e) => {
+    document.getElementById('modal-form').onsubmit = async (e) => {
         e.preventDefault();
         DB.emailSettings = {
-            enabled: document.getElementById('email-enabled').checked,
-            fromEmail: document.getElementById('email-from').value,
-            provider: document.getElementById('email-provider').value,
-            smtpToken: document.getElementById('email-token').value,
-            apiEndpoint: document.getElementById('email-api').value
+            enabled: document.getElementById('email-enabled')?.checked || false,
+            provider: document.getElementById('email-provider')?.value || 'emailjs',
+            fromEmail: document.getElementById('email-from')?.value || 'noreply@gtu.edu.tr',
+            smtpToken: document.getElementById('email-token')?.value || '',
+            apiEndpoint: document.getElementById('email-api')?.value || '',
+            emailjsServiceId: document.getElementById('emailjs-service-id')?.value || '',
+            emailjsTemplateId: document.getElementById('emailjs-template-id')?.value || '',
+            emailjsPublicKey: document.getElementById('emailjs-public-key')?.value || '',
+            webhookEnabled: document.getElementById('webhook-enabled')?.checked || false,
+            webhookUrl: document.getElementById('webhook-url')?.value?.trim() || '',
+            eventToggles: {
+                marketplace_drop: document.getElementById('toggle-event-marketplace')?.checked !== false,
+                swap_offer: document.getElementById('toggle-event-swap-offer')?.checked !== false,
+                swap_accepted: document.getElementById('toggle-event-swap-accepted')?.checked !== false,
+                swap_rejected: document.getElementById('toggle-event-swap-rejected')?.checked !== false
+            }
         };
         
         saveToLocalStorage();
-        logAction('admin', 'E-posta Ayarları', `E-posta bildirimleri ${DB.emailSettings.enabled ? 'açıldı' : 'kapatıldı'}.`);
+        logAction('admin', 'Bildirim Ayarları', `Bildirim ve Webhook ayarları güncellendi (Webhook: ${DB.emailSettings.webhookEnabled ? 'Açık' : 'Kapalı'}, E-posta: ${DB.emailSettings.enabled ? 'Açık' : 'Kapalı'}).`);
         hideModal();
-        alert('E-posta ayarları kaydedildi.');
+        await saveToBackend();
+        alert('✅ Bildirim ve Webhook ayarları başarıyla kaydedildi.');
     };
 };
 
@@ -4957,6 +5160,17 @@ window.approveSwapPeer = async function(requestId, staffId) {
 
             req.status = 'approved';
             saveToLocalStorage();
+            
+            // Webhook ve E-posta bildirimi tetikle
+            dispatchNotificationEvent('swap_accepted', {
+                initiatorName: fromStaff.name,
+                initiatorId: fromStaff.id,
+                receiverName: toStaff.name,
+                receiverId: toStaff.id,
+                examName: exam.name,
+                swapType: 'peer_transfer'
+            });
+
             alert("✅ Görev devri işlemini onayladınız. Değişiklik anında kaydedildi.");
         }
         
@@ -4970,9 +5184,17 @@ window.rejectSwapPeer = async function(requestId) {
     if (!req) return;
     req.status = 'rejected';
     saveToLocalStorage();
-    alert("Takas talebini reddettiniz.");
     
     const receiver = DB.staff.find(s => s.id === req.receiverId);
+    dispatchNotificationEvent('swap_rejected', {
+        initiatorName: req.initiatorName,
+        initiatorId: req.initiatorId,
+        receiverName: receiver ? receiver.name : req.receiverName,
+        examName: req.examName
+    });
+
+    alert("Takas talebini reddettiniz.");
+    
     if (receiver) showStaffSchedule(receiver.name);
 
     await saveToBackend();
@@ -5223,6 +5445,31 @@ function createSwapRequest(examId, initiatorId, receiverId) {
             requestId: newReq.id,
             createdAt: new Date().toISOString(),
             isRead: false
+        });
+
+        // Anlık Webhook & E-posta Bildirimi (Birebir)
+        dispatchNotificationEvent('swap_offer', {
+            initiatorName: initiator.name,
+            receiverName: receiver.name,
+            receiverId: receiver.id,
+            initiatorExamName: exam.name,
+            examDate: exam.date,
+            examTime: exam.time,
+            duration: exam.duration,
+            score: exam.score,
+            requestId: newReq.id
+        });
+    } else {
+        // Anlık Webhook Bildirimi (Pazar Yeri Açık İlan)
+        dispatchNotificationEvent('marketplace_drop', {
+            initiatorName: initiator.name,
+            initiatorId: initiator.id,
+            examName: exam.name,
+            examDate: exam.date,
+            examTime: exam.time,
+            duration: exam.duration,
+            score: exam.score,
+            requestId: newReq.id
         });
     }
 
@@ -7396,6 +7643,19 @@ window.initiateOpenSwap = function(examId) {
         DB.requests.push(newReq);
         logAction('SWAP_INITIATED', `${staff.name}, ${exam.name} için yer değiştirme talebi açtı.`, { examId });
         saveToLocalStorage();
+        
+        // Pazar Yeri Webhook bildirimi gönder
+        dispatchNotificationEvent('marketplace_drop', {
+            initiatorName: staff.name,
+            initiatorId: staff.id,
+            examName: exam.name,
+            examDate: exam.date,
+            examTime: exam.time,
+            duration: exam.duration,
+            score: exam.score,
+            requestId: newReq.id
+        });
+
         alert("Talebiniz oluşturuldu. Uygun gözetmenler 'Açık Görevler' sekmesinden kabul edebilir.");
         renderProfile();
         updateMarketplaceBadge();
@@ -7554,6 +7814,16 @@ window.acceptOpenRequest = async function(requestId) {
         
         saveToLocalStorage();
         
+        // Bildirim tetikle (Webhook & E-posta)
+        dispatchNotificationEvent('swap_accepted', {
+            initiatorName: fromStaff ? fromStaff.name : req.initiatorName,
+            initiatorId: fromStaff ? fromStaff.id : req.initiatorId,
+            receiverName: toStaff.name,
+            receiverId: toStaff.id,
+            examName: exam.name,
+            swapType: 'marketplace_claim'
+        });
+
         // Admin modundaysa sunucuya kaydet
         await saveToBackend();
         
@@ -7602,6 +7872,17 @@ window.confirmOpenRequest = async function(requestId) {
             req.status = 'approved';
             logAction('SWAP_CONFIRMED', `${req.initiatorName}, ${req.receiverName}'i onayladı (Anında gerçekleşti).`, { requestId });
             saveToLocalStorage();
+            
+            // Bildirim tetikle (Webhook & E-posta)
+            dispatchNotificationEvent('swap_accepted', {
+                initiatorName: fromStaff.name,
+                initiatorId: fromStaff.id,
+                receiverName: toStaff.name,
+                receiverId: toStaff.id,
+                examName: exam.name,
+                swapType: 'open_confirm'
+            });
+
             alert("✓ Onaylandı. Görev devri anında gerçekleşti ve puanlar güncellendi.");
             renderProfile();
         }
@@ -7657,6 +7938,13 @@ window.cancelSwapRequest = function(requestId) {
             DB.requests.splice(reqIndex, 1);
             logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName} için açtığı talebi iptal etti.`);
             saveToLocalStorage();
+            
+            // Bildirim tetikle (Webhook)
+            dispatchNotificationEvent('swap_cancelled', {
+                initiatorName: req.initiatorName,
+                examName: req.examName || 'Görev Devri / Takas'
+            });
+
             renderExams();
             renderProfile();
             updateMarketplaceBadge();
@@ -7767,7 +8055,7 @@ document.getElementById('btn-confirm-direct-swap').onclick = async function() {
         if (confirm(`${targetStaff.name} hocaya birebir takas teklifi göndermek istediğinize emin misiniz?`)) {
             if (!DB.requests) DB.requests = [];
             
-            DB.requests.push({
+            const newReq = {
                 id: Date.now(),
                 type: 'direct_swap',
                 initiatorId: parseInt(myStaffId),
@@ -7778,9 +8066,22 @@ document.getElementById('btn-confirm-direct-swap').onclick = async function() {
                 receiverExamId: Number(targetExamId),
                 status: 'pending_peer',
                 createdAt: new Date().toISOString()
-            });
+            };
+            DB.requests.push(newReq);
 
             saveToLocalStorage();
+            
+            // Webhook ve E-posta bildirimi tetikle
+            dispatchNotificationEvent('swap_offer', {
+                initiatorName: myStaff.name,
+                receiverName: targetStaff.name,
+                receiverId: targetStaff.id,
+                initiatorExamName: myExam.name,
+                receiverExamName: targetExam.name,
+                examDate: myExam.date,
+                examTime: myExam.time
+            });
+
             alert("Takas teklifiniz iletildi. Hocanın onaylaması bekleniyor.");
             document.getElementById('modal-direct-swap').classList.add('hidden');
             renderProfile();
@@ -7871,7 +8172,7 @@ window.confirmOfferSwap = async function() {
         if (confirm(`Pazar yerindeki bu görev için ${targetStaff.name} hocaya takas teklifi göndermek istediğinize emin misiniz?`)) {
             if (!DB.requests) DB.requests = [];
             
-            DB.requests.push({
+            const newReq = {
                 id: Date.now(),
                 type: 'direct_swap',
                 initiatorId: parseInt(myStaffId),
@@ -7882,9 +8183,22 @@ window.confirmOfferSwap = async function() {
                 receiverExamId: targetExam.id,
                 status: 'pending_peer',
                 createdAt: new Date().toISOString()
-            });
+            };
+            DB.requests.push(newReq);
 
             saveToLocalStorage();
+            
+            // Webhook ve E-posta bildirimi tetikle
+            dispatchNotificationEvent('swap_offer', {
+                initiatorName: myStaff.name,
+                receiverName: targetStaff.name,
+                receiverId: targetStaff.id,
+                initiatorExamName: myExam.name,
+                receiverExamName: targetExam.name,
+                examDate: myExam.date,
+                examTime: myExam.time
+            });
+
             alert("Takas teklifiniz iletildi. Görevin sahibinin profilinden onaylaması bekleniyor.");
             document.getElementById('modal-offer-swap').classList.add('hidden');
             renderProfile();
@@ -7954,6 +8268,18 @@ window.acceptDirectSwap = async function(requestId) {
 
         saveToLocalStorage();
         logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sınavlarını takas etti.`);
+        
+        // Webhook ve E-posta bildirimi tetikle
+        dispatchNotificationEvent('swap_accepted', {
+            initiatorName: hisStaff.name,
+            initiatorId: hisStaff.id,
+            receiverName: myStaff.name,
+            receiverId: myStaff.id,
+            examName: hisExam.name,
+            secondExamName: myExam.name,
+            swapType: 'direct_swap'
+        });
+
         alert("✅ Takas işlemi başarıyla tamamlandı!");
         
         await saveToBackend();
@@ -7972,6 +8298,15 @@ window.rejectDirectSwap = async function(requestId) {
     if (confirm("Bu takas teklifini reddetmek istediğinize emin misiniz?")) {
         req.status = 'rejected';
         saveToLocalStorage();
+        
+        // Webhook ve E-posta bildirimi tetikle
+        dispatchNotificationEvent('swap_rejected', {
+            initiatorName: req.initiatorName,
+            initiatorId: req.initiatorId,
+            receiverName: req.receiverName,
+            examName: 'Birebir Takas Teklifi'
+        });
+
         renderProfile();
         await saveToBackend();
     }
@@ -9094,6 +9429,18 @@ window.acceptSmartSwap = async function(requestId) {
         saveToLocalStorage();
         renderProfile();
         updateNotifBadge();
+        
+        // Webhook ve E-posta bildirimi tetikle
+        dispatchNotificationEvent('swap_accepted', {
+            initiatorName: him.name,
+            initiatorId: him.id,
+            receiverName: me.name,
+            receiverId: me.id,
+            examName: hisExam.name,
+            secondExamName: myExam.name,
+            swapType: 'smart_swap'
+        });
+
         await saveToBackend();
         
         alert("✅ Takas başarıyla gerçekleştirildi!");
@@ -9112,6 +9459,15 @@ window.rejectSmartSwap = async function(requestId) {
         saveToLocalStorage();
         renderProfile();
         updateNotifBadge();
+        
+        // Webhook ve E-posta bildirimi tetikle
+        dispatchNotificationEvent('swap_rejected', {
+            initiatorName: req.initiatorName,
+            initiatorId: req.initiatorId,
+            receiverName: req.receiverName,
+            examName: 'Akıllı Takas Teklifi'
+        });
+
         await saveToBackend();
         alert("✅ Teklif reddedildi.");
     }

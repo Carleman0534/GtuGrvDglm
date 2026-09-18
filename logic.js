@@ -2258,6 +2258,18 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
     saveToLocalStorage();
     logAction('user', 'Akıllı Takas Talebi', `${me.name} -> ${otherMember.name} (Sınavlar: ${myExam.name} ↔ ${otherExam.name})`);
     
+    // Anlık Webhook ve E-posta bildirimi tetikle
+    dispatchNotificationEvent('swap_offer', {
+        initiatorName: me.name,
+        receiverName: otherMember.name,
+        receiverId: otherMember.id,
+        initiatorExamName: myExam.name,
+        receiverExamName: otherExam.name,
+        examDate: myExam.date,
+        examTime: myExam.time,
+        requestId: newRequest.id
+    });
+
     return { success: true, message: "Takas teklifi başarıyla gönderildi!" };
 }
 
@@ -2344,5 +2356,391 @@ function recalculateAllScores() {
     return DB.exams.length;
 }
 window.recalculateAllScores = recalculateAllScores;
+
+// ==========================================
+// BİLDİRİM & WEBHOOK SİSTEMİ (NOTIFICATION ENGINE)
+// ==========================================
+
+/**
+ * Webhook üzerinden (Discord / Slack / Telegram / Özel API) bildirim gönderir.
+ */
+async function sendWebhookNotification({ title, description, fields = [], color = 0x4f46e5, eventType = 'general', url = null }) {
+    const settings = (typeof DB !== 'undefined' && DB.emailSettings) ? DB.emailSettings : {};
+    const webhookUrl = url || settings.webhookUrl;
+    
+    if (!settings.webhookEnabled && !url) {
+        return { success: false, reason: 'webhook_disabled' };
+    }
+    if (!webhookUrl || typeof webhookUrl !== 'string' || !webhookUrl.trim()) {
+        return { success: false, reason: 'no_webhook_url' };
+    }
+
+    try {
+        const isDiscord = webhookUrl.includes('discord.com/api/webhooks') || webhookUrl.includes('discordapp.com/api/webhooks');
+        let bodyPayload = {};
+
+        if (isDiscord) {
+            bodyPayload = {
+                username: "GTÜ Gözetmenlik Botu",
+                avatar_url: "https://www.gtu.edu.tr/images/gtu_logo.png",
+                embeds: [
+                    {
+                        title: title || "🔔 GTÜ Gözetmenlik Bildirimi",
+                        description: description || "",
+                        color: color || 0x6366f1,
+                        fields: fields.map(f => ({
+                            name: f.name || "Bilgi",
+                            value: String(f.value || "-"),
+                            inline: f.inline !== false
+                        })),
+                        footer: {
+                            text: "GTÜ Matematik Bölümü Gözetmenlik & Katsayı Sistemi"
+                        },
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            };
+        } else {
+            // Standart / Genel Webhook Payload
+            bodyPayload = {
+                event: eventType,
+                title: title,
+                description: description,
+                fields: fields,
+                timestamp: new Date().toISOString(),
+                source: "GTU_PROCTOR_SYSTEM"
+            };
+        }
+
+        const res = await fetch(webhookUrl.trim(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyPayload)
+        });
+
+        if (res.ok || res.status === 204) {
+            console.log("✅ Webhook bildirimi başarıyla gönderildi:", eventType);
+            return { success: true, status: res.status };
+        } else {
+            console.warn("⚠️ Webhook gönderim yanıtı:", res.status, res.statusText);
+            return { success: false, status: res.status, statusText: res.statusText };
+        }
+    } catch (err) {
+        console.warn("⚠️ Webhook gönderim hatası:", err.message);
+        return { success: false, error: err.message };
+    }
+}
+window.sendWebhookNotification = sendWebhookNotification;
+
+/**
+ * E-posta Bildirim Gönderimi (EmailJS, SmtpJS veya Özel API)
+ */
+async function sendSwapNotificationEmail({ toStaffId, toEmail, subject, body, templateParams = {}, eventType = 'swap_event' }) {
+    const settings = (typeof DB !== 'undefined' && DB.emailSettings) ? DB.emailSettings : {};
+    if (!settings.enabled) {
+        return { success: false, reason: 'email_disabled' };
+    }
+
+    let recipientEmail = toEmail;
+    let recipientName = templateParams.to_name || '';
+
+    if (toStaffId && typeof DB !== 'undefined' && DB.staff) {
+        const staff = DB.staff.find(s => String(s.id) === String(toStaffId));
+        if (staff) {
+            recipientEmail = staff.email;
+            recipientName = staff.name;
+            if (!templateParams.to_name) templateParams.to_name = staff.name;
+        }
+    }
+
+    if (!recipientEmail) {
+        console.warn("⚠️ E-posta gönderilecek adres bulunamadı.");
+        return { success: false, reason: 'no_recipient_email' };
+    }
+
+    const provider = settings.provider || 'emailjs';
+
+    try {
+        if (provider === 'emailjs') {
+            const serviceId = settings.emailjsServiceId;
+            const templateId = settings.emailjsTemplateId;
+            const publicKey = settings.emailjsPublicKey;
+
+            if (!serviceId || !templateId || !publicKey) {
+                console.warn("⚠️ EmailJS ayarları eksik (Service ID, Template ID veya Public Key tanımlı değil).");
+                return { success: false, reason: 'missing_emailjs_credentials' };
+            }
+
+            if (typeof emailjs === 'undefined') {
+                console.warn("⚠️ EmailJS kütüphanesi yüklenemedi.");
+                return { success: false, reason: 'emailjs_not_loaded' };
+            }
+
+            const sendParams = {
+                to_email: recipientEmail,
+                to_name: recipientName,
+                subject: subject || "GTÜ Gözetmenlik Bildirimi",
+                message: body || "",
+                ...templateParams
+            };
+
+            const response = await emailjs.send(serviceId, templateId, sendParams, publicKey);
+            console.log("✅ EmailJS e-postası başarıyla gönderildi:", response.status, response.text);
+            return { success: true, response };
+        } else if (provider === 'smtpjs') {
+            const token = settings.smtpToken;
+            const fromEmail = settings.fromEmail || 'noreply@gtu.edu.tr';
+
+            if (!token) {
+                console.warn("⚠️ SmtpJS token tanımlı değil.");
+                return { success: false, reason: 'missing_smtp_token' };
+            }
+
+            if (typeof Email === 'undefined' || !Email.send) {
+                console.warn("⚠️ SmtpJS kütüphanesi yüklenemedi.");
+                return { success: false, reason: 'smtpjs_not_loaded' };
+            }
+
+            const res = await Email.send({
+                SecureToken: token,
+                To: recipientEmail,
+                From: fromEmail,
+                Subject: subject,
+                Body: (body || '').replace(/\n/g, '<br>')
+            });
+
+            console.log("✅ SmtpJS yanıtı:", res);
+            return { success: true, response: res };
+        } else if (provider === 'api') {
+            const endpoint = settings.apiEndpoint;
+            if (!endpoint) {
+                return { success: false, reason: 'missing_api_endpoint' };
+            }
+
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: recipientEmail,
+                    to_name: recipientName,
+                    subject: subject,
+                    body: body,
+                    params: templateParams,
+                    eventType: eventType
+                })
+            });
+
+            return { success: res.ok, status: res.status };
+        }
+    } catch (err) {
+        console.warn("⚠️ E-posta gönderim hatası:", err.message);
+        return { success: false, error: err.message };
+    }
+}
+window.sendSwapNotificationEmail = sendSwapNotificationEmail;
+
+/**
+ * Bildirim Olayı Dağıtıcısı (Dispatcher)
+ * Takas ve pazar yeri olaylarında hem Webhook hem E-posta kanallarını tetikler.
+ */
+async function dispatchNotificationEvent(eventType, data = {}) {
+    const settings = (typeof DB !== 'undefined' && DB.emailSettings) ? DB.emailSettings : {};
+    const toggles = settings.eventToggles || {
+        marketplace_drop: true,
+        swap_offer: true,
+        swap_accepted: true,
+        swap_rejected: true
+    };
+
+    // İlgili etkinlik türü ayarlardan kapatılmışsa çalıştırma
+    if (toggles[eventType] === false) {
+        console.log(`ℹ️ [Bildirim] ${eventType} etkinliği ayarlardan devre dışı bırakılmış.`);
+        return;
+    }
+
+    try {
+        switch (eventType) {
+            case 'marketplace_drop': {
+                // Sınav pazar yerine açık talep olarak bırakıldı
+                const { initiatorName, examName, examDate, examTime, duration, score } = data;
+                const dateStr = examDate ? examDate.split('-').reverse().join('.') : '-';
+                
+                const title = "📢 Pazar Yeri: Yeni Açık Sınav Görevi Bırakıldı!";
+                const description = `**${initiatorName || 'Bir gözetmen'}**, **${examName}** sınavındaki görevini pazar yerine bıraktı. Uygun olan hocalarımız görevi devralabilir.`;
+                const fields = [
+                    { name: "📚 Sınav", value: examName || "-", inline: true },
+                    { name: "📅 Tarih / Saat", value: `${dateStr} - ${examTime || '-'}`, inline: true },
+                    { name: "⏱️ Süre / Puan", value: `${duration || 60} dk (+${score || 0} Puan)`, inline: true },
+                    { name: "👤 Bırakan Hoca", value: initiatorName || "-", inline: true },
+                    { name: "⚡ Hızlı İşlem", value: "Profilinizdeki **Pazar Yeri** sekmesinden görevi devralabilirsiniz.", inline: false }
+                ];
+                
+                sendWebhookNotification({
+                    title,
+                    description,
+                    fields,
+                    color: 0x8b5cf6, // Mor / Indigo
+                    eventType: 'marketplace_drop'
+                });
+                break;
+            }
+
+            case 'swap_offer': {
+                // Birebir veya doğrudan takas teklifi oluşturuldu
+                const { initiatorName, receiverName, receiverId, initiatorExamName, receiverExamName, examDate, examTime } = data;
+                const dateStr = examDate ? examDate.split('-').reverse().join('.') : '';
+                
+                const title = "🔄 Yeni Takas / Görev Devir Teklifi!";
+                let description = `**${initiatorName}**, **${receiverName}** hocamıza bir takas / görev teklifinde bulundu.`;
+                const fields = [
+                    { name: "👤 Teklif Eden", value: initiatorName || "-", inline: true },
+                    { name: "🎯 Muhatap Hoca", value: receiverName || "-", inline: true },
+                    { name: "📚 Teklif Edilen Görev", value: initiatorExamName || "-", inline: false }
+                ];
+
+                if (receiverExamName) {
+                    fields.push({ name: "🔄 İstenen Görev", value: receiverExamName, inline: false });
+                }
+                if (examDate && examTime) {
+                    fields.push({ name: "📅 Tarih / Saat", value: `${dateStr} ${examTime}`, inline: true });
+                }
+
+                // Webhook bildirimi
+                sendWebhookNotification({
+                    title,
+                    description,
+                    fields,
+                    color: 0xf59e0b, // Amber / Turuncu
+                    eventType: 'swap_offer'
+                });
+
+                // Muhatap hocaya e-posta bildirimi
+                if (receiverId) {
+                    const emailSubject = `🔔 GTÜ Gözetmenlik: ${initiatorName} Size Takas Teklifi Gönderdi`;
+                    const emailBody = `Sayın ${receiverName},\n\n${initiatorName}, gözetmenlik sistemi üzerinden size bir takas teklifi iletti.\n\n` +
+                        `Teklif Detayı:\n` +
+                        `- Verilen Görev: ${initiatorExamName || '-'}\n` +
+                        (receiverExamName ? `- İstenen Görev: ${receiverExamName}\n` : '') +
+                        (examDate ? `- Tarih: ${dateStr} ${examTime || ''}\n` : '') +
+                        `\nTeklifi incelemek ve onaylamak için sisteme giriş yaparak 'Profilim' sayfanızı ziyaret edebilirsiniz.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`;
+
+                    sendSwapNotificationEmail({
+                        toStaffId: receiverId,
+                        subject: emailSubject,
+                        body: emailBody,
+                        templateParams: {
+                            initiator_name: initiatorName,
+                            receiver_name: receiverName,
+                            exam_name: initiatorExamName,
+                            target_exam_name: receiverExamName || '-',
+                            exam_date: `${dateStr} ${examTime || ''}`
+                        },
+                        eventType: 'swap_offer'
+                    });
+                }
+                break;
+            }
+
+            case 'swap_accepted': {
+                // Takas kabul edildi / devir gerçekleşti
+                const { initiatorName, initiatorId, receiverName, examName, secondExamName, swapType } = data;
+                
+                const title = "✅ Görev Takası / Devri Tamamlandı!";
+                let description = "";
+                if (swapType === 'direct_swap' || secondExamName) {
+                    description = `**${receiverName}** ve **${initiatorName}** arasındaki takas işlemi onaylandı ve görevler karşılıklı değiştirildi.`;
+                } else {
+                    description = `**${receiverName}**, **${initiatorName}** hocamızın **${examName}** görevini başarıyla devraldı.`;
+                }
+
+                const fields = [
+                    { name: "👤 Devreden / Teklif Eden", value: initiatorName || "-", inline: true },
+                    { name: "👤 Devralan / Kabul Eden", value: receiverName || "-", inline: true },
+                    { name: "📚 Görev(ler)", value: secondExamName ? `1. ${examName}\n2. ${secondExamName}` : (examName || "-"), inline: false },
+                    { name: "📊 Durum", value: "Puanlar ve sınav listesi otomatik olarak güncellendi.", inline: false }
+                ];
+
+                // Webhook bildirimi
+                sendWebhookNotification({
+                    title,
+                    description,
+                    fields,
+                    color: 0x10b981, // Zümrüt Yeşili
+                    eventType: 'swap_accepted'
+                });
+
+                // Teklifi açan ilk hocaya e-posta bildirimi
+                if (initiatorId) {
+                    sendSwapNotificationEmail({
+                        toStaffId: initiatorId,
+                        subject: `✅ GTÜ Gözetmenlik: Görev Takasınız Onaylandı!`,
+                        body: `Sayın ${initiatorName},\n\n${receiverName} ile olan "${examName}" görevi takas / devir işleminiz onaylanmıştır.\nSistem üzerindeki puanlarınız ve sınav takviminiz otomatik güncellenmiştir.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`,
+                        templateParams: {
+                            initiator_name: initiatorName,
+                            receiver_name: receiverName,
+                            exam_name: examName
+                        },
+                        eventType: 'swap_accepted'
+                    });
+                }
+                break;
+            }
+
+            case 'swap_rejected': {
+                const { initiatorName, initiatorId, receiverName, examName } = data;
+                
+                const title = "❌ Takas Talebi Reddedildi";
+                const description = `**${receiverName || 'İlgili hoca'}**, **${initiatorName || 'Hoca'}** tarafından gönderilen **${examName || 'sınav'}** takas teklifini reddetti.`;
+                
+                sendWebhookNotification({
+                    title,
+                    description,
+                    fields: [
+                        { name: "👤 Teklif Eden", value: initiatorName || "-", inline: true },
+                        { name: "👤 Yanıtlayan", value: receiverName || "-", inline: true },
+                        { name: "📚 Sınav", value: examName || "-", inline: false }
+                    ],
+                    color: 0xef4444, // Kırmızı
+                    eventType: 'swap_rejected'
+                });
+
+                if (initiatorId) {
+                    sendSwapNotificationEmail({
+                        toStaffId: initiatorId,
+                        subject: `❌ GTÜ Gözetmenlik: Takas Talebiniz Reddedildi`,
+                        body: `Sayın ${initiatorName},\n\n${receiverName || 'İlgili gözetmen'}, "${examName || 'Sınav'}" göreviniz için ilettiğiniz takas teklifini kabul etmedi.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`,
+                        templateParams: {
+                            initiator_name: initiatorName,
+                            receiver_name: receiverName,
+                            exam_name: examName
+                        },
+                        eventType: 'swap_rejected'
+                    });
+                }
+                break;
+            }
+
+            case 'swap_cancelled': {
+                const { initiatorName, examName } = data;
+                sendWebhookNotification({
+                    title: "ℹ️ Takas Talebi İptal Edildi",
+                    description: `**${initiatorName}**, **${examName || 'sınav'}** için oluşturduğu takas talebini iptal etti.`,
+                    fields: [
+                        { name: "👤 Hoca", value: initiatorName || "-", inline: true },
+                        { name: "📚 Sınav", value: examName || "-", inline: true }
+                    ],
+                    color: 0x64748b, // Gri
+                    eventType: 'swap_cancelled'
+                });
+                break;
+            }
+        }
+    } catch (err) {
+        console.warn("⚠️ dispatchNotificationEvent hatası:", err.message);
+    }
+}
+window.dispatchNotificationEvent = dispatchNotificationEvent;
 
 // loadFromLocalStorage(); // Artık app.js içinden asenkron olarak çağrılıyor
