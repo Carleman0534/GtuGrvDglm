@@ -8,6 +8,24 @@ function getSafeDate(dateStr, timeStr) {
     return isNaN(d.getTime()) ? new Date() : d;
 }
 
+function getSystemUrl() {
+    if (typeof DB !== 'undefined') {
+        if (DB.emailSettings && DB.emailSettings.systemUrl && DB.emailSettings.systemUrl.trim()) {
+            return DB.emailSettings.systemUrl.trim();
+        }
+        if (DB.systemSettings && DB.systemSettings.systemUrl && DB.systemSettings.systemUrl.trim()) {
+            return DB.systemSettings.systemUrl.trim();
+        }
+    }
+    if (typeof window !== 'undefined' && window.location && window.location.href) {
+        return window.location.href.split('#')[0].split('?')[0];
+    }
+    return 'https://gtu.edu.tr';
+}
+if (typeof window !== 'undefined') {
+    window.getSystemUrl = getSystemUrl;
+}
+
 // Şifreler artık backend'de tutuluyor. Frontend'de şifre YOKTUR.
 const DB_KEY = 'gozetmenlik_db_v25';
 
@@ -1481,8 +1499,8 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
 
     const replacePlaceholders = (text) => {
         if (!text) return '';
-        const siteUrl = window.location.origin + window.location.pathname;
-        const signature = `<br><br><hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;"><p style="font-size: 12px; color: #9ca3af; text-align: center;">Sisteme erişmek için: <a href="${siteUrl}" style="color: #4f46e5; text-decoration: underline;">${siteUrl}</a></p>`;
+        const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
+        const signature = `<br><br><hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;"><p style="font-size: 13px; color: #4f46e5; text-align: center;">🌐 Sisteme erişmek için: <a href="${siteUrl}" style="color: #4f46e5; font-weight: bold; text-decoration: underline;">${siteUrl}</a></p>`;
 
         let processedText = text
             .replace(/{personel_adi}/g, staff.name)
@@ -1494,14 +1512,18 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
             .replace(/{sure}/g, exam.duration || '-')
             .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
             .replace(/{gozetmenler}/g, gozetmenler)
-            .replace(/{gozet men ler}/g, gozetmenler); // fallback for typo in template
+            .replace(/{gozet men ler}/g, gozetmenler) // fallback for typo in template
+            .replace(/{site_url}/g, siteUrl)
+            .replace(/{system_url}/g, siteUrl);
 
-        // Sitenin linkini gövdenin en sonuna enjekte et
-        if (processedText.includes('</div>') && processedText.lastIndexOf('</div>') !== -1) {
-            const lastDivIndex = processedText.lastIndexOf('</div>');
-            processedText = processedText.substring(0, lastDivIndex) + signature + processedText.substring(lastDivIndex);
-        } else {
-            processedText += signature;
+        // Sitenin linkini gövdenin en sonuna enjekte et (eğer şablonda site_url kullanılmamışsa)
+        if (!text.includes('{site_url}') && !text.includes('{system_url}')) {
+            if (processedText.includes('</div>') && processedText.lastIndexOf('</div>') !== -1) {
+                const lastDivIndex = processedText.lastIndexOf('</div>');
+                processedText = processedText.substring(0, lastDivIndex) + signature + processedText.substring(lastDivIndex);
+            } else {
+                processedText += signature;
+            }
         }
 
         return processedText;
@@ -2484,11 +2506,14 @@ async function sendSwapNotificationEmail({ toStaffId, toEmail, subject, body, te
                 return { success: false, reason: 'emailjs_not_loaded' };
             }
 
+            const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
             const sendParams = {
                 to_email: recipientEmail,
                 to_name: recipientName,
                 subject: subject || "GTÜ Gözetmenlik Bildirimi",
                 message: body || "",
+                site_url: siteUrl,
+                system_url: siteUrl,
                 ...templateParams
             };
 
@@ -2509,12 +2534,18 @@ async function sendSwapNotificationEmail({ toStaffId, toEmail, subject, body, te
                 return { success: false, reason: 'smtpjs_not_loaded' };
             }
 
+            const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
+            let finalBody = body || '';
+            if (!finalBody.includes(siteUrl)) {
+                finalBody += `\n\n🌐 Sisteme Giriş: ${siteUrl}`;
+            }
+
             const res = await Email.send({
                 SecureToken: token,
                 To: recipientEmail,
                 From: fromEmail,
                 Subject: subject,
-                Body: (body || '').replace(/\n/g, '<br>')
+                Body: finalBody.replace(/\n/g, '<br>')
             });
 
             console.log("✅ SmtpJS yanıtı:", res);
@@ -2525,6 +2556,7 @@ async function sendSwapNotificationEmail({ toStaffId, toEmail, subject, body, te
                 return { success: false, reason: 'missing_api_endpoint' };
             }
 
+            const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2533,7 +2565,8 @@ async function sendSwapNotificationEmail({ toStaffId, toEmail, subject, body, te
                     to_name: recipientName,
                     subject: subject,
                     body: body,
-                    params: templateParams,
+                    site_url: siteUrl,
+                    params: { site_url: siteUrl, system_url: siteUrl, ...templateParams },
                     eventType: eventType
                 })
             });
@@ -2567,6 +2600,8 @@ async function dispatchNotificationEvent(eventType, data = {}) {
     }
 
     try {
+        const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
+
         switch (eventType) {
             case 'marketplace_drop': {
                 // Sınav pazar yerine açık talep olarak bırakıldı
@@ -2580,6 +2615,7 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                     { name: "📅 Tarih / Saat", value: `${dateStr} - ${examTime || '-'}`, inline: true },
                     { name: "⏱️ Süre / Puan", value: `${duration || 60} dk (+${score || 0} Puan)`, inline: true },
                     { name: "👤 Bırakan Hoca", value: initiatorName || "-", inline: true },
+                    { name: "🌐 Sistem Adresi", value: siteUrl, inline: false },
                     { name: "⚡ Hızlı İşlem", value: "Profilinizdeki **Pazar Yeri** sekmesinden görevi devralabilirsiniz.", inline: false }
                 ];
                 
@@ -2612,6 +2648,7 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                 if (examDate && examTime) {
                     fields.push({ name: "📅 Tarih / Saat", value: `${dateStr} ${examTime}`, inline: true });
                 }
+                fields.push({ name: "🌐 Sistem Girişi", value: siteUrl, inline: false });
 
                 // Webhook bildirimi
                 sendWebhookNotification({
@@ -2630,7 +2667,7 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                         `- Verilen Görev: ${initiatorExamName || '-'}\n` +
                         (receiverExamName ? `- İstenen Görev: ${receiverExamName}\n` : '') +
                         (examDate ? `- Tarih: ${dateStr} ${examTime || ''}\n` : '') +
-                        `\nTeklifi incelemek ve onaylamak için sisteme giriş yaparak 'Profilim' sayfanızı ziyaret edebilirsiniz.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`;
+                        `\n🌐 Sisteme Giriş & Onaylama:\n${siteUrl}\n\nTeklifi incelemek ve onaylamak için sisteme giriş yaparak 'Profilim' sayfanızı ziyaret edebilirsiniz.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`;
 
                     sendSwapNotificationEmail({
                         toStaffId: receiverId,
@@ -2641,7 +2678,8 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                             receiver_name: receiverName,
                             exam_name: initiatorExamName,
                             target_exam_name: receiverExamName || '-',
-                            exam_date: `${dateStr} ${examTime || ''}`
+                            exam_date: `${dateStr} ${examTime || ''}`,
+                            site_url: siteUrl
                         },
                         eventType: 'swap_offer'
                     });
@@ -2665,7 +2703,8 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                     { name: "👤 Devreden / Teklif Eden", value: initiatorName || "-", inline: true },
                     { name: "👤 Devralan / Kabul Eden", value: receiverName || "-", inline: true },
                     { name: "📚 Görev(ler)", value: secondExamName ? `1. ${examName}\n2. ${secondExamName}` : (examName || "-"), inline: false },
-                    { name: "📊 Durum", value: "Puanlar ve sınav listesi otomatik olarak güncellendi.", inline: false }
+                    { name: "📊 Durum", value: "Puanlar ve sınav listesi otomatik olarak güncellendi.", inline: false },
+                    { name: "🌐 Sistem Adresi", value: siteUrl, inline: false }
                 ];
 
                 // Webhook bildirimi
@@ -2682,11 +2721,12 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                     sendSwapNotificationEmail({
                         toStaffId: initiatorId,
                         subject: `✅ GTÜ Gözetmenlik: Görev Takasınız Onaylandı!`,
-                        body: `Sayın ${initiatorName},\n\n${receiverName} ile olan "${examName}" görevi takas / devir işleminiz onaylanmıştır.\nSistem üzerindeki puanlarınız ve sınav takviminiz otomatik güncellenmiştir.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`,
+                        body: `Sayın ${initiatorName},\n\n${receiverName} ile olan "${examName}" görevi takas / devir işleminiz onaylanmıştır.\nSistem üzerindeki puanlarınız ve sınav takviminiz otomatik güncellenmiştir.\n\n🌐 Güncel Programı İncelemek İçin:\n${siteUrl}\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`,
                         templateParams: {
                             initiator_name: initiatorName,
                             receiver_name: receiverName,
-                            exam_name: examName
+                            exam_name: examName,
+                            site_url: siteUrl
                         },
                         eventType: 'swap_accepted'
                     });
@@ -2706,7 +2746,8 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                     fields: [
                         { name: "👤 Teklif Eden", value: initiatorName || "-", inline: true },
                         { name: "👤 Yanıtlayan", value: receiverName || "-", inline: true },
-                        { name: "📚 Sınav", value: examName || "-", inline: false }
+                        { name: "📚 Sınav", value: examName || "-", inline: false },
+                        { name: "🌐 Sistem Adresi", value: siteUrl, inline: false }
                     ],
                     color: 0xef4444, // Kırmızı
                     eventType: 'swap_rejected'
@@ -2716,11 +2757,12 @@ async function dispatchNotificationEvent(eventType, data = {}) {
                     sendSwapNotificationEmail({
                         toStaffId: initiatorId,
                         subject: `❌ GTÜ Gözetmenlik: Takas Talebiniz Reddedildi`,
-                        body: `Sayın ${initiatorName},\n\n${receiverName || 'İlgili gözetmen'}, "${examName || 'Sınav'}" göreviniz için ilettiğiniz takas teklifini kabul etmedi.\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`,
+                        body: `Sayın ${initiatorName},\n\n${receiverName || 'İlgili gözetmen'}, "${examName || 'Sınav'}" göreviniz için ilettiğiniz takas teklifini kabul etmedi.\n\n🌐 Sisteme Giriş:\n${siteUrl}\n\nİyi çalışmalar,\nGTÜ Matematik Bölümü`,
                         templateParams: {
                             initiator_name: initiatorName,
                             receiver_name: receiverName,
-                            exam_name: examName
+                            exam_name: examName,
+                            site_url: siteUrl
                         },
                         eventType: 'swap_rejected'
                     });
@@ -2749,4 +2791,250 @@ async function dispatchNotificationEvent(eventType, data = {}) {
 }
 window.dispatchNotificationEvent = dispatchNotificationEvent;
 
-// loadFromLocalStorage(); // Artık app.js içinden asenkron olarak çağrılıyor
+/**
+ * Gini Katsayısı ve Dağıtım Adalet Analizi
+ */
+function calculateGiniCoefficient(scores) {
+    if (!scores || scores.length <= 1) return 0;
+    const sorted = [...scores].sort((a, b) => a - b);
+    const n = sorted.length;
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    if (sum === 0) return 0;
+
+    let numerator = 0;
+    for (let i = 0; i < n; i++) {
+        numerator += (2 * (i + 1) - n - 1) * sorted[i];
+    }
+    const gini = numerator / (n * sum);
+    return Math.max(0, Math.min(1, parseFloat(gini.toFixed(4))));
+}
+
+function calculateFairnessMetrics(staffList) {
+    const sList = staffList || (typeof DB !== 'undefined' ? DB.staff : []);
+    if (!sList || sList.length === 0) {
+        return {
+            count: 0,
+            avg: 0,
+            stdDev: 0,
+            variance: 0,
+            gini: 0,
+            fairnessScore: 100,
+            minScore: 0,
+            maxScore: 0,
+            scoreRange: 0,
+            cv: 0,
+            scores: []
+        };
+    }
+
+    const scores = sList.map(s => parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2)));
+    const count = scores.length;
+    const sum = scores.reduce((a, b) => a + b, 0);
+    const avg = count > 0 ? sum / count : 0;
+    
+    const variance = scores.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / (count || 1);
+    const stdDev = Math.sqrt(variance);
+    const cv = avg > 0 ? (stdDev / avg) * 100 : 0;
+    const gini = calculateGiniCoefficient(scores);
+    const fairnessScore = Math.max(0, Math.min(100, Math.round((1 - gini) * 100)));
+    const minScore = Math.min(...scores);
+    const maxScore = Math.max(...scores);
+    const scoreRange = parseFloat((maxScore - minScore).toFixed(2));
+
+    return {
+        count,
+        avg: parseFloat(avg.toFixed(2)),
+        stdDev: parseFloat(stdDev.toFixed(2)),
+        variance: parseFloat(variance.toFixed(2)),
+        gini,
+        fairnessScore,
+        minScore: parseFloat(minScore.toFixed(2)),
+        maxScore: parseFloat(maxScore.toFixed(2)),
+        scoreRange,
+        cv: parseFloat(cv.toFixed(1)),
+        scores
+    };
+}
+
+function simulateFairnessOptimization(maxSwaps = 8) {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj || !dbObj.staff || dbObj.staff.length < 2 || !dbObj.exams || dbObj.exams.length === 0) {
+        const dummy = { count: 0, avg: 0, stdDev: 0, variance: 0, gini: 0, fairnessScore: 100, minScore: 0, maxScore: 0, scoreRange: 0, cv: 0, scores: [] };
+        return {
+            before: dummy,
+            after: dummy,
+            initialMetrics: dummy,
+            simulatedMetrics: dummy,
+            improvement: { giniReduction: 0, stdDevReduction: 0, fairnessScoreGain: 0 },
+            proposedSwaps: [],
+            suggestedSwaps: [],
+            simulatedStaff: []
+        };
+    }
+
+    // Çalışma kopyaları oluştur
+    const simStaff = JSON.parse(JSON.stringify(dbObj.staff));
+    const simExams = JSON.parse(JSON.stringify(dbObj.exams));
+
+    const initialMetrics = calculateFairnessMetrics(simStaff);
+    const targetAvg = initialMetrics.avg;
+    const suggestedSwaps = [];
+
+    let hasProgress = true;
+    let iterations = 0;
+
+    while (hasProgress && iterations < maxSwaps) {
+        hasProgress = false;
+        iterations++;
+
+        // En yüksek puanlıları ve en düşük puanlıları sırala
+        simStaff.sort((a, b) => ((b.totalScore || 0) + (b.nonExamScore || 0)) - ((a.totalScore || 0) + (a.nonExamScore || 0)));
+
+        let bestSwap = null;
+        let maxVarianceReduction = 0;
+
+        // Yüksek puanlı personellerden başla
+        for (let i = 0; i < simStaff.length; i++) {
+            const highStaff = simStaff[i];
+            const highScore = (highStaff.totalScore || 0) + (highStaff.nonExamScore || 0);
+            if (highScore <= targetAvg + 0.3) break; // Ortalama veya altına indiyse dur
+
+            // Bu personele atanmış sınavları bul
+            const staffExams = simExams.filter(e => {
+                const pIds = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
+                return pIds.map(String).includes(String(highStaff.id));
+            });
+
+            for (const exam of staffExams) {
+                const examScore = parseFloat(exam.score || 0);
+                if (examScore <= 0) continue;
+
+                // Düşük puanlı adayları tara (en düşükten başlayarak)
+                for (let j = simStaff.length - 1; j > i; j--) {
+                    const lowStaff = simStaff[j];
+                    const lowScore = (lowStaff.totalScore || 0) + (lowStaff.nonExamScore || 0);
+                    if (lowScore >= targetAvg - 0.3) break; // Ortalama veya üstüne çıktıysa geç
+
+                    // Kısıt ve çakışma kontrolü
+                    const pIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+                    if (pIds.map(String).includes(String(lowStaff.id))) continue;
+
+                    // Kısıt kontrolü (DB.constraints)
+                    if (typeof isAvailable === 'function' && !isAvailable(lowStaff.name, exam.date, exam.time, exam.duration)) {
+                        continue;
+                    }
+
+                    // Sınav çakışması kontrolü
+                    const start = getSafeDate(exam.date, exam.time);
+                    const end = new Date(start.getTime() + (exam.duration + 15) * 60000);
+                    const hasConflict = simExams.some(otherEx => {
+                        if (String(otherEx.id) === String(exam.id)) return false;
+                        if (otherEx.date !== exam.date) return false;
+                        const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
+                        if (!otherPids.map(String).includes(String(lowStaff.id))) return false;
+                        const otherStart = getSafeDate(otherEx.date, otherEx.time);
+                        const otherEnd = new Date(otherStart.getTime() + (otherEx.duration + 15) * 60000);
+                        return (start < otherEnd && end > otherStart);
+                    });
+
+                    if (hasConflict) continue;
+
+                    // Cuma namazı kontrolü
+                    const isFriday = new Date(exam.date).getDay() === 5;
+                    const gender = lowStaff.gender || (typeof predictGender === 'function' ? predictGender(lowStaff.name) : 'Erkek');
+                    if (isFriday && gender === 'Erkek') {
+                        const startMins = timeToMins(exam.time);
+                        const endMins = startMins + exam.duration;
+                        const pStart = timeToMins("12:30");
+                        const pEnd = timeToMins("14:00");
+                        if (startMins < pEnd && endMins > pStart) continue;
+                    }
+
+                    // Varyans iyileşmesi hesabı
+                    const currDiff = Math.pow(highScore - targetAvg, 2) + Math.pow(lowScore - targetAvg, 2);
+                    const nextHighScore = highScore - examScore;
+                    const nextLowScore = lowScore + examScore;
+                    const nextDiff = Math.pow(nextHighScore - targetAvg, 2) + Math.pow(nextLowScore - targetAvg, 2);
+                    const diffReduction = currDiff - nextDiff;
+
+                    if (diffReduction > 0.01 && diffReduction > maxVarianceReduction) {
+                        maxVarianceReduction = diffReduction;
+                        bestSwap = {
+                            examId: exam.id,
+                            examName: exam.name,
+                            date: exam.date,
+                            time: exam.time,
+                            location: exam.location || '-',
+                            score: examScore,
+                            fromStaff: { id: highStaff.id, name: highStaff.name, oldScore: highScore, newScore: nextHighScore },
+                            toStaff: { id: lowStaff.id, name: lowStaff.name, oldScore: lowScore, newScore: nextLowScore }
+                        };
+                    }
+                }
+            }
+        }
+
+        if (bestSwap) {
+            // bestSwap'i simülasyona uygula
+            const examRef = simExams.find(e => String(e.id) === String(bestSwap.examId));
+            if (examRef) {
+                if (examRef.proctorIds) {
+                    examRef.proctorIds = examRef.proctorIds.map(pid => String(pid) === String(bestSwap.fromStaff.id) ? bestSwap.toStaff.id : pid);
+                } else if (examRef.proctorId) {
+                    examRef.proctorId = bestSwap.toStaff.id;
+                }
+            }
+
+            const hStaff = simStaff.find(s => String(s.id) === String(bestSwap.fromStaff.id));
+            const lStaff = simStaff.find(s => String(s.id) === String(bestSwap.toStaff.id));
+            if (hStaff) hStaff.totalScore = parseFloat(Math.max(0, (hStaff.totalScore || 0) - bestSwap.score).toFixed(2));
+            if (lStaff) lStaff.totalScore = parseFloat(((lStaff.totalScore || 0) + bestSwap.score).toFixed(2));
+
+            suggestedSwaps.push(bestSwap);
+            hasProgress = true;
+        }
+    }
+
+    const simulatedMetrics = calculateFairnessMetrics(simStaff);
+
+    const proposedSwaps = suggestedSwaps.map(s => ({
+        examId: s.examId,
+        examName: s.examName,
+        examDate: s.date,
+        examTime: s.time,
+        examLocation: s.location,
+        examScore: s.score,
+        fromStaffId: s.fromStaff.id,
+        fromStaffName: s.fromStaff.name,
+        fromStaffScoreBefore: s.fromStaff.oldScore,
+        fromStaffScoreAfter: s.fromStaff.newScore,
+        toStaffId: s.toStaff.id,
+        toStaffName: s.toStaff.name,
+        toStaffScoreBefore: s.toStaff.oldScore,
+        toStaffScoreAfter: s.toStaff.newScore
+    }));
+
+    return {
+        before: initialMetrics,
+        after: simulatedMetrics,
+        initialMetrics,
+        simulatedMetrics,
+        improvement: {
+            giniReduction: parseFloat((initialMetrics.gini - simulatedMetrics.gini).toFixed(4)),
+            stdDevReduction: parseFloat((initialMetrics.stdDev - simulatedMetrics.stdDev).toFixed(2)),
+            fairnessScoreGain: simulatedMetrics.fairnessScore - initialMetrics.fairnessScore
+        },
+        proposedSwaps,
+        suggestedSwaps,
+        simulatedStaff: simStaff
+    };
+}
+
+window.calculateGiniCoefficient = calculateGiniCoefficient;
+window.calculateFairnessMetrics = calculateFairnessMetrics;
+window.simulateFairnessOptimization = simulateFairnessOptimization;
+

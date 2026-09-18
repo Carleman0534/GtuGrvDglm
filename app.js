@@ -37,6 +37,24 @@ window.getScoreColor = function(score) {
     return "#ef4444"; // Kırmızı (Kısıtlı)
 };
 
+/**
+ * Sistemin güncel web adresini döndürür.
+ */
+window.getSystemUrl = function() {
+    if (typeof DB !== 'undefined') {
+        if (DB.emailSettings && DB.emailSettings.systemUrl && DB.emailSettings.systemUrl.trim()) {
+            return DB.emailSettings.systemUrl.trim();
+        }
+        if (DB.systemSettings && DB.systemSettings.systemUrl && DB.systemSettings.systemUrl.trim()) {
+            return DB.systemSettings.systemUrl.trim();
+        }
+    }
+    if (typeof window !== 'undefined' && window.location && window.location.href) {
+        return window.location.href.split('#')[0].split('?')[0];
+    }
+    return 'https://gtu.edu.tr';
+};
+
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginOverlay = document.getElementById('login-overlay');
@@ -403,7 +421,7 @@ async function initApp() {
 
     if (!DB.templates) {
         DB.templates = {
-            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
+            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\n🌐 Sisteme Giriş: {site_url}\n\nİyi çalışmalar,\n{gonderen_adi}",
             assignment_email_subject: "📅 Yeni Gözetmenlik Görevi: {sinav_adi} | {tarih}",
             assignment_email_body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f4f4; padding: 20px; border-radius: 10px;">
   <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
@@ -421,15 +439,21 @@ async function initApp() {
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#9201; Süre</td><td style="padding: 8px 0;">{sure} dakika</td></tr>
-        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128101; Gözetmenler</td><td style="padding: 8px 0;">{gozet men ler}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128101; Gözetmenler</td><td style="padding: 8px 0;">{gozetmenler}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#11088; Puan</td><td style="padding: 8px 0;"><strong style="color: #4f46e5;">{puan}</strong></td></tr>
       </table>
     </div>
-    <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
-      <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İŝin:</strong></p>
-      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri\'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
+    <div style="text-align: center; margin: 25px 0;">
+      <a href="{site_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);">
+        🌐 Gözetmenlik Sistemine Giriş Yap
+      </a>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Doğrudan bağlantı: <a href="{site_url}" style="color: #4f46e5; word-break: break-all;">{site_url}</a></p>
     </div>
-    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.</p>
+    <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İçin:</strong></p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme (<a href="{site_url}" style="color: #92400e; font-weight: bold; text-decoration: underline;">{site_url}</a>) giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
+    </div>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #6366f1;">{site_url}</a></p>
   </div>
 </div>`,
             update_email_subject: "🔄 Görev Güncellendi: {sinav_adi} | {tarih}",
@@ -453,11 +477,45 @@ async function initApp() {
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#11088; Puan</td><td style="padding: 8px 0;"><strong style="color: #d97706;">{puan}</strong></td></tr>
       </table>
     </div>
-    <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
-      <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İŝin:</strong></p>
-      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri\'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
+    <div style="text-align: center; margin: 25px 0;">
+      <a href="{site_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #d97706, #f59e0b); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.3);">
+        🌐 Güncel Programı İncele
+      </a>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Doğrudan bağlantı: <a href="{site_url}" style="color: #d97706; word-break: break-all;">{site_url}</a></p>
     </div>
-    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.</p>
+    <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İçin:</strong></p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme (<a href="{site_url}" style="color: #92400e; font-weight: bold; text-decoration: underline;">{site_url}</a>) giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
+    </div>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #d97706;">{site_url}</a></p>
+  </div>
+</div>`,
+            cancel_email_subject: "❌ Görev İptal Edildi: {sinav_adi} | {tarih}",
+            cancel_email_body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f4f4; padding: 20px; border-radius: 10px;">
+  <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 22px;">&#10060; Görev İptal Edildi</h1>
+    <p style="color: #fee2e2; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
+  </div>
+  <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Aşağıda belirtilen sınavdaki gözetmenlik göreviniz <strong>iptal edilmiştir</strong>.</p>
+    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#127979; Derslik</td><td style="padding: 8px 0;">{derslik}</td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#9201; Süre</td><td style="padding: 8px 0;">{sure} dakika</td></tr>
+      </table>
+    </div>
+    <div style="text-align: center; margin: 25px 0;">
+      <a href="{site_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px;">
+        🌐 Sisteme Giriş Yap & Görevlerimi Gör
+      </a>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Bağlantı: <a href="{site_url}" style="color: #4f46e5; word-break: break-all;">{site_url}</a></p>
+    </div>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #6366f1;">{site_url}</a></p>
   </div>
 </div>`
         };
@@ -3280,6 +3338,7 @@ window.sendExamMailViaOutlook = (examId) => {
 
     const gozetmenler = proctors.map(p => p.name).join(', ');
     const scoreText = typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-');
+    const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
 
     const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
 
@@ -3299,11 +3358,16 @@ SINAV BİLGİLERİ
 ⭐ Puan : ${scoreText}
 ----------------------------
 
+🌐 SİSTEME ERİŞİM VE PROGRAM TAKİBİ:
+Sınav detaylarına ve kişisel programınıza aşağıdaki web adresinden ulaşabilirsiniz:
+${siteUrl}
+
 ⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
-Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
+Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
 
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
     // Gizli link oluştur ve tıkla (sayfa yenilenmeden Outlook açılır)
     const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -3357,6 +3421,7 @@ window.sendScheduleMailViaOutlook = (examName, examDate, examTime, examLocation)
     const refExam = matchingExams[0];
     const gozetmenler = proctors.map(p => p.name).join(', ');
     const scoreText = typeof refExam.score === 'number' ? refExam.score.toFixed(1) : (refExam.score || '-');
+    const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
 
     const subject = `📅 Yeni Gözetmenlik Görevi: ${examName} | ${examDate}`;
     const body = `Sayın Hocam,
@@ -3375,11 +3440,16 @@ SINAV BİLGİLERİ
 ⭐ Puan : ${scoreText}
 ----------------------------
 
+🌐 SİSTEME ERİŞİM VE PROGRAM TAKİBİ:
+Sınav detaylarına ve kişisel programınıza aşağıdaki web adresinden ulaşabilirsiniz:
+${siteUrl}
+
 ⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
-Görevinizde değişiklik yapmak istediğinizde sisteme giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
+Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
 
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
     const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     
@@ -3404,6 +3474,7 @@ window.sendCancelMailViaOutlook = (staffId, exam) => {
         return;
     }
 
+    const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
     const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
     
     let body = `Sayın ${staff.name} Hocam,
@@ -3419,10 +3490,15 @@ SINAV BİLGİLERİ
 🏫 Derslik     : ${exam.location || '-'}
 ⏱ Süre        : ${exam.duration} dakika
 ----------------------------
+
+🌐 SİSTEME GİRİŞ:
+Güncel sınav görevlerinizi görüntülemek için:
+${siteUrl}
  
 Bu mesaj Gözetmenlik Takip ve Atama Sistemi üzerinden hazırlanmıştır.
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
     // E-posta şablonlarından temizlenmiş düz yazı kullanmaya çalış (varsa)
     if (DB.templates && DB.templates.cancel_email_body) {
@@ -3455,7 +3531,9 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
             .replace(/{derslik}/g, exam.location || '-')
             .replace(/{sure}/g, exam.duration || '-')
             .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
-            .replace(/{gozetmenler}/g, gozetmenler);
+            .replace(/{gozetmenler}/g, gozetmenler)
+            .replace(/{site_url}/g, siteUrl)
+            .replace(/{system_url}/g, siteUrl);
     }
 
     const mailtoLink = `mailto:${encodeURIComponent(staff.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -3493,6 +3571,7 @@ window.sendSingleProctorMailViaOutlook = (examId, staffId) => {
         return;
     }
 
+    const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
     const gozetmenler = (exam.proctorIds || [exam.proctorId])
         .map(pid => { const s = DB.staff.find(x => String(x.id) === String(pid)); return s ? s.name : ''; })
         .filter(n => n)
@@ -3516,9 +3595,17 @@ SINAV BİLGİLERİ
 👥 Gözetmenler: ${gozetmenler}
 ⭐ Puan : ${scoreText}
 ----------------------------
+
+🌐 SİSTEME ERİŞİM VE PROGRAM TAKİBİ:
+Sınav detaylarına ve kişisel programınıza aşağıdaki web adresinden ulaşabilirsiniz:
+${siteUrl}
+
+⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
+Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
  
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
     const mailtoLink = `mailto:${encodeURIComponent(staff.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     const a = document.createElement('a');
@@ -3562,6 +3649,7 @@ window.sendBulkCancelMailViaOutlook = (examId) => {
         return;
     }
 
+    const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
     const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
     let body = `Sayın Hocalarım,
  
@@ -3576,9 +3664,14 @@ ${exam.date} tarihindeki "${exam.name}" sınavı iptal edilmiştir. Bu sınavdak
 🏫 Derslik     : ${exam.location || '-'}
 ⏱ Süre        : ${exam.duration} dakika
 ----------------------------
+
+🌐 SİSTEME GİRİŞ:
+Güncel sınav programına aşağıdaki bağlantıdan erişebilirsiniz:
+${siteUrl}
  
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
     if (DB.templates && DB.templates.cancel_email_body) {
         let tempText = DB.templates.cancel_email_body;
@@ -3605,7 +3698,9 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
             .replace(/{derslik}/g, exam.location || '-')
             .replace(/{sure}/g, exam.duration || '-')
             .replace(/{puan}/g, typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-'))
-            .replace(/{gozetmenler}/g, gozetmenler);
+            .replace(/{gozetmenler}/g, gozetmenler)
+            .replace(/{site_url}/g, siteUrl)
+            .replace(/{system_url}/g, siteUrl);
     }
 
     const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -3643,6 +3738,7 @@ window.deleteExam = async (id) => {
 
     if (wantMail) {
         // Toplu mailto hazırlığı
+        const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
         const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
         const subject = `❌ Sınav İptali / Görev İptal Edildi: ${ex.name} | ${ex.date}`;
         
@@ -3659,9 +3755,14 @@ ${ex.date} tarihindeki "${ex.name}" sınavı iptal edilmiştir. Bu sınavdaki g�
 🏫 Derslik     : ${ex.location || '-'}
 ⏱ Süre        : ${ex.duration} dakika
 ----------------------------
+
+🌐 SİSTEME GİRİŞ:
+Güncel sınav takvimine erişmek için:
+${siteUrl}
  
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
         if (DB.templates && DB.templates.cancel_email_body) {
             let tempText = DB.templates.cancel_email_body;
@@ -3688,7 +3789,9 @@ GTU Matematik Bölümü - Gözetmenlik Sistemi`;
                 .replace(/{derslik}/g, ex.location || '-')
                 .replace(/{sure}/g, ex.duration || '-')
                 .replace(/{puan}/g, typeof ex.score === 'number' ? ex.score.toFixed(1) : (ex.score || '-'))
-                .replace(/{gozetmenler}/g, gozetmenler);
+                .replace(/{gozetmenler}/g, gozetmenler)
+                .replace(/{site_url}/g, siteUrl)
+                .replace(/{system_url}/g, siteUrl);
         }
 
         const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -4968,6 +5071,19 @@ window.showEmailSettingsModal = () => {
 
     fields.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <!-- SİSTEM WEB ADRESİ BÖLÜMÜ -->
+            <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 12px; padding: 1.25rem;">
+                <strong style="color: #6366f1; font-size: 1rem; display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem;">
+                    <span>🌐</span> Sistem Web Adresi (URL)
+                </strong>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Gözetmenlere gönderilen tüm görev, güncelleme, iptal ve takas bildirimlerinde personelin tek tıkla sisteme ulaşabilmesi için bu web adresi kullanılır.
+                </p>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" id="email-system-url" value="${es.systemUrl || ''}" placeholder="Örn: https://sinav.gtu.edu.tr (Boş bırakılırsa mevcut site adresi otomatik kullanılır)" style="font-size: 0.85rem; font-family: monospace;">
+                </div>
+            </div>
+
             <!-- WEBHOOK BÖLÜMÜ -->
             <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 12px; padding: 1.25rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
@@ -5196,6 +5312,7 @@ window.showEmailSettingsModal = () => {
             fromEmail: document.getElementById('email-from')?.value || 'noreply@gtu.edu.tr',
             smtpToken: document.getElementById('email-token')?.value || '',
             apiEndpoint: document.getElementById('email-api')?.value || '',
+            systemUrl: document.getElementById('email-system-url')?.value?.trim() || '',
             emailjsServiceId: document.getElementById('emailjs-service-id')?.value || '',
             emailjsTemplateId: document.getElementById('emailjs-template-id')?.value || '',
             emailjsPublicKey: document.getElementById('emailjs-public-key')?.value || '',
@@ -5220,7 +5337,7 @@ window.showEmailSettingsModal = () => {
 window.showEmailTemplatesModal = () => {
     if (!DB.templates) {
         DB.templates = {
-            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\nİyi çalışmalar,\n{gonderen_adi}",
+            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\n🌐 Sisteme Giriş: {site_url}\n\nİyi çalışmalar,\n{gonderen_adi}",
             assignment_email_subject: "📅 Yeni Gözetmenlik Görevi: {sinav_adi} | {tarih}",
             assignment_email_body: "",
             update_email_subject: "🔄 Görev Güncellendi: {sinav_adi} | {tarih}",
@@ -6381,84 +6498,26 @@ function calculateAchievements(myStaffId) {
 }
 
 /**
- * Başarı Rozetlerini Render Et
+ * Başarı Rozetlerini Render Et (Kaldırıldı - Güvenli No-op)
  */
 function renderAchievements() {
-    const myStaffId = localStorage.getItem('myStaffId');
     const container = document.getElementById('profile-achievements-list');
-    const countEl = document.getElementById('achievement-count');
-    if (!container || !myStaffId) return;
-
-    const achievements = calculateAchievements(myStaffId);
-    const unlockedCount = achievements.filter(a => a.isUnlocked).length;
-
-    if (countEl) countEl.textContent = `${unlockedCount}/${achievements.length} Rozet`;
-    
-    container.innerHTML = achievements.map(a => `
-        <div class="achievement-badge ${a.isUnlocked ? 'unlocked' : 'locked'}">
-            <span class="achievement-icon">${a.icon}</span>
-            <span class="achievement-name">${a.name}</span>
-            <div class="achievement-desc">
-                <strong>${a.name}</strong>
-                ${a.desc}
-                ${a.isUnlocked ? '<br><span style="color:var(--accent-green); font-size:0.65rem; margin-top:5px; display:block;">✔️ Kazanıldı</span>' : ''}
-            </div>
-        </div>
-    `).join('');
+    if (!container) return;
 }
 
 /**
- * Rütbe Detaylarını Al
- */
-function getRankDetails(taskCount) {
-    if (taskCount >= 50) return { name: "Efsane", color: "#f87171", threshold: "∞", next: 50 };
-    if (taskCount >= 30) return { name: "Usta", color: "#fbbf24", threshold: 50, next: 30 };
-    if (taskCount >= 15) return { name: "Kıdemli", color: "#34d399", threshold: 30, next: 15 };
-    if (taskCount >= 5)  return { name: "Tecrübeli", color: "#60a5fa", threshold: 15, next: 5 };
-    return { name: "Acemi", color: "#9ca3af", threshold: 5, next: 0 };
-}
-
-/**
- * Seviye ve İlerleme Çubuğunu Render Et
+ * Seviye ve Unvan Rozetini Kurumsal Olarak Render Et
  */
 function renderLevelSystem(staff) {
-    const taskCount = staff.taskCount || 0;
-    const rank = getRankDetails(taskCount);
-    
     const badge = document.getElementById('profile-rank-badge');
-    const levelLabel = document.getElementById('profile-level-label');
-    const xpLabel = document.getElementById('profile-xp-label');
-    const xpFill = document.getElementById('profile-xp-fill');
-    
     if (badge) {
-        badge.textContent = rank.name;
-        badge.style.background = `linear-gradient(135deg, ${rank.color} 0%, #6366f1 100%)`;
-    }
-    
-    if (levelLabel) {
-        const level = taskCount < 5 ? 1 : 
-                      taskCount < 15 ? 2 : 
-                      taskCount < 30 ? 3 : 
-                      taskCount < 50 ? 4 : 5;
-        levelLabel.textContent = `Seviye ${level}`;
-    }
-    
-    if (xpLabel && xpFill) {
-        if (rank.threshold === "∞") {
-            xpLabel.textContent = `${taskCount} Görev (Max)`;
-            xpFill.style.width = "100%";
-        } else {
-            const currentXP = taskCount - rank.next;
-            const targetXP = rank.threshold - rank.next;
-            const percent = (currentXP / targetXP) * 100;
-            xpLabel.textContent = `${taskCount}/${rank.threshold} Görev`;
-            xpFill.style.width = `${percent}%`;
-        }
+        badge.textContent = staff.role === 'admin' ? 'Yönetici' : (staff.title || 'Gözetmen');
+        badge.style.background = staff.role === 'admin' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, var(--primary), #3b82f6)';
     }
 }
 
 /**
- * Kişisel Notları Render Et
+ * Kişisel Notları Render Et (Güvenli No-op)
  */
 function renderQuickNotes(staff) {
     const notesInput = document.getElementById('profile-notes-input');
@@ -6649,7 +6708,8 @@ window.renderProfile = function() {
                         <td>${ex.time}</td>
                         <td>${ex.duration} dk</td>
                         <td><span class="score-tag">+${ex.score}</span></td>
-                        <td style="display: flex; gap: 5px;">
+                        <td style="display: flex; gap: 5px; justify-content: flex-end;">
+                            <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sınavı Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
                             ${(() => {
                                 const hasRequest = (DB.requests || []).find(r => 
                                     String(r.examId) === String(ex.id) && 
@@ -7027,19 +7087,167 @@ function updateProfileDashboard(staffId) {
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
 
-    // Puan
+    // 1. Puan & Sıralama
     const puanEl = document.getElementById('profile-dash-puan');
-    if (puanEl) puanEl.textContent = staff.totalScore.toFixed(1);
+    if (puanEl) puanEl.textContent = (staff.totalScore || 0).toFixed(1);
 
-    // Sıralama
-    const sorted = [...DB.staff].sort((a, b) => b.totalScore - a.totalScore);
+    const sorted = [...(DB.staff || [])].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
     const rank = sorted.findIndex(s => String(s.id) === String(staffId)) + 1;
     const rankEl = document.getElementById('profile-dash-rank');
-    if (rankEl) rankEl.textContent = `#${rank}`;
+    if (rankEl) rankEl.textContent = `#${rank} Sırada`;
 
-    // Sık birlikte çalıştıklarım
+    // Bölüm Ortalaması ve Farkı
+    const allStaff = DB.staff || [];
+    const avgScore = allStaff.length > 0 ? (allStaff.reduce((sum, s) => sum + (s.totalScore || 0), 0) / allStaff.length) : 0;
+    const diff = (staff.totalScore || 0) - avgScore;
+    const diffBadge = document.getElementById('profile-kpi-diff-badge');
+    if (diffBadge) {
+        if (diff > 1.5) {
+            diffBadge.innerHTML = `<span style="color:#fb923c; font-weight:600;">+${diff.toFixed(1)} P. (Ort. Üzeri)</span>`;
+        } else if (diff < -1.5) {
+            diffBadge.innerHTML = `<span style="color:#38bdf8; font-weight:600;">${diff.toFixed(1)} P. (Ort. Altı)</span>`;
+        } else {
+            diffBadge.innerHTML = `<span style="color:#34d399; font-weight:600;">✓ Dengeli Dağılım</span>`;
+        }
+    }
+
+    // 2. Dönemlik Görev Yükü & Süresi
+    const myExams = (DB.exams || []).filter(e => isStaffProctorById(e, staffId));
+    const now = new Date();
+    const activeExams = myExams.filter(e => {
+        const examDate = getSafeDate(e.date, e.time);
+        const examEnd = new Date(examDate.getTime() + (e.duration || 60) * 60000);
+        return examEnd >= now;
+    });
+
+    const totalMinutes = myExams.reduce((acc, e) => acc + parseInt(e.duration || 60, 10), 0);
+    const totalHours = (totalMinutes / 60).toFixed(1);
+
+    const dutyCountEl = document.getElementById('profile-kpi-duty-count');
+    const dutyHoursEl = document.getElementById('profile-kpi-duty-hours');
+    const avgBadgeEl = document.getElementById('profile-kpi-avg-badge');
+
+    if (dutyCountEl) dutyCountEl.textContent = activeExams.length;
+    if (dutyHoursEl) dutyHoursEl.textContent = `${totalHours} Saat (${myExams.length} Toplam)`;
+    if (avgBadgeEl) avgBadgeEl.textContent = `Bölüm Ort: ${avgScore.toFixed(1)} P.`;
+
+    // 3. Müsaitlik Esnekliği & Kısıt Özeti
+    const flexScore = (typeof calculateAvailabilityScore === 'function') ? calculateAvailabilityScore(staffId) : 100;
+    const flexScoreEl = document.getElementById('profile-kpi-flex-score');
+    if (flexScoreEl) {
+        flexScoreEl.textContent = `%${flexScore}`;
+        if (flexScore >= 80) flexScoreEl.style.color = '#10b981';
+        else if (flexScore >= 50) flexScoreEl.style.color = '#f59e0b';
+        else flexScoreEl.style.color = '#ef4444';
+    }
+
+    const constrSummaryEl = document.getElementById('profile-kpi-constraint-summary');
+    if (constrSummaryEl) {
+        const staffConstraints = (DB.constraints || []).filter(c => c.staffName === staff.name || c.staffId === staff.id);
+        if (staffConstraints.length === 0) {
+            constrSummaryEl.innerHTML = `<span style="color:#34d399;">✓ Tam Müsait</span>`;
+        } else {
+            const cList = staffConstraints.map(c => {
+                if (c.type === 'day') return `${c.day.substring(0,3)} ${c.startHour || ''}-${c.endHour || ''}`;
+                return `${c.date ? c.date.substring(5) : 'Tarih'}`;
+            }).slice(0, 2).join(', ');
+            constrSummaryEl.innerHTML = `<span style="color:#f87171;" title="${staffConstraints.length} kısıt">🚫 ${cList}${staffConstraints.length > 2 ? '...' : ''}</span>`;
+        }
+    }
+
+    // 4. Sınav Günü Canlı Durum Banner'ı (Bugün / Yarın)
+    const liveBanner = document.getElementById('profile-live-duty-banner');
+    if (liveBanner) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+        const todayExams = myExams.filter(e => e.date === todayStr);
+        const tomorrowExams = myExams.filter(e => e.date === tomorrowStr);
+
+        if (todayExams.length > 0) {
+            const nextToday = todayExams.sort((a,b) => a.time.localeCompare(b.time))[0];
+            const pIds = (nextToday.proctorIds && nextToday.proctorIds.length > 0) ? nextToday.proctorIds : (nextToday.proctorId ? [nextToday.proctorId] : []);
+            const partners = pIds
+                .filter(id => String(id) !== String(staffId))
+                .map(id => {
+                    const st = (DB.staff || []).find(s => String(s.id) === String(id));
+                    return st ? st.name : '';
+                }).filter(Boolean).join(', ');
+
+            liveBanner.className = 'profile-live-duty-banner';
+            liveBanner.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; font-weight: 800; font-size: 1.05rem; color: #ef4444; margin-bottom: 4px;">
+                            <span class="live-pulse-dot"></span> 🔴 BUGÜN SINAV GÖREVİNİZ BULUNMAKTADIR (${nextToday.time})
+                        </div>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">
+                            📚 ${nextToday.name} &bull; 📍 Derslik: <span style="color: #fbbf24;">${nextToday.location || 'Derslik Belirtilmedi'}</span> &bull; ⌛ ${nextToday.duration || 60} dk &bull; <span style="color:#38bdf8;">+${nextToday.score} Puan</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #cbd5e1;">
+                            👤 Sorumlu Hoca: <strong>${nextToday.lecturer || '-'}</strong> ${partners ? `&nbsp;|&nbsp; 🤝 Görev Partneriniz: <strong style="color:#a5b4fc;">${partners}</strong>` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-primary" style="background: #0284c7; padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="showExamDetail('${nextToday.name.replace(/'/g, "\\'")}', '${nextToday.date}', '${nextToday.time}', '${nextToday.location || ''}')">
+                            🔍 Detay
+                        </button>
+                        <button type="button" class="btn-primary" style="background: #10b981; padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="exportSingleExamToICal('${nextToday.id}')">
+                            📅 .ics İndir
+                        </button>
+                        <button type="button" class="btn-secondary" style="background: rgba(245,158,11,0.2); color:#fbbf24; border-color: rgba(245,158,11,0.4); padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="initiateDirectSwap('${nextToday.id}')">
+                            🔄 Takasa Çıkar
+                        </button>
+                    </div>
+                </div>
+            `;
+            liveBanner.classList.remove('hidden');
+        } else if (tomorrowExams.length > 0) {
+            const nextTomorrow = tomorrowExams.sort((a,b) => a.time.localeCompare(b.time))[0];
+            const pIds = (nextTomorrow.proctorIds && nextTomorrow.proctorIds.length > 0) ? nextTomorrow.proctorIds : (nextTomorrow.proctorId ? [nextTomorrow.proctorId] : []);
+            const partners = pIds
+                .filter(id => String(id) !== String(staffId))
+                .map(id => {
+                    const st = (DB.staff || []).find(s => String(s.id) === String(id));
+                    return st ? st.name : '';
+                }).filter(Boolean).join(', ');
+
+            liveBanner.className = 'profile-live-duty-banner tomorrow-duty';
+            liveBanner.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; font-weight: 800; font-size: 1.05rem; color: #fbbf24; margin-bottom: 4px;">
+                            <span class="live-pulse-dot tomorrow"></span> 🟡 YARIN SINAV GÖREVİNİZ VAR (${nextTomorrow.time})
+                        </div>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">
+                            📚 ${nextTomorrow.name} &bull; 📍 Derslik: <span style="color: #38bdf8;">${nextTomorrow.location || 'Derslik Belirtilmedi'}</span> &bull; ⌛ ${nextTomorrow.duration || 60} dk &bull; <span style="color:#38bdf8;">+${nextTomorrow.score} Puan</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #cbd5e1;">
+                            👤 Sorumlu Hoca: <strong>${nextTomorrow.lecturer || '-'}</strong> ${partners ? `&nbsp;|&nbsp; 🤝 Görev Partneriniz: <strong style="color:#a5b4fc;">${partners}</strong>` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-primary" style="background: #0284c7; padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="showExamDetail('${nextTomorrow.name.replace(/'/g, "\\'")}', '${nextTomorrow.date}', '${nextTomorrow.time}', '${nextTomorrow.location || ''}')">
+                            🔍 Detay
+                        </button>
+                        <button type="button" class="btn-primary" style="background: #10b981; padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="exportSingleExamToICal('${nextTomorrow.id}')">
+                            📅 .ics İndir
+                        </button>
+                        <button type="button" class="btn-secondary" style="background: rgba(245,158,11,0.2); color:#fbbf24; border-color: rgba(245,158,11,0.4); padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="initiateDirectSwap('${nextTomorrow.id}')">
+                            🔄 Takasa Çıkar
+                        </button>
+                    </div>
+                </div>
+            `;
+            liveBanner.classList.remove('hidden');
+        } else {
+            liveBanner.classList.add('hidden');
+        }
+    }
+
+    // 5. Sık Birlikte Çalıştıklarım
     const matesCount = {};
-    DB.exams.filter(e => isStaffProctorById(e, staffId)).forEach(ex => {
+    myExams.forEach(ex => {
         const ids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
         ids.forEach(pid => {
             if (String(pid) !== String(staffId)) {
@@ -7052,13 +7260,29 @@ function updateProfileDashboard(staffId) {
     const matesEl = document.getElementById('profile-dash-mates');
     if (matesEl) {
         matesEl.innerHTML = sortedMates.length > 0
-            ? sortedMates.map(([name, cnt]) => `<span style="display:block;">\u2022 ${name} <span style="color:var(--primary); font-weight:700;">(${cnt} kez)</span></span>`).join('')
-            : '<span style="color:var(--text-muted);">Hen\u00fcz ortak g\u00f6rev yok</span>';
+            ? sortedMates.map(([name, cnt]) => `<span style="display:block; margin-bottom:2px;">&bull; <strong>${name}</strong> <span style="color:var(--primary); font-weight:700;">(${cnt} kez)</span></span>`).join('')
+            : '<span style="color:var(--text-muted);">Henüz ortak görev yapılmadı</span>';
     }
 
-    // Geri sayım
+    // 6. Geri sayım
     startProfileCountdown(staffId);
 }
+
+window.exportSingleExamToICal = function(examId) {
+    const exam = (DB.exams || []).find(e => String(e.id) === String(examId));
+    if (!exam) {
+        if (typeof showToast === 'function') showToast('Sınav bulunamadı.', 'warning');
+        return;
+    }
+    if (typeof generateICalContent === 'function' && typeof downloadICalFile === 'function') {
+        const icsData = generateICalContent([exam], exam.name);
+        const cleanName = exam.name.replace(/[^a-zA-Z0-9_\u00C0-\u017F]/g, '_');
+        downloadICalFile(icsData, `${cleanName}_Sinav_Gorevi.ics`);
+        if (typeof showToast === 'function') {
+            showToast(`📅 "${exam.name}" takvim (.ics) dosyası indirildi!`, 'success');
+        }
+    }
+};
 
 function startProfileCountdown(staffId) {
     if (profileCountdownTimer) clearInterval(profileCountdownTimer);
@@ -7073,21 +7297,32 @@ function startProfileCountdown(staffId) {
 
     if (upcoming.length === 0) {
         countVal.textContent = '-- : -- : --';
-        countTarget.textContent = 'G\u00f6revde bulunmuyorsunuz.';
+        countTarget.textContent = 'Aktif görev bulunmuyor';
         return;
     }
 
     const next = upcoming[0];
     const targetDate = getSafeDate(next.date, next.time);
-    countTarget.textContent = `${next.name} (${next.date})`;
+    countTarget.textContent = `${next.time} - ${next.name} (${next.location || 'Salon'})`;
 
     const update = () => {
         const diff = targetDate - new Date();
-        if (diff <= 0) { countVal.textContent = 'S\u0131nav Ba\u015flad\u0131!'; clearInterval(profileCountdownTimer); return; }
-        const h = Math.floor(diff / 3600000);
+        if (diff <= 0) { 
+            countVal.textContent = 'Sınav Başladı!'; 
+            clearInterval(profileCountdownTimer); 
+            return; 
+        }
+        const totalHours = Math.floor(diff / 3600000);
+        const days = Math.floor(totalHours / 24);
+        const remHours = totalHours % 24;
         const m = Math.floor((diff % 3600000) / 60000);
         const s = Math.floor((diff % 60000) / 1000);
-        countVal.textContent = `${h.toString().padStart(2, '0')} : ${m.toString().padStart(2, '0')} : ${s.toString().padStart(2, '0')}`;
+
+        if (days > 0) {
+            countVal.textContent = `${days}g ${remHours.toString().padStart(2, '0')}s ${m.toString().padStart(2, '0')}d`;
+        } else {
+            countVal.textContent = `${remHours.toString().padStart(2, '0')} : ${m.toString().padStart(2, '0')} : ${s.toString().padStart(2, '0')}`;
+        }
     };
     update();
     profileCountdownTimer = setInterval(update, 1000);
@@ -10606,17 +10841,22 @@ function initBulkActions() {
                 if (!confirm(`⚠️ Şu hocaların e-posta adresi eksik: ${uniqueMissing.join(', ')}\n\nDiğer ${allEmails.size} kişiye mail hazırlansın mı?`)) return;
             }
 
+            const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
             const emailList = Array.from(allEmails).join(';');
             const subject = "📢 Yeni Sınav Gözetmenlikleri Hakkında Bilgilendirme";
             const body = `Sayın hocalarım,
 
 Yeni sınav gözetmenlikleriniz verilmiştir. Sistemden ve ekteki pdf dosyasından kontrol edebilirsiniz.
 
+🌐 SİSTEME ERİŞİM VE SINAV PROGRAMI:
+${siteUrl}
+
 ⚠️ GÖREV DEĞİŞİKLİKLERİ HAKKINDA:
-Gözetmenliklerinizde değişiklik yapmak isterseniz yöneticiye gerek kalmadan sistem üzerinden "Profilim" sekmesini kullanarak kendi aranızda değişiklik yapabilirsiniz.
+Gözetmenliklerinizde değişiklik yapmak isterseniz yöneticiye gerek kalmadan sistem üzerinden (${siteUrl}) "Profilim" sekmesini kullanarak kendi aranızda değişiklik yapabilirsiniz.
 
 İyi çalışmalar dileriz.
-GTU Matematik Bölümü - Gözetmenlik Sistemi`;
+GTU Matematik Bölümü - Gözetmenlik Sistemi
+${siteUrl}`;
 
             const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             
@@ -12253,3 +12493,630 @@ window.printDekanlikReportPDF = function() {
     printWin.document.close();
 };
 
+// ==========================================
+// 1. SİSTEM URL VE ERİŞİM YARDIMCISI
+// ==========================================
+function getSystemUrl() {
+    if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        return window.location.origin + window.location.pathname;
+    }
+    return 'https://sinav-gozetmenlik.gtu.edu.tr';
+}
+window.getSystemUrl = getSystemUrl;
+
+// ==========================================
+// 2. 24 SAAT ÖNCESİ SINAV HATIRLATICI (MODEL 2)
+// ==========================================
+window.openTomorrowReminderModal = function() {
+    const modal = document.getElementById('modal-reminder-tomorrow');
+    if (!modal) return;
+    
+    // Varsayılan: Yarının tarihi
+    const tomorrow = new Date(Date.now() + 86400000);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+    const dateInput = document.getElementById('reminder-target-date');
+    if (dateInput) {
+        dateInput.value = dateStr;
+    }
+    
+    window.renderTomorrowReminderData();
+    modal.classList.remove('hidden');
+};
+
+window.setReminderDateOffset = function(daysOffset) {
+    const target = new Date(Date.now() + daysOffset * 86400000);
+    const dateStr = target.toISOString().split('T')[0];
+    const dateInput = document.getElementById('reminder-target-date');
+    if (dateInput) {
+        dateInput.value = dateStr;
+    }
+    window.renderTomorrowReminderData();
+};
+
+window.renderTomorrowReminderData = function() {
+    const targetDate = document.getElementById('reminder-target-date')?.value;
+    const tbody = document.getElementById('reminder-staff-tbody');
+    const badge = document.getElementById('reminder-stat-badge');
+    const selectedCountSpan = document.getElementById('reminder-selected-count');
+    const selectAllChk = document.getElementById('reminder-select-all');
+    
+    if (!targetDate || !tbody) return;
+
+    // Seçilen tarihteki sınavlar
+    const examsOnDate = (DB.exams || []).filter(e => e.date === targetDate);
+    
+    // Görevli bazlı gruplama
+    const staffDutyMap = new Map(); // staffId -> { staff, exams: [] }
+    examsOnDate.forEach(exam => {
+        const pIds = (exam.proctorIds && exam.proctorIds.length > 0) ? exam.proctorIds : (exam.proctorId ? [exam.proctorId] : []);
+        pIds.forEach(pId => {
+            const staff = (DB.staff || []).find(s => String(s.id) === String(pId));
+            if (staff) {
+                if (!staffDutyMap.has(staff.id)) {
+                    staffDutyMap.set(staff.id, { staff, exams: [] });
+                }
+                staffDutyMap.get(staff.id).exams.push(exam);
+            }
+        });
+    });
+
+    const totalStaffCount = staffDutyMap.size;
+    if (badge) {
+        badge.innerHTML = `📋 <strong>${examsOnDate.length}</strong> Sınav &nbsp;|&nbsp; 👥 <strong>${totalStaffCount}</strong> Görevli Personel`;
+    }
+
+    if (totalStaffCount === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 30px;">
+                    📅 <strong>${targetDate}</strong> tarihinde planlanmış herhangi bir gözetmenlik görevi bulunamadı.
+                </td>
+            </tr>
+        `;
+        if (selectedCountSpan) selectedCountSpan.textContent = '0 personel seçildi';
+        if (selectAllChk) selectAllChk.checked = false;
+        return;
+    }
+
+    const sortedEntries = Array.from(staffDutyMap.values()).sort((a,b) => a.staff.name.localeCompare(b.staff.name, 'tr'));
+
+    let html = '';
+    sortedEntries.forEach(entry => {
+        const s = entry.staff;
+        const examsHtml = entry.exams.map(e => `
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 8px; margin-bottom: 4px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
+                <span>🕐 <strong>${e.time}</strong> - ${e.name} ${e.location ? `(${e.location})` : ''}</span>
+                <span style="color: #94a3b8; font-size: 0.75rem;">${e.duration || 60} dk</span>
+            </div>
+        `).join('');
+
+        html += `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="text-align: center; vertical-align: middle;">
+                    <input type="checkbox" class="reminder-staff-check" data-staff-id="${s.id}" checked onchange="window.updateReminderSelectedCount()">
+                </td>
+                <td style="vertical-align: middle;">
+                    <div style="font-weight: 600; font-size: 0.85rem; color: #f1f5f9;">${s.name}</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8;">${entry.exams.length} Görev</div>
+                </td>
+                <td style="vertical-align: middle; font-size: 0.8rem; color: #cbd5e1;">
+                    ${s.email || '<span style="color:#ef4444; font-size:0.75rem;">E-posta Yok</span>'}
+                </td>
+                <td style="vertical-align: middle;">
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        ${examsHtml}
+                    </div>
+                    <div style="margin-top: 4px; text-align: right;">
+                        <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 2px 8px; background: rgba(2,132,199,0.15); color: #38bdf8; border-color: rgba(2,132,199,0.3);" onclick="window.sendSingleStaffReminderOutlook(${s.id}, '${targetDate}')">
+                            ✉️ Bireysel Outlook Taslağı Aç
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+    if (selectAllChk) selectAllChk.checked = true;
+    window.updateReminderSelectedCount();
+};
+
+window.toggleAllReminderStaff = function(checked) {
+    document.querySelectorAll('.reminder-staff-check').forEach(chk => {
+        chk.checked = checked;
+    });
+    window.updateReminderSelectedCount();
+};
+
+window.updateReminderSelectedCount = function() {
+    const selected = document.querySelectorAll('.reminder-staff-check:checked').length;
+    const total = document.querySelectorAll('.reminder-staff-check').length;
+    const span = document.getElementById('reminder-selected-count');
+    if (span) {
+        span.textContent = `${selected} / ${total} personel seçildi`;
+    }
+};
+
+window.sendSingleStaffReminderOutlook = function(staffId, targetDate) {
+    const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
+    if (!staff) return;
+
+    const examsOnDate = (DB.exams || []).filter(e => {
+        if (e.date !== targetDate) return false;
+        if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, staff.id);
+        return (e.proctorIds || [e.proctorId]).map(String).includes(String(staff.id));
+    });
+
+    if (examsOnDate.length === 0) {
+        alert("Bu personele ait seçilen tarihte görev bulunamadı.");
+        return;
+    }
+
+    const siteUrl = getSystemUrl();
+    const formattedDate = new Date(targetDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    
+    let dutiesText = '';
+    examsOnDate.forEach((e, idx) => {
+        dutiesText += `${idx + 1}. Saat: ${e.time} | Ders: ${e.name} | Derslik: ${e.location || 'Derslik Belirtilmedi'} | Süre: ${e.duration || 60} dk\n`;
+    });
+
+    const subject = encodeURIComponent(`⏰ Sınav Görevi Hatırlatması (${formattedDate}) - Gebze Teknik Üniversitesi`);
+    const body = encodeURIComponent(
+`Sayın ${staff.name},
+
+${formattedDate} tarihinde Üniversitemizde görevli olduğunuz sınav(lar) aşağıda bilgilerinize sunulmuştur:
+
+${dutiesText}
+⚠️ ÖNEMLİ NOTLAR:
+1. Sınav salonunda sınav başlama saatinden en az 15 dakika önce hazır bulunmanız ve sınav tutanaklarını teslim almanız rica olunur.
+2. Kişisel sınav takviminize, mazeret bildirimlerinize ve gözetmenlik portalına aşağıdaki bağlantıdan doğrudan erişebilirsiniz:
+👉 Sınav Sistemi: ${siteUrl}
+
+İyi çalışmalar ve başarılar dileriz.
+
+Gebze Teknik Üniversitesi
+Sınav ve Gözetmenlik Koordinatörlüğü`
+    );
+
+    const mailtoUrl = `mailto:${staff.email || ''}?subject=${subject}&body=${body}`;
+    window.location.href = mailtoUrl;
+};
+
+window.sendTomorrowRemindersViaOutlook = function() {
+    const targetDate = document.getElementById('reminder-target-date')?.value;
+    if (!targetDate) return;
+
+    const checkedBoxes = Array.from(document.querySelectorAll('.reminder-staff-check:checked'));
+    if (checkedBoxes.length === 0) {
+        alert("Lütfen hatırlatma göndermek istediğiniz en az bir personeli seçin.");
+        return;
+    }
+
+    const selectedStaffIds = checkedBoxes.map(chk => chk.dataset.staffId);
+    const emails = [];
+    selectedStaffIds.forEach(id => {
+        const s = (DB.staff || []).find(st => String(st.id) === String(id));
+        if (s && s.email && s.email.includes('@')) {
+            emails.push(s.email.trim());
+        }
+    });
+
+    const siteUrl = getSystemUrl();
+    const formattedDate = new Date(targetDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const subject = encodeURIComponent(`⏰ Sınav Görevi Hatırlatması (${formattedDate}) - GTÜ`);
+    const bodyText = 
+`Sayın Hocalarımız ve Araştırma Görevlilerimiz,
+
+${formattedDate} tarihinde gerçekleştirilecek sınavlarda gözetmenlik göreviniz bulunmaktadır.
+
+Lütfen sınav başlama saatinden en az 15 dakika önce ilgili sınav salonunda hazır bulunarak sınav tutanaklarını teslim alınız.
+
+Detaylı kişisel sınav takviminize, görevli olduğunuz salonlara ve takas taleplerine aşağıdaki bağlantı üzerinden erişebilirsiniz:
+👉 Sınav Portalı: ${siteUrl}
+
+İyi çalışmalar dileriz.
+
+Gebze Teknik Üniversitesi
+Sınav Koordinatörlüğü`;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(bodyText).catch(() => {});
+    }
+
+    const body = encodeURIComponent(bodyText);
+    const bccList = emails.join(';');
+    const mailtoUrl = `mailto:?bcc=${bccList}&subject=${subject}&body=${body}`;
+
+    if (typeof showToast === 'function') {
+        showToast(`📬 ${emails.length} personel için Outlook taslağı açılıyor... Metin panoya kopyalandı.`, 'success');
+    }
+
+    window.location.href = mailtoUrl;
+};
+
+window.sendTomorrowRemindersViaEmail = async function() {
+    const targetDate = document.getElementById('reminder-target-date')?.value;
+    if (!targetDate) return;
+
+    const checkedBoxes = Array.from(document.querySelectorAll('.reminder-staff-check:checked'));
+    if (checkedBoxes.length === 0) {
+        alert("Lütfen hatırlatma göndermek istediğiniz en az bir personeli seçin.");
+        return;
+    }
+
+    const emailSettings = DB.emailSettings || {};
+    if (!emailSettings.enabled) {
+        if (confirm("⚠️ Otomatik E-posta Servisi (EmailJS/SMTP) henüz aktif edilmemiş.\n\nOutlook üzerinden toplu mail taslağı açmak ister misiniz?")) {
+            window.sendTomorrowRemindersViaOutlook();
+        }
+        return;
+    }
+
+    const siteUrl = getSystemUrl();
+    const formattedDate = new Date(targetDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const chk of checkedBoxes) {
+        const sId = chk.dataset.staffId;
+        const staff = (DB.staff || []).find(st => String(st.id) === String(sId));
+        if (!staff || !staff.email) {
+            failCount++;
+            continue;
+        }
+
+        const exams = (DB.exams || []).filter(e => {
+            if (e.date !== targetDate) return false;
+            if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, staff.id);
+            return (e.proctorIds || [e.proctorId]).map(String).includes(String(staff.id));
+        });
+
+        let dutyLines = exams.map(e => `• ${e.time} - ${e.name} (${e.location || 'Derslik Belirtilmedi'})`).join('\n');
+
+        const message = 
+`Sayın ${staff.name},
+
+${formattedDate} tarihindeki sınav görevi hatırlatmanız:
+${dutyLines}
+
+Sınav portalına erişmek ve takviminizi incelemek için: ${siteUrl}`;
+
+        if (typeof sendSwapNotificationEmail === 'function') {
+            const res = await sendSwapNotificationEmail({
+                toStaffId: staff.id,
+                toEmail: staff.email,
+                subject: `⏰ Sınav Görevi Hatırlatması (${formattedDate})`,
+                body: message,
+                templateParams: {
+                    to_name: staff.name,
+                    site_url: siteUrl
+                }
+            });
+            if (res.success) successCount++;
+            else failCount++;
+        }
+    }
+
+    if (typeof showToast === 'function') {
+        showToast(`✅ ${successCount} personele hatırlatma gönderildi.${failCount > 0 ? ` (${failCount} e-posta iletilemedi)` : ''}`, 'success');
+    } else {
+        alert(`✅ ${successCount} personele hatırlatma e-postası başarıyla gönderildi.`);
+    }
+};
+
+window.sendTomorrowRemindersViaWebhook = async function() {
+    const targetDate = document.getElementById('reminder-target-date')?.value;
+    if (!targetDate) return;
+
+    const examsOnDate = (DB.exams || []).filter(e => e.date === targetDate);
+    if (examsOnDate.length === 0) {
+        alert("Seçilen tarihte duyurulacak herhangi bir sınav bulunamadı.");
+        return;
+    }
+
+    const formattedDate = new Date(targetDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const siteUrl = getSystemUrl();
+
+    const fields = examsOnDate.slice(0, 15).map(e => {
+        const pNames = (e.proctorIds && e.proctorIds.length > 0)
+            ? e.proctorIds.map(id => {
+                const st = (DB.staff || []).find(s => String(s.id) === String(id));
+                return st ? st.name : 'Bilinmeyen';
+            }).join(', ')
+            : (e.proctorName || 'Atanmadı');
+
+        return {
+            name: `📚 ${e.time} | ${e.name}`,
+            value: `📍 **Yer:** ${e.location || 'Belirtilmedi'} | 🛡️ **Gözetmen:** ${pNames}`,
+            inline: false
+        };
+    });
+
+    if (typeof sendWebhookNotification === 'function') {
+        const res = await sendWebhookNotification({
+            title: `⏰ Sınav Hatırlatması: ${formattedDate}`,
+            description: `Yarın gerçekleşecek olan toplam **${examsOnDate.length}** sınavın gözetmenlik ve salon görev dağılımı:`,
+            fields: fields,
+            color: 0xf59e0b,
+            eventType: 'exam_reminder'
+        });
+
+        if (res.success) {
+            if (typeof showToast === 'function') {
+                showToast("📢 Webhook sınav hatırlatması başarıyla paylaşıldı!", "success");
+            } else {
+                alert("✓ Webhook bildirimi başarıyla gönderildi!");
+            }
+        } else {
+            alert("⚠️ Webhook gönderilemedi: " + (res.reason || res.error || 'Ayarları kontrol edin'));
+        }
+    } else {
+        alert("Webhook modülü bulunamadı.");
+    }
+};
+
+// ==========================================
+// 3. YAPAY ZEKA DAĞITIM & ADALET SİMÜLATÖRÜ (GİNİ)
+// ==========================================
+window._lastFairnessSimResult = null;
+
+window.openFairnessSimulatorModal = function() {
+    const modal = document.getElementById('modal-fairness-simulator');
+    if (!modal) return;
+    
+    window.renderFairnessMetricsUI();
+    
+    // Simülasyon sonuç kutularını sıfırla
+    const resBox = document.getElementById('fairness-sim-results-box');
+    const applyBtn = document.getElementById('btn-apply-fairness-sim');
+    const applyNote = document.getElementById('sim-apply-note');
+    const swapsCont = document.getElementById('fairness-swaps-container');
+    
+    if (resBox) resBox.classList.add('hidden');
+    if (applyBtn) applyBtn.classList.add('hidden');
+    if (applyNote) applyNote.classList.add('hidden');
+    if (swapsCont) {
+        swapsCont.innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 30px 10px;">
+                ⚡ <strong>"Simülasyon Çalıştır"</strong> butonuna basarak kısıt, çakışma ve cuma kurallarını bozmadan adaleti en üst seviyeye çıkaracak akıllı görev transfer önerilerini görebilirsiniz.
+            </div>
+        `;
+    }
+
+    modal.classList.remove('hidden');
+};
+
+window.renderFairnessMetricsUI = function() {
+    if (typeof calculateFairnessMetrics !== 'function') return;
+    
+    const stats = calculateFairnessMetrics(DB.staff || []);
+    
+    // Gini Kartı
+    const giniEl = document.getElementById('fairness-stat-gini');
+    const giniLabel = document.getElementById('fairness-stat-gini-label');
+    if (giniEl) giniEl.textContent = stats.gini.toFixed(4);
+    if (giniLabel) {
+        if (stats.gini < 0.15) giniLabel.textContent = "🌟 Mükemmele Yakın Eşit Dağılım";
+        else if (stats.gini < 0.25) giniLabel.textContent = "👍 Çok İyi ve Dengeli Dağılım";
+        else if (stats.gini < 0.35) giniLabel.textContent = "⚖️ Kabul Edilebilir Dağılım";
+        else giniLabel.textContent = "⚠️ Eşitsizlik Var (Dengeleme Önerilir)";
+    }
+
+    // Skor Kartı
+    const scoreEl = document.getElementById('fairness-stat-score');
+    if (scoreEl) {
+        scoreEl.textContent = `%${stats.fairnessScore}`;
+        if (stats.fairnessScore >= 85) scoreEl.style.color = '#10b981';
+        else if (stats.fairnessScore >= 70) scoreEl.style.color = '#f59e0b';
+        else scoreEl.style.color = '#ef4444';
+    }
+
+    // Standart Sapma Kartı
+    const stdEl = document.getElementById('fairness-stat-stddev');
+    const avgEl = document.getElementById('fairness-stat-avg');
+    if (stdEl) stdEl.textContent = `${stats.stdDev} P.`;
+    if (avgEl) avgEl.textContent = `Ortalama: ${stats.avg} Puan`;
+
+    // Makas Kartı
+    const rangeEl = document.getElementById('fairness-stat-range');
+    const minmaxEl = document.getElementById('fairness-stat-minmax');
+    if (rangeEl) rangeEl.textContent = `${stats.scoreRange} P.`;
+    if (minmaxEl) minmaxEl.textContent = `Min: ${stats.minScore} | Max: ${stats.maxScore}`;
+
+    // Benchmark
+    const benchAvg = document.getElementById('fairness-benchmark-avg');
+    if (benchAvg) benchAvg.textContent = `Hedef Ortalama: ${stats.avg} P.`;
+
+    // Dağılım Çubuk Grafiği
+    const barsContainer = document.getElementById('fairness-bars-container');
+    if (!barsContainer) return;
+
+    const staffList = (DB.staff || []).slice().sort((a,b) => (b.totalScore || 0) - (a.totalScore || 0));
+    const maxScore = Math.max(...staffList.map(s => s.totalScore || 0), 1);
+
+    let barsHtml = '';
+    staffList.forEach(s => {
+        const score = s.totalScore || 0;
+        const diff = score - stats.avg;
+        const pct = Math.min(100, Math.max(5, (score / maxScore) * 100));
+        
+        let barColor = 'linear-gradient(90deg, #0284c7, #38bdf8)';
+        let badgeColor = '#38bdf8';
+        let diffLabel = `±0.0`;
+
+        if (diff > 1.5) {
+            barColor = 'linear-gradient(90deg, #ea580c, #f97316)';
+            badgeColor = '#fb923c';
+            diffLabel = `+${diff.toFixed(1)} P.`;
+        } else if (diff < -1.5) {
+            barColor = 'linear-gradient(90deg, #6366f1, #818cf8)';
+            badgeColor = '#a5b4fc';
+            diffLabel = `${diff.toFixed(1)} P.`;
+        } else {
+            barColor = 'linear-gradient(90deg, #059669, #10b981)';
+            badgeColor = '#34d399';
+            diffLabel = diff >= 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`;
+        }
+
+        barsHtml += `
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 6px 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.8rem;">
+                    <span style="font-weight: 600; color: #f1f5f9;">${s.name} <span style="font-size:0.7rem; color:#94a3b8;">(${s.taskCount || 0} Görev)</span></span>
+                    <span style="font-weight: 700; color: ${badgeColor};">${score.toFixed(1)} P. <small style="font-weight:normal; opacity:0.8;">(${diffLabel})</small></span>
+                </div>
+                <div style="height: 6px; background: rgba(0,0,0,0.4); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; width: ${pct}%; background: ${barColor}; border-radius: 3px; transition: width 0.4s ease;"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    barsContainer.innerHTML = barsHtml;
+};
+
+window.runFairnessRebalanceSimulation = function() {
+    if (typeof simulateFairnessOptimization !== 'function') return;
+
+    const simResult = simulateFairnessOptimization(10);
+    window._lastFairnessSimResult = simResult;
+
+    const resBox = document.getElementById('fairness-sim-results-box');
+    const applyBtn = document.getElementById('btn-apply-fairness-sim');
+    const applyNote = document.getElementById('sim-apply-note');
+    const swapsCont = document.getElementById('fairness-swaps-container');
+
+    if (resBox) {
+        resBox.classList.remove('hidden');
+        document.getElementById('sim-res-gini').textContent = `${simResult.before.gini.toFixed(4)} ➔ ${simResult.after.gini.toFixed(4)}`;
+        document.getElementById('sim-res-score').textContent = `%${simResult.before.fairnessScore} ➔ %${simResult.after.fairnessScore}`;
+        document.getElementById('sim-res-stddev').textContent = `±${simResult.before.stdDev} ➔ ±${simResult.after.stdDev} P.`;
+    }
+
+    if (!swapsCont) return;
+
+    if (simResult.proposedSwaps.length === 0) {
+        swapsCont.innerHTML = `
+            <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 18px; text-align: center; color: #6ee7b7; font-size: 0.85rem;">
+                🎉 <strong>Tebrikler!</strong><br>
+                Mevcut kısıt ve çakışma kuralları dahilinde sistem şu anda en adil ve optimal seviyededir. İlave transfer gerekmemektedir.
+            </div>
+        `;
+        if (applyBtn) applyBtn.classList.add('hidden');
+        if (applyNote) applyNote.classList.add('hidden');
+        return;
+    }
+
+    let swapsHtml = `<div style="font-size: 0.8rem; color: #a5b4fc; font-weight: 600; margin-bottom: 8px;">💡 Yapay Zeka Tarafından Önerilen ${simResult.proposedSwaps.length} Görev Transferi:</div>`;
+    
+    simResult.proposedSwaps.forEach((swap, idx) => {
+        swapsHtml += `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">
+                    <span>${idx + 1}. 📚 ${swap.examName}</span>
+                    <span style="color: #38bdf8;">+${swap.examScore} Puan</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 6px;">
+                    📅 ${swap.examDate} | 🕐 ${swap.examTime}
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px; font-size: 0.8rem;">
+                    <div style="color: #fca5a5;">
+                        🛑 <strong>${swap.fromStaffName}</strong> <small>(${swap.fromStaffScoreBefore} P.)</small>
+                    </div>
+                    <div style="color: #10b981; font-size: 1rem; font-weight: bold;">➔</div>
+                    <div style="color: #86efac;">
+                        🟢 <strong>${swap.toStaffName}</strong> <small>(${swap.toStaffScoreBefore} P.)</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    swapsCont.innerHTML = swapsHtml;
+
+    if (applyBtn) {
+        applyBtn.textContent = `🚀 ${simResult.proposedSwaps.length} Transferi Sisteme Uygula`;
+        applyBtn.classList.remove('hidden');
+    }
+    if (applyNote) applyNote.classList.remove('hidden');
+};
+
+window.applyFairnessSimulationResults = async function() {
+    const simResult = window._lastFairnessSimResult;
+    if (!simResult || !simResult.proposedSwaps || simResult.proposedSwaps.length === 0) {
+        alert("Uygulanacak transfer önerisi bulunmuyor.");
+        return;
+    }
+
+    if (!confirm(`⚠️ Önerilen ${simResult.proposedSwaps.length} adet görev transferi onaylanarak sınav programına işlenecek ve sistem adalet skoru yükseltilecektir.\n\nOnaylıyor musunuz?`)) {
+        return;
+    }
+
+    // 1. Geri dönüş için Snapshot al
+    if (typeof saveAutoSnapshot === 'function') {
+        saveAutoSnapshot(DB, "Yapay Zeka Adalet Dengelemesi");
+    }
+
+    // 2. Transferleri DB.exams üzerinde uygula
+    simResult.proposedSwaps.forEach(swap => {
+        const exam = (DB.exams || []).find(e => e.id === swap.examId);
+        if (exam) {
+            exam.proctorIds = [swap.toStaffId];
+            exam.proctorId = swap.toStaffId;
+            exam.proctorName = swap.toStaffName;
+        }
+    });
+
+    // 3. Personel puanlarını yeniden hesapla
+    if (typeof calculateAllStaffScores === 'function') {
+        calculateAllStaffScores();
+    } else {
+        (DB.staff || []).forEach(s => {
+            const base = parseFloat(s.baseScore || 0);
+            const myExams = (DB.exams || []).filter(e => {
+                if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, s.id);
+                return (e.proctorIds || [e.proctorId]).map(String).includes(String(s.id));
+            });
+            const examScore = myExams.reduce((acc, e) => acc + (parseFloat(e.score) || 1), 0);
+            s.totalScore = parseFloat((base + examScore).toFixed(2));
+            s.taskCount = myExams.length;
+        });
+    }
+
+    // 4. Kaydet
+    saveToLocalStorage();
+    if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
+        try { await saveToBackend(); } catch(e) {}
+    }
+
+    // 5. Ekranları tazele
+    if (typeof renderExams === 'function') renderExams();
+    if (typeof renderStaff === 'function') renderStaff();
+    if (typeof renderSchedule === 'function') renderSchedule();
+    if (typeof renderDashboard === 'function') renderDashboard();
+
+    // 6. Simülatör UI tazele
+    window.renderFairnessMetricsUI();
+    
+    const swapsCont = document.getElementById('fairness-swaps-container');
+    if (swapsCont) {
+        swapsCont.innerHTML = `
+            <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 18px; text-align: center; color: #6ee7b7; font-size: 0.85rem;">
+                ✅ <strong>Başarılı!</strong><br>
+                ${simResult.proposedSwaps.length} adet görev transferi programa işlendi. Adalet skoru <strong>%${simResult.after.fairnessScore}</strong> seviyesine yükseltildi.
+            </div>
+        `;
+    }
+
+    const applyBtn = document.getElementById('btn-apply-fairness-sim');
+    const applyNote = document.getElementById('sim-apply-note');
+    if (applyBtn) applyBtn.classList.add('hidden');
+    if (applyNote) applyNote.classList.add('hidden');
+
+    if (typeof showToast === 'function') {
+        showToast(`🌟 ${simResult.proposedSwaps.length} görev transferiyle adalet puanı %${simResult.after.fairnessScore}'a çıkarıldı!`, 'success');
+    } else {
+        alert(`✓ ${simResult.proposedSwaps.length} görev transferi başarıyla uygulandı!`);
+    }
+};
