@@ -58,6 +58,7 @@
                 <button id="btn-staff" class="admin-only">Personel</button>
                 <button id="btn-availability" class="user-only">Müsaitlik</button>
                 <button id="btn-audit" class="admin-only">📜 İşlem Geçmişi</button>
+                <button id="btn-data-health" class="admin-only" onclick="showDataHealthModal()" title="Sistem Sağlığı ve Veri Bütünlüğü" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);"><span class="icon" style="margin:0; margin-right:4px;">🛡️</span>Bütünlük & Sağlık</button>
                 <button id="btn-announcements">📢 Duyurular <span id="announcement-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-feedback">💬 Öneri & Şikayet <span id="feedback-badge" class="badge-count hidden">0</span></button>
                 <button id="btn-lecturer-portal" class="lecturer-only hidden" style="background: rgba(99,102,241,0.15); color: var(--primary); font-weight: 600;">✍️ Hoca Paneli (Mesaj Gönder)</button>
@@ -691,8 +692,9 @@
                         <div class="dropdown">
                             <button class="btn-primary" style="background:#4b5563;">⚙️ Sistem Ayarları</button>
                             <div class="dropdown-content">
-                                <button id="btn-backup-system" class="dropdown-item">💾 Yedekle (JSON)</button>
-                                <button id="id-restore-system" class="dropdown-item">📂 Geri Yükle</button>
+                                <button id="btn-snapshot-vault" class="dropdown-item" style="color:#0284c7;">📁 Yedek Geçmişi & Kurtarma</button>
+                                <button id="btn-backup-system" class="dropdown-item">💾 Yedekle (JSON İndir)</button>
+                                <button id="id-restore-system" class="dropdown-item">📂 Dışarıdan JSON Yükle</button>
                                 <button id="btn-reset-exams" class="dropdown-item" style="color:var(--accent-orange);">🧹 Programı Sıfırla (Puanlar Kalsın)</button>
                                 <button id="btn-resolve-conflicts" class="dropdown-item" style="color:var(--accent-red);">⚠️ Çakışmaları Otomatik Çöz</button>
                                 <button id="btn-email-settings" class="dropdown-item" style="color:var(--primary);">📧 E-posta Ayarları</button>
@@ -1646,6 +1648,7 @@
                     </div>
                     <div class="form-group">
                         <label>Gözetmen Ekle</label>
+                        <div id="edit-exam-avail-status" style="display:none; margin-bottom:10px; padding:10px 14px; border-radius:8px; font-size:0.85rem; line-height:1.4; border:1px solid transparent;"></div>
                         <div style="display:flex; gap:10px; margin-bottom:10px;">
                             <select id="edit-exam-proctor-select" style="flex:1; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: white;"></select>
                             <button type="button" class="btn-primary" onclick="addProctorToEditList()" style="padding:0 1.25rem;">Ekle</button>
@@ -2006,9 +2009,53 @@
                 </div>
             </div>
         </div>
-                            </div>
-    <script src="logic.js?v=3"></script>
-    <script src="app.js?v=3"></script>
+    </div>
+
+    <!-- Sistem Sağlığı ve Veri Bütünlüğü Modalı -->
+    <div id="modal-data-health" class="modal hidden admin-only" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 780px; width: 95%; background: var(--bg-card, #1e293b); border: 1px solid var(--glass-border); border-radius: 14px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); max-height: 88vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px; color: white;">
+                    <span>🛡️</span> Sistem Sağlığı ve Veri Bütünlüğü Raporu
+                </h3>
+                <button onclick="document.getElementById('modal-data-health').classList.add('hidden')" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            
+            <div id="data-health-summary-card" style="margin-bottom: 16px;"></div>
+
+            <div id="data-health-details" style="flex: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; background: rgba(0,0,0,0.25); min-height: 200px; max-height: 380px;">
+                <!-- Tanı detayları buraya gelecek -->
+            </div>
+
+            <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <button type="button" class="btn-secondary" onclick="runDataHealthCheck()" style="padding: 9px 16px; font-size: 13px;">🔄 Yeniden Tara</button>
+                <button type="button" id="btn-fix-integrity" class="btn-primary" onclick="handleAutoFixIntegrity()" style="background: #10b981; border-color: #10b981; padding: 9px 18px; font-size: 13px; font-weight: 600;">⚡ Otomatik Onar & Senkronize Et</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snapshot Vault Modal (Yedek Geçmişi & Kurtarma) -->
+    <div id="modal-snapshot-vault" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-card" style="max-width: 680px; width: 95%; background: var(--bg-card, #1e293b); color: var(--text-main, #f8fafc); border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">📁 Yedek Geçmişi & Güvenli Kurtarma Kasası</h3>
+                <button id="btn-close-vault-modal" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            <p style="font-size: 13px; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.5;">
+                Siteye her girişinizde ve yaptığınız işlemlerde sistem otomatik olarak anlık görüntü (snapshot) alır. İstediğiniz geçmiş tarihteki veriye tek tıkla geri dönebilirsiniz.
+            </p>
+            <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                <button id="btn-vault-manual-snapshot" class="btn-primary" style="font-size: 13px; padding: 8px 14px; background: #0284c7; border: none; border-radius: 6px; color: white; cursor: pointer;">📸 Şimdi Manuel Yedek Al</button>
+                <button id="btn-vault-download-all" class="btn-secondary" style="font-size: 13px; padding: 8px 14px; background: #334155; border: none; border-radius: 6px; color: white; cursor: pointer;">💾 JSON Olarak İndir</button>
+            </div>
+            <div id="vault-snapshots-list" style="flex: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; background: rgba(0,0,0,0.2); min-height: 180px; max-height: 380px;">
+                <!-- JavaScript tarafından dinamik oluşturulacak -->
+            </div>
+        </div>
+    </div>
+
+    <script src="logic.js?v=4"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>
 

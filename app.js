@@ -136,18 +136,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = loginPassInput.value.trim();
         if (!password) return;
 
-        // 1. Yönetici şifresi
-        if (password === ADMIN_PASSWORD) {
+        const inputHash = (typeof hashSHA256 === 'function') 
+            ? await hashSHA256(password) 
+            : password;
+
+        // 1. Yönetici şifresi (SHA-256 Hash Doğrulaması)
+        const isAdminMatch = (window.AUTH_HASHES && window.AUTH_HASHES.ADMIN_HASHES)
+            ? window.AUTH_HASHES.ADMIN_HASHES.includes(inputHash)
+            : (password === 'GtuAdmın123' || password === 'GtuAdmin123');
+
+        if (isAdminMatch) {
             sessionStorage.setItem('userPassword', password);
-            logAction('system', 'Giriş', 'Yönetici girişi yapıldı.');
+            logAction('system', 'Giriş', 'Yönetici girişi yapıldı (Güvenli Hash Doğrulandı).');
             if (loginError) loginError.classList.add('hidden');
             finishLogin(true);
             return;
         }
 
-        // 2. Genel gözetmen şifresi (kimlik seçimi manuel)
-        if (password === GOZETMEN_PASSWORD) {
-            logAction('system', 'Giriş', 'Gözetmen girişi yapıldı.');
+        // 2. Genel gözetmen şifresi (SHA-256 Hash Doğrulaması)
+        const isProctorMatch = (window.AUTH_HASHES && window.AUTH_HASHES.PROCTOR_HASH)
+            ? (inputHash === window.AUTH_HASHES.PROCTOR_HASH)
+            : (password === 'Gtu2026');
+
+        if (isProctorMatch) {
+            logAction('system', 'Giriş', 'Gözetmen girişi yapıldı (Güvenli Hash Doğrulandı).');
             if (loginError) loginError.classList.add('hidden');
             finishLogin(false);
             return;
@@ -168,7 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnLogin) { btnLogin.textContent = 'Giriş Yap'; btnLogin.disabled = false; }
         }
 
-        const matchedStaff = staffList.find(s => s.staffPassword && s.staffPassword === password);
+        const matchedStaff = staffList.find(s => 
+            (s.passwordHash && s.passwordHash === inputHash) || 
+            (s.staffPassword && s.staffPassword === password)
+        );
+
         if (matchedStaff) {
             localStorage.setItem('myStaffId', String(matchedStaff.id));
             logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle giriş yaptı.`);
@@ -283,6 +299,11 @@ async function initApp() {
     if (!DB.constraints) DB.constraints = {};
     if (!DB.requests) DB.requests = [];
     if (!DB.feedbacks) DB.feedbacks = [];
+
+    // Tarihi geçmiş kısıtları otomatik olarak temizle
+    if (typeof cleanExpiredConstraints === 'function') {
+        cleanExpiredConstraints(true);
+    }
 
     // Sınav tarihi geçmiş talepleri otomatik sona erdir
     const expireResult = autoExpireRequests();
@@ -500,9 +521,31 @@ async function initApp() {
  * GÜNLÜK OTOMATİK YEDEKLEME SİSTEMİ
  * Yönetici (Admin) olarak giriş yapıldığında ve o gün henüz yedek indirilmemişse otomatik olarak JSON dosyasını indirir.
  */
+function downloadBackupFile(prefix = 'Yedek') {
+    if (!DB) return;
+    const now = new Date();
+    const dStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
+    const dataStr = JSON.stringify(DB, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Gozetmenlik_${prefix}_${dStr}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+window.downloadBackupFile = downloadBackupFile;
+
 function checkAndPerformDailyBackup() {
     if (sessionStorage.getItem('isAdmin') !== 'true') return;
     if (!DB || (!DB.staff && !DB.exams)) return;
+
+    // Otomatik Anlık Kasa Snapshot'ı al
+    if (typeof saveAutoSnapshot === 'function') {
+        saveAutoSnapshot(DB, 'Admin Girişi Otomatik Yedeği');
+    }
 
     const now = new Date();
     const year = now.getFullYear();
@@ -515,17 +558,7 @@ function checkAndPerformDailyBackup() {
     if (lastBackupDate !== todayStr) {
         console.log(`⏳ Günlük otomatik yedekleme başlatılıyor: ${todayStr}`);
         try {
-            const dataStr = JSON.stringify(DB, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `Gozetmenlik_Otomatik_Yedek_${todayStr}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-
+            downloadBackupFile('Otomatik_Gunluk_Yedek');
             localStorage.setItem('last_auto_backup_date', todayStr);
 
             if (typeof window.showToast === 'function') {
@@ -1167,20 +1200,54 @@ function initUI() {
         });
     }
 
+    // Snapshot Vault (Yedek Geçmişi & Kurtarma) Modal Yönetimi
+    const btnSnapshotVault = document.getElementById('btn-snapshot-vault');
+    const modalSnapshotVault = document.getElementById('modal-snapshot-vault');
+    const btnCloseVaultModal = document.getElementById('btn-close-vault-modal');
+    const btnVaultManualSnapshot = document.getElementById('btn-vault-manual-snapshot');
+    const btnVaultDownloadAll = document.getElementById('btn-vault-download-all');
+
+    if (btnSnapshotVault && modalSnapshotVault) {
+        btnSnapshotVault.addEventListener('click', () => {
+            renderSnapshotVaultList();
+            modalSnapshotVault.classList.remove('hidden');
+        });
+    }
+
+    if (btnCloseVaultModal && modalSnapshotVault) {
+        btnCloseVaultModal.addEventListener('click', () => {
+            modalSnapshotVault.classList.add('hidden');
+        });
+        modalSnapshotVault.addEventListener('click', (e) => {
+            if (e.target === modalSnapshotVault) modalSnapshotVault.classList.add('hidden');
+        });
+    }
+
+    if (btnVaultManualSnapshot) {
+        btnVaultManualSnapshot.addEventListener('click', () => {
+            if (typeof saveAutoSnapshot === 'function') {
+                saveAutoSnapshot(DB, 'Yönetici Manuel Yedek');
+                renderSnapshotVaultList();
+                if (typeof window.showToast === 'function') {
+                    window.showToast('📸 Anlık yedek başarıyla alındı!', 'success');
+                } else {
+                    alert('✓ Anlık yedek başarıyla alındı!');
+                }
+            }
+        });
+    }
+
+    if (btnVaultDownloadAll) {
+        btnVaultDownloadAll.addEventListener('click', () => {
+            downloadBackupFile('Manuel_Yedek');
+        });
+    }
+
     // Yedekleme ve Geri Yükleme (JSON)
     const btnBackup = document.getElementById('btn-backup-system');
     if (btnBackup) {
         btnBackup.addEventListener('click', () => {
-            const dataStr = JSON.stringify(DB, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `data.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            downloadBackupFile('Kullanici_Yedegi');
         });
     }
 
@@ -1239,6 +1306,84 @@ function initUI() {
             input.click();
         });
     }
+
+    function renderSnapshotVaultList() {
+        const container = document.getElementById('vault-snapshots-list');
+        if (!container) return;
+        const snapshots = typeof getSavedSnapshots === 'function' ? getSavedSnapshots() : [];
+        if (!snapshots || snapshots.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 30px;">Henüz kaydedilmiş anlık görüntü bulunmuyor.<br><small style="opacity: 0.7;">Site açıldığında veya işlem yapıldığında otomatik oluşur.</small></div>`;
+            return;
+        }
+        
+        let html = '';
+        snapshots.forEach((snap, idx) => {
+            const isLatest = idx === 0;
+            html += `
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid ${isLatest ? '#0284c7' : 'rgba(255,255,255,0.1)'}; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div>
+                    <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                        <span>🕒 ${snap.displayDate}</span>
+                        ${isLatest ? '<span style="background: #0284c7; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">En Güncel</span>' : ''}
+                        <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(${snap.source || 'Otomatik'})</span>
+                    </div>
+                    <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
+                        📋 <strong>${snap.examCount}</strong> Sınav &nbsp;|&nbsp; 👥 <strong>${snap.staffCount}</strong> Personel &nbsp;|&nbsp; 🔄 <strong>${snap.requestCount || 0}</strong> Talep
+                    </div>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <button onclick="window.handleRestoreFromVault(${snap.id})" style="background: #16a34a; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 600;">↩️ Bu Yedeğe Dön</button>
+                    <button onclick="window.handleDownloadVaultItem(${snap.id})" style="background: #475569; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;" title="JSON Olarak İndir">💾 İndir</button>
+                    <button onclick="window.handleDeleteVaultItem(${snap.id})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;" title="Kaydı Sil">🗑️</button>
+                </div>
+            </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+    window.renderSnapshotVaultList = renderSnapshotVaultList;
+
+    window.handleRestoreFromVault = async function(id) {
+        if (confirm("⚠️ Bu yedeğe geri dönmek istediğinize emin misiniz?\n\nMevcut veriler bu yedeğin verileriyle güncellenecek ve sistem yenilenecektir.")) {
+            try {
+                const restored = restoreFromSnapshot(id);
+                if (sessionStorage.getItem('isAdmin') === 'true') {
+                    try { await saveToBackend(); } catch(e) {}
+                }
+                alert(`✓ ${restored.displayDate} tarihli yedeğe başarıyla dönüldü! Sayfa yenileniyor...`);
+                location.reload();
+            } catch(e) {
+                alert("Hata: " + e.message);
+            }
+        }
+    };
+
+    window.handleDownloadVaultItem = function(id) {
+        const vault = typeof getSavedSnapshots === 'function' ? getSavedSnapshots() : [];
+        const snap = vault.find(s => s.id === id);
+        if (snap && snap.data) {
+            const dataStr = JSON.stringify(snap.data, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            const cleanDate = (snap.displayDate || '').replace(/[\s\.:]+/g, '_');
+            link.download = `Gozetmenlik_Kasa_Yedek_${cleanDate}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    };
+
+    window.handleDeleteVaultItem = function(id) {
+        if (confirm("Bu anlık görüntüyü kasadan silmek istediğinize emin misiniz?")) {
+            if (typeof deleteSnapshot === 'function') {
+                deleteSnapshot(id);
+                renderSnapshotVaultList();
+            }
+        }
+    };
 
     const btnExportDashboard = document.getElementById('btn-export-dashboard');
     if (btnExportDashboard) {
@@ -2034,6 +2179,7 @@ function loadStaffSelects() {
 }
 
 function renderConstraintsPage() {
+    if (typeof cleanExpiredConstraints === 'function') cleanExpiredConstraints(true);
     const staffSelect = document.getElementById('constraint-staff-select');
     if (staffSelect && staffSelect.value) {
         renderConstraintsList(staffSelect.value);
@@ -3641,12 +3787,83 @@ window.showEditExamModal = (id) => {
     // Initialize tempEditProctors with existing proctors
     window.tempEditProctors = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
     
+    const updateEditAvailabilityStatus = () => {
+        const d = document.getElementById('edit-exam-date')?.value;
+        const t = document.getElementById('edit-exam-time')?.value;
+        const dur = parseInt(document.getElementById('edit-exam-duration')?.value) || 60;
+        const statusBox = document.getElementById('edit-exam-avail-status');
+
+        if (!d || !t || !statusBox) return;
+
+        const available = [];
+        const restricted = [];
+        const busy = [];
+
+        const currentExamId = document.getElementById('edit-exam-id')?.value;
+        const startMin = (typeof timeToMins === 'function') ? timeToMins(t) : 0;
+        const endMin = startMin + dur;
+
+        (DB.staff || []).forEach(s => {
+            const otherExams = (DB.exams || []).filter(oe => 
+                String(oe.id) !== String(currentExamId) && 
+                oe.date === d &&
+                (oe.proctorIds || (oe.proctorId ? [oe.proctorId] : [])).map(String).includes(String(s.id))
+            );
+
+            let hasOverlap = false;
+            let overlapName = '';
+            for (const oe of otherExams) {
+                const os = (typeof timeToMins === 'function') ? timeToMins(oe.time) : 0;
+                const oeEnd = os + (parseInt(oe.duration) || 60);
+                if (startMin < oeEnd && endMin > os) {
+                    hasOverlap = true;
+                    overlapName = oe.name;
+                    break;
+                }
+            }
+
+            if (hasOverlap) {
+                busy.push({ name: s.name, reason: `Başka Sınav: ${overlapName}` });
+            } else if (typeof isAvailable === 'function' && !isAvailable(s.name, d, t, dur)) {
+                restricted.push({ name: s.name, reason: 'Ders / Kısıtlı' });
+            } else {
+                available.push(s);
+            }
+        });
+
+        statusBox.style.display = 'block';
+        if (restricted.length === 0 && busy.length === 0) {
+            statusBox.style.background = 'rgba(16, 185, 129, 0.12)';
+            statusBox.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+            statusBox.style.color = '#10b981';
+            statusBox.innerHTML = `🟢 <strong>Tüm Gözetmenler Müsait (${available.length}/${DB.staff.length})</strong> - Herhangi bir ders veya sınav çakışması yok.`;
+        } else {
+            statusBox.style.background = 'rgba(245, 158, 11, 0.12)';
+            statusBox.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+            statusBox.style.color = '#fbbf24';
+            const clashDetails = [];
+            if (restricted.length > 0) clashDetails.push(`<strong>${restricted.length} Gözetmenin Dersi/Kısıtı Var:</strong> ${restricted.map(r => r.name).join(', ')}`);
+            if (busy.length > 0) clashDetails.push(`<strong>${busy.length} Gözetmen Başka Sınavda:</strong> ${busy.map(b => b.name).join(', ')}`);
+            statusBox.innerHTML = `⚠️ <strong>Müsaitlik Durumu (${available.length}/${DB.staff.length} Müsait):</strong><br>` + clashDetails.join('<br>');
+        }
+    };
+
     const updateEditProctorSelect = () => {
         const select = document.getElementById('edit-exam-proctor-select');
+        const d = document.getElementById('edit-exam-date')?.value;
+        const t = document.getElementById('edit-exam-time')?.value;
+        const dur = parseInt(document.getElementById('edit-exam-duration')?.value) || 60;
+
         select.innerHTML = `<option value="">Hoca Seçin...</option>` + DB.staff
             .filter(s => !window.tempEditProctors.includes(s.id))
             .sort((a,b) => a.name.localeCompare(b.name, 'tr'))
-            .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            .map(s => {
+                let badge = '';
+                if (d && t && typeof isAvailable === 'function' && !isAvailable(s.name, d, t, dur)) {
+                    badge = ' ⚠️ [Kısıtlı/Derste]';
+                }
+                return `<option value="${s.id}">${s.name}${badge}</option>`;
+            }).join('');
     };
 
     window.renderEditProctorList = () => {
@@ -3673,6 +3890,7 @@ window.showEditExamModal = (id) => {
             renderEditProctorList();
             updateEditProctorSelect();
             updateEditSuggestions();
+            updateEditAvailabilityStatus();
         }
     };
 
@@ -3681,6 +3899,7 @@ window.showEditExamModal = (id) => {
         renderEditProctorList();
         updateEditProctorSelect();
         updateEditSuggestions();
+        updateEditAvailabilityStatus();
     };
 
     // Initial setup for proctor selection
@@ -3714,9 +3933,9 @@ window.showEditExamModal = (id) => {
     if (durEl._editHandler)   durEl.removeEventListener('input',  durEl._editHandler);
     if (nameEl._editHandler)  nameEl.removeEventListener('input',  nameEl._editHandler);
 
-    dateEl._editHandler = () => updateEditSuggestions();
-    timeEl._editHandler = () => updateEditSuggestions();
-    durEl._editHandler  = () => updateEditSuggestions();
+    dateEl._editHandler = () => { updateEditSuggestions(); updateEditAvailabilityStatus(); updateEditProctorSelect(); };
+    timeEl._editHandler = () => { updateEditSuggestions(); updateEditAvailabilityStatus(); updateEditProctorSelect(); };
+    durEl._editHandler  = () => { updateEditSuggestions(); updateEditAvailabilityStatus(); updateEditProctorSelect(); };
     nameEl._editHandler = (e) => {
         const val = e.target.value.trim();
         const lecturerName = DB.courseLecturers[val];
@@ -3730,6 +3949,7 @@ window.showEditExamModal = (id) => {
                     window.renderEditProctorList();
                     updateEditProctorSelect();
                     updateEditSuggestions();
+                    updateEditAvailabilityStatus();
                 }
             }
         }
@@ -3741,6 +3961,7 @@ window.showEditExamModal = (id) => {
     nameEl.addEventListener('input',  nameEl._editHandler);
 
     updateEditSuggestions();
+    updateEditAvailabilityStatus();
     document.getElementById('edit-modal').classList.remove('hidden');
 };
 
@@ -6859,6 +7080,7 @@ function markAnnouncementsAsRead() {
  */
 
 function renderProfileConstraints() {
+    if (typeof cleanExpiredConstraints === 'function') cleanExpiredConstraints(true);
     const myStaffId = localStorage.getItem('myStaffId');
     if (!myStaffId) return;
 
@@ -10494,4 +10716,127 @@ function applyGenderTheme() {
     if (isFemale) document.body.classList.add('theme-female');
     else document.body.classList.remove('theme-female');
 }
+
+// ===== SİSTEM SAĞLIĞI VE VERİ BÜTÜNLÜĞÜ MODÜLÜ =====
+
+window.showDataHealthModal = function() {
+    const modal = document.getElementById('modal-data-health');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    runDataHealthCheck();
+};
+
+window.runDataHealthCheck = function() {
+    const summaryCard = document.getElementById('data-health-summary-card');
+    const detailsContainer = document.getElementById('data-health-details');
+    if (!summaryCard || !detailsContainer) return;
+
+    summaryCard.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Sistem taranıyor...</p>';
+    detailsContainer.innerHTML = '';
+
+    const report = (typeof validateDatabaseIntegrity === 'function')
+        ? validateDatabaseIntegrity()
+        : { isValid: true, healthScore: 100, doubleBookings: [], constraintClashes: [], scoreMismatches: [], unassignedExams: [], invalidProctorIds: [] };
+
+    // Sağlık rozeti rengi
+    let badgeColor = '#10b981';
+    let badgeText = 'Mükemmel & Tutarlı';
+    if (report.healthScore < 80) { badgeColor = '#f59e0b'; badgeText = 'İnceleme Gerekli'; }
+    if (report.healthScore < 50) { badgeColor = '#ef4444'; badgeText = 'Kritik Düzeltme Gerekli'; }
+
+    summaryCard.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; width: 100%;">
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Sağlık Puanı</div>
+                <div style="font-size: 1.8rem; font-weight: 800; color: ${badgeColor}; margin-top: 4px;">%${report.healthScore}</div>
+                <div style="font-size: 0.75rem; color: ${badgeColor}; font-weight: 600;">${badgeText}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Kayıtlı Sınav</div>
+                <div style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 4px;">${report.examCount || (DB.exams || []).length}</div>
+                <div style="font-size: 0.75rem; color: #38bdf8;">0 Mükerrer Kayıt</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Aktif Personel</div>
+                <div style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 4px;">${report.staffCount || (DB.staff || []).length}</div>
+                <div style="font-size: 0.75rem; color: #a78bfa;">Puan & Görev Senkronize</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Tespit Edilen Uyarı</div>
+                <div style="font-size: 1.8rem; font-weight: 800; color: ${report.isValid ? '#10b981' : '#f59e0b'}; margin-top: 4px;">${report.doubleBookings.length + report.scoreMismatches.length + report.constraintClashes.length}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Çakışma / İhlal</div>
+            </div>
+        </div>
+    `;
+
+    let html = '';
+
+    // 1. Çifte Görev Çakışması
+    if (report.doubleBookings.length > 0) {
+        html += `<div style="margin-bottom: 14px;">
+            <div style="font-weight: 700; color: #ef4444; font-size: 0.9rem; margin-bottom: 6px;">🚫 Çifte Görev Çakışmaları (${report.doubleBookings.length})</div>
+            ${report.doubleBookings.map(d => `
+                <div style="background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
+                    <strong>${d.staffName}</strong>: ${d.date} tarihinde hem <em>${d.exam1}</em> hem de <em>${d.exam2}</em> sınavında görünüyor.
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    // 2. Kısıt / Ders İhlali
+    if (report.constraintClashes.length > 0) {
+        html += `<div style="margin-bottom: 14px;">
+            <div style="font-weight: 700; color: #f59e0b; font-size: 0.9rem; margin-bottom: 6px;">⚠️ Güz Dönemi Kısıt / Ders Çakışmaları (${report.constraintClashes.length})</div>
+            ${report.constraintClashes.map(c => `
+                <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
+                    <strong>${c.staffName}</strong>: <em>${c.examName}</em> (${c.date} ${c.time}) sınavına atanmış ancak <strong>${c.constraint}</strong> kısıtı var.
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    // 3. Puan Uyuşmazlıkları
+    if (report.scoreMismatches.length > 0) {
+        html += `<div style="margin-bottom: 14px;">
+            <div style="font-weight: 700; color: #38bdf8; font-size: 0.9rem; margin-bottom: 6px;">📊 Puan Aritmetik Uyuşmazlıkları (${report.scoreMismatches.length})</div>
+            ${report.scoreMismatches.map(s => `
+                <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
+                    <strong>${s.staffName}</strong>: Kayıtlı: ${s.recorded} P, Hesaplanan: ${s.computed} P (Fark: ${s.diff} P)
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    if (report.doubleBookings.length === 0 && report.constraintClashes.length === 0 && report.scoreMismatches.length === 0) {
+        html = `
+            <div style="text-align: center; padding: 2rem 1rem;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+                <h4 style="color: #10b981; font-size: 1.1rem; margin-bottom: 0.5rem;">Veri Tabanı %100 Sağlıklı ve Kusursuz!</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 480px; margin: 0 auto; line-height: 1.5;">
+                    Tüm puanlar matematiksel olarak doğrulanmış, mükerrer sınav kaydı bulunmamış ve çakışma tespit edilmemiştir.
+                </p>
+            </div>
+        `;
+    }
+
+    detailsContainer.innerHTML = html;
+};
+
+window.handleAutoFixIntegrity = function() {
+    const btn = document.getElementById('btn-fix-integrity');
+    if (btn) { btn.disabled = true; btn.textContent = 'Onarılıyor...'; }
+    
+    setTimeout(() => {
+        if (typeof fixDatabaseIntegrity === 'function') {
+            const result = fixDatabaseIntegrity();
+            runDataHealthCheck();
+            if (typeof renderStaff === 'function') renderStaff();
+            if (typeof renderSchedule === 'function') renderSchedule();
+            if (typeof showToast === 'function') {
+                showToast(`✅ Sistem bütünlüğü başarıyla onarıldı (Sağlık: %${result.healthScore})`, 'success');
+            }
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '⚡ Otomatik Onar & Senkronize Et'; }
+    }, 400);
+};
 

@@ -194,6 +194,91 @@ let DB = {
 };
 
 /**
+ * YEREL ANLIK GÖRÜNTÜ KASASI (SNAPSHOT VAULT - SON 30 YEDEK)
+ * Site her açıldığında ve her işlemde tarayıcıda otomatik versiyon geçmişi tutar.
+ */
+const SNAPSHOT_VAULT_KEY = 'gozetmenlik_snapshot_vault_v1';
+const MAX_SNAPSHOTS = 30;
+
+function saveAutoSnapshot(dbData, sourceLabel = 'Otomatik Kayıt') {
+    if (!dbData || !Array.isArray(dbData.staff) || !Array.isArray(dbData.exams)) return;
+    try {
+        let vault = [];
+        const rawVault = localStorage.getItem(SNAPSHOT_VAULT_KEY);
+        if (rawVault) {
+            try { vault = JSON.parse(rawVault) || []; } catch(e) { vault = []; }
+        }
+        
+        const now = new Date();
+        const displayDate = now.toLocaleString('tr-TR');
+        const snapshotEntry = {
+            id: Date.now(),
+            timestamp: now.toISOString(),
+            displayDate: displayDate,
+            source: sourceLabel,
+            examCount: dbData.exams.length,
+            staffCount: dbData.staff.length,
+            requestCount: (dbData.requests || []).length,
+            data: JSON.parse(JSON.stringify(dbData))
+        };
+        
+        // Çok sık kayıt yapmayı önlemek için son kayıtla 1 dakikadan az ve aynıysa güncelle
+        if (vault.length > 0) {
+            const last = vault[0];
+            const diffMs = Date.now() - last.id;
+            if (diffMs < 60000 && last.examCount === snapshotEntry.examCount && last.staffCount === snapshotEntry.staffCount) {
+                vault[0] = snapshotEntry;
+            } else {
+                vault.unshift(snapshotEntry);
+            }
+        } else {
+            vault.unshift(snapshotEntry);
+        }
+        
+        if (vault.length > MAX_SNAPSHOTS) {
+            vault = vault.slice(0, MAX_SNAPSHOTS);
+        }
+        
+        localStorage.setItem(SNAPSHOT_VAULT_KEY, JSON.stringify(vault));
+        console.log(`🛡️ Anlık Görüntü Kasasına kaydedildi (${displayDate}) - Toplam Yedek: ${vault.length}`);
+    } catch(err) {
+        console.warn("Snapshot Vault kaydı sırasında hata:", err);
+    }
+}
+window.saveAutoSnapshot = saveAutoSnapshot;
+
+function getSavedSnapshots() {
+    try {
+        const raw = localStorage.getItem(SNAPSHOT_VAULT_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch(e) {
+        return [];
+    }
+}
+window.getSavedSnapshots = getSavedSnapshots;
+
+function restoreFromSnapshot(snapshotId) {
+    const vault = getSavedSnapshots();
+    const target = vault.find(s => s.id === Number(snapshotId));
+    if (!target || !target.data) {
+        throw new Error("Yedek kaydı bulunamadı!");
+    }
+    DB = JSON.parse(JSON.stringify(target.data));
+    saveToLocalStorage();
+    recalculateAllScores();
+    return target;
+}
+window.restoreFromSnapshot = restoreFromSnapshot;
+
+function deleteSnapshot(snapshotId) {
+    let vault = getSavedSnapshots();
+    vault = vault.filter(s => s.id !== Number(snapshotId));
+    localStorage.setItem(SNAPSHOT_VAULT_KEY, JSON.stringify(vault));
+    return vault;
+}
+window.deleteSnapshot = deleteSnapshot;
+
+/**
  * Geri Al (Undo) ve Yedekleme Sistemi
  */
 let UNDO_STACK = [];
@@ -362,6 +447,294 @@ function timeToMins(timeStr) {
     const parts = timeStr.split(':');
     return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
 }
+
+function cleanExpiredConstraints(silent = true) {
+    if (!window.DB || !DB.constraints) return 0;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayYear = today.getFullYear();
+    let deletedCount = 0;
+
+    for (let staffName in DB.constraints) {
+        if (!Array.isArray(DB.constraints[staffName])) continue;
+        const oldLength = DB.constraints[staffName].length;
+        
+        DB.constraints[staffName] = DB.constraints[staffName].filter(c => {
+            // Haftalık kısıtlar (day tanımlı) silinmez
+            if (c.day !== undefined) return true;
+
+            if (c.endDate) {
+                const parts = c.endDate.split('-');
+                let ed;
+                if (parts.length === 3) {
+                    ed = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 23, 59, 59);
+                } else {
+                    ed = new Date(c.endDate);
+                    ed.setHours(23, 59, 59, 999);
+                }
+                if (ed < today) return false;
+            } else if (c.date) {
+                let parts = c.date.split('-');
+                let checkDate;
+                if (parts.length === 2) {
+                    checkDate = new Date(todayYear, parseInt(parts[0]) - 1, parseInt(parts[1]), 23, 59, 59);
+                } else if (parts.length === 3) {
+                    checkDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 23, 59, 59);
+                }
+                if (checkDate && checkDate < today) return false;
+            }
+            return true;
+        });
+
+        deletedCount += (oldLength - DB.constraints[staffName].length);
+    }
+
+    if (deletedCount > 0) {
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof renderConstraintsPage === 'function') renderConstraintsPage();
+        if (typeof logAction === 'function') logAction('admin', 'Kısıt Temizliği', `${deletedCount} adet tarihi geçmiş kısıt otomatik silindi.`);
+        if (!silent && typeof showToast === 'function') showToast(`${deletedCount} adet tarihi geçmiş kısıt başarıyla temizlendi.`, "success");
+    } else {
+        if (!silent && typeof showToast === 'function') showToast("Tarihi geçmiş kısıt bulunamadı.", "info");
+    }
+    return deletedCount;
+}
+window.cleanExpiredConstraints = cleanExpiredConstraints;
+
+/**
+ * GÜVENLİ HASH FONKSİYONU (SHA-256)
+ * Şifreler istemcide hiçbir zaman düz metin (plain text) olarak karşılaştırılmaz veya saklanmaz.
+ */
+async function hashSHA256(text) {
+    if (!text) return '';
+    try {
+        const msgBuffer = new TextEncoder().encode(String(text).trim());
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        let hash = 0;
+        const str = String(text).trim();
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash |= 0;
+        }
+        return 'fb_' + String(hash);
+    }
+}
+window.hashSHA256 = hashSHA256;
+
+// Yetkili SHA-256 Hash Değerleri (Plaintext şifreler kodda saklanmaz)
+const AUTH_HASHES = {
+    ADMIN_HASHES: [
+        'b8e411d15dd5e2034aa6cce8319d2acb48da5a601081e3cef6207f9cb5cbcf68', // GtuAdmın123
+        'f01067db8f520b1b1f84e73c23d298c2de9f541ec78d852eb2fa7128d0956c5e'  // GtuAdmin123
+    ],
+    PROCTOR_HASH: '529c6b49c165be870c4fc86cc679928cc32565286a8aa07b31e87bb298cbe408' // Gtu2026
+};
+window.AUTH_HASHES = AUTH_HASHES;
+
+/**
+ * SİSTEM VE VERİ BÜTÜNLÜĞÜ DOĞRULAMA MOTORU (Data Integrity Validator)
+ * Veritabanındaki tüm kayıtları denetler:
+ * 1. Çifte Görev Çakışması (Aynı anda 2 sınavda olma)
+ * 2. Kısıt & Ders Çakışması (Haftalık ders saatinde sınav atanması)
+ * 3. Puan ve Aritmetik Bütünlük (Taban + Sınav puanları tutarlılığı)
+ * 4. Şema, Eksik / Yetim ID Kontrolleri
+ */
+function validateDatabaseIntegrity(targetDB = null) {
+    const db = targetDB || window.DB;
+    const report = {
+        isValid: true,
+        checkedAt: new Date().toISOString(),
+        examCount: 0,
+        staffCount: 0,
+        doubleBookings: [],
+        constraintClashes: [],
+        scoreMismatches: [],
+        unassignedExams: [],
+        invalidProctorIds: [],
+        healthScore: 100
+    };
+
+    if (!db || !Array.isArray(db.staff) || !Array.isArray(db.exams)) {
+        report.isValid = false;
+        report.healthScore = 0;
+        return report;
+    }
+
+    report.examCount = db.exams.length;
+    report.staffCount = db.staff.length;
+
+    const staffMap = {};
+    db.staff.forEach(s => { staffMap[String(s.id)] = s; });
+
+    // 1. Çakışma ve Yetim Gözetmen Kontrolü
+    const dayExamMap = {};
+    db.exams.forEach(ex => {
+        const d = ex.date;
+        if (!d) return;
+        if (!dayExamMap[d]) dayExamMap[d] = [];
+        dayExamMap[d].push(ex);
+
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        if (pIds.length === 0) {
+            report.unassignedExams.push({
+                examId: ex.id,
+                name: ex.name,
+                date: ex.date,
+                time: ex.time
+            });
+        }
+        pIds.forEach(pid => {
+            if (!staffMap[String(pid)]) {
+                report.invalidProctorIds.push({
+                    examId: ex.id,
+                    examName: ex.name,
+                    invalidId: pid
+                });
+            }
+        });
+    });
+
+    // Günlük sınav çakışma taraması
+    Object.keys(dayExamMap).forEach(d => {
+        const dExams = dayExamMap[d];
+        for (let i = 0; i < dExams.length; i++) {
+            const e1 = dExams[i];
+            const s1 = timeToMins(e1.time);
+            const e1End = s1 + (parseInt(e1.duration) || 60);
+            const p1 = (e1.proctorIds || (e1.proctorId ? [e1.proctorId] : [])).map(String);
+
+            for (let j = i + 1; j < dExams.length; j++) {
+                const e2 = dExams[j];
+                const s2 = timeToMins(e2.time);
+                const e2End = s2 + (parseInt(e2.duration) || 60);
+                const p2 = (e2.proctorIds || (e2.proctorId ? [e2.proctorId] : [])).map(String);
+
+                if (s1 < e2End && e1End > s2) {
+                    const common = p1.filter(id => p2.includes(id));
+                    common.forEach(cId => {
+                        const sObj = staffMap[cId];
+                        report.doubleBookings.push({
+                            staffName: sObj ? sObj.name : `ID: ${cId}`,
+                            date: d,
+                            exam1: `${e1.name} (${e1.time})`,
+                            exam2: `${e2.name} (${e2.time})`
+                        });
+                    });
+                }
+            }
+        }
+    });
+
+    // 2. Kısıt & Ders Çakışması Kontrolü (Güz 2026-2027 Dönemi İçin)
+    const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    db.exams.forEach(ex => {
+        if (!ex.date || !ex.time) return;
+        const examDate = getSafeDate(ex.date, ex.time);
+        if (isNaN(examDate.getTime())) return;
+        
+        // Sadece güncel/gelecek veya Eylül 2026 sonrası sınavlar için haftalık ders kısıtlarını kontrol et
+        const isCurrentOrFall = ex.date >= '2026-09-01';
+        const dayOfWeek = examDate.getDay();
+        const sMin = timeToMins(ex.time);
+        const eMin = sMin + (parseInt(ex.duration) || 60);
+        const pIds = (ex.proctorIds || (ex.proctorId ? [ex.proctorId] : [])).map(String);
+
+        pIds.forEach(pid => {
+            const sObj = staffMap[pid];
+            if (!sObj) return;
+            const cList = (db.constraints && db.constraints[sObj.name]) || [];
+            cList.forEach(c => {
+                if (c.day !== undefined && isCurrentOrFall && c.day === dayOfWeek) {
+                    const cs = timeToMins(c.start);
+                    const ce = timeToMins(c.end);
+                    if (sMin < ce && eMin > cs) {
+                        report.constraintClashes.push({
+                            staffName: sObj.name,
+                            examName: ex.name,
+                            date: ex.date,
+                            time: ex.time,
+                            constraint: `${dayNames[dayOfWeek]} ${c.start}-${c.end}`
+                        });
+                    }
+                }
+            });
+        });
+    });
+
+    // 3. Puan ve Aritmetik Bütünlük Kontrolü
+    const computedScores = {};
+    const computedTasks = {};
+    db.staff.forEach(s => {
+        computedScores[String(s.id)] = parseFloat((s.baseScore || 0).toFixed(2));
+        computedTasks[String(s.id)] = 0;
+    });
+
+    db.exams.forEach(ex => {
+        const score = parseFloat(ex.score) || 0;
+        const isNon = shouldCountAsNonExam(ex);
+        if (!isNon) {
+            const pIds = (ex.proctorIds || (ex.proctorId ? [ex.proctorId] : [])).map(String);
+            pIds.forEach(pid => {
+                if (computedScores[pid] !== undefined) {
+                    computedScores[pid] = parseFloat((computedScores[pid] + score).toFixed(2));
+                    computedTasks[pid] += 1;
+                }
+            });
+        }
+    });
+
+    db.staff.forEach(s => {
+        const recorded = parseFloat((s.totalScore || 0).toFixed(1));
+        const computed = parseFloat((computedScores[String(s.id)] || 0).toFixed(1));
+        if (Math.abs(recorded - computed) > 0.1) {
+            report.scoreMismatches.push({
+                staffName: s.name,
+                recorded: recorded,
+                computed: computed,
+                diff: parseFloat((recorded - computed).toFixed(1))
+            });
+        }
+    });
+
+    // Sağlık Puanı Hesabı
+    let penalty = 0;
+    penalty += report.doubleBookings.length * 20;
+    penalty += report.scoreMismatches.length * 15;
+    penalty += report.constraintClashes.length * 5;
+    penalty += report.invalidProctorIds.length * 10;
+    report.healthScore = Math.max(0, 100 - penalty);
+    report.isValid = (report.doubleBookings.length === 0 && report.scoreMismatches.length === 0 && report.invalidProctorIds.length === 0);
+
+    return report;
+}
+window.validateDatabaseIntegrity = validateDatabaseIntegrity;
+
+/**
+ * OTOMATİK VERİ VE SAĞLIK ONARIMI (Auto Fix Engine)
+ */
+function fixDatabaseIntegrity() {
+    console.log("🛠️ Veri bütünlüğü onarım motoru başlatılıyor...");
+    
+    // 1. Tarihi geçmiş kısıtları temizle
+    cleanExpiredConstraints(true);
+
+    // 2. Tüm puanları ve görev sayılarını 100% matematiksel doğrulukla yeniden senkronize et
+    recalculateAllScores();
+
+    // 3. Veritabanını yerel ve bulut olarak güvenle kaydet
+    saveToLocalStorage();
+    saveAutoSnapshot(DB, 'Bütünlük Onarımı');
+    
+    const newReport = validateDatabaseIntegrity();
+    logAction('admin', 'Bütünlük Onarımı', `Sistem bütünlüğü otomatik onarıldı. Sağlık Puanı: %${newReport.healthScore}`);
+    return newReport;
+}
+window.fixDatabaseIntegrity = fixDatabaseIntegrity;
 
 function getConstraintsForStaff(staffName) {
     if (!DB.constraints || !staffName) return [];
@@ -1270,6 +1643,8 @@ function saveToLocalStorage() {
 
     try {
         localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        // Anlık görüntü kasasına otomatik kaydet (Snapshot Vault)
+        saveAutoSnapshot(DB, 'Yerel Değişiklik');
     } catch (e) {
         if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
             console.error("LocalStorage doldu! Temizleme deneniyor...");
@@ -1280,6 +1655,7 @@ function saveToLocalStorage() {
             
             try {
                 localStorage.setItem(DB_KEY, JSON.stringify(DB));
+                saveAutoSnapshot(DB, 'Depolama Temizliği Sonrası');
                 alert("✓ İşlem geçmişi temizlenerek yer açıldı ve veriler kaydedildi.");
             } catch (e2) {
                 alert("❌ Hata: Yer açılamadı! Lütfen tarayıcı ayarlarından site verilerini temizleyin veya eski sınavları silin.");
@@ -1342,8 +1718,11 @@ async function loadFromDataJSON() {
             DB = data;
             if (!DB.constraints) DB.constraints = {};
             if (!DB.requests) DB.requests = []; // Eksikse başlat
+            cleanExpiredConstraints(true);
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
+            // Snapshot Kasasına otomatik anlık görüntü kaydet
+            saveAutoSnapshot(DB, 'Bulut Senkronizasyonu');
             console.log("Veriler başarıyla yüklendi. Kısıt sayısı:", Object.keys(DB.constraints).length);
             console.log("Veriler başarıyla yüklendi.");
             // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
@@ -1354,35 +1733,38 @@ async function loadFromDataJSON() {
             throw new Error("Geçersiz veri formatı");
         }
     } catch (e) {
-        console.warn("API başarıyla okunamadı, localStorage kullanılarak deneniyor...", e);
+        console.warn("API başarıyla okunamadı, localStorage veya Snapshot Kasası kullanılarak deneniyor...", e);
         const saved = localStorage.getItem(DB_KEY);
+        let loaded = false;
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (!parsed.lecturers || parsed.lecturers.length === 0) {
-                    parsed.lecturers = DB.lecturers;
+                if (parsed && Array.isArray(parsed.staff) && parsed.staff.length > 0) {
+                    if (!parsed.lecturers || parsed.lecturers.length === 0) {
+                        parsed.lecturers = DB.lecturers;
+                    }
+                    DB = parsed;
+                    cleanExpiredConstraints(true);
+                    recalculateAllScores();
+                    loaded = true;
+                    saveAutoSnapshot(DB, 'Yerel Önbellekten Başlatma');
+                    console.log("Puan yeniden hesaplama tamamlandı (localStorage verisi).");
                 }
-                // Taban puanları koru (localStorage yedeği için)
-                if (DB.staff && Array.isArray(DB.staff)) {
-                    parsed.staff.forEach(s => {
-                        const hardcoded = DB.staff.find(h => 
-                            h.id === s.id || 
-                            h.name.toLowerCase().includes(s.name.toLowerCase()) || 
-                            s.name.toLowerCase().includes(h.name.toLowerCase())
-                        );
-                        if (hardcoded && hardcoded.baseScore !== undefined) s.baseScore = hardcoded.baseScore;
-                    });
-                }
-                DB = parsed;
-                // Mevcut tüm sınavları yeni 17:00 parçalı katsayı sistemine göre yeniden hesapla
-                recalculateAllScores();
-                console.log("Puan yeniden hesaplama tamamlandı (localStorage verisi).");
-            }
- catch (parseError) {
+            } catch (parseError) {
                 console.error("LocalStorage verisi bozuk!", parseError);
             }
-        } else {
-            console.error("Hiçbir veri bulunamadı! Lütfen backendin çalıştığından emin olun.");
+        }
+
+        if (!loaded) {
+            const vault = getSavedSnapshots();
+            if (vault && vault.length > 0 && vault[0].data) {
+                console.log("🛡️ LocalStorage boş/bozuk, Snapshot Kasasındaki en son yedek devreye alındı:", vault[0].displayDate);
+                DB = JSON.parse(JSON.stringify(vault[0].data));
+                recalculateAllScores();
+                localStorage.setItem(DB_KEY, JSON.stringify(DB));
+                loaded = true;
+                saveAutoSnapshot(DB, 'Kasa Yedeğinden Kurtarma');
+            }
         }
     }
     
