@@ -1207,10 +1207,27 @@ function initUI() {
     const btnVaultManualSnapshot = document.getElementById('btn-vault-manual-snapshot');
     const btnVaultDownloadAll = document.getElementById('btn-vault-download-all');
 
+    window.openSnapshotVault = function() {
+        if (typeof renderSnapshotVaultList === 'function') renderSnapshotVaultList();
+        const modal = document.getElementById('modal-snapshot-vault');
+        if (modal) modal.classList.remove('hidden');
+    };
+
+    window.adminGoToStaffProfile = function(staffId) {
+        if (!staffId) return;
+        localStorage.setItem('myStaffId', String(staffId));
+        const btnProfile = document.getElementById('btn-profile');
+        if (btnProfile) btnProfile.click();
+        if (typeof renderProfile === 'function') renderProfile();
+        const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
+        if (typeof window.showToast === 'function') {
+            window.showToast(`👑 Yönetici Modu: ${staff ? staff.name : 'Personel'} profili açıldı.`, 'info');
+        }
+    };
+
     if (btnSnapshotVault && modalSnapshotVault) {
         btnSnapshotVault.addEventListener('click', () => {
-            renderSnapshotVaultList();
-            modalSnapshotVault.classList.remove('hidden');
+            window.openSnapshotVault();
         });
     }
 
@@ -2581,14 +2598,15 @@ function renderExams() {
         const displayDate = ex.date.split("-").reverse().join(".") + " " + dayName;
 
         const pNamesHTML = (ex.proctorIds || [ex.proctorId]).map(pid => {
-            const s = DB.staff.find(staff => staff.id === pid);
-            if (!s) return '???';
+            if (!pid) return '';
+            const s = DB.staff.find(staff => String(staff.id) === String(pid));
+            const name = s ? s.name : (ex.proctorName || 'Personel');
             const isNotified = ex.notifiedStaffIds && ex.notifiedStaffIds.map(String).includes(String(pid));
             const icon = isNotified 
                 ? `<span title="E-posta Gönderildi" style="color:#10b981; margin-left:4px; cursor:help; font-size:0.85rem;">📧</span>` 
                 : `<span title="E-posta Gönderilmedi" style="color:#94a3b8; margin-left:4px; cursor:help; font-size:0.85rem;">✉️</span>`;
-            return `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${s.name}${icon}</span>`;
-        }).join(' ') || '-';
+            return `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${name}${s ? icon : ' <small style="color:var(--text-muted); margin-left:4px;">(Ayrıldı)</small>'}</span>`;
+        }).filter(Boolean).join(' ') || (ex.proctorName ? `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${ex.proctorName}</span>` : '-');
 
         tr.innerHTML = `
             <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
@@ -2710,11 +2728,14 @@ function renderSchedule() {
                 isDraft: ex.isDraft,
                 proctors: []
             };
-        }
         const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
-            const s = DB.staff.find(staff => staff.id === pid);
-            return s ? s.name : '';
+            if (!pid) return '';
+            const s = DB.staff.find(staff => String(staff.id) === String(pid));
+            return s ? s.name : (ex.proctorName || '');
         }).filter(n => n !== '');
+        if (pNames.length === 0 && ex.proctorName) {
+            pNames.push(ex.proctorName);
+        }
         groups[key].proctors.push(...pNames);
     });
 
@@ -4177,6 +4198,7 @@ function renderStaff() {
                 </div>
             </td>
             <td class="admin-only" style="white-space: nowrap;">
+                <button class="btn-primary" style="background:#10b981; padding:0.25rem 0.5rem; font-size:0.8rem; margin-right:4px;" onclick="adminGoToStaffProfile(${s.id})" title="Bu personelin profiline doğrudan geçiş yap">👤 Profil</button>
                 <button class="btn-primary" style="background:#6366f1; padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="showStaffReportModal(${s.id})">🔍 Karne</button>
                 <button class="btn-edit" style="margin-left:4px;" onclick="showEditStaffModal(${s.id})">Düzenle</button>
                 <button class="btn-delete" style="margin-left:4px;" onclick="deleteStaff(${s.id})">Sil</button>
@@ -4568,13 +4590,43 @@ window.showEditStaffModal = (id) => {
     };
 };
 
-window.deleteStaff = (id) => {
+window.deleteStaff = async (id) => {
     const staff = DB.staff.find(s => String(s.id) === String(id));
-    if (staff && confirm(`${staff.name} kişisini silmek istediğinize emin misiniz?`)) {
-        DB.staff = DB.staff.filter(s => s.id !== id);
+    if (!staff) return;
+
+    if (confirm(`"${staff.name}" personelini silmek istediğinize emin misiniz?\n\nℹ️ Bu personelin geçmiş veya mevcut sınavlarda yaptığı görevler korunacak, sadece personel listesinden ve aktif panelden çıkarılacaktır.`)) {
+        if (typeof takeSnapshot === 'function') {
+            takeSnapshot("Personel Silme: " + staff.name);
+        }
+
+        // Sınav kayıtlarında görev geçmişini ve ismini koru
+        if (DB.exams && Array.isArray(DB.exams)) {
+            DB.exams.forEach(ex => {
+                const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                if (pIds.map(String).includes(String(staff.id))) {
+                    if (!ex.proctorName || !ex.proctorName.includes(staff.name)) {
+                        ex.proctorName = ex.proctorName ? `${ex.proctorName}, ${staff.name}` : staff.name;
+                    }
+                }
+            });
+        }
+
+        // Personel listesinden çıkar
+        DB.staff = DB.staff.filter(s => String(s.id) !== String(id));
+
+        // Personelin kısıtlarını temizle
+        if (DB.constraints && DB.constraints[staff.name]) {
+            delete DB.constraints[staff.name];
+        }
+
         saveToLocalStorage();
-        logAction('admin', 'Personel Silme', `${staff.name} sistemden silindi.`);
+        logAction('admin', 'Personel Silme', `${staff.name} sistemden silindi (Sınavlardaki görev geçmişi korundu).`);
         renderStaff();
+        renderExams();
+        renderSchedule();
+        renderDashboard();
+        await saveToBackend();
+        alert(`✓ ${staff.name} sistemden silindi. Sınavlardaki görev geçmişi korundu.`);
     }
 };
 
@@ -6138,14 +6190,15 @@ window.renderProfile = function() {
         setupSection.classList.remove('hidden');
         mainSection.classList.add('hidden');
         
-        // Dropdown'ı doldur — şifreli profiller kilitli/disabled gösterilir
+        const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+        // Dropdown'ı doldur — normal kullanıcı için şifreliler kilitli, yönetici için hepsi açık
         const dropdown = document.getElementById('profile-setup-dropdown');
-        dropdown.innerHTML = '<option value="">İsminizi Seçin...</option>';
+        dropdown.innerHTML = '<option value="">' + (isAdmin ? '👑 [Yönetici] Profilini Açmak İstediğiniz Personeli Seçin...' : 'İsminizi Seçin...') + '</option>';
         DB.staff.slice().sort((a,b) => a.name.localeCompare(b.name, 'tr')).forEach(s => {
-            const isLocked = !!s.staffPassword;
+            const isLocked = !isAdmin && !!s.staffPassword;
             const opt = document.createElement('option');
-            opt.value = isLocked ? '' : s.id; // kilitliyse value boş bırak
-            opt.textContent = isLocked ? `🔒 ${s.name}` : s.name;
+            opt.value = s.id;
+            opt.textContent = isLocked ? `🔒 ${s.name}` : (isAdmin ? `👑 ${s.name}` : s.name);
             opt.disabled = isLocked;
             opt.style.color = isLocked ? '#6b7280' : '';
             dropdown.appendChild(opt);
@@ -6168,6 +6221,32 @@ window.renderProfile = function() {
         
         // Şifre ayarlama bölümünü göster
         renderPasswordSettings(staff);
+
+        // Yönetici Modu: Profil Başlığında Hızlı Personel Değiştirici Barı
+        const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+        const heroActions = document.querySelector('.profile-hero-actions');
+        if (heroActions) {
+            let switcher = document.getElementById('admin-profile-quick-switcher');
+            if (isAdmin) {
+                if (!switcher) {
+                    switcher = document.createElement('div');
+                    switcher.id = 'admin-profile-quick-switcher';
+                    switcher.style.cssText = "display: inline-flex; align-items: center; gap: 8px; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); padding: 4px 10px; border-radius: 8px; margin-right: 8px;";
+                    heroActions.prepend(switcher);
+                }
+                const staffOptions = DB.staff.slice().sort((a,b) => a.name.localeCompare(b.name, 'tr')).map(s => 
+                    `<option value="${s.id}" ${String(s.id) === String(staff.id) ? 'selected' : ''}>👑 ${s.name}</option>`
+                ).join('');
+                switcher.innerHTML = `
+                    <span style="font-size: 0.75rem; font-weight: 700; color: #818cf8; white-space: nowrap;">👑 Profil Değiştir:</span>
+                    <select style="background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 6px; padding: 4px 8px; font-size: 0.8rem; cursor: pointer;" onchange="adminGoToStaffProfile(this.value)">
+                        ${staffOptions}
+                    </select>
+                `;
+            } else if (switcher) {
+                switcher.remove();
+            }
+        }
 
         // Gelen Takas Tekliflerini Göster
         const incomingSwaps = (DB.requests || []).filter(r => 
@@ -9888,20 +9967,31 @@ function initBulkActions() {
     // 3. Bulk Delete Button
     const btnBulkDelete = document.getElementById('btn-bulk-delete');
     if (btnBulkDelete) {
-        btnBulkDelete.addEventListener('click', () => {
+        btnBulkDelete.addEventListener('click', async () => {
             const selectedKeys = getSelectedGroupKeys();
             if (selectedKeys.length === 0) return;
             
             if (confirm(`Seçilen ${selectedKeys.length} sınavı silmek istediğinize emin misiniz?`)) {
+                if (typeof takeSnapshot === 'function') {
+                    takeSnapshot(`Toplu Sınav Silme (${selectedKeys.length} grup)`);
+                }
+
                 let initialCount = DB.exams.length;
                 DB.exams = DB.exams.filter(ex => {
                     const key = btoa(encodeURIComponent(`${ex.type}|${ex.name}|${ex.date}|${ex.time}|${ex.location}`));
                     return !selectedKeys.includes(key);
                 });
                 const deleted = initialCount - DB.exams.length;
+
+                // Puanları yeniden hesapla (Silinen sınavların puanları hocalardan düşer)
+                if (typeof recalculateAllScores === 'function') {
+                    recalculateAllScores();
+                }
+
                 saveToLocalStorage();
                 renderAll();
-                showToast(`${deleted} kayıt başarıyla silindi!`, 'success');
+                await saveToBackend();
+                showToast(`${deleted} kayıt başarıyla silindi ve puanlar güncellendi!`, 'success');
             }
         });
     }

@@ -1560,6 +1560,12 @@ window.sendAssignmentEmail = sendAssignmentEmail;
 const API_URL = API_BASE_URL + "/gizli_yol_gtu_admin_data.json";
 
 async function saveToBackend() {
+    // Güvenlik Koruması: Bozuk veya boş veritabanının Firebase'i ezmesini engelle
+    if (!DB || !Array.isArray(DB.staff) || DB.staff.length === 0) {
+        console.error("🚨 [Kritik Güvenlik] Personel listesi boş olduğu için sunucuya kaydetme iptal edildi!");
+        return;
+    }
+
     console.log("Sunucuya kaydediliyor...", API_URL);
     const statusDiv = document.getElementById('cloud-status');
     const statusText = document.getElementById('cloud-status-text');
