@@ -4172,6 +4172,37 @@ function renderStats() {
     }, 100);
 }
 
+function getStaffConstraintsSummaryHtml(staffName, staffId) {
+    const TurkishDayShort = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+    const constraints = (typeof getConstraintsForStaff === 'function') ? getConstraintsForStaff(staffName) : ((DB.constraints && DB.constraints[staffName]) || []);
+    
+    if (!constraints || constraints.length === 0) {
+        return `<span style="color: #10b981; font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 5px;">
+            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
+            Tam Müsait
+        </span>`;
+    }
+
+    let pills = [];
+    constraints.slice(0, 2).forEach(c => {
+        let text = "";
+        if (c.day !== undefined) {
+            text = `${TurkishDayShort[c.day]} ${c.start}-${c.end}`;
+        } else if (c.startDate && c.endDate) {
+            text = `${c.startDate.split('-').slice(1).join('/')}-${c.endDate.split('-').slice(1).join('/')}`;
+        } else if (c.date) {
+            text = `${c.date} ${c.start}`;
+        }
+        pills.push(`<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">🚫 ${text}</span>`);
+    });
+
+    if (constraints.length > 2) {
+        pills.push(`<span class="badge" style="background: rgba(255, 255, 255, 0.1); color: #cbd5e1; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; cursor: pointer;" onclick="showStaffConstraintsModal(${staffId})" title="Tüm kısıtları görüntüle">+${constraints.length - 2} daha</span>`);
+    }
+
+    return `<div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">${pills.join('')}</div>`;
+}
+
 function renderStaff() {
     const tbody = document.querySelector('#table-staff tbody');
     if (!tbody) return;
@@ -4198,7 +4229,11 @@ function renderStaff() {
                     <span class="flex-score-text">%${calculateAvailabilityScore(s.id)}</span>
                 </div>
             </td>
-            <td class="admin-only" style="white-space: nowrap;">
+            <td>
+                ${getStaffConstraintsSummaryHtml(s.name, s.id)}
+            </td>
+            <td class="admin-only" style="white-space: nowrap; text-align: right;">
+                <button class="btn-primary" style="background:#ef4444; padding:0.25rem 0.55rem; font-size:0.8rem; margin-right:4px;" onclick="showStaffConstraintsModal(${s.id})" title="Kısıt zamanlarını görüntüle ve düzenle">🚫 Kısıtlar</button>
                 <button class="btn-primary" style="background:#10b981; padding:0.25rem 0.5rem; font-size:0.8rem; margin-right:4px;" onclick="adminGoToStaffProfile(${s.id})" title="Bu personelin profiline doğrudan geçiş yap">👤 Profil</button>
                 <button class="btn-primary" style="background:#6366f1; padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="showStaffReportModal(${s.id})">🔍 Karne</button>
                 <button class="btn-edit" style="margin-left:4px;" onclick="showEditStaffModal(${s.id})">Düzenle</button>
@@ -4209,39 +4244,311 @@ function renderStaff() {
     });
     if (typeof renderLecturers === 'function') renderLecturers();
     if (typeof renderMappings === 'function') renderMappings();
+    if (typeof renderStaffConstraintsMaster === 'function') renderStaffConstraintsMaster();
 }
+
+window.renderStaffConstraintsMaster = function() {
+    const tbody = document.querySelector('#table-staff-constraints tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const searchTerm = (document.getElementById('constraint-search')?.value || '').toLowerCase();
+    const dayFilter = document.getElementById('constraint-day-filter')?.value || 'all';
+
+    const TurkishDayShort = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+
+    let staffList = (DB.staff || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+
+    if (searchTerm) {
+        staffList = staffList.filter(s => s.name.toLowerCase().includes(searchTerm) || (s.email || '').toLowerCase().includes(searchTerm));
+    }
+
+    let renderedCount = 0;
+
+    staffList.forEach(s => {
+        const constraints = (typeof getConstraintsForStaff === 'function') ? getConstraintsForStaff(s.name) : ((DB.constraints && DB.constraints[s.name]) || []);
+        
+        // Gün filtresi kontrolü
+        if (dayFilter !== 'all') {
+            if (dayFilter === 'special') {
+                const hasSpecial = constraints.some(c => c.day === undefined);
+                if (!hasSpecial) return;
+            } else {
+                const dayNum = parseInt(dayFilter, 10);
+                const hasDay = constraints.some(c => c.day !== undefined && parseInt(c.day, 10) === dayNum);
+                if (!hasDay) return;
+            }
+        }
+
+        renderedCount++;
+
+        const weeklyConstraints = constraints.filter(c => c.day !== undefined);
+        const specialConstraints = constraints.filter(c => c.day === undefined);
+
+        let weeklyBadges = '<span style="color:var(--text-muted); font-size:0.8rem;">Kayıt yok</span>';
+        if (weeklyConstraints.length > 0) {
+            weeklyBadges = weeklyConstraints.map(c => 
+                `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; margin: 2px; display: inline-block;">
+                    <strong>${TurkishDayShort[c.day]}</strong> ${c.start} - ${c.end}
+                </span>`
+            ).join('');
+        }
+
+        let specialBadges = '<span style="color:var(--text-muted); font-size:0.8rem;">Kayıt yok</span>';
+        if (specialConstraints.length > 0) {
+            specialBadges = specialConstraints.map(c => {
+                let text = "";
+                if (c.startDate && c.endDate) text = `📅 ${c.startDate} / ${c.endDate} (${c.start}-${c.end})`;
+                else if (c.date) text = `📅 ${c.date} (${c.start}-${c.end})`;
+                else text = `${c.start}-${c.end}`;
+                return `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; margin: 2px; display: inline-block;">
+                    ${text}
+                </span>`;
+            }).join('');
+        }
+
+        const flexScore = calculateAvailabilityScore(s.id);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div class="name-with-avatar">
+                    ${getAvatarHtml(s.name)}
+                    <div>
+                        <strong style="color:white; font-size:0.9rem;">${s.name}</strong>
+                        <small style="display:block; color:var(--text-muted); font-size:0.75rem;">${s.email || '-'}</small>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="badge" style="background:${getScoreColor(flexScore)}22; color:${getScoreColor(flexScore)}; border:1px solid ${getScoreColor(flexScore)}44; font-weight:700;">
+                    %${flexScore}
+                </span>
+            </td>
+            <td>
+                <strong style="color:${constraints.length > 0 ? '#f87171' : '#10b981'}; font-size:0.9rem;">${constraints.length} Kısıt</strong>
+            </td>
+            <td>${weeklyBadges}</td>
+            <td>${specialBadges}</td>
+            <td class="admin-only" style="text-align: right;">
+                <button class="btn-primary" style="background:#ef4444; padding:0.35rem 0.75rem; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px;" onclick="showStaffConstraintsModal(${s.id})">
+                    <span>⚙️</span> Kısıtları Yönet
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    if (renderedCount === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Seçilen kriterlere uygun personel kısıtı bulunamadı.</td></tr>`;
+    }
+};
+
+window.showStaffConstraintsModal = function(staffId) {
+    const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
+    if (!staff) {
+        showToast('Personel bulunamadı!', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('modal-staff-constraints-admin');
+    if (!modal) return;
+
+    document.getElementById('modal-staff-constraints-name').textContent = `${staff.name} - Kısıt Zamanları`;
+    const flexScore = calculateAvailabilityScore(staff.id);
+    document.getElementById('modal-staff-constraints-subtitle').innerHTML = `Müsaitlik Esneklik Skoru: <strong style="color:${getScoreColor(flexScore)};">%${flexScore}</strong> | E-posta: ${staff.email || '-'}`;
+
+    document.getElementById('admin-constraint-staff-name').value = staff.name;
+    document.getElementById('admin-constraint-staff-id').value = staff.id;
+
+    renderStaffConstraintsModalTable(staff.name);
+    modal.classList.remove('hidden');
+};
+
+window.renderStaffConstraintsModalTable = function(staffName) {
+    const tbody = document.querySelector('#table-staff-constraints-modal tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const TurkishDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    const constraints = (typeof getConstraintsForStaff === 'function') ? getConstraintsForStaff(staffName) : ((DB.constraints && DB.constraints[staffName]) || []);
+
+    if (constraints.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Bu personele ait kayıtlı kısıt bulunmuyor. Personel tüm saatlerde tam müsaittir.</td></tr>`;
+        return;
+    }
+
+    constraints.forEach((c, idx) => {
+        let label = "";
+        let typeBadge = "";
+        if (c.day !== undefined) {
+            typeBadge = '<span class="badge" style="background:rgba(99,102,241,0.2); color:#818cf8; margin-right:6px;">Haftalık</span>';
+            label = `Her Hafta ${TurkishDays[c.day]}`;
+        } else if (c.startDate && c.endDate) {
+            typeBadge = '<span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; margin-right:6px;">Tarih Aralığı</span>';
+            label = `${c.startDate} - ${c.endDate}`;
+        } else if (c.date) {
+            typeBadge = '<span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; margin-right:6px;">Özel Tarih</span>';
+            label = `${c.date}`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${typeBadge}<strong>${label}</strong></td>
+            <td><span style="color:#38bdf8; font-weight:600;">${c.start} - ${c.end}</span></td>
+            <td style="text-align: right;">
+                <button class="btn-delete" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="deleteStaffConstraintAdmin('${staffName.replace(/'/g, "\\'")}', ${idx})">🗑️ Sil</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.toggleAdminConstraintTypeInputs = function() {
+    const type = document.getElementById('admin-constraint-type')?.value;
+    const dayGroup = document.getElementById('admin-constraint-day-group');
+    const dateGroup = document.getElementById('admin-constraint-date-group');
+    const rangeGroup = document.getElementById('admin-constraint-range-group');
+
+    if (dayGroup) dayGroup.classList.toggle('hidden', type !== 'weekly');
+    if (dateGroup) dateGroup.classList.toggle('hidden', type !== 'single_date');
+    if (rangeGroup) rangeGroup.classList.toggle('hidden', type !== 'date_range');
+};
+
+window.saveStaffConstraintAdmin = async function() {
+    const staffName = document.getElementById('admin-constraint-staff-name')?.value;
+    const staffId = document.getElementById('admin-constraint-staff-id')?.value;
+    if (!staffName) return;
+
+    const type = document.getElementById('admin-constraint-type')?.value;
+    const startTime = document.getElementById('admin-constraint-start-time')?.value || '08:30';
+    const endTime = document.getElementById('admin-constraint-end-time')?.value || '12:30';
+
+    if (startTime >= endTime) {
+        showToast('Başlangıç saati bitiş saatinden önce olmalıdır!', 'error');
+        return;
+    }
+
+    if (!DB.constraints) DB.constraints = {};
+    if (!DB.constraints[staffName]) DB.constraints[staffName] = [];
+
+    let newConstraint = { start: startTime, end: endTime };
+
+    if (type === 'weekly') {
+        const day = parseInt(document.getElementById('admin-constraint-day')?.value || 1, 10);
+        newConstraint.day = day;
+    } else if (type === 'single_date') {
+        const date = document.getElementById('admin-constraint-date')?.value;
+        if (!date) {
+            showToast('Lütfen bir tarih seçiniz!', 'error');
+            return;
+        }
+        newConstraint.date = date;
+    } else if (type === 'date_range') {
+        const startDate = document.getElementById('admin-constraint-start-date')?.value;
+        const endDate = document.getElementById('admin-constraint-end-date')?.value;
+        if (!startDate || !endDate) {
+            showToast('Lütfen başlangıç ve bitiş tarihlerini seçiniz!', 'error');
+            return;
+        }
+        if (startDate > endDate) {
+            showToast('Başlangıç tarihi bitiş tarihinden sonra olamaz!', 'error');
+            return;
+        }
+        newConstraint.startDate = startDate;
+        newConstraint.endDate = endDate;
+    }
+
+    DB.constraints[staffName].push(newConstraint);
+    saveToLocalStorage();
+
+    renderStaffConstraintsModalTable(staffName);
+    renderStaff();
+    renderStaffConstraintsMaster();
+    if (typeof renderProfileConstraints === 'function') renderProfileConstraints();
+
+    showToast(`✅ ${staffName} için kısıt kaydedildi!`, 'success');
+    await saveToBackend();
+};
+
+window.deleteStaffConstraintAdmin = async function(staffName, index) {
+    if (!DB.constraints || !DB.constraints[staffName]) return;
+    if (!confirm('Bu kısıtı silmek istediğinize emin misiniz?')) return;
+
+    DB.constraints[staffName].splice(index, 1);
+    saveToLocalStorage();
+
+    renderStaffConstraintsModalTable(staffName);
+    renderStaff();
+    renderStaffConstraintsMaster();
+    if (typeof renderProfileConstraints === 'function') renderProfileConstraints();
+
+    showToast('Kısıt silindi.', 'info');
+    await saveToBackend();
+};
+
+window.clearAllStaffConstraintsAdmin = async function() {
+    const staffName = document.getElementById('admin-constraint-staff-name')?.value;
+    if (!staffName || !DB.constraints || !DB.constraints[staffName]) return;
+
+    if (!confirm(`${staffName} personeline ait TÜM kısıtları silmek istediğinize emin misiniz?`)) return;
+
+    DB.constraints[staffName] = [];
+    saveToLocalStorage();
+
+    renderStaffConstraintsModalTable(staffName);
+    renderStaff();
+    renderStaffConstraintsMaster();
+    if (typeof renderProfileConstraints === 'function') renderProfileConstraints();
+
+    showToast(`${staffName} için tüm kısıtlar temizlendi.`, 'info');
+    await saveToBackend();
+};
 
 window.switchStaffTab = function(tabName) {
     const btnProctors = document.getElementById('btn-staff-tab-proctors');
+    const btnConstraints = document.getElementById('btn-staff-tab-constraints');
     const btnLecturers = document.getElementById('btn-staff-tab-lecturers');
     const btnMappings = document.getElementById('btn-staff-tab-mappings');
+    
     const containerProctors = document.getElementById('staff-tab-proctors-container');
+    const containerConstraints = document.getElementById('staff-tab-constraints-container');
     const containerLecturers = document.getElementById('staff-tab-lecturers-container');
     const containerMappings = document.getElementById('staff-tab-mappings-container');
+    
     const controlsProctors = document.getElementById('proctors-controls');
+    const controlsConstraints = document.getElementById('constraints-controls');
     const controlsLecturers = document.getElementById('lecturers-controls');
     const controlsMappings = document.getElementById('mappings-controls');
 
-    btnProctors.classList.remove('active');
-    btnLecturers.classList.remove('active');
+    if (btnProctors) btnProctors.classList.remove('active');
+    if (btnConstraints) btnConstraints.classList.remove('active');
+    if (btnLecturers) btnLecturers.classList.remove('active');
     if (btnMappings) btnMappings.classList.remove('active');
 
-    containerProctors.classList.add('hidden');
-    containerLecturers.classList.add('hidden');
+    if (containerProctors) containerProctors.classList.add('hidden');
+    if (containerConstraints) containerConstraints.classList.add('hidden');
+    if (containerLecturers) containerLecturers.classList.add('hidden');
     if (containerMappings) containerMappings.classList.add('hidden');
 
-    controlsProctors.classList.add('hidden');
-    controlsLecturers.classList.add('hidden');
+    if (controlsProctors) controlsProctors.classList.add('hidden');
+    if (controlsConstraints) controlsConstraints.classList.add('hidden');
+    if (controlsLecturers) controlsLecturers.classList.add('hidden');
     if (controlsMappings) controlsMappings.classList.add('hidden');
 
     if (tabName === 'proctors') {
-        btnProctors.classList.add('active');
-        containerProctors.classList.remove('hidden');
-        controlsProctors.classList.remove('hidden');
+        if (btnProctors) btnProctors.classList.add('active');
+        if (containerProctors) containerProctors.classList.remove('hidden');
+        if (controlsProctors) controlsProctors.classList.remove('hidden');
+        renderStaff();
+    } else if (tabName === 'constraints') {
+        if (btnConstraints) btnConstraints.classList.add('active');
+        if (containerConstraints) containerConstraints.classList.remove('hidden');
+        if (controlsConstraints) controlsConstraints.classList.remove('hidden');
+        renderStaffConstraintsMaster();
     } else if (tabName === 'lecturers') {
-        btnLecturers.classList.add('active');
-        containerLecturers.classList.remove('hidden');
-        controlsLecturers.classList.remove('hidden');
+        if (btnLecturers) btnLecturers.classList.add('active');
+        if (containerLecturers) containerLecturers.classList.remove('hidden');
+        if (controlsLecturers) controlsLecturers.classList.remove('hidden');
         renderLecturers();
     } else if (tabName === 'mappings') {
         if (btnMappings) btnMappings.classList.add('active');

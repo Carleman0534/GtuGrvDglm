@@ -836,11 +836,27 @@
                             <input type="text" id="mapping-search" placeholder="🔍 Ders veya Hoca Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                             <button class="btn-primary admin-only" id="btn-add-mapping" onclick="showAddMappingModal()">+ Yeni Eşleştirme Ekle</button>
                         </div>
+                        <!-- Kısıt Yönetimi Kontrolleri -->
+                        <div id="constraints-controls" class="hidden" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <input type="text" id="constraint-search" placeholder="🔍 Personel veya Kısıt Ara..." style="max-width:240px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white; font-size:0.85rem;" oninput="renderStaffConstraintsMaster()">
+                            <select id="constraint-day-filter" style="background:rgba(15,23,42,0.7); border:1px solid var(--glass-border); padding:0.6rem 0.8rem; border-radius:10px; color:white; font-size:0.85rem; cursor:pointer;" onchange="renderStaffConstraintsMaster()">
+                                <option value="all">Tüm Günler & Kısıtlar</option>
+                                <option value="1">Pazartesi Kısıtları</option>
+                                <option value="2">Salı Kısıtları</option>
+                                <option value="3">Çarşamba Kısıtları</option>
+                                <option value="4">Perşembe Kısıtları</option>
+                                <option value="5">Cuma Kısıtları</option>
+                                <option value="6">Cumartesi Kısıtları</option>
+                                <option value="0">Pazar Kısıtları</option>
+                                <option value="special">📅 Özel Tarih Kısıtları</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 <div class="profile-tabs" style="margin-bottom: 1.5rem;">
                     <button class="tab-btn active" id="btn-staff-tab-proctors" onclick="switchStaffTab('proctors')">Gözetmenler (Asistanlar)</button>
+                    <button class="tab-btn" id="btn-staff-tab-constraints" onclick="switchStaffTab('constraints')">🚫 Kısıt Zamanları Matrisi</button>
                     <button class="tab-btn" id="btn-staff-tab-lecturers" onclick="switchStaffTab('lecturers')">Ders Veren Hocalar</button>
                     <button class="tab-btn" id="btn-staff-tab-mappings" onclick="switchStaffTab('mappings')">Ders-Hoca Eşleştirmeleri</button>
                 </div>
@@ -855,7 +871,26 @@
                                     <th>Toplam Puan</th>
                                     <th>Görev Sayısı</th>
                                     <th>Esneklik 🤖</th>
-                                    <th class="admin-only">İşlem</th>
+                                    <th>Kısıt Zamanları</th>
+                                    <th class="admin-only" style="text-align: right;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="staff-tab-constraints-container" class="hidden">
+                    <div class="table-container">
+                        <table id="table-staff-constraints">
+                            <thead>
+                                <tr>
+                                    <th style="width: 200px;">Personel</th>
+                                    <th style="width: 110px;">Esneklik %</th>
+                                    <th style="width: 110px;">Toplam Kısıt</th>
+                                    <th>Haftalık Tekrarlayan Kısıtlar</th>
+                                    <th>Özel / Blok Tarih Kısıtları</th>
+                                    <th class="admin-only" style="width: 140px; text-align: right;">Yönetim</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -2058,6 +2093,101 @@
             </div>
             <div id="vault-snapshots-list" style="flex: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; background: rgba(0,0,0,0.2); min-height: 180px; max-height: 380px;">
                 <!-- JavaScript tarafından dinamik oluşturulacak -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Personel Kısıt Yönetimi Modalı (Admin) -->
+    <div id="modal-staff-constraints-admin" class="modal hidden admin-only" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-content card-large" style="max-width: 850px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px;">
+                <div>
+                    <h2 id="modal-staff-constraints-title" style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">
+                        <span>🚫</span> <span id="modal-staff-constraints-name">Personel Kısıt Yönetimi</span>
+                    </h2>
+                    <p id="modal-staff-constraints-subtitle" style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.85rem;"></p>
+                </div>
+                <button onclick="document.getElementById('modal-staff-constraints-admin').classList.add('hidden')" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding-right: 4px;">
+                <!-- Hızlı Kısıt Ekleme Kartı -->
+                <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                    <h4 style="margin: 0 0 10px 0; color: #f87171; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+                        <span>➕</span> Yeni Kısıt Ekle
+                    </h4>
+                    <input type="hidden" id="admin-constraint-staff-name" value="">
+                    <input type="hidden" id="admin-constraint-staff-id" value="">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Kısıt Türü</label>
+                            <select id="admin-constraint-type" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;" onchange="toggleAdminConstraintTypeInputs()">
+                                <option value="weekly">Haftalık Tekrarlayan</option>
+                                <option value="single_date">Tekil Özel Tarih</option>
+                                <option value="date_range">Tarih Aralığı (Blok)</option>
+                            </select>
+                        </div>
+                        <div id="admin-constraint-day-group">
+                            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Haftanın Günü</label>
+                            <select id="admin-constraint-day" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                                <option value="1">Pazartesi</option>
+                                <option value="2">Salı</option>
+                                <option value="3">Çarşamba</option>
+                                <option value="4">Perşembe</option>
+                                <option value="5">Cuma</option>
+                                <option value="6">Cumartesi</option>
+                                <option value="0">Pazar</option>
+                            </select>
+                        </div>
+                        <div id="admin-constraint-date-group" class="hidden">
+                            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Tarih</label>
+                            <input type="date" id="admin-constraint-date" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                        </div>
+                        <div id="admin-constraint-range-group" class="hidden" style="grid-column: span 2; display: flex; gap: 8px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Başlangıç Tarihi</label>
+                                <input type="date" id="admin-constraint-start-date" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Bitiş Tarihi</label>
+                                <input type="date" id="admin-constraint-end-date" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Başlangıç Saati</label>
+                            <input type="time" id="admin-constraint-start-time" value="08:30" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Bitiş Saati</label>
+                            <input type="time" id="admin-constraint-end-time" value="12:30" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 6px; color: white; font-size: 0.85rem;">
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 0.5rem 1.25rem; font-size: 0.85rem;" onclick="saveStaffConstraintAdmin()">+ Kısıtı Kaydet</button>
+                    </div>
+                </div>
+
+                <!-- Mevcut Kısıtlar Listesi -->
+                <div>
+                    <h4 style="margin: 0 0 10px 0; color: white; font-size: 0.95rem;">📋 Tanımlı Kısıtlar</h4>
+                    <div class="table-container" style="max-height: 240px; overflow-y: auto; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+                        <table id="table-staff-constraints-modal">
+                            <thead>
+                                <tr>
+                                    <th>Kısıt Türü / Gün / Tarih</th>
+                                    <th>Saat Aralığı</th>
+                                    <th style="text-align: right; width: 80px;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" class="btn-secondary" style="color: #ef4444; border: 1px solid rgba(239,68,68,0.4);" onclick="clearAllStaffConstraintsAdmin()">🗑️ Tüm Kısıtları Temizle</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('modal-staff-constraints-admin').classList.add('hidden')">Kapat</button>
             </div>
         </div>
     </div>
