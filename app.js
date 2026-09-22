@@ -13742,3 +13742,62 @@ window.createBatchExams = async function() {
         }, 500);
     }
 };
+
+// ==========================================
+// EXCEL (CSV) ÇIKTISI ALMA
+// ==========================================
+window.exportScheduleToExcel = function() {
+    if (!DB || !DB.exams || DB.exams.length === 0) {
+        alert("Dışa aktarılacak sınav bulunamadı.");
+        return;
+    }
+
+    let csvContent = "\uFEFF"; // UTF-8 BOM, Excel'de Türkçe karakterlerin düzgün görünmesi için
+    csvContent += "Tür,Ders/Sinav,Dersi Veren,Derslik/Yer,Tarih,Saat,Sure (Dk),Atanan Gozetmenler\n";
+
+    const sortedExams = [...DB.exams].sort((a, b) => {
+        const dateA = new Date((a.date || '1970-01-01') + 'T' + (a.time || '00:00'));
+        const dateB = new Date((b.date || '1970-01-01') + 'T' + (b.time || '00:00'));
+        return dateA - dateB;
+    });
+
+    sortedExams.forEach(ex => {
+        const type = (ex.type || '').toUpperCase();
+        const name = (ex.name || '').replace(/,/g, ' ');
+        const lecturer = (ex.lecturer || '').replace(/,/g, ' ');
+        const location = (ex.location || '').replace(/,/g, ' ');
+        const date = ex.date || '';
+        const time = ex.time || '';
+        const duration = ex.duration || '';
+        
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        let proctors = pIds.map(pid => {
+            const s = DB.staff.find(staff => String(staff.id) === String(pid));
+            return s ? s.name : '';
+        }).filter(n => n).join(' & ');
+        
+        if (!proctors && ex.proctorName) proctors = ex.proctorName;
+        proctors = proctors.replace(/,/g, ' '); // Virgülleri temizle ki sütunlar kaymasın
+
+        const row = `${type},${name},${lecturer},${location},${date},${time},${duration},${proctors}`;
+        csvContent += row + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const filename = `Sinav_Programi_${dateStr}.csv`;
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    if (typeof window.showToast === 'function') {
+        window.showToast("Sınav programı başarıyla Excel (CSV) formatında indirildi.", "success");
+    }
+};
