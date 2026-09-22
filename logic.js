@@ -70,6 +70,186 @@ const GLOBAL_LIMITS = {
     MAX_TASKS: 6
 };
 
+// === LİSANS VE LİSANSÜSTÜ DERS KATALOĞU (127 DERS) ===
+const DEFAULT_COURSE_CATALOG = [
+    // 1. Sınıf (1. ve 2. Yarıyıl)
+    { code: "MATH 101", name: "Calculus I", lang: "İngilizce", term: "Güz/Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "" },
+    { code: "MAT 101", name: "Matematik I", lang: "İngilizce", term: "Güz/Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "" },
+    { code: "MATH 102", name: "Calculus II", lang: "İngilizce", term: "Güz/Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "" },
+    { code: "MAT 102", name: "Matematik II", lang: "İngilizce", term: "Güz/Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "" },
+    { code: "MAT 103", name: "Lineer Cebir", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: 1, credit: 3, akts: 7, lecturer: "" },
+    { code: "MAT 105", name: "Sonlu Matematik", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "" },
+    { code: "MAT 106", name: "Analitik Geometri", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 3, akts: 5, lecturer: "Dr. Öğr. Üyesi Fatma KARAOĞLU CEYHAN" },
+    { code: "MAT 110", name: "Matematik", lang: "Türkçe", term: "Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "" },
+    { code: "MATH 111", name: "Analysis I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "Prof. Dr. Serkan SÜTLÜ" },
+    { code: "MAT 111", name: "Analiz I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "Prof. Dr. Serkan SÜTLÜ" },
+    { code: "MATH 112", name: "Analysis II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "Prof. Dr. Serkan SÜTLÜ" },
+    { code: "MAT 112", name: "Analiz II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 5, akts: 7, lecturer: "Prof. Dr. Serkan SÜTLÜ" },
+    { code: "MATH 113", name: "Linear Algebra I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 4, akts: 6, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MAT 113", name: "Lineer Cebir I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 4, akts: 6, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MATH 114", name: "Linear Algebra II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 4, akts: 6, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MAT 114", name: "Lineer Cebir II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 4, akts: 6, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MATH 115", name: "Discrete Mathematics", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 3, akts: 6, lecturer: "Prof. Dr. Sibel ÖZKAN" },
+    { code: "MAT 115", name: "Ayrık Matematik", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 3, akts: 6, lecturer: "Prof. Dr. Sibel ÖZKAN" },
+    { code: "MATH 116", name: "Linear Algebra", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 3, akts: 5, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MAT 116", name: "Lineer Cebir", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 3, akts: 5, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MAT 118", name: "Olasılık ve İstatistik", lang: "Türkçe", term: "Bahar", type: "Zorunlu", year: 1, credit: 3, akts: 6, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MAT 119", name: "Matematik I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 2, akts: 2, lecturer: "" },
+    { code: "MAT 120", name: "Matematik II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 2, akts: 2, lecturer: "" },
+    { code: "INF 100", name: "Introduction to Computer Systems", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 3, akts: 4, lecturer: "Dr. Öğr. Üyesi Hadi ALIZADEH" },
+    { code: "INF 100-2", name: "Introduction to Computer Systems", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 3, akts: 4, lecturer: "Dr. Öğr. Üyesi Hadi ALIZADEH" },
+    { code: "TUR 101", name: "Turkish I", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: 1, credit: 2, akts: 2, lecturer: "Öğr.Gör. Benan DURUKAN" },
+    { code: "TUR 102", name: "Turkish II", lang: "Türkçe", term: "Bahar", type: "Zorunlu", year: 1, credit: 2, akts: 2, lecturer: "Öğr.Gör. Benan DURUKAN" },
+    { code: "PHYS 113", name: "Physics for Natural Sciences I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 4, akts: 6, lecturer: "Öğr. Gör. Dr. Fatih KINDAZ" },
+    { code: "PHYS 114", name: "Physics for Natural Sciences II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 1, credit: 4, akts: 6, lecturer: "Doç. Dr. Eda GOLDENBERG" },
+    { code: "FS 103", name: "Career Planning", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 1, credit: 1, akts: 2, lecturer: "" },
+
+    // 2. Sınıf (3. ve 4. Yarıyıl)
+    { code: "MAT 201", name: "Matematik III", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 4, akts: 6, lecturer: "" },
+    { code: "MAT 202", name: "Matematik IV", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "" },
+    { code: "MATH 203", name: "Differential Equations I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 203", name: "Diferansiyel Denklemler I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MATH 204", name: "Differential Equations II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 204", name: "Diferansiyel Denklemler II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MATH 206", name: "Topology", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Doç. Dr. Ayşe SÖNMEZ" },
+    { code: "MAT 206", name: "Topoloji", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Doç. Dr. Ayşe SÖNMEZ" },
+    { code: "MATH 209", name: "Algebra I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Doç. Dr. Gülşen ULUCAK" },
+    { code: "MAT 209", name: "Cebir I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Doç. Dr. Gülşen ULUCAK" },
+    { code: "MATH 210", name: "Algebra II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Doç. Dr. Ayten KOÇ" },
+    { code: "MAT 210", name: "Cebir II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 6, lecturer: "Doç. Dr. Ayten KOÇ" },
+    { code: "MATH 211", name: "Analysis III", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 4, akts: 7, lecturer: "Doç. Dr. Ayşe SÖNMEZ" },
+    { code: "MAT 211", name: "Analiz III", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 4, akts: 7, lecturer: "Doç. Dr. Ayşe SÖNMEZ" },
+    { code: "MATH 212", name: "Analysis IV", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 4, akts: 7, lecturer: "Dr. Öğr. Üyesi Samire YAZAR" },
+    { code: "MAT 212", name: "Analiz IV", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 4, akts: 7, lecturer: "Dr. Öğr. Üyesi Samire YAZAR" },
+    { code: "MAT 214", name: "Sayısal Analiz", lang: "Türkçe", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 5, lecturer: "Doç. Dr. Hülya ÖZTÜRK" },
+    { code: "MAT 215", name: "Diferansiyel Denklemler", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: 2, credit: 3, akts: 5, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 216", name: "İstatistik", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 3, akts: 5, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MAT 217", name: "Lineer Cebir ve Diferansiyel Denklemler", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 5, akts: 8, lecturer: "" },
+    { code: "MAT 219", name: "Olasılık ve İstatistik", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 2, akts: 4, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "ENG 111", name: "English for Business Life", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 2, akts: 2, lecturer: "Öğr. Gör. Zeynep Karadeniz Cısdık" },
+    { code: "ENG 111-2", name: "English for Business Life", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 2, akts: 2, lecturer: "Öğr. Gör. Zeynep Karadeniz Cısdık" },
+    { code: "ENG 112", name: "English for Business Life II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 2, akts: 2, lecturer: "Öğr. Gör. Zeynep Karadeniz Cısdık" },
+    { code: "GTU 110", name: "Bilimsel ve Teknolojik Etkinlik", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: 2, credit: 1, akts: 1, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "GTU 101", name: "Müfredat Dışı Etkinlik Dersi", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: 2, credit: 1, akts: 1, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "HIS 101", name: "Principles of Atatürk and the History of Turkish Revolution I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 2, credit: 2, akts: 2, lecturer: "Öğr. Gör. Dr. Oğuzhan DURSUN" },
+    { code: "HIS 102", name: "Principles of Atatürk and the History of Turkish Revolution II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 2, credit: 2, akts: 2, lecturer: "Öğr. Gör. Orkun Canbek" },
+
+    // 3. Sınıf (5. ve 6. Yarıyıl)
+    { code: "MATH 301", name: "Complex Analysis I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 3, akts: 7, lecturer: "Doç. Dr. Hülya ÖZTÜRK" },
+    { code: "MAT 301", name: "Kompleks Analiz I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 3, akts: 7, lecturer: "Doç. Dr. Hülya ÖZTÜRK" },
+    { code: "MATH 302", name: "Complex Analysis II", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 3, credit: 3, akts: 6, lecturer: "Doç. Dr. Feray HACIVELİOĞLU" },
+    { code: "MAT 302", name: "Kompleks Analiz II", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 3, credit: 3, akts: 6, lecturer: "Doç. Dr. Feray HACIVELİOĞLU" },
+    { code: "MATH 303", name: "Real Analysis I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 3, akts: 7, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MAT 303", name: "Reel Analiz I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 3, akts: 7, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MATH 304", name: "Real Analysis II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 3, credit: 3, akts: 7, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MAT 304", name: "Reel Analiz II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 3, credit: 3, akts: 7, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MATH 305", name: "Partial Differential Equations", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 3, akts: 6, lecturer: "Doç. Dr. Feray HACIVELİOĞLU" },
+    { code: "MAT 305", name: "Kısmi Türevli Diferansiyel Denklemler", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 3, akts: 6, lecturer: "Doç. Dr. Feray HACIVELİOĞLU" },
+    { code: "MATH 308", name: "Probability Theory", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 3, credit: 3, akts: 6, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MAT 308", name: "Olasılık Teorisi", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: 3, credit: 3, akts: 6, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MATH 310", name: "Numerical Analysis I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 4, akts: 6, lecturer: "Doç. Dr. Hülya ÖZTÜRK" },
+    { code: "MAT 310", name: "Sayısal Analiz I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 3, credit: 4, akts: 6, lecturer: "Doç. Dr. Hülya ÖZTÜRK" },
+    { code: "MATH 312", name: "Group Theory", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 3, credit: 3, akts: 6, lecturer: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU" },
+    { code: "MAT 312", name: "Grup Kuramı", lang: "Türkçe", term: "Güz", type: "Seçmeli", year: 3, credit: 3, akts: 6, lecturer: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU" },
+    { code: "MATH 314", name: "Integral Equations", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 3, credit: 3, akts: 5, lecturer: "Doç. Dr. Gülden GÜN POLAT" },
+    { code: "MAT 314", name: "İntegral Denklemler", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 3, credit: 3, akts: 5, lecturer: "Doç. Dr. Gülden GÜN POLAT" },
+
+    // 4. Sınıf (7. ve 8. Yarıyıl)
+    { code: "MATH 401", name: "Mathematical Statistics", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MAT 401", name: "Matematiksel İstatistik", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MATH 406", name: "Functional Analysis", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 4, credit: 0, akts: 7, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MAT 406", name: "Fonksiyonel Analiz", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: 4, credit: 0, akts: 7, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MATH 407", name: "Differential Geometry", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Oğul ESEN" },
+    { code: "MAT 407", name: "Diferansiyel Geometri", lang: "Türkçe", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Oğul ESEN" },
+    { code: "MAT 408", name: "Varyasyonlar Hesabı", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 5, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 411", name: "Veri Analizine Giriş", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 5, lecturer: "Doç. Dr. Selçuk TOPAL" },
+    { code: "MATH 412", name: "Güncel Bilgi Teknolojileri", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 5, lecturer: "Dr. Öğr. Üyesi Hadi ALIZADEH" },
+    { code: "MATH 419", name: "Introduction to Coding Theory", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Sibel ÖZKAN" },
+    { code: "MAT 419", name: "Kodlama Teorisine Giriş", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Sibel ÖZKAN" },
+    { code: "MATH 432", name: "Mathematics of Financial Derivatives", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ" },
+    { code: "MAT 432", name: "Finansal Türev Ürünlerin Matematiği", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ" },
+    { code: "MAT 434", name: "Sınır Değer Problemleri", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Doç. Dr. Gülden GÜN POLAT" },
+    { code: "MATH 435", name: "Applied Partial Differential Equations", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 435", name: "Uygulamalı Kısmi Türevli Denklemler", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 438", name: "Çizge Kuramı ve Kombinatorik", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Prof. Dr. Sibel ÖZKAN" },
+    { code: "MAT 446", name: "Quasilineerizasyon Metodu", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 5, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MAT 447", name: "Tensör Analizi", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 5, lecturer: "Prof. Dr. Oğul ESEN" },
+    { code: "MAT 449", name: "Sayılar Kuramı", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 3, akts: 5, lecturer: "Doç. Dr. Gülşen ULUCAK" },
+    { code: "MAT 450", name: "Rasyonel Mekanik", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 4, lecturer: "Prof. Dr. Oğul ESEN" },
+    { code: "MATH 451", name: "Matrix Theory", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 2, akts: 5, lecturer: "Doç. Dr. Fatma KARAOĞLU CEYHAN" },
+    { code: "MAT 451", name: "Matris Kuramı", lang: "İngilizce", term: "Güz", type: "Seçmeli", year: 4, credit: 2, akts: 5, lecturer: "Doç. Dr. Fatma KARAOĞLU CEYHAN" },
+    { code: "MAT 452", name: "Matematik Tarihi", lang: "İngilizce", term: "Bahar", type: "Seçmeli", year: 4, credit: 3, akts: 6, lecturer: "Dr. Öğr. Üyesi Keremcan DOĞAN" },
+    { code: "MAT 495", name: "Bitirme Ödevi", lang: "İngilizce", term: "Güz/Bahar", type: "Zorunlu", year: 4, credit: 4, akts: 10, lecturer: "" },
+
+    // Lisansüstü Açılacak Dersler (2026-2027 Güz)
+    { code: "MATH 667", name: "Algebraic Number Theory I", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Serkan SÜTLÜ" },
+    { code: "MAT 542", name: "Reel Analiz", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)" },
+    { code: "MATH 542", name: "Real Analysis", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)" },
+    { code: "MATH 517", name: "Ring Theory", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Gülşen ULUCAK" },
+    { code: "MATH 545", name: "Numerical Analysis", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Hülya ÖZTÜRK" },
+    { code: "MAT 571", name: "Genel Topoloji", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Ayşe SÖNMEZ" },
+    { code: "MATH 571", name: "General Topology", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Ayşe SÖNMEZ" },
+    { code: "MATH 515", name: "Algebra I", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Nursel EREY" },
+    { code: "MATH 581", name: "Probability Theory and Mathematical Statistics", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Nuri ÇELİK" },
+    { code: "MATH 685", name: "Geometric Mechanics", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Dr. Öğr. Üyesi Keremcan DOĞAN" },
+    { code: "MATH 511", name: "Linear Algebra", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Mustafa AKKURT" },
+    { code: "MATH 535", name: "Theory of Functions of Complex Variables I", lang: "İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Feray HACIVELİOĞLU" },
+    { code: "MATH 560", name: "Projective Geometry", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Doç. Dr. Fatma KARAOĞLU CEYHAN" },
+    { code: "MAT 676", name: "Hiperbolik Tipli Denklemler İçin Ters Problemler", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)" },
+    { code: "FBE 501", name: "Bilimsel Araştırma Teknikleri ve Yayın Etiği", lang: "Türkçe/İngilizce", term: "Güz", type: "Zorunlu (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Dr. Öğr. Üyesi Samire YAZAR" },
+    { code: "MATH 590", name: "Introduction to Hamiltonian Formulation of Differential Equations", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Oğul ESEN" },
+    { code: "MATH 679", name: "Theory of Fractional Differential Equations", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+    { code: "MATH 682", name: "Behavioral Properties of the Solutions of Nonlinear Parabolic Equations", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Emil NOVRUZ" },
+    { code: "MATH 652", name: "Theory of Differential Equations II", lang: "İngilizce", term: "Güz", type: "Seçmeli (Lisansüstü)", year: "Lisansüstü", credit: 3, akts: 7.5, lecturer: "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)" },
+
+    // Servis ve Ortak Dersler
+    { code: "CHEM 102", name: "General Chemistry II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: "Servis", credit: 3, akts: 4, lecturer: "" },
+    { code: "CHEM 114", name: "General Chemistry Laboratory II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: "Servis", credit: 1, akts: 2, lecturer: "" },
+    { code: "FİZ 121", name: "Fizik I", lang: "Türkçe", term: "Güz", type: "Zorunlu", year: "Servis", credit: 4, akts: 6, lecturer: "Öğr. Gör. Dr. Fatih KINDAZ" },
+    { code: "PHYS 121", name: "Physics I", lang: "İngilizce", term: "Güz", type: "Zorunlu", year: "Servis", credit: 4, akts: 6, lecturer: "Öğr. Gör. Dr. Fatih KINDAZ" },
+    { code: "FİZ 122", name: "Fizik II", lang: "Türkçe", term: "Bahar", type: "Zorunlu", year: "Servis", credit: 4, akts: 6, lecturer: "Doç. Dr. Eda GOLDENBERG" },
+    { code: "PHYS 122", name: "Physics II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: "Servis", credit: 4, akts: 6, lecturer: "Doç. Dr. Eda GOLDENBERG" },
+    { code: "PHYS 152", name: "Physics Laboratory II", lang: "İngilizce", term: "Bahar", type: "Zorunlu", year: "Servis", credit: 1, akts: 2, lecturer: "" }
+];
+
+function getCourseCatalog() {
+    if (typeof DB !== 'undefined' && Array.isArray(DB.courseCatalog) && DB.courseCatalog.length > 0) {
+        return DB.courseCatalog;
+    }
+    return DEFAULT_COURSE_CATALOG;
+}
+
+function findCourseInCatalog(query) {
+    if (!query) return null;
+    const clean = String(query).trim().toLowerCase();
+    const catalog = getCourseCatalog();
+
+    // 1. Tam eşleşme (kod, ad, kod - ad)
+    let match = catalog.find(c => 
+        c.code.toLowerCase() === clean || 
+        c.name.toLowerCase() === clean || 
+        `${c.code} - ${c.name}`.toLowerCase() === clean ||
+        `${c.code} ${c.name}`.toLowerCase() === clean
+    );
+    if (match) return match;
+
+    // 2. Boşluksuz kod eşleşmesi (örn: "mat101" -> "MAT 101")
+    const cleanNoSpace = clean.replace(/[\s\-_]/g, '');
+    match = catalog.find(c => c.code.toLowerCase().replace(/[\s\-_]/g, '') === cleanNoSpace);
+    if (match) return match;
+
+    // 3. Başlangıç eşleşmesi (örn: "MAT 101 Final" -> "MAT 101")
+    match = catalog.find(c => clean.startsWith(c.code.toLowerCase()) || clean.startsWith(c.name.toLowerCase()));
+    if (match) return match;
+
+    // 4. Kapsama / alt dize eşleşmesi
+    match = catalog.find(c => 
+        clean.includes(c.code.toLowerCase()) || 
+        c.name.toLowerCase().includes(clean)
+    );
+    return match || null;
+}
+
 let DB = {
     staff: [
         { id: 1, name: "Prof. Dr. Mustafa AKKURT", totalScore: 0, taskCount: 0, baseScore: 0, email: "m.akkurt@gtu.edu.tr" },
@@ -124,61 +304,447 @@ let DB = {
     examTypes: ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'],
     announcements: [],
     isDraftMode: false,
+    courseCatalog: DEFAULT_COURSE_CATALOG,
     courseLecturers: {
-        "Introduction to Computing": "Dr. Öğr. Üyesi Hadi Alizadeh",
+        // Lisans 1. Sınıf
+        "Introduction to Computing": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "INF 100": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "INF 100-2": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "INF 100 - Introduction to Computer Systems": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "INF 100-2 - Introduction to Computer Systems": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "Introduction to Computer Systems": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "Bilgisayar Sistemlerine Giriş": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+
+        "Analysis I": "Prof. Dr. Serkan SÜTLÜ",
+        "Analiz I": "Prof. Dr. Serkan SÜTLÜ",
+        "MAT 111": "Prof. Dr. Serkan SÜTLÜ",
+        "MAT 111 - Analiz I": "Prof. Dr. Serkan SÜTLÜ",
+        "MATH 111": "Prof. Dr. Serkan SÜTLÜ",
+        "MATH 111 - Analysis I": "Prof. Dr. Serkan SÜTLÜ",
+
         "Analysis II": "Prof. Dr. Serkan SÜTLÜ",
-        "MATH 112 - Analysis II": "Prof. Dr. Serkan SÜTLÜ",
         "Analiz II": "Prof. Dr. Serkan SÜTLÜ",
+        "MAT 112": "Prof. Dr. Serkan SÜTLÜ",
+        "MAT 112 - Analiz II": "Prof. Dr. Serkan SÜTLÜ",
+        "MATH 112": "Prof. Dr. Serkan SÜTLÜ",
+        "MATH 112 - Analysis II": "Prof. Dr. Serkan SÜTLÜ",
+
+        "Linear Algebra I": "Prof. Dr. Mustafa AKKURT",
+        "Lineer Cebir I": "Prof. Dr. Mustafa AKKURT",
+        "MAT 113": "Prof. Dr. Mustafa AKKURT",
+        "MAT 113 - Lineer Cebir I": "Prof. Dr. Mustafa AKKURT",
+        "MATH 113": "Prof. Dr. Mustafa AKKURT",
+        "MATH 113 - Linear Algebra I": "Prof. Dr. Mustafa AKKURT",
+
         "Linear Algebra II": "Prof. Dr. Mustafa AKKURT",
-        "MATH 114 - Linear Algebra II": "Prof. Dr. Mustafa AKKURT",
         "Lineer Cebir II": "Prof. Dr. Mustafa AKKURT",
-        "Analytical Geometry": "Dr. Öğr. Üyesi Fatma KARAOĞLU",
-        "Analitik Geometri": "Dr. Öğr. Üyesi Fatma KARAOĞLU",
-        "Turkish II": "Öğr.Gör. Benan Durukan",
-        "Türk Dili II": "Öğr.Gör. Benan Durukan",
+        "MAT 114": "Prof. Dr. Mustafa AKKURT",
+        "MAT 114 - Lineer Cebir II": "Prof. Dr. Mustafa AKKURT",
+        "MATH 114": "Prof. Dr. Mustafa AKKURT",
+        "MATH 114 - Linear Algebra II": "Prof. Dr. Mustafa AKKURT",
+
+        "Discrete Mathematics": "Prof. Dr. Sibel ÖZKAN",
+        "Ayrık Matematik": "Prof. Dr. Sibel ÖZKAN",
+        "MAT 115": "Prof. Dr. Sibel ÖZKAN",
+        "MAT 115 - Ayrık Matematik": "Prof. Dr. Sibel ÖZKAN",
+        "MATH 115": "Prof. Dr. Sibel ÖZKAN",
+        "MATH 115 - Discrete Mathematics": "Prof. Dr. Sibel ÖZKAN",
+
+        "Linear Algebra": "Prof. Dr. Mustafa AKKURT",
+        "Lineer Cebir": "Prof. Dr. Mustafa AKKURT",
+        "MAT 116": "Prof. Dr. Mustafa AKKURT",
+        "MAT 116 - Lineer Cebir": "Prof. Dr. Mustafa AKKURT",
+        "MATH 116": "Prof. Dr. Mustafa AKKURT",
+        "MATH 116 - Linear Algebra": "Prof. Dr. Mustafa AKKURT",
+
+        "Analytical Geometry": "Dr. Öğr. Üyesi Fatma KARAOĞLU CEYHAN",
+        "Analitik Geometri": "Dr. Öğr. Üyesi Fatma KARAOĞLU CEYHAN",
+        "MAT 106": "Dr. Öğr. Üyesi Fatma KARAOĞLU CEYHAN",
+        "MAT 106 - Analitik Geometri": "Dr. Öğr. Üyesi Fatma KARAOĞLU CEYHAN",
+
         "Turkish I": "Öğr.Gör. Benan DURUKAN",
         "Türk Dili I": "Öğr.Gör. Benan DURUKAN",
-        "Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
-        "PHYS 114 - Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
-        "Fizik II": "Doç. Dr. Eda GOLDENBERG",
+        "TUR 101": "Öğr.Gör. Benan DURUKAN",
+        "TUR 101 - Turkish I": "Öğr.Gör. Benan DURUKAN",
+        "Turkish II": "Öğr.Gör. Benan DURUKAN",
+        "Türk Dili II": "Öğr.Gör. Benan DURUKAN",
+        "TUR 102": "Öğr.Gör. Benan DURUKAN",
+        "TUR 102 - Turkish II": "Öğr.Gör. Benan DURUKAN",
+
         "Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "PHYS 113": "Öğr. Gör. Dr. Fatih KINDAZ",
         "PHYS 113 - Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "Physics I": "Öğr. Gör. Dr. Fatih KINDAZ",
         "Fizik I": "Öğr. Gör. Dr. Fatih KINDAZ",
-        "English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
-        "Principles of Atatürk and History of Turkish Revolution II": "Öğr. Gör. Orkun Canbek",
-        "Atatürk İlkeleri ve İnkılap Tarihi II": "Öğr. Gör. Orkun Canbek",
-        "Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
-        "Diferansiyel Denklemler II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
-        "Topology": "Doç. Dr. Ayşe SÖNMEZ",
-        "Topoloji": "Doç. Dr. Ayşe SÖNMEZ",
-        "Algebra II": "Doç. Dr. Ayten KOÇ",
-        "Cebir II": "Doç. Dr. Ayten KOÇ",
+        "FİZ 121": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "FİZ 121 - Fizik I": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "PHYS 121": "Öğr. Gör. Dr. Fatih KINDAZ",
+        "PHYS 121 - Physics I": "Öğr. Gör. Dr. Fatih KINDAZ",
+
+        "Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
+        "PHYS 114": "Doç. Dr. Eda GOLDENBERG",
+        "PHYS 114 - Physics for Natural Sciences II": "Doç. Dr. Eda GOLDENBERG",
+        "Physics II": "Doç. Dr. Eda GOLDENBERG",
+        "Fizik II": "Doç. Dr. Eda GOLDENBERG",
+        "FİZ 122": "Doç. Dr. Eda GOLDENBERG",
+        "FİZ 122 - Fizik II": "Doç. Dr. Eda GOLDENBERG",
+        "PHYS 122": "Doç. Dr. Eda GOLDENBERG",
+        "PHYS 122 - Physics II": "Doç. Dr. Eda GOLDENBERG",
+
+        "Career Planning": "",
+        "Kariyer Planlama": "",
+        "FS 103": "",
+        "FS 103 - Career Planning": "",
+
+        // Lisans 2. Sınıf
+        "Analysis III": "Doç. Dr. Ayşe SÖNMEZ",
+        "Analiz III": "Doç. Dr. Ayşe SÖNMEZ",
+        "MAT 211": "Doç. Dr. Ayşe SÖNMEZ",
+        "MAT 211 - Analiz III": "Doç. Dr. Ayşe SÖNMEZ",
+        "MATH 211": "Doç. Dr. Ayşe SÖNMEZ",
+        "MATH 211 - Analysis III": "Doç. Dr. Ayşe SÖNMEZ",
+
         "Analysis IV": "Dr. Öğr. Üyesi Samire YAZAR",
         "Analiz IV": "Dr. Öğr. Üyesi Samire YAZAR",
-        "Complex Analysis II": "Doç. Dr. Feray HACIVELİOĞLU",
-        "Kompleks Analiz II": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MAT 212": "Dr. Öğr. Üyesi Samire YAZAR",
+        "MAT 212 - Analiz IV": "Dr. Öğr. Üyesi Samire YAZAR",
+        "MATH 212": "Dr. Öğr. Üyesi Samire YAZAR",
+        "MATH 212 - Analysis IV": "Dr. Öğr. Üyesi Samire YAZAR",
+
+        "Algebra I": "Doç. Dr. Gülşen ULUCAK",
+        "Cebir I": "Doç. Dr. Gülşen ULUCAK",
+        "MAT 209": "Doç. Dr. Gülşen ULUCAK",
+        "MAT 209 - Cebir I": "Doç. Dr. Gülşen ULUCAK",
+        "MATH 209": "Doç. Dr. Gülşen ULUCAK",
+        "MATH 209 - Algebra I": "Doç. Dr. Gülşen ULUCAK",
+
+        "Algebra II": "Doç. Dr. Ayten KOÇ",
+        "Cebir II": "Doç. Dr. Ayten KOÇ",
+        "MAT 210": "Doç. Dr. Ayten KOÇ",
+        "MAT 210 - Cebir II": "Doç. Dr. Ayten KOÇ",
+        "MATH 210": "Doç. Dr. Ayten KOÇ",
+        "MATH 210 - Algebra II": "Doç. Dr. Ayten KOÇ",
+
+        "Differential Equations I": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Diferansiyel Denklemler I": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 203": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 203 - Diferansiyel Denklemler I": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 203": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 203 - Differential Equations I": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
+        "Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Diferansiyel Denklemler II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 204": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 204 - Diferansiyel Denklemler II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 204": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 204 - Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
+        "Differential Equations": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Diferansiyel Denklemler": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 215": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 215 - Diferansiyel Denklemler": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
+        "Topology": "Doç. Dr. Ayşe SÖNMEZ",
+        "Topoloji": "Doç. Dr. Ayşe SÖNMEZ",
+        "MAT 206": "Doç. Dr. Ayşe SÖNMEZ",
+        "MAT 206 - Topoloji": "Doç. Dr. Ayşe SÖNMEZ",
+        "MATH 206": "Doç. Dr. Ayşe SÖNMEZ",
+        "MATH 206 - Topology": "Doç. Dr. Ayşe SÖNMEZ",
+
+        "English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "İş Hayatı İçin İngilizce": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "ENG 111": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "ENG 111-2": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "ENG 111 - English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "ENG 111-2 - English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+        "ENG 112": "Öğr. Gör. Zeynep Karadeniz Cısdık",
+
+        "GTU 110": "Prof. Dr. Nuri ÇELİK",
+        "GTU 110 - Bilimsel ve Teknolojik Etkinlik": "Prof. Dr. Nuri ÇELİK",
+        "Bilimsel ve Teknolojik Etkinlik": "Prof. Dr. Nuri ÇELİK",
+
+        "GTU 101": "Prof. Dr. Nuri ÇELİK",
+        "GTU 101 - Müfredat Dışı Etkinlik Dersi": "Prof. Dr. Nuri ÇELİK",
+        "Müfredat Dışı Etkinlik Dersi": "Prof. Dr. Nuri ÇELİK",
+
+        "HIS 101": "Öğr. Gör. Dr. Oğuzhan DURSUN",
+        "HIS 101 - Principles of Atatürk and the History of Turkish Revolution I": "Öğr. Gör. Dr. Oğuzhan DURSUN",
+        "Principles of Atatürk and the History of Turkish Revolution I": "Öğr. Gör. Dr. Oğuzhan DURSUN",
+        "Atatürk İlkeleri ve İnkılap Tarihi I": "Öğr. Gör. Dr. Oğuzhan DURSUN",
+
+        "HIS 102": "Öğr. Gör. Orkun Canbek",
+        "HIS 102 - Principles of Atatürk and History of Turkish Revolution II": "Öğr. Gör. Orkun Canbek",
+        "Principles of Atatürk and History of Turkish Revolution II": "Öğr. Gör. Orkun Canbek",
+        "Atatürk İlkeleri ve İnkılap Tarihi II": "Öğr. Gör. Orkun Canbek",
+
+        // Lisans 3. Sınıf
+        "Numerical Analysis I": "Doç. Dr. Hülya ÖZTÜRK",
+        "Sayısal Analiz I": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 310": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 310 - Sayısal Analiz I": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 310": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 310 - Numerical Analysis I": "Doç. Dr. Hülya ÖZTÜRK",
+
+        "Real Analysis I": "Prof. Dr. Emil NOVRUZ",
+        "Reel Analiz I": "Prof. Dr. Emil NOVRUZ",
+        "MAT 303": "Prof. Dr. Emil NOVRUZ",
+        "MAT 303 - Reel Analiz I": "Prof. Dr. Emil NOVRUZ",
+        "MATH 303": "Prof. Dr. Emil NOVRUZ",
+        "MATH 303 - Real Analysis I": "Prof. Dr. Emil NOVRUZ",
+
         "Real Analysis II": "Prof. Dr. Emil NOVRUZ",
         "Reel Analiz II": "Prof. Dr. Emil NOVRUZ",
-        "Probability Theory": "Prof. Dr. Nuri ÇELİK",
-        "Olasılık Teorisi": "Prof. Dr. Nuri ÇELİK",
-        "Numerical Analysis II": "Doç. Dr. Hülya ÖZTÜRK",
-        "Nümerik Analiz II": "Doç. Dr. Hülya ÖZTÜRK",
-        "Graph Theory and Combinatorics": "Prof. Dr. Sibel ÖZKAN",
-        "Graf Teori ve Kombinatoryal": "Prof. Dr. Sibel ÖZKAN",
-        "Boundary Value Problems": "Doç. Dr. Gülden GÜN POLAT",
-        "Sınır Değer Problemleri": "Doç. Dr. Gülden GÜN POLAT",
-        "History of Mathematics": "Dr. Öğr. Üyesi Keremcan DOĞAN",
-        "Matematik Tarihi": "Dr. Öğr. Üyesi Keremcan DOĞAN",
-        "Introduction to Coding Theory": "Doç. Dr. Ayten KOÇ",
-        "Kodlama Teorisine Giriş": "Doç. Dr. Ayten KOÇ",
+        "MAT 304": "Prof. Dr. Emil NOVRUZ",
+        "MAT 304 - Reel Analiz II": "Prof. Dr. Emil NOVRUZ",
+        "MATH 304": "Prof. Dr. Emil NOVRUZ",
+        "MATH 304 - Real Analysis II": "Prof. Dr. Emil NOVRUZ",
+
+        "Integral Equations": "Doç. Dr. Gülden GÜN POLAT",
+        "İntegral Denklemler": "Doç. Dr. Gülden GÜN POLAT",
+        "MAT 314": "Doç. Dr. Gülden GÜN POLAT",
+        "MAT 314 - İntegral Denklemler": "Doç. Dr. Gülden GÜN POLAT",
+        "MATH 314": "Doç. Dr. Gülden GÜN POLAT",
+        "MATH 314 - Integral Equations": "Doç. Dr. Gülden GÜN POLAT",
+
+        "Group Theory": "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU",
+        "Grup Kuramı": "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU",
+        "MAT 312": "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU",
+        "MAT 312 - Grup Kuramı": "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU",
+        "MATH 312": "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU",
+        "MATH 312 - Group Theory": "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU",
+
+        "Complex Analysis I": "Doç. Dr. Hülya ÖZTÜRK",
+        "Kompleks Analiz I": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 301": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 301 - Kompleks Analiz I": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 301": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 301 - Complex Analysis I": "Doç. Dr. Hülya ÖZTÜRK",
+
+        "Complex Analysis II": "Doç. Dr. Feray HACIVELİOĞLU",
+        "Kompleks Analiz II": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MAT 302": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MAT 302 - Kompleks Analiz II": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MATH 302": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MATH 302 - Complex Analysis II": "Doç. Dr. Feray HACIVELİOĞLU",
+
+        "Partial Differential Equations": "Doç. Dr. Feray HACIVELİOĞLU",
+        "Kısmi Türevli Diferansiyel Denklemler": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MAT 305": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MAT 305 - Kısmi Türevli Diferansiyel Denklemler": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MATH 305": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MATH 305 - Partial Differential Equations": "Doç. Dr. Feray HACIVELİOĞLU",
+
+        // Lisans 4. Sınıf
+        "Mathematical Statistics": "Prof. Dr. Nuri ÇELİK",
+        "Matematiksel İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "MAT 401": "Prof. Dr. Nuri ÇELİK",
+        "MAT 401 - Matematiksel İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "MATH 401": "Prof. Dr. Nuri ÇELİK",
+        "MATH 401 - Mathematical Statistics": "Prof. Dr. Nuri ÇELİK",
+
+        "Introduction to Coding Theory": "Prof. Dr. Sibel ÖZKAN",
+        "Kodlama Teorisine Giriş": "Prof. Dr. Sibel ÖZKAN",
+        "MAT 419": "Prof. Dr. Sibel ÖZKAN",
+        "MAT 419 - Kodlama Teorisine Giriş": "Prof. Dr. Sibel ÖZKAN",
+        "MATH 419": "Prof. Dr. Sibel ÖZKAN",
+        "MATH 419 - Introduction to Coding Theory": "Prof. Dr. Sibel ÖZKAN",
+
+        "Matrix Theory": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "Matris Kuramı": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "MAT 451": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "MAT 451 - Matris Kuramı": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "MATH 451": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "MATH 451 - Matrix Theory": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+
+        "Mathematics of Financial Derivatives": "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ",
+        "Finansal Türev Ürünlerin Matematiği": "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ",
+        "MAT 432": "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ",
+        "MAT 432 - Finansal Türev Ürünlerin Matematiği": "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ",
+        "MATH 432": "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ",
+        "MATH 432 - Mathematics of Financial Derivatives": "Araş. Gör. Dr. Pelin Ayşe GÖKGÖZ",
+
+        "Functional Analysis": "Prof. Dr. Emil NOVRUZ",
+        "Fonksiyonel Analiz": "Prof. Dr. Emil NOVRUZ",
+        "MAT 406": "Prof. Dr. Emil NOVRUZ",
+        "MAT 406 - Fonksiyonel Analiz": "Prof. Dr. Emil NOVRUZ",
+        "MATH 406": "Prof. Dr. Emil NOVRUZ",
+        "MATH 406 - Functional Analysis": "Prof. Dr. Emil NOVRUZ",
+
+        "Applied Partial Differential Equations": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Uygulamalı Kısmi Türevli Denklemler": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Uygulamalı Kısmi Diferansiyel Denklemler": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 435": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 435 - Uygulamalı Kısmi Türevli Denklemler": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 435": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 435 - Applied Partial Differential Equations": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
         "Differential Geometry": "Prof. Dr. Oğul ESEN",
         "Diferansiyel Geometri": "Prof. Dr. Oğul ESEN",
-        "Applied Partial Differential Equations": "Doç. Dr. Işıl ÖNER",
-        "Uygulamalı Kısmi Diferansiyel Denklemler": "Doç. Dr. Işıl ÖNER",
-        "Number Theory": "Doç. Dr. Gülşen ULUCAK",
-        "Sayılar Teorisi": "Doç. Dr. Gülşen ULUCAK",
+        "MAT 407": "Prof. Dr. Oğul ESEN",
+        "MAT 407 - Diferansiyel Geometri": "Prof. Dr. Oğul ESEN",
+        "MATH 407": "Prof. Dr. Oğul ESEN",
+        "MATH 407 - Differential Geometry": "Prof. Dr. Oğul ESEN",
+
+        "Varyasyonlar Hesabı": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 408": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 408 - Varyasyonlar Hesabı": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
         "Introduction to Data Analysis": "Doç. Dr. Selçuk TOPAL",
-        "Veri Analizine Giriş": "Doç. Dr. Selçuk TOPAL"
+        "Veri Analizine Giriş": "Doç. Dr. Selçuk TOPAL",
+        "MAT 411": "Doç. Dr. Selçuk TOPAL",
+        "MAT 411 - Veri Analizine Giriş": "Doç. Dr. Selçuk TOPAL",
+
+        "Güncel Bilgi Teknolojileri": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "MATH 412": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+        "MATH 412 - Güncel Bilgi Teknolojileri": "Dr. Öğr. Üyesi Hadi ALIZADEH",
+
+        "Boundary Value Problems": "Doç. Dr. Gülden GÜN POLAT",
+        "Sınır Değer Problemleri": "Doç. Dr. Gülden GÜN POLAT",
+        "MAT 434": "Doç. Dr. Gülden GÜN POLAT",
+        "MAT 434 - Sınır Değer Problemleri": "Doç. Dr. Gülden GÜN POLAT",
+
+        "Graph Theory and Combinatorics": "Prof. Dr. Sibel ÖZKAN",
+        "Çizge Kuramı ve Kombinatorik": "Prof. Dr. Sibel ÖZKAN",
+        "MAT 438": "Prof. Dr. Sibel ÖZKAN",
+        "MAT 438 - Çizge Kuramı ve Kombinatorik": "Prof. Dr. Sibel ÖZKAN",
+
+        "Quasilineerizasyon Metodu": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 446": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 446 - Quasilineerizasyon Metodu": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
+        "Tensör Analizi": "Prof. Dr. Oğul ESEN",
+        "MAT 447": "Prof. Dr. Oğul ESEN",
+        "MAT 447 - Tensör Analizi": "Prof. Dr. Oğul ESEN",
+
+        "Number Theory": "Doç. Dr. Gülşen ULUCAK",
+        "Sayılar Kuramı": "Doç. Dr. Gülşen ULUCAK",
+        "MAT 449": "Doç. Dr. Gülşen ULUCAK",
+        "MAT 449 - Sayılar Kuramı": "Doç. Dr. Gülşen ULUCAK",
+
+        "Rasyonel Mekanik": "Prof. Dr. Oğul ESEN",
+        "MAT 450": "Prof. Dr. Oğul ESEN",
+        "MAT 450 - Rasyonel Mekanik": "Prof. Dr. Oğul ESEN",
+
+        "History of Mathematics": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "Matematik Tarihi": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "MAT 452": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "MAT 452 - Matematik Tarihi": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+
+        // Lisansüstü Açılacak Dersler (2026-2027 Güz)
+        "MATH 667": "Prof. Dr. Serkan SÜTLÜ",
+        "MATH 667 - Algebraic Number Theory I": "Prof. Dr. Serkan SÜTLÜ",
+        "Algebraic Number Theory I": "Prof. Dr. Serkan SÜTLÜ",
+        "Cebirsel Sayılar Teorisi I": "Prof. Dr. Serkan SÜTLÜ",
+
+        "MAT 542": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "MATH 542": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "MAT 542 - Reel Analiz": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "MATH 542 - Real Analysis": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "Reel Analiz": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+
+        "MATH 517": "Doç. Dr. Gülşen ULUCAK",
+        "MAT 517": "Doç. Dr. Gülşen ULUCAK",
+        "MATH 517 - Ring Theory": "Doç. Dr. Gülşen ULUCAK",
+        "Ring Theory": "Doç. Dr. Gülşen ULUCAK",
+        "Halka Teorisi": "Doç. Dr. Gülşen ULUCAK",
+
+        "MATH 545": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 545": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 545 - Numerical Analysis": "Doç. Dr. Hülya ÖZTÜRK",
+
+        "MAT 571": "Doç. Dr. Ayşe SÖNMEZ",
+        "MATH 571": "Doç. Dr. Ayşe SÖNMEZ",
+        "MAT 571 - Genel Topoloji": "Doç. Dr. Ayşe SÖNMEZ",
+        "MATH 571 - General Topology": "Doç. Dr. Ayşe SÖNMEZ",
+        "Genel Topoloji": "Doç. Dr. Ayşe SÖNMEZ",
+        "General Topology": "Doç. Dr. Ayşe SÖNMEZ",
+
+        "MATH 515": "Doç. Dr. Nursel EREY",
+        "MAT 515": "Doç. Dr. Nursel EREY",
+        "MATH 515 - Algebra I": "Doç. Dr. Nursel EREY",
+
+        "MATH 581": "Prof. Dr. Nuri ÇELİK",
+        "MAT 581": "Prof. Dr. Nuri ÇELİK",
+        "MATH 581 - Probability Theory and Mathematical Statistics": "Prof. Dr. Nuri ÇELİK",
+        "Probability Theory and Mathematical Statistics": "Prof. Dr. Nuri ÇELİK",
+        "Olasılık Teorisi ve Matematiksel İstatistik": "Prof. Dr. Nuri ÇELİK",
+
+        "MATH 685": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "MAT 685": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "MATH 685 - Geometric Mechanics": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "Geometric Mechanics": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+        "Geometrik Mekanik": "Dr. Öğr. Üyesi Keremcan DOĞAN",
+
+        "MATH 511": "Prof. Dr. Mustafa AKKURT",
+        "MAT 511": "Prof. Dr. Mustafa AKKURT",
+        "MATH 511 - Linear Algebra": "Prof. Dr. Mustafa AKKURT",
+
+        "MATH 535": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MAT 535": "Doç. Dr. Feray HACIVELİOĞLU",
+        "MATH 535 - Theory of Functions of Complex Variables I": "Doç. Dr. Feray HACIVELİOĞLU",
+        "Theory of Functions of Complex Variables I": "Doç. Dr. Feray HACIVELİOĞLU",
+        "Kompleks Değişkenli Fonksiyonlar Teorisi I": "Doç. Dr. Feray HACIVELİOĞLU",
+
+        "MATH 560": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "MAT 560": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "MATH 560 - Projective Geometry": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "Projective Geometry": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+        "Projektif Geometri": "Doç. Dr. Fatma KARAOĞLU CEYHAN",
+
+        "MAT 676": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "MATH 676": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "MAT 676 - Hiperbolik Tipli Denklemler İçin Ters Problemler": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+        "Hiperbolik Tipli Denklemler İçin Ters Problemler": "Prof. Dr. Mansur İSGENDEROĞLU (İSMAİLOV)",
+
+        "FBE 501": "Dr. Öğr. Üyesi Samire YAZAR",
+        "FBE 501 - Bilimsel Araştırma Teknikleri ve Yayın Etiği": "Dr. Öğr. Üyesi Samire YAZAR",
+        "Bilimsel Araştırma Teknikleri ve Yayın Etiği": "Dr. Öğr. Üyesi Samire YAZAR",
+
+        "MATH 590": "Prof. Dr. Oğul ESEN",
+        "MAT 590": "Prof. Dr. Oğul ESEN",
+        "MATH 590 - Introduction to Hamiltonian Formulation of Differential Equations": "Prof. Dr. Oğul ESEN",
+        "Introduction to Hamiltonian Formulation of Differential Equations": "Prof. Dr. Oğul ESEN",
+        "Diferansiyel Denklemlerin Hamilton Formülasyonuna Giriş": "Prof. Dr. Oğul ESEN",
+
+        "MATH 679": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 679": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 679 - Theory of Fractional Differential Equations": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Theory of Fractional Differential Equations": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Kesirli Diferansiyel Denklemler Teorisi": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
+        "MATH 682": "Prof. Dr. Emil NOVRUZ",
+        "MAT 682": "Prof. Dr. Emil NOVRUZ",
+        "MATH 682 - Behavioral Properties of the Solutions of Nonlinear Parabolic Equations": "Prof. Dr. Emil NOVRUZ",
+        "Behavioral Properties of the Solutions of Nonlinear Parabolic Equations": "Prof. Dr. Emil NOVRUZ",
+        "Lineer Olmayan Parabolik Denklemlerin Çözümlerinin Davranış Özellikleri": "Prof. Dr. Emil NOVRUZ",
+
+        "MATH 652": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MAT 652": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "MATH 652 - Theory of Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Theory of Differential Equations II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+        "Diferansiyel Denklemler Teorisi II": "Prof. Dr. Coşkun YAKAR (Bölüm Başkanı)",
+
+        // Diğer Servis Dersleri
+        "Probability and Statistics": "Prof. Dr. Nuri ÇELİK",
+        "Olasılık ve İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "MAT 118": "Prof. Dr. Nuri ÇELİK",
+        "MAT 118 - Olasılık ve İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "MAT 219": "Prof. Dr. Nuri ÇELİK",
+        "MAT 219 - Olasılık ve İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "MAT 216": "Prof. Dr. Nuri ÇELİK",
+        "MAT 216 - İstatistik": "Prof. Dr. Nuri ÇELİK",
+        "Probability Theory": "Prof. Dr. Nuri ÇELİK",
+        "Olasılık Teorisi": "Prof. Dr. Nuri ÇELİK",
+        "MAT 308": "Prof. Dr. Nuri ÇELİK",
+        "MAT 308 - Olasılık Teorisi": "Prof. Dr. Nuri ÇELİK",
+        "Numerical Analysis": "Doç. Dr. Hülya ÖZTÜRK",
+        "Sayısal Analiz": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 214": "Doç. Dr. Hülya ÖZTÜRK",
+        "MAT 214 - Sayısal Analiz": "Doç. Dr. Hülya ÖZTÜRK",
+        "Numerical Methods": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 214": "Doç. Dr. Hülya ÖZTÜRK",
+        "MATH 214 - Numerical Methods": "Doç. Dr. Hülya ÖZTÜRK"
     },
     lecturers: [
         { name: "Mustafa AKKURT", title: "Prof. Dr." },
@@ -207,9 +773,19 @@ let DB = {
         { name: "Benan DURUKAN", title: "Öğr.Gör." },
         { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
         { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
-        { name: "Orkun Canbek", title: "Öğr. Gör." }
+        { name: "Orkun Canbek", title: "Öğr. Gör." },
+        { name: "Oğuzhan DURSUN", title: "Öğr. Gör. Dr." },
+        { name: "Pelin Ayşe GÖKGÖZ", title: "Araş. Gör. Dr." },
+        { name: "Eda GOLDENBERG", title: "Doç. Dr." }
     ]
 };
+
+if (typeof window !== 'undefined') {
+    window.DB = DB;
+    window.getCourseCatalog = getCourseCatalog;
+    window.findCourseInCatalog = findCourseInCatalog;
+    window.DEFAULT_COURSE_CATALOG = DEFAULT_COURSE_CATALOG;
+}
 
 /**
  * YEREL ANLIK GÖRÜNTÜ KASASI (SNAPSHOT VAULT - SON 30 YEDEK)
@@ -1581,76 +2157,260 @@ window.sendAssignmentEmail = sendAssignmentEmail;
 
 const API_URL = API_BASE_URL + "/gizli_yol_gtu_admin_data.json";
 
-async function saveToBackend() {
-    // Güvenlik Koruması: Bozuk veya boş veritabanının Firebase'i ezmesini engelle
+// ============================================================
+//  🔄 FIREBASE BAĞLANTI DAYANIKLILIĞI
+//  - Üstel geri-çekilmeli yeniden deneme (Exponential Backoff)
+//  - Çevrimdışı kuyruk (Offline Queue)
+//  - Bağlantı durum göstergesi
+//  - online/offline event dinleyicileri
+// ============================================================
+
+const SYNC_QUEUE_KEY = '_pendingFirebaseSync';
+let _isSyncing = false;
+
+/** Durum badge'ini günceller */
+function _setCloudStatus(state, text) {
+    const statusDiv = document.getElementById('cloud-status');
+    const statusText = document.getElementById('cloud-status-text');
+    if (!statusDiv) return;
+
+    statusDiv.classList.remove('hidden', 'syncing', 'cloud-offline', 'cloud-error');
+    if (statusText) {
+        statusText.style.color = '';
+        statusText.textContent = text || '';
+    }
+
+    switch (state) {
+        case 'syncing':
+            statusDiv.classList.add('syncing');
+            statusDiv.classList.remove('hidden');
+            break;
+        case 'ok':
+            statusDiv.classList.remove('hidden');
+            if (statusText) statusText.style.color = '#10b981';
+            setTimeout(() => statusDiv.classList.add('hidden'), 3000);
+            break;
+        case 'offline':
+            statusDiv.classList.remove('hidden');
+            statusDiv.classList.add('cloud-offline');
+            if (statusText) statusText.style.color = '#f59e0b';
+            break;
+        case 'retrying':
+            statusDiv.classList.remove('hidden');
+            if (statusText) statusText.style.color = '#f59e0b';
+            break;
+        case 'error':
+            statusDiv.classList.remove('hidden');
+            statusDiv.classList.add('cloud-error');
+            if (statusText) statusText.style.color = 'var(--accent-red)';
+            break;
+        case 'hidden':
+            statusDiv.classList.add('hidden');
+            break;
+    }
+}
+
+/**
+ * Firebase'e tek bir PUT isteği gönderir.
+ * Başarılıysa true, başarısızsa hata fırlatır.
+ */
+async function _doFetch(payload) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20 saniye timeout
+    try {
+        const response = await fetch(API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+            throw new Error(err.error || `Sunucu hatası: ${response.status}`);
+        }
+        return true;
+    } catch (e) {
+        clearTimeout(timeout);
+        if (e.name === 'AbortError') throw new Error('Bağlantı zaman aşımına uğradı (20sn)');
+        throw e;
+    }
+}
+
+/**
+ * Kuyruğa bekleyen kayıt olduğunu işaretle.
+ */
+function _markPendingSync() {
+    try { localStorage.setItem(SYNC_QUEUE_KEY, '1'); } catch(e) {}
+}
+
+/**
+ * Kuyruktan bekleyen kayıt bayrağını temizle.
+ */
+function _clearPendingSync() {
+    try { localStorage.removeItem(SYNC_QUEUE_KEY); } catch(e) {}
+}
+
+/**
+ * Bekleyen kayıt var mı?
+ */
+function _hasPendingSync() {
+    try { return localStorage.getItem(SYNC_QUEUE_KEY) === '1'; } catch(e) { return false; }
+}
+
+/**
+ * Üstel geri-çekilmeli yeniden denemeyle Firebase'e kaydeder.
+ * @param {number} attempt - Deneme sayısı (1'den başlar)
+ */
+async function saveToBackend(attempt = 1) {
+    const MAX_ATTEMPTS = 4;
+    const RETRY_DELAYS = [0, 4000, 12000, 36000]; // ms: anında, 4sn, 12sn, 36sn
+
+    // Güvenlik koruması
     if (!DB || !Array.isArray(DB.staff) || DB.staff.length === 0) {
-        console.error("🚨 [Kritik Güvenlik] Personel listesi boş olduğu için sunucuya kaydetme iptal edildi!");
+        console.error('🚨 [Güvenlik] Personel boş — Firebase kayıt iptal.');
         return;
     }
 
-    console.log("Sunucuya kaydediliyor...", API_URL);
-    const statusDiv = document.getElementById('cloud-status');
-    const statusText = document.getElementById('cloud-status-text');
-    // Gözetmen modunda (admin değilse) hata alertleri gösterme
+    // Çevrimdışıysa kuyruğa al ve dur
+    if (!navigator.onLine) {
+        _markPendingSync();
+        _setCloudStatus('offline', '🔴 Çevrimdışı — Yerel kayıt aktif');
+        console.warn('📴 Çevrimdışı: veri kuyruğa alındı, bağlantı gelince gönderilecek.');
+        return;
+    }
+
     const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-    
-    if (statusDiv) {
-        statusDiv.classList.remove('hidden');
-        statusDiv.classList.add('syncing');
-        if (statusText) statusText.textContent = "Eşitleniyor...";
+
+    // İlk deneme veya tekrar
+    if (attempt === 1) {
+        _isSyncing = true;
+        _setCloudStatus('syncing', '🔄 Eşitleniyor...');
+    } else {
+        _setCloudStatus('retrying', `🟡 Yeniden deneniyor... (${attempt - 1}/${MAX_ATTEMPTS - 1})`);
+    }
+
+    const delay = RETRY_DELAYS[attempt - 1] || 0;
+    if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay));
     }
 
     try {
         const payload = JSON.stringify(DB);
-        // Backend'e yazmak her zaman admin yetkisiyle yapılır.
-        // Gözetmen şifresi (Gtu2026 vb.) yalnızca frontend girişi içindir.
-        const secret = 'GtuAdmın123';
-        
-        const encodedSecret = btoa(unescape(encodeURIComponent(secret)));
+        await _doFetch(payload);
 
-        const response = await fetch(API_URL, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: payload
-        });
+        // Başarı
+        _isSyncing = false;
+        _clearPendingSync();
+        _setCloudStatus('ok', '✅ Bulutla Eşitlendi');
+        console.log(`✅ Firebase kayıt başarılı (deneme ${attempt}). Sınav: ${(DB.exams||[]).length}, Talep: ${(DB.requests||[]).length}`);
 
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({ error: "Sunucu geçerli bir JSON dönmedi" }));
-            throw new Error(err.error || `Sunucu hatası: ${response.status}`);
-        }
-        console.log("Sunucuya başarıyla kaydedildi. Talep sayısı:", (DB.requests || []).length);
-        
-        if (statusDiv) {
-            statusDiv.classList.remove('syncing');
-            if (statusText) statusText.textContent = "Bulutla Eşitlendi";
-            setTimeout(() => {
-                statusDiv.classList.add('hidden');
-            }, 3000);
-        }
     } catch (e) {
-        if (statusDiv) {
-            statusDiv.classList.remove('syncing');
-            if (statusText) {
-                statusText.textContent = isAdmin ? "Bağlantı Hatası" : "";
-                if (isAdmin) statusText.style.color = "var(--accent-red)";
+        console.warn(`⚠️ Firebase kayıt denemesi ${attempt} başarısız:`, e.message);
+
+        if (attempt < MAX_ATTEMPTS) {
+            // Tekrar dene
+            const nextDelay = RETRY_DELAYS[attempt] || 36000;
+            console.log(`🔄 ${nextDelay / 1000}sn sonra tekrar denenecek...`);
+            await saveToBackend(attempt + 1);
+        } else {
+            // Tüm denemeler bitti
+            _isSyncing = false;
+            _markPendingSync(); // Kuyrukta beklet
+            _setCloudStatus(isAdmin ? 'error' : 'hidden',
+                isAdmin ? '🔴 Bağlantı Hatası — Yerel kayıt aktif' : '');
+            console.error('❌ Firebase kayıt 4 denemede de başarısız. Veri kuyrukta bekliyor.', {
+                message: e.message, apiUrl: API_URL
+            });
+            // Admin'e bildir (sessiz — toast kullan, alert değil)
+            if (isAdmin && typeof window.showToast === 'function') {
+                window.showToast('⚠️ Firebase\'e kaydedilemedi. İnternet bağlantınızı kontrol edin. Veriler yerel olarak korunuyor.', 'error');
             }
-            // Gözetmen modunda hata göstergeci gizle
-            if (!isAdmin) statusDiv.classList.add('hidden');
         }
-        console.error("Backend kayit hatasi DETAY:", {
-            error: e,
-            message: e.message,
-            stack: e.stack,
-            apiUrl: API_URL
-        });
-        // Sadece admin modunda alert göster
-        if (isAdmin) {
-            alert("🚨 Veriler sunucuya kaydedilemedi!\n" + e.message);
-        }
-        // Gözetmen modunda sessizce devam et (veriler localStorage'a zaten kaydedildi)
     }
+}
+
+/**
+ * Sayfa açıkken online/offline olaylarını dinler.
+ * Bağlantı geri gelince bekleyen kuyruğu otomatik boşaltır.
+ */
+function initOfflineSyncListener() {
+    // Çevrimdışı → durum güncellemesi
+    window.addEventListener('offline', () => {
+        _markPendingSync();
+        _setCloudStatus('offline', '🔴 Çevrimdışı — Yerel kayıt aktif');
+        console.warn('📴 İnternet bağlantısı kesildi.');
+    });
+
+    // Online → kuyrukta bekleyen veri varsa gönder
+    window.addEventListener('online', async () => {
+        console.log('📶 İnternet bağlantısı geri geldi.');
+        _setCloudStatus('syncing', '🔄 Yeniden bağlanıyor...');
+
+        if (_hasPendingSync()) {
+            console.log('📤 Kuyrukta bekleyen veri gönderiliyor...');
+            await saveToBackend(1);
+        } else {
+            _setCloudStatus('ok', '✅ Bağlantı Sağlandı');
+        }
+    });
+
+    // Sayfa açılışında bekleyen kuyruk varsa gönder (önceki session'dan kalmış olabilir)
+    if (_hasPendingSync() && navigator.onLine) {
+        console.log('📤 Önceki session\'dan kalan bekleyen veri gönderiliyor...');
+        setTimeout(() => saveToBackend(1), 2000);
+    }
+
+    console.log('🔌 Firebase çevrimdışı senkronizasyon dinleyicisi başlatıldı.');
+}
+
+if (typeof window !== 'undefined') {
+    window.saveToBackend = saveToBackend;
+    window.initOfflineSyncListener = initOfflineSyncListener;
+}
+
+function saveToLocalStorage() {
+    // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için
+    const dbStr = JSON.stringify(DB);
+    
+    // Yaklaşık boyut kontrolü (Karakter sayısı x 2 byte = byte cinsinden boyut)
+    const sizeInMB = (dbStr.length * 2) / (1024 * 1024);
+    
+    if (sizeInMB > 4.0) {
+        console.warn(`Local Storage dolmak üzere! Mevcut Boyut: ${sizeInMB.toFixed(2)} MB`);
+        // Eğer yer kritik seviyeye geldiyse işlem geçmişini (auditLogs) temizleyelim
+        if (DB.auditLogs && DB.auditLogs.length > 50) {
+            DB.auditLogs = DB.auditLogs.slice(-50); // Sadece son 50 kaydı tut
+            console.log("Limit kontrolü: İşlem geçmişi yer açmak için son 50 kayda düşürüldü.");
+        }
+    }
+
+    try {
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        // Anlık görüntü kasasına otomatik kaydet (Snapshot Vault)
+        saveAutoSnapshot(DB, 'Yerel Değişiklik');
+    } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+            console.error("LocalStorage doldu! Temizleme deneniyor...");
+            alert("⚠️ Tarayıcı depolama alanı doldu! Yer açmak için işlem geçmişi siliniyor...");
+            
+            // Radikal çözüm: İşlem geçmişini tamamen sıfırla
+            if (DB.auditLogs) DB.auditLogs = [];
+            
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(DB));
+                saveAutoSnapshot(DB, 'Depolama Temizliği Sonrası');
+                alert("✓ İşlem geçmişi temizlenerek yer açıldı ve veriler kaydedildi.");
+            } catch (e2) {
+                alert("❌ Hata: Yer açılamadı! Lütfen tarayıcı ayarlarından site verilerini temizleyin veya eski sınavları silin.");
+            }
+        } else {
+            console.error("LocalStorage kayıt hatası:", e);
+        }
+    }
+    
+    // Sunucuya asenkron olarak yaz (tüm kullanıcılar için)
+    saveToBackend();
 }
 
 function saveToLocalStorage() {
@@ -1712,7 +2472,21 @@ async function loadFromDataJSON() {
 
     try {
         console.log("Veriler sunucudan yükleniyor...", API_URL);
-        const response = await fetch(API_URL + '?t=' + new Date().getTime());
+        const loadController = new AbortController();
+        const loadTimeout = setTimeout(() => loadController.abort(), 15000); // 15sn timeout
+        let response;
+        try {
+            response = await fetch(API_URL + '?t=' + new Date().getTime(), {
+                signal: loadController.signal
+            });
+            clearTimeout(loadTimeout);
+        } catch (fetchErr) {
+            clearTimeout(loadTimeout);
+            if (fetchErr.name === 'AbortError') {
+                throw new Error('Firebase yükleme zaman aşımına uğradı (15sn). Yerel veri kullanılıyor.');
+            }
+            throw fetchErr;
+        }
         if (!response.ok) throw new Error(`Ağ hatası: ${response.status}`);
         const data = await response.json();
         
@@ -1726,13 +2500,37 @@ async function loadFromDataJSON() {
             // Preserve hardcoded lecturers and Math-focused staff if missing in loaded data
             if (!data.lecturers || data.lecturers.length === 0) {
                 data.lecturers = DB.lecturers;
+            } else {
+                DB.lecturers.forEach(dl => {
+                    if (!data.lecturers.some(l => l.name.toLowerCase() === dl.name.toLowerCase())) {
+                        data.lecturers.push(dl);
+                    }
+                });
             }
-            if (!data.courseLecturers) {
+            if (!data.courseCatalog || !Array.isArray(data.courseCatalog) || data.courseCatalog.length === 0) {
+                data.courseCatalog = DEFAULT_COURSE_CATALOG;
+            } else {
+                const catMap = new Map();
+                data.courseCatalog.forEach(c => { if (c && c.code) catMap.set(c.code.toUpperCase(), c); });
+                DEFAULT_COURSE_CATALOG.forEach(dc => {
+                    const code = dc.code.toUpperCase();
+                    if (!catMap.has(code)) {
+                        data.courseCatalog.push(dc);
+                        catMap.set(code, dc);
+                    } else {
+                        const existing = catMap.get(code);
+                        if (dc.lecturer && (!existing.lecturer || existing.lecturer !== dc.lecturer)) {
+                            existing.lecturer = dc.lecturer;
+                        }
+                    }
+                });
+            }
+            if (!data.courseLecturers || Object.keys(data.courseLecturers).length === 0) {
                 data.courseLecturers = DB.courseLecturers;
+            } else {
+                // 2026-2027 Güz güncel eşleştirmelerini mevcut olanlarla güvenle birleştir
+                data.courseLecturers = Object.assign({}, data.courseLecturers, DB.courseLecturers);
             }
-            
-
-            if (!data.constraints) data.constraints = {};
             
             // Sunucuda kısıtlar boşsa veya yerel kısıt varsa güvenli birleştirme yap
             if (localConstraints && typeof localConstraints === 'object') {
@@ -1804,12 +2602,39 @@ function ensureDefaultLecturersAndCoursesMigrated() {
     if (!DB) return;
     if (!DB.lecturers) DB.lecturers = [];
     if (!DB.courseLecturers) DB.courseLecturers = {};
+    if (!DB.courseCatalog || !Array.isArray(DB.courseCatalog)) DB.courseCatalog = DEFAULT_COURSE_CATALOG.slice();
 
     const defaultLecturers = [
+        { name: "Mustafa AKKURT", title: "Prof. Dr." },
+        { name: "Nuri ÇELİK", title: "Prof. Dr." },
+        { name: "Oğul ESEN", title: "Prof. Dr." },
+        { name: "Mansur İSGENDEROĞLU (İSMAİLOV)", title: "Prof. Dr." },
+        { name: "Emil NOVRUZ", title: "Prof. Dr." },
+        { name: "Sibel ÖZKAN", title: "Prof. Dr." },
+        { name: "Serkan SÜTLÜ", title: "Prof. Dr." },
+        { name: "Coşkun YAKAR (Bölüm Başkanı)", title: "Prof. Dr." },
+        { name: "Nursel EREY", title: "Doç. Dr." },
+        { name: "Gülden GÜN POLAT", title: "Doç. Dr." },
+        { name: "Feray HACIVELİOĞLU", title: "Doç. Dr." },
+        { name: "Roghayeh HAFEZIEH", title: "Doç. Dr." },
+        { name: "Fatma KARAOĞLU CEYHAN", title: "Doç. Dr." },
+        { name: "Ayten KOÇ", title: "Doç. Dr." },
+        { name: "Işıl ÖNER", title: "Doç. Dr." },
+        { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
+        { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
+        { name: "Selçuk TOPAL", title: "Doç. Dr." },
+        { name: "Gülşen ULUCAK", title: "Doç. Dr." },
+        { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
+        { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
+        { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
+        { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" },
         { name: "Benan DURUKAN", title: "Öğr.Gör." },
         { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
         { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
-        { name: "Orkun Canbek", title: "Öğr. Gör." }
+        { name: "Orkun Canbek", title: "Öğr. Gör." },
+        { name: "Oğuzhan DURSUN", title: "Öğr. Gör. Dr." },
+        { name: "Pelin Ayşe GÖKGÖZ", title: "Araş. Gör. Dr." },
+        { name: "Eda GOLDENBERG", title: "Doç. Dr." }
     ];
 
     let modified = false;
@@ -1824,21 +2649,40 @@ function ensureDefaultLecturersAndCoursesMigrated() {
         }
     });
 
-    const defaultMappings = {
-        "Turkish I": "Öğr.Gör. Benan DURUKAN",
-        "Türk Dili I": "Öğr.Gör. Benan DURUKAN",
-        "Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
-        "PHYS 113 - Physics for Natural Sciences I": "Öğr. Gör. Dr. Fatih KINDAZ",
-        "Fizik I": "Öğr. Gör. Dr. Fatih KINDAZ",
-        "English for Business Life": "Öğr. Gör. Zeynep Karadeniz Cısdık",
-        "Principles of Atatürk and History of Turkish Revolution II": "Öğr. Gör. Orkun Canbek",
-        "Atatürk İlkeleri ve İnkılap Tarihi II": "Öğr. Gör. Orkun Canbek"
-    };
-
-    Object.entries(defaultMappings).forEach(([course, lecturer]) => {
-        if (!DB.courseLecturers[course]) {
-            DB.courseLecturers[course] = lecturer;
+    // Eksik katalog derslerini tamamla ve güncellenmiş hocaları senkronize et
+    const catMap = new Map();
+    DB.courseCatalog.forEach(c => { if (c && c.code) catMap.set(c.code.toUpperCase(), c); });
+    DEFAULT_COURSE_CATALOG.forEach(dc => {
+        const code = dc.code.toUpperCase();
+        if (!catMap.has(code)) {
+            DB.courseCatalog.push(dc);
+            catMap.set(code, dc);
             modified = true;
+        } else {
+            const existing = catMap.get(code);
+            if (dc.lecturer && existing.lecturer !== dc.lecturer) {
+                existing.lecturer = dc.lecturer;
+                modified = true;
+            }
+        }
+    });
+
+    // 2026-2027 Güz güncel ders eşleştirmelerini senkronize et
+    DEFAULT_COURSE_CATALOG.forEach(c => {
+        if (c.lecturer) {
+            const fullKey = `${c.code} - ${c.name}`;
+            if (DB.courseLecturers[fullKey] !== c.lecturer) {
+                DB.courseLecturers[fullKey] = c.lecturer;
+                modified = true;
+            }
+            if (DB.courseLecturers[c.code] !== c.lecturer) {
+                DB.courseLecturers[c.code] = c.lecturer;
+                modified = true;
+            }
+            if (DB.courseLecturers[c.name] !== c.lecturer) {
+                DB.courseLecturers[c.name] = c.lecturer;
+                modified = true;
+            }
         }
     });
 
@@ -1846,7 +2690,7 @@ function ensureDefaultLecturersAndCoursesMigrated() {
     ensureTemplatesExist();
 
     if (modified) {
-        console.log("Eksik varsayılan hocalar ve ders eşleştirmeleri DB'ye eklendi.");
+        console.log("2026-2027 Güz Ders Kataloğu ve Öğretim Elemanı eşleştirmeleri senkronize edildi.");
         localStorage.setItem(DB_KEY, JSON.stringify(DB));
     }
 }

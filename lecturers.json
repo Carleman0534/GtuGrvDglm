@@ -1,45 +1,252 @@
 [
-  {"name": "Mustafa AKKURT", "title": "Prof. Dr.", "email": "m.akkurt@gtu.edu.tr"},
-  {"name": "Nuri ÇELİK", "title": "Prof. Dr.", "email": "n.celik@gtu.edu.tr"},
-  {"name": "Oğul ESEN", "title": "Prof. Dr.", "email": "o.esen@gtu.edu.tr"},
-  {"name": "Mansur İSGENDEROĞLU (İSMAİLOV)", "title": "Prof. Dr.", "email": "m.isgenderoglu@gtu.edu.tr"},
-  {"name": "Emil NOVRUZ", "title": "Prof. Dr.", "email": "e.novruz@gtu.edu.tr"},
-  {"name": "Sibel ÖZKAN", "title": "Prof. Dr.", "email": "s.ozkan@gtu.edu.tr"},
-  {"name": "Serkan SÜTLÜ", "title": "Prof. Dr.", "email": "s.sutlu@gtu.edu.tr"},
-  {"name": "Coşkun YAKAR (Bölüm Başkanı)", "title": "Prof. Dr.", "email": "c.yakar@gtu.edu.tr"},
-  {"name": "Nursel EREY", "title": "Doç. Dr.", "email": "n.erey@gtu.edu.tr"},
-  {"name": "Gülden GÜN POLAT", "title": "Doç. Dr.", "email": "g.gunpolat@gtu.edu.tr"},
-  {"name": "Feray HACIVELİOĞLU", "title": "Doç. Dr.", "email": "f.hacivelioglu@gtu.edu.tr"},
-  {"name": "Roghayeh HAFEZIEH", "title": "Doç. Dr.", "email": "r.hafezieh@gtu.edu.tr"},
-  {"name": "Fatma KARAOĞLU CEYHAN", "title": "Doç. Dr.", "email": "f.karaoglu@gtu.edu.tr"},
-  {"name": "Ayten KOÇ", "title": "Doç. Dr.", "email": "a.koc@gtu.edu.tr"},
-  {"name": "Işıl ÖNER", "title": "Doç. Dr.", "email": "i.oner@gtu.edu.tr"},
-  {"name": "Hülya ÖZTÜRK", "title": "Doç. Dr.", "email": "h.ozturk@gtu.edu.tr"},
-  {"name": "Ayşe SÖNMEZ", "title": "Doç. Dr.", "email": "a.sonmez@gtu.edu.tr"},
-  {"name": "Selçuk TOPAL", "title": "Doç. Dr.", "email": "s.topal@gtu.edu.tr"},
-  {"name": "Gülşen ULUCAK", "title": "Doç. Dr.", "email": "g.ulucak@gtu.edu.tr"},
-  {"name": "Hadi ALIZADEH", "title": "Dr. Öğr. Üyesi", "email": "h.alizadeh@gtu.edu.tr"},
-  {"name": "Keremcan DOĞAN", "title": "Dr. Öğr. Üyesi", "email": "k.dogan@gtu.edu.tr"},
-  {"name": "Tuğba MAHMUTÇEPOĞLU", "title": "Dr. Öğr. Üyesi", "email": "t.mahmutcepoglu@gtu.edu.tr"},
-  {"name": "Samire YAZAR", "title": "Dr. Öğr. Üyesi", "email": "s.yazar@gtu.edu.tr"},
-  {"name": "Begüm ATEŞLİ", "title": "Dr.", "email": "b.atesli@gtu.edu.tr"},
-  {"name": "Sultan BOZKURT GÜNGÖR", "title": "Dr.", "email": "s.bozkurt@gtu.edu.tr"},
-  {"name": "Yasemin BÜYÜKÇOLAK", "title": "Dr.", "email": "y.buyukcolak@gtu.edu.tr"},
-  {"name": "Ayten GEZİCİ", "title": "Dr.", "email": "a.gezici@gtu.edu.tr"},
-  {"name": "Büşra KARADENİZ ŞEN", "title": "Dr.", "email": "b.karadeniz@gtu.edu.tr"},
-  {"name": "Fatih YETGİN", "title": "Dr.", "email": "f.yetgin@gtu.edu.tr"},
-  {"name": "Murat Can AŞKAROĞULLARI", "title": "Arş. Gör.", "email": "m.askarogullari@gtu.edu.tr"},
-  {"name": "Serkan AYRICA", "title": "Arş. Gör.", "email": "s.ayrica@gtu.edu.tr"},
-  {"name": "Serdal ÇÖLMEKCİ", "title": "Arş. Gör.", "email": "s.colmekci@gtu.edu.tr"},
-  {"name": "Ömer DEMİR", "title": "Arş. Gör.", "email": "o.demir@gtu.edu.tr"},
-  {"name": "Saliha DEMİRBÜKEN", "title": "Arş. Gör.", "email": "s.demirbuken@gtu.edu.tr"},
-  {"name": "Muhammed Ergen", "title": "Arş. Gör.", "email": "m.ergen@gtu.edu.tr"},
-  {"name": "Aslıhan GÜR", "title": "Arş. Gör.", "email": "a.gur@gtu.edu.tr"},
-  {"name": "Çağla ÖZATAR", "title": "Arş. Gör.", "email": "c.ozatar@gtu.edu.tr"},
-  {"name": "Ezgi ÖZTEKİN", "title": "Arş. Gör.", "email": "e.oztekin@gtu.edu.tr"},
-  {"name": "Aysel ŞAHİN", "title": "Arş. Gör.", "email": "a.sahin@gtu.edu.tr"},
-  {"name": "Cansu ŞAHİN", "title": "Arş. Gör.", "email": "c.sahin@gtu.edu.tr"},
-  {"name": "Oğuzhan SELÇUK", "title": "Arş. Gör.", "email": "o.selcuk@gtu.edu.tr"},
-  {"name": "Yasin TURAN", "title": "Arş. Gör.", "email": "y.turan@gtu.edu.tr"},
-  {"name": "Şeyma YAŞAR", "title": "Arş. Gör.", "email": "s.yasar@gtu.edu.tr"}
+  {
+    "name": "Mustafa AKKURT",
+    "title": "Prof. Dr.",
+    "email": "m.akkurt@gtu.edu.tr"
+  },
+  {
+    "name": "Nuri ÇELİK",
+    "title": "Prof. Dr.",
+    "email": "n.celik@gtu.edu.tr"
+  },
+  {
+    "name": "Oğul ESEN",
+    "title": "Prof. Dr.",
+    "email": "o.esen@gtu.edu.tr"
+  },
+  {
+    "name": "Mansur İSGENDEROĞLU (İSMAİLOV)",
+    "title": "Prof. Dr.",
+    "email": "m.isgenderoglu@gtu.edu.tr"
+  },
+  {
+    "name": "Emil NOVRUZ",
+    "title": "Prof. Dr.",
+    "email": "e.novruz@gtu.edu.tr"
+  },
+  {
+    "name": "Sibel ÖZKAN",
+    "title": "Prof. Dr.",
+    "email": "s.ozkan@gtu.edu.tr"
+  },
+  {
+    "name": "Serkan SÜTLÜ",
+    "title": "Prof. Dr.",
+    "email": "s.sutlu@gtu.edu.tr"
+  },
+  {
+    "name": "Coşkun YAKAR (Bölüm Başkanı)",
+    "title": "Prof. Dr.",
+    "email": "c.yakar@gtu.edu.tr"
+  },
+  {
+    "name": "Nursel EREY",
+    "title": "Doç. Dr.",
+    "email": "n.erey@gtu.edu.tr"
+  },
+  {
+    "name": "Gülden GÜN POLAT",
+    "title": "Doç. Dr.",
+    "email": "g.gunpolat@gtu.edu.tr"
+  },
+  {
+    "name": "Feray HACIVELİOĞLU",
+    "title": "Doç. Dr.",
+    "email": "f.hacivelioglu@gtu.edu.tr"
+  },
+  {
+    "name": "Roghayeh HAFEZIEH",
+    "title": "Doç. Dr.",
+    "email": "r.hafezieh@gtu.edu.tr"
+  },
+  {
+    "name": "Fatma KARAOĞLU CEYHAN",
+    "title": "Doç. Dr.",
+    "email": "f.karaoglu@gtu.edu.tr"
+  },
+  {
+    "name": "Ayten KOÇ",
+    "title": "Doç. Dr.",
+    "email": "a.koc@gtu.edu.tr"
+  },
+  {
+    "name": "Işıl ÖNER",
+    "title": "Doç. Dr.",
+    "email": "i.oner@gtu.edu.tr"
+  },
+  {
+    "name": "Hülya ÖZTÜRK",
+    "title": "Doç. Dr.",
+    "email": "h.ozturk@gtu.edu.tr"
+  },
+  {
+    "name": "Ayşe SÖNMEZ",
+    "title": "Doç. Dr.",
+    "email": "a.sonmez@gtu.edu.tr"
+  },
+  {
+    "name": "Selçuk TOPAL",
+    "title": "Doç. Dr.",
+    "email": "s.topal@gtu.edu.tr"
+  },
+  {
+    "name": "Gülşen ULUCAK",
+    "title": "Doç. Dr.",
+    "email": "g.ulucak@gtu.edu.tr"
+  },
+  {
+    "name": "Hadi ALIZADEH",
+    "title": "Dr. Öğr. Üyesi",
+    "email": "h.alizadeh@gtu.edu.tr"
+  },
+  {
+    "name": "Keremcan DOĞAN",
+    "title": "Dr. Öğr. Üyesi",
+    "email": "k.dogan@gtu.edu.tr"
+  },
+  {
+    "name": "Tuğba MAHMUTÇEPOĞLU",
+    "title": "Dr. Öğr. Üyesi",
+    "email": "t.mahmutcepoglu@gtu.edu.tr"
+  },
+  {
+    "name": "Samire YAZAR",
+    "title": "Dr. Öğr. Üyesi",
+    "email": "s.yazar@gtu.edu.tr"
+  },
+  {
+    "name": "Begüm ATEŞLİ",
+    "title": "Dr.",
+    "email": "b.atesli@gtu.edu.tr"
+  },
+  {
+    "name": "Sultan BOZKURT GÜNGÖR",
+    "title": "Dr.",
+    "email": "s.bozkurt@gtu.edu.tr"
+  },
+  {
+    "name": "Yasemin BÜYÜKÇOLAK",
+    "title": "Dr.",
+    "email": "y.buyukcolak@gtu.edu.tr"
+  },
+  {
+    "name": "Ayten GEZİCİ",
+    "title": "Dr.",
+    "email": "a.gezici@gtu.edu.tr"
+  },
+  {
+    "name": "Büşra KARADENİZ ŞEN",
+    "title": "Dr.",
+    "email": "b.karadeniz@gtu.edu.tr"
+  },
+  {
+    "name": "Fatih YETGİN",
+    "title": "Dr.",
+    "email": "f.yetgin@gtu.edu.tr"
+  },
+  {
+    "name": "Murat Can AŞKAROĞULLARI",
+    "title": "Arş. Gör.",
+    "email": "m.askarogullari@gtu.edu.tr"
+  },
+  {
+    "name": "Serkan AYRICA",
+    "title": "Arş. Gör.",
+    "email": "s.ayrica@gtu.edu.tr"
+  },
+  {
+    "name": "Serdal ÇÖLMEKCİ",
+    "title": "Arş. Gör.",
+    "email": "s.colmekci@gtu.edu.tr"
+  },
+  {
+    "name": "Ömer DEMİR",
+    "title": "Arş. Gör.",
+    "email": "o.demir@gtu.edu.tr"
+  },
+  {
+    "name": "Saliha DEMİRBÜKEN",
+    "title": "Arş. Gör.",
+    "email": "s.demirbuken@gtu.edu.tr"
+  },
+  {
+    "name": "Muhammed Ergen",
+    "title": "Arş. Gör.",
+    "email": "m.ergen@gtu.edu.tr"
+  },
+  {
+    "name": "Aslıhan GÜR",
+    "title": "Arş. Gör.",
+    "email": "a.gur@gtu.edu.tr"
+  },
+  {
+    "name": "Çağla ÖZATAR",
+    "title": "Arş. Gör.",
+    "email": "c.ozatar@gtu.edu.tr"
+  },
+  {
+    "name": "Ezgi ÖZTEKİN",
+    "title": "Arş. Gör.",
+    "email": "e.oztekin@gtu.edu.tr"
+  },
+  {
+    "name": "Aysel ŞAHİN",
+    "title": "Arş. Gör.",
+    "email": "a.sahin@gtu.edu.tr"
+  },
+  {
+    "name": "Cansu ŞAHİN",
+    "title": "Arş. Gör.",
+    "email": "c.sahin@gtu.edu.tr"
+  },
+  {
+    "name": "Oğuzhan SELÇUK",
+    "title": "Arş. Gör.",
+    "email": "o.selcuk@gtu.edu.tr"
+  },
+  {
+    "name": "Yasin TURAN",
+    "title": "Arş. Gör.",
+    "email": "y.turan@gtu.edu.tr"
+  },
+  {
+    "name": "Şeyma YAŞAR",
+    "title": "Arş. Gör.",
+    "email": "s.yasar@gtu.edu.tr"
+  },
+  {
+    "name": "Oğuzhan DURSUN",
+    "title": "Öğr. Gör. Dr.",
+    "email": "o.dursun@gtu.edu.tr"
+  },
+  {
+    "name": "Pelin Ayşe GÖKGÖZ",
+    "title": "Araş. Gör. Dr.",
+    "email": "p.gokgoz@gtu.edu.tr"
+  },
+  {
+    "name": "Benan DURUKAN",
+    "title": "Öğr.Gör.",
+    "email": "b.durukan@gtu.edu.tr"
+  },
+  {
+    "name": "Fatih KINDAZ",
+    "title": "Öğr. Gör. Dr.",
+    "email": "f.kindaz@gtu.edu.tr"
+  },
+  {
+    "name": "Zeynep Karadeniz Cısdık",
+    "title": "Öğr. Gör.",
+    "email": "z.cisdik@gtu.edu.tr"
+  },
+  {
+    "name": "Orkun Canbek",
+    "title": "Öğr. Gör.",
+    "email": "o.canbek@gtu.edu.tr"
+  },
+  {
+    "name": "Eda GOLDENBERG",
+    "title": "Doç. Dr.",
+    "email": "e.goldenberg@gtu.edu.tr"
+  }
 ]

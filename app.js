@@ -573,6 +573,11 @@ async function initApp() {
     setTimeout(checkAndPerformDailyBackup, 2000);
     // Gece yarısı dönümü ihtimaline karşı her saat başı tekrar kontrol et
     setInterval(checkAndPerformDailyBackup, 60 * 60 * 1000);
+
+    // 🔌 Firebase çevrimdışı senkronizasyon dinleyicisini başlat
+    if (typeof initOfflineSyncListener === 'function') {
+        initOfflineSyncListener();
+    }
 }
 
 /**
@@ -3063,6 +3068,154 @@ window.switchGeneralScheduleTab = (tabName) => {
     }
 };
 
+function getCourseCatalogOptionsHtml() {
+    const catalog = (typeof getCourseCatalog === 'function') ? getCourseCatalog() : (DB.courseCatalog || DEFAULT_COURSE_CATALOG || []);
+    const examNames = (DB.exams || []).map(e => e.name).filter(Boolean);
+    
+    const set = new Set();
+    // 1. Formatlanmış tam ad, kod ve ders adı
+    catalog.forEach(c => {
+        set.add(`${c.code} - ${c.name}`);
+        set.add(c.code);
+        set.add(c.name);
+    });
+    // 2. Sistemde kayıtlı mevcut sınav adları
+    examNames.forEach(n => set.add(n));
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr')).map(val => `<option value="${val}">`).join('');
+}
+
+// Global aktif katalog seçim hedefleri
+window._activeCatalogTargetNameInput = 'exam-name';
+window._activeCatalogTargetLecturerInput = 'exam-lecturer';
+window._currentCatalogFilter = 'all';
+
+window.openCourseCatalogPicker = function(nameInputId = 'exam-name', lecturerInputId = 'exam-lecturer') {
+    window._activeCatalogTargetNameInput = nameInputId;
+    window._activeCatalogTargetLecturerInput = lecturerInputId;
+    
+    const modal = document.getElementById('modal-course-catalog');
+    if (!modal) return;
+    
+    const searchInput = document.getElementById('catalog-picker-search');
+    if (searchInput) {
+        searchInput.value = '';
+        if (!searchInput._hasInputListener) {
+            searchInput.addEventListener('input', (e) => {
+                renderCourseCatalogPickerList(window._currentCatalogFilter, e.target.value);
+            });
+            searchInput._hasInputListener = true;
+        }
+    }
+    
+    window._currentCatalogFilter = 'all';
+    const tabBtns = document.querySelectorAll('#catalog-picker-tabs button');
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+    if (tabBtns[0]) tabBtns[0].classList.add('active');
+
+    renderCourseCatalogPickerList('all', '');
+    modal.classList.remove('hidden');
+    if (searchInput) searchInput.focus();
+};
+
+window.closeCourseCatalogPicker = function() {
+    const modal = document.getElementById('modal-course-catalog');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.filterCatalogPicker = function(yearFilter, btnEl) {
+    window._currentCatalogFilter = yearFilter;
+    const tabBtns = document.querySelectorAll('#catalog-picker-tabs button');
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    
+    const searchVal = document.getElementById('catalog-picker-search')?.value || '';
+    renderCourseCatalogPickerList(yearFilter, searchVal);
+};
+
+window.renderCourseCatalogPickerList = function(yearFilter = 'all', searchQuery = '') {
+    const container = document.getElementById('catalog-picker-list');
+    const countEl = document.getElementById('catalog-picker-count');
+    if (!container) return;
+    
+    const catalog = (typeof getCourseCatalog === 'function') ? getCourseCatalog() : (DB.courseCatalog || DEFAULT_COURSE_CATALOG || []);
+    const q = searchQuery.trim().toLowerCase();
+    
+    const filtered = catalog.filter(c => {
+        if (yearFilter !== 'all') {
+            if (yearFilter === 'Servis') {
+                if (c.year !== 'Servis') return false;
+            } else {
+                if (parseInt(c.year) !== parseInt(yearFilter)) return false;
+            }
+        }
+        if (q) {
+            const matchCode = c.code.toLowerCase().includes(q);
+            const matchName = c.name.toLowerCase().includes(q);
+            const matchLang = (c.lang || '').toLowerCase().includes(q);
+            const matchTerm = (c.term || '').toLowerCase().includes(q);
+            const matchLecturer = (c.lecturer || '').toLowerCase().includes(q);
+            if (!matchCode && !matchName && !matchLang && !matchTerm && !matchLecturer) return false;
+        }
+        return true;
+    });
+    
+    if (countEl) {
+        countEl.textContent = `${filtered.length} / ${catalog.length} ders listeleniyor`;
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 30px;">
+                🔍 Arama kriterine uygun ders bulunamadı.
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = filtered.map(c => {
+        const fullTitle = `${c.code} - ${c.name}`;
+        const yearBadge = c.year === 'Servis' ? '🏛️ Servis' : `🎓 ${c.year}. Sınıf`;
+        const typeColor = c.type === 'Zorunlu' ? 'rgba(99,102,241,0.2)' : 'rgba(16,185,129,0.2)';
+        const typeBorder = c.type === 'Zorunlu' ? '#6366f1' : '#10b981';
+        const typeText = c.type === 'Zorunlu' ? '#a5b4fc' : '#6ee7b7';
+        
+        return `
+            <div onclick="selectCourseFromPicker('${c.code.replace(/'/g, "\\'")}', '${c.name.replace(/'/g, "\\'")}')" 
+                style="background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: space-between;"
+                onmouseover="this.style.borderColor='#38bdf8'; this.style.background='rgba(56,189,248,0.08)';"
+                onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='rgba(255,255,255,0.04)';">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-weight: 700; color: #38bdf8; font-size: 0.95rem;">${c.code}</span>
+                        <span style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; background: ${typeColor}; border: 1px solid ${typeBorder}; color: ${typeText};">${c.type || 'Zorunlu'}</span>
+                    </div>
+                    <div style="font-weight: 600; font-size: 0.88rem; color: white; margin-bottom: 6px; line-height: 1.25;">${c.name}</div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; margin-top: 4px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>${yearBadge}</span>
+                        <span>🌐 ${c.lang || 'İngilizce'}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: #94a3b8;">
+                        <span>📅 ${c.term || '-'}</span>
+                        <span>⭐ ${c.credit ? c.credit + ' Kredi' : ''} ${c.akts ? '/ ' + c.akts + ' AKTS' : ''}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.selectCourseFromPicker = function(courseCode, courseName) {
+    const targetNameInput = document.getElementById(window._activeCatalogTargetNameInput);
+    if (targetNameInput) {
+        targetNameInput.value = `${courseCode} - ${courseName}`;
+        targetNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    closeCourseCatalogPicker();
+};
+
 function showAddExamModal() {
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
@@ -3088,14 +3241,20 @@ function showAddExamModal() {
             { name: "Ayten KOÇ", title: "Doç. Dr." },
             { name: "Işıl ÖNER", title: "Doç. Dr." },
             { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
-            { name: "Ayten KOÇ", title: "Doç. Dr." },
             { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
             { name: "Selçuk TOPAL", title: "Doç. Dr." },
             { name: "Gülşen ULUCAK", title: "Doç. Dr." },
             { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
             { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
             { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
-            { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" }
+            { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" },
+            { name: "Benan DURUKAN", title: "Öğr.Gör." },
+            { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
+            { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
+            { name: "Orkun Canbek", title: "Öğr. Gör." },
+            { name: "Oğuzhan DURSUN", title: "Öğr. Gör. Dr." },
+            { name: "Pelin Ayşe GÖKGÖZ", title: "Araş. Gör. Dr." },
+            { name: "Eda GOLDENBERG", title: "Doç. Dr." }
         ];
     }
     
@@ -3117,13 +3276,17 @@ function showAddExamModal() {
             </div>
         </div>
         <div class="form-group">
-            <label>Sınav/Ders Adı</label>
-            <input type="text" id="exam-name" list="exam-memory-list" placeholder="Örn: MATH 101 veya YZV 501" required>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <label style="margin:0;">Sınav/Ders Adı</label>
+                <button type="button" class="btn-icon" onclick="openCourseCatalogPicker('exam-name', 'exam-lecturer')" style="font-size:0.8rem; padding:2px 8px; background:rgba(14,165,233,0.2); border:1px solid #0284c7; color:#38bdf8; border-radius:4px; cursor:pointer;">📚 Katalogdan Seç</button>
+            </div>
+            <input type="text" id="exam-name" list="exam-memory-list" placeholder="Örn: MAT 101 veya MATH 101" required autocomplete="off">
             <datalist id="exam-memory-list">
-                ${[...new Set(DB.exams.map(e => e.name).filter(Boolean))].sort().map(name => `<option value="${name}">`).join('')}
+                ${getCourseCatalogOptionsHtml()}
             </datalist>
+            <div id="add-exam-catalog-info" style="display:none; font-size:0.75rem; color:#38bdf8; margin-top:4px; padding:5px 8px; background:rgba(14,165,233,0.1); border-radius:6px; border:1px solid rgba(14,165,233,0.25);"></div>
             <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">
-               💡 <b>Yıl Bilgisi:</b> Eğitim yılını belirtmek için ders kodunu (1xx, 5xx) veya direkt olarak <code>(1. Yıl)</code>, <code>(Yüksek Lisans)</code> ifadesini ders adına ekleyebilirsiniz.
+               💡 <b>Katalog Eşleşmesi:</b> Ders kodunu veya adını yazdığınızda sistem dersi otomatik tanır ve sorumlu hocayı seçer.
             </small>
         </div>
         <div class="form-group">
@@ -3185,30 +3348,106 @@ function showAddExamModal() {
     const cbAdd = document.getElementById('exam-is-non-exam');
     if (cbAdd) cbAdd.addEventListener('change', updateAddSuggestions);
 
-    // --- KURS HAFIZASI (COURSE MEMORY) ---
+    // --- KURS HAFIZASI VE DERS KATALOĞU ENTEGRASYONU ---
     document.getElementById('exam-name').addEventListener('input', (e) => {
         const val = e.target.value.trim();
-        if (!val) return;
+        const infoBadge = document.getElementById('add-exam-catalog-info');
+        if (!val) {
+            if (infoBadge) { infoBadge.style.display = 'none'; infoBadge.innerHTML = ''; }
+            return;
+        }
 
         const selectL = document.getElementById('exam-lecturer');
         const capInput = document.getElementById('exam-capacity');
         const locInput = document.getElementById('exam-location');
         const durInput = document.getElementById('exam-duration');
 
-        // 1. Önce eski sınavlardan bu isimde olanın özelliklerini çekelim
+        /**
+         * Hoca adını select option'lardan bulup seçer.
+         * Önce tam eşleşme, sonra kısmi eşleşme dener.
+         * @param {string} lecturerName  - Seçilecek hocanın adı (ünvan dahil veya hariç)
+         * @param {boolean} force        - true ise mevcut seçimi sıfırlayıp yeniden atar
+         */
+        function autoSelectLecturer(lecturerName, force = true) {
+            if (!lecturerName || !selectL) return false;
+            const needle = lecturerName.trim().toLowerCase();
+            // 1. Tam eşleşme
+            for (let i = 0; i < selectL.options.length; i++) {
+                if (selectL.options[i].value.trim().toLowerCase() === needle) {
+                    selectL.selectedIndex = i;
+                    // Görsel ipucu: select'i kısa süre vurgula
+                    selectL.style.borderColor = '#10b981';
+                    selectL.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
+                    setTimeout(() => { selectL.style.borderColor = ''; selectL.style.boxShadow = ''; }, 1800);
+                    return true;
+                }
+            }
+            // 2. Kısmi eşleşme: option içinde needle var mı? veya needle içinde option var mı?
+            for (let i = 0; i < selectL.options.length; i++) {
+                const opt = selectL.options[i].value.trim().toLowerCase();
+                if (opt.includes(needle) || needle.includes(opt)) {
+                    selectL.selectedIndex = i;
+                    selectL.style.borderColor = '#10b981';
+                    selectL.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
+                    setTimeout(() => { selectL.style.borderColor = ''; selectL.style.boxShadow = ''; }, 1800);
+                    return true;
+                }
+            }
+            // 3. Soyadı ile eşleşme — sadece soyadın son parçasını karşılaştır
+            const needleParts = needle.split(' ').filter(p => p.length > 2);
+            for (let i = 0; i < selectL.options.length; i++) {
+                const opt = selectL.options[i].value.trim().toLowerCase();
+                if (needleParts.some(part => opt.includes(part))) {
+                    selectL.selectedIndex = i;
+                    selectL.style.borderColor = '#f59e0b';
+                    selectL.style.boxShadow = '0 0 0 2px rgba(245,158,11,0.2)';
+                    setTimeout(() => { selectL.style.borderColor = ''; selectL.style.boxShadow = ''; }, 1800);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 1. Resmi Ders Kataloğunda ara
+        const catCourse = (typeof findCourseInCatalog === 'function') ? findCourseInCatalog(val) : null;
+        if (catCourse && infoBadge) {
+            infoBadge.style.display = 'block';
+            infoBadge.innerHTML = `📘 <b>${catCourse.code} - ${catCourse.name}</b> &nbsp;|&nbsp; 🌐 ${catCourse.lang} &nbsp;|&nbsp; 📅 ${catCourse.term} &nbsp;|&nbsp; ⭐ ${catCourse.credit} Kredi / ${catCourse.akts} AKTS &nbsp;(${catCourse.type})`;
+            
+            // Dersin sorumlu hocasını çoklu kaynaktan belirle
+            const lecturerToSelect =
+                catCourse.lecturer ||
+                (DB.courseLecturers && (
+                    DB.courseLecturers[`${catCourse.code} - ${catCourse.name}`] ||
+                    DB.courseLecturers[catCourse.code] ||
+                    DB.courseLecturers[catCourse.name]
+                )) ||
+                (DB.courseLecturers && DB.courseLecturers[val]);
+
+            // Hoca bulunduysa her zaman güncelle (mevcut seçimden bağımsız)
+            if (lecturerToSelect) {
+                autoSelectLecturer(lecturerToSelect, true);
+            }
+        } else if (infoBadge) {
+            infoBadge.style.display = 'none';
+            infoBadge.innerHTML = '';
+        }
+
+        // 2. Geçmiş sınavlarda bu isimde bir kayıt varsa o kayıttan hoca ve diğer bilgileri al
         const pastExams = DB.exams.filter(ex => ex.name.toLowerCase() === val.toLowerCase());
         if (pastExams.length > 0) {
-            // En son ekleneni bul (tarihe göre sıralayabiliriz veya dizi sonuncusunu alırız)
             const latest = pastExams[pastExams.length - 1];
-
-            if (latest.lecturer && selectL.value === '-') selectL.value = latest.lecturer;
-            if (latest.capacity && !capInput.value) capInput.value = latest.capacity;
-            if (latest.location && !locInput.value) locInput.value = latest.location;
-            if (latest.duration && durInput.value === '60') durInput.value = latest.duration;
-        } else {
-            // 2. Eğer DB.exams'te yoksa, DB.courseLecturers kuralı devrede
-            const lecturerName = DB.courseLecturers[val];
-            if (lecturerName && selectL) selectL.value = lecturerName;
+            // Hoca: katalog eşleşmesi bulamazdıysa geçmiş sınavdan al
+            if (latest.lecturer && (!catCourse || !catCourse.lecturer)) {
+                autoSelectLecturer(latest.lecturer, false);
+            }
+            if (latest.capacity && capInput && !capInput.value) capInput.value = latest.capacity;
+            if (latest.location && locInput && !locInput.value) locInput.value = latest.location;
+            if (latest.duration && durInput && durInput.value === '60') durInput.value = latest.duration;
+        } else if (!catCourse) {
+            // 3. Katalogda da geçmiş sınavlarda da yoksa DB.courseLecturers doğrudan dene
+            const lecturerName = DB.courseLecturers && DB.courseLecturers[val];
+            if (lecturerName) autoSelectLecturer(lecturerName, true);
         }
     });
 
@@ -3884,14 +4123,20 @@ window.showEditExamModal = (id) => {
             { name: "Ayten KOÇ", title: "Doç. Dr." },
             { name: "Işıl ÖNER", title: "Doç. Dr." },
             { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
-            { name: "Ayten KOÇ", title: "Doç. Dr." },
             { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
             { name: "Selçuk TOPAL", title: "Doç. Dr." },
             { name: "Gülşen ULUCAK", title: "Doç. Dr." },
             { name: "Hadi ALIZADEH", title: "Dr. Öğr. Üyesi" },
             { name: "Keremcan DOĞAN", title: "Dr. Öğr. Üyesi" },
             { name: "Tuğba MAHMUTÇEPOĞLU", title: "Dr. Öğr. Üyesi" },
-            { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" }
+            { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" },
+            { name: "Benan DURUKAN", title: "Öğr.Gör." },
+            { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
+            { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
+            { name: "Orkun Canbek", title: "Öğr. Gör." },
+            { name: "Oğuzhan DURSUN", title: "Öğr. Gör. Dr." },
+            { name: "Pelin Ayşe GÖKGÖZ", title: "Araş. Gör. Dr." },
+            { name: "Eda GOLDENBERG", title: "Doç. Dr." }
         ];
     }
 
@@ -4052,6 +4297,22 @@ window.showEditExamModal = (id) => {
         updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null, isNonExam, name);
     };
 
+    // Datalist seçeneklerini ve başlangıç katalog rozetini güncelle
+    const editDatalist = document.getElementById('edit-exam-memory-list');
+    if (editDatalist) {
+        editDatalist.innerHTML = getCourseCatalogOptionsHtml();
+    }
+    
+    const editInfoBadge = document.getElementById('edit-exam-catalog-info');
+    const initCat = (typeof findCourseInCatalog === 'function') ? findCourseInCatalog(ex.name) : null;
+    if (initCat && editInfoBadge) {
+        editInfoBadge.style.display = 'block';
+        editInfoBadge.innerHTML = `📘 <b>${initCat.code} - ${initCat.name}</b> &nbsp;|&nbsp; 🌐 ${initCat.lang} &nbsp;|&nbsp; 📅 ${initCat.term} &nbsp;|&nbsp; ⭐ ${initCat.credit} Kredi / ${initCat.akts} AKTS &nbsp;(${initCat.type})`;
+    } else if (editInfoBadge) {
+        editInfoBadge.style.display = 'none';
+        editInfoBadge.innerHTML = '';
+    }
+
     // Her açılışta listener'ları temizle ve yeniden ekle (flag ile)
     if (dateEl._editHandler)  dateEl.removeEventListener('change', dateEl._editHandler);
     if (timeEl._editHandler)  timeEl.removeEventListener('change', timeEl._editHandler);
@@ -4063,18 +4324,55 @@ window.showEditExamModal = (id) => {
     durEl._editHandler  = () => { updateEditSuggestions(); updateEditAvailabilityStatus(); updateEditProctorSelect(); };
     nameEl._editHandler = (e) => {
         const val = e.target.value.trim();
-        const lecturerName = DB.courseLecturers[val];
+        const badge = document.getElementById('edit-exam-catalog-info');
+        const catCourse = (typeof findCourseInCatalog === 'function') ? findCourseInCatalog(val) : null;
+        
+        if (catCourse && badge) {
+            badge.style.display = 'block';
+            badge.innerHTML = `📘 <b>${catCourse.code} - ${catCourse.name}</b> &nbsp;|&nbsp; 🌐 ${catCourse.lang} &nbsp;|&nbsp; 📅 ${catCourse.term} &nbsp;|&nbsp; ⭐ ${catCourse.credit} Kredi / ${catCourse.akts} AKTS &nbsp;(${catCourse.type})`;
+        } else if (badge) {
+            badge.style.display = 'none';
+            badge.innerHTML = '';
+        }
+
+        const lecturerName = (catCourse && catCourse.lecturer) || 
+            (catCourse && DB.courseLecturers && (DB.courseLecturers[`${catCourse.code} - ${catCourse.name}`] || DB.courseLecturers[catCourse.code] || DB.courseLecturers[catCourse.name])) ||
+            (DB.courseLecturers && DB.courseLecturers[val]);
+
         if (lecturerName) {
             const selectL = document.getElementById('edit-exam-lecturer');
-            if (selectL) selectL.value = lecturerName;
-            const staff = DB.staff.find(s => s.name.includes(lecturerName));
-            if (staff && !window.tempEditProctors.includes(staff.id)) {
-                if (confirm(`Bu dersin hocası ${staff.name} olarak görünüyor. Gözetmen olarak eklemek ister misiniz?`)) {
-                    window.tempEditProctors.push(staff.id);
-                    window.renderEditProctorList();
-                    updateEditProctorSelect();
-                    updateEditSuggestions();
-                    updateEditAvailabilityStatus();
+            if (selectL) {
+                const needle = lecturerName.trim().toLowerCase();
+                let found = false;
+                // 1. Tam eşleşme
+                for (let i = 0; i < selectL.options.length; i++) {
+                    if (selectL.options[i].value.trim().toLowerCase() === needle) {
+                        selectL.selectedIndex = i; found = true; break;
+                    }
+                }
+                // 2. Kısmi eşleşme
+                if (!found) {
+                    for (let i = 0; i < selectL.options.length; i++) {
+                        const opt = selectL.options[i].value.trim().toLowerCase();
+                        if (opt.includes(needle) || needle.includes(opt)) {
+                            selectL.selectedIndex = i; found = true; break;
+                        }
+                    }
+                }
+                // 3. Soyad eşleşmesi
+                if (!found) {
+                    const parts = needle.split(' ').filter(p => p.length > 2);
+                    for (let i = 0; i < selectL.options.length; i++) {
+                        const opt = selectL.options[i].value.trim().toLowerCase();
+                        if (parts.some(part => opt.includes(part))) {
+                            selectL.selectedIndex = i; found = true; break;
+                        }
+                    }
+                }
+                if (found) {
+                    selectL.style.borderColor = '#10b981';
+                    selectL.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
+                    setTimeout(() => { selectL.style.borderColor = ''; selectL.style.boxShadow = ''; }, 1800);
                 }
             }
         }
@@ -6338,102 +6636,6 @@ function renderCollaborators() {
 }
 
 /**
- * Kişisel Mottoyu İşle
- */
-function renderMotto(staff) {
-    const mottoEl = document.getElementById('profile-motto');
-    if (!mottoEl) return;
-    mottoEl.textContent = staff.motto || "Gözetmenlik bir sanattır...";
-}
-
-window.editMotto = async function() {
-    const myStaffId = localStorage.getItem('myStaffId');
-    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-    if (!staff) return;
-
-    const newMotto = prompt("Yeni mottonuzu girin:", staff.motto || "");
-    if (newMotto !== null) {
-        staff.motto = newMotto.trim() || "";
-        saveToLocalStorage();
-        renderMotto(staff);
-        await saveToBackend();
-    }
-};
-
-window.suggestJoke = async function() {
-    const joke = prompt("Gözetmenlik ile ilgili komik bir anınızı veya esprinizi paylaşın:\n(Bu şaka tüm hocalarla paylaşılacaktır)");
-    if (!joke || joke.trim().length < 5) {
-        if (joke !== null) alert("Lütfen biraz daha uzun bir şaka girin.");
-        return;
-    }
-
-    if (!DB.customJokes) DB.customJokes = [];
-    DB.customJokes.push(joke.trim());
-    
-    saveToLocalStorage();
-    alert("✅ Teşekkürler! Şakanız başarıyla kaydedildi ve havuza eklendi.");
-    renderDailyJoke(true); // Hemen göster
-    await saveToBackend();
-};
-
-/**
- * Günün Motivasyonu ve Şakasını Render Et
- */
-function renderDailyJoke(isNew = false) {
-    const jokeEl = document.getElementById('profile-daily-joke');
-    if (!jokeEl) return;
-
-    const hardcodedJokes = [
-        "Sessizlik en büyük silahtır (Ama öğrencilere karşı değil, kendimize karşı!)",
-        "Gözetmenlikte 3S kuralı: Sev, Sabret, Sessiz ol.",
-        "Eğer kalem sesi gelmiyorsa, ya herkes bitirmiştir ya da kimse bilmiyordur.",
-        "Optik form doldurmanın meditasyon olduğunu keşfettim.",
-        "Cebimde fazladan silgi taşımak, süper kahraman pelerini taşımak gibi.",
-        "Gözetmenlik: Oturarak yorulmanın zirvesidir.",
-        "Silgi tozundan küçük bir heykel yapmaya başladım, 3 vize sonra sergi açacağım.",
-        "Sınavda gezmek, adım sayarımı en çok mutlu eden aktivite.",
-        "Bir gözetmenin en büyük dramı: Kendi getirdiği suyun sınavın ortasında bitmesidir.",
-        "Öğrenci: 'Hocam ek kağıt alabilir miyim?' - Ben: 'Tabii, ağaçlar bizim için var...'",
-        "Sınav bitimine 5 dakika kala gelen o derin sessizlik ve ardından gelen kağıt hışırtısı senfonisi...",
-        "Gözetmenlik yaparken kafamda kurduğum senaryolarla 3 sezonluk dizi çekerdim.",
-        "Sınav salonuna girdiğimde kendimi bir orkestra şefi gibi hissediyorum ama tek enstrümanımız kalem sesleri.",
-        "Gözetmenlikte en zor an: Sessizce hapşırmaya çalışmak.",
-        "Gözetmenlikte sabır, optik formu yırtmayan öğrenciyi beklemektir.",
-        "Sınavın bitmesine 30 saniye kala kalemini açan o umutlu öğrenci... Seni seviyoruz.",
-        "Kendi kendine konuşan öğrenciye 'sessiz ol' demek istemek ama aslında ne dediğini merak etmek...",
-        "Sınavda en çok yorulan yerimiz gözlerimiz (ve hayal gücümüz).",
-        "Bir gözetmen atasözü der ki: 'Herkes kendi kağıdına!'",
-        "Sınav süresi bittiğinde kağıdı vermeyen öğrenciyle bakışmak; batıda düello, doğuda dramdır.",
-        "Ad-soyad yazmayı unutan öğrenci, gizli kahramanımızdır.",
-        "Gözetmenlik: 60 dakikalık bir sessiz sinema performansıdır.",
-        "Sınav salonuna girerken telefonunuzu kapatmayı unutmayın, yoksa zil sesiyle tüm motivasyon dağılır (Tecrübeyle sabit).",
-        "Sınav kağıdındaki o tek boşluk... Oraya şiir yazasım geliyor bazen.",
-        "Gözetmen arkadaşımla göz göze geldiğimizde kurduğumuz telepatik iletişim: 'Su istiyorlar mı?'",
-        "Sınavda uyuyan öğrenciye kıyamayıp 2 dakika sonra uyandırmak: Bir gözetmen şefkati.",
-        "Kopya çekmeye çalışan öğrencinin o kendine has boyun hareketleri... Koreografiye 10 puan!",
-        "Silgi sesleri: Başarısızlığın değil, düzeltmenin ve umudun sesidir.",
-        "Gözetmenlik, akademik sabrın en sah halidir.",
-        "Sınav kağıdını verirken 'Hocam çok zordu' diyen öğrenciye 'Haklısın' deyip geçmek...",
-        "Gözetmenlikte en büyük lüks: Rahat bir sandalyedir.",
-        "Sınav çıkışında dağıtılan şekerlerin tadı, sadece gözetmenlere özel bir ödüldür.",
-        "Sınavda kağıdını 10. dakikada teslim eden o dahi ya da umutsuz arkadaş...",
-        "Gözetmenlik, bir sessizlik senfonisidir ve şefi sizsiniz."
-    ];
-
-    const jokes = [...hardcodedJokes, ...(DB.customJokes || [])];
-
-    if (isNew) {
-        let currentIdx = jokes.indexOf(jokeEl.textContent.trim());
-        let nextIdx = Math.floor(Math.random() * jokes.length);
-        while (nextIdx === currentIdx) nextIdx = Math.floor(Math.random() * jokes.length); 
-        jokeEl.textContent = `"${jokes[nextIdx]}"`;
-    } else {
-        const rand = Math.floor(Math.random() * jokes.length);
-        jokeEl.textContent = `"${jokes[rand]}"`;
-    }
-}
-
-/**
  * Başarı Rozetlerini Hesapla
  */
 function calculateAchievements(myStaffId) {
@@ -6582,12 +6784,10 @@ window.renderProfile = function() {
         }
 
         renderLevelSystem(staff);
-        renderQuickNotes(staff);
-        renderMotto(staff);
-        renderDailyJoke();
-        
+
         // Şifre ayarlama bölümünü göster
         renderPasswordSettings(staff);
+
 
         // Yönetici Modu: Profil Başlığında Hızlı Personel Değiştirici Barı
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
@@ -13118,5 +13318,302 @@ window.applyFairnessSimulationResults = async function() {
         showToast(`🌟 ${simResult.proposedSwaps.length} görev transferiyle adalet puanı %${simResult.after.fairnessScore}'a çıkarıldı!`, 'success');
     } else {
         alert(`✓ ${simResult.proposedSwaps.length} görev transferi başarıyla uygulandı!`);
+    }
+};
+
+// =============================================================
+//  ⚡ VİZE / FİNAL SİHİRBAZI — Toplu Sınav Dönemi Planlayıcı
+//  Katalogdaki 127 dersi filtreleyip toplu sınav oluşturur.
+// =============================================================
+
+window._batchPlannerFilter = 'all';
+window._batchPlannerSearch = '';
+window._batchPlannerData = []; // filtrelenmiş katalog
+
+/**
+ * Sihirbaz modalını açar ve listeyi başlangıç durumuna getirir.
+ */
+window.openBatchExamPlanner = function() {
+    const modal = document.getElementById('modal-batch-exam-planner');
+    if (!modal) return;
+
+    window._batchPlannerFilter = 'all';
+    window._batchPlannerSearch = '';
+
+    // Filtre sekmelerini sıfırla
+    const tabs = document.querySelectorAll('#batch-planner-year-tabs .tab-btn');
+    tabs.forEach((btn, i) => { btn.classList.toggle('active', i === 0); });
+
+    // Arama kutusunu temizle
+    const searchEl = document.getElementById('batch-planner-search');
+    if (searchEl) searchEl.value = '';
+
+    // Varsayılan sınav türünü katalog tipinden belirle (DB.examTypes varsa ilk sıradaki)
+    const typeSelect = document.getElementById('batch-default-type');
+    if (typeSelect && DB.examTypes && DB.examTypes.length) {
+        typeSelect.innerHTML = DB.examTypes.map(t => `<option>${t}</option>`).join('');
+    }
+
+    renderBatchPlannerList('all', '');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+};
+
+/**
+ * Sihirbaz modalını kapatır.
+ */
+window.closeBatchExamPlanner = function() {
+    const modal = document.getElementById('modal-batch-exam-planner');
+    if (modal) modal.classList.add('hidden');
+    document.body.style.overflow = '';
+};
+
+/**
+ * Yıl / Düzey filtresi ve arama sorgusuna göre ders listesini render eder.
+ */
+window.renderBatchPlannerList = function(yearFilter, searchQuery) {
+    const container = document.getElementById('batch-planner-list');
+    const countEl = document.getElementById('batch-planner-course-count');
+    const selectedCountEl = document.getElementById('batch-planner-selected-count');
+    if (!container) return;
+
+    const catalog = (typeof getCourseCatalog === 'function')
+        ? getCourseCatalog()
+        : (DB.courseCatalog || (typeof DEFAULT_COURSE_CATALOG !== 'undefined' ? DEFAULT_COURSE_CATALOG : []));
+
+    const q = (searchQuery || '').trim().toLowerCase();
+
+    const filtered = catalog.filter(c => {
+        if (yearFilter !== 'all') {
+            if (yearFilter === 'Servis') {
+                if (c.year !== 'Servis') return false;
+            } else if (yearFilter === 'Lisansüstü') {
+                if (c.year !== 'Lisansüstü') return false;
+            } else {
+                if (parseInt(c.year) !== parseInt(yearFilter)) return false;
+            }
+        }
+        if (q) {
+            const hay = `${c.code} ${c.name} ${c.lecturer || ''} ${c.lang || ''} ${c.term || ''}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+
+    window._batchPlannerData = filtered;
+    if (countEl) countEl.textContent = filtered.length;
+
+    // Mevcut sınavları referans al (mükerrerlik uyarısı için)
+    const existingExamNames = new Set((DB.exams || []).map(e => (e.name || '').toLowerCase()));
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text-muted);">Filtreyle eşleşen ders bulunamadı.</div>`;
+        if (selectedCountEl) selectedCountEl.textContent = '0';
+        return;
+    }
+
+    container.innerHTML = filtered.map((c, idx) => {
+        const courseKey = `${c.code} - ${c.name}`;
+        const isDuplicate = [...existingExamNames].some(en => en.includes(c.code.toLowerCase()) || en.includes(c.name.toLowerCase()));
+        const yearBadgeMap = { 1: '#3b82f6', 2: '#8b5cf6', 3: '#10b981', 4: '#f59e0b', 'Lisansüstü': '#ec4899', 'Servis': '#06b6d4' };
+        const yearBadgeColor = yearBadgeMap[c.year] || '#94a3b8';
+        const yearLabel = c.year === 'Lisansüstü' ? 'Lisansüstü' : c.year === 'Servis' ? 'Servis' : `${c.year}. Sınıf`;
+
+        return `<div class="batch-course-row" data-idx="${idx}" style="display:grid;grid-template-columns:auto 1fr auto auto auto auto auto auto;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:${idx % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent'};min-height:44px;transition:background 0.15s;" onmouseover="this.style.background='rgba(99,102,241,0.07)'" onmouseout="this.style.background='${idx % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent'}'">
+            <input type="checkbox" class="batch-course-check" data-idx="${idx}" onchange="updateBatchSelectedCount()"
+                style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
+            <div style="min-width:0;">
+                ${isDuplicate ? '<span title="Bu ders için sistemde zaten sınav mevcut" style="color:#f59e0b;margin-right:4px;font-size:0.9rem;">⚠️</span>' : ''}
+                <span style="font-weight:600;font-size:0.85rem;color:white;">${c.code}</span>
+                <span style="color:var(--text-muted);font-size:0.8rem;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;display:inline-block;vertical-align:middle;">${c.name}</span>
+                <span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:4px;font-size:0.7rem;font-weight:700;background:${yearBadgeColor}22;color:${yearBadgeColor};border:1px solid ${yearBadgeColor}44;">${yearLabel}</span>
+            </div>
+            <span style="font-size:0.75rem;color:#a5b4fc;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis;" title="${c.lecturer || ''}">${c.lecturer ? '👤 ' + c.lecturer.replace(/^(Prof\.|Doç\.|Dr\.|Araş\.\s*Gör\.|Öğr\.\s*Gör\.)\s*/i,'').split(' ').slice(-2).join(' ') : '—'}</span>
+            <input type="date" class="batch-row-date" data-idx="${idx}"
+                style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);padding:4px 6px;border-radius:6px;color:white;font-size:0.8rem;width:120px;">
+            <input type="time" class="batch-row-time" data-idx="${idx}" value="09:00"
+                style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);padding:4px 6px;border-radius:6px;color:white;font-size:0.8rem;width:85px;">
+            <input type="number" class="batch-row-duration" data-idx="${idx}" value="90" min="30" max="300"
+                style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);padding:4px 6px;border-radius:6px;color:white;font-size:0.8rem;width:65px;" placeholder="dk">
+            <input type="text" class="batch-row-location" data-idx="${idx}" placeholder="Salon"
+                style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);padding:4px 6px;border-radius:6px;color:white;font-size:0.8rem;width:90px;">
+            <input type="number" class="batch-row-proctors" data-idx="${idx}" value="2" min="1" max="10"
+                style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);padding:4px 6px;border-radius:6px;color:white;font-size:0.8rem;width:55px;" placeholder="Göz.">
+        </div>`;
+    }).join('');
+
+    if (selectedCountEl) selectedCountEl.textContent = '0';
+};
+
+/**
+ * Filtre sekmesi değiştirildiğinde çağrılır.
+ */
+window.filterBatchPlanner = function(yearFilter, btnEl, searchOverride) {
+    window._batchPlannerFilter = yearFilter;
+
+    if (btnEl) {
+        const tabs = document.querySelectorAll('#batch-planner-year-tabs .tab-btn');
+        tabs.forEach(b => b.classList.remove('active'));
+        btnEl.classList.add('active');
+    }
+
+    const q = searchOverride !== undefined ? searchOverride : (document.getElementById('batch-planner-search')?.value || '');
+    window._batchPlannerSearch = q;
+    renderBatchPlannerList(yearFilter, q);
+};
+
+/**
+ * Tüm satırların checkbox durumunu değiştirir.
+ */
+window.selectAllBatchCourses = function(checked) {
+    document.querySelectorAll('.batch-course-check').forEach(cb => { cb.checked = checked; });
+    updateBatchSelectedCount();
+};
+
+/**
+ * Seçili ders sayısını footer'da günceller.
+ */
+window.updateBatchSelectedCount = function() {
+    const count = document.querySelectorAll('.batch-course-check:checked').length;
+    const el = document.getElementById('batch-planner-selected-count');
+    if (el) el.textContent = count;
+};
+
+/**
+ * Global varsayılan değerleri seçili satırlara toplu olarak uygular.
+ */
+window.applyBatchPlannerDefaults = function() {
+    const type = document.getElementById('batch-default-type')?.value || 'Vize';
+    const date = document.getElementById('batch-default-date')?.value || '';
+    const time = document.getElementById('batch-default-time')?.value || '09:00';
+    const duration = document.getElementById('batch-default-duration')?.value || '90';
+    const location = document.getElementById('batch-default-location')?.value || '';
+    const proctors = document.getElementById('batch-default-proctors')?.value || '2';
+
+    const checkedBoxes = document.querySelectorAll('.batch-course-check:checked');
+    if (checkedBoxes.length === 0) {
+        if (typeof showToast === 'function') showToast('⚠️ Önce uygulanacak dersleri seçin.', 'warning');
+        else alert('Önce uygulanacak dersleri seçin.');
+        return;
+    }
+
+    checkedBoxes.forEach(cb => {
+        const idx = cb.dataset.idx;
+        const row = document.querySelector(`[data-idx="${idx}"].batch-course-row`) || cb.closest('.batch-course-row');
+        if (!row) return;
+        const dateEl = row.querySelector('.batch-row-date');
+        const timeEl = row.querySelector('.batch-row-time');
+        const durationEl = row.querySelector('.batch-row-duration');
+        const locationEl = row.querySelector('.batch-row-location');
+        const proctorsEl = row.querySelector('.batch-row-proctors');
+        if (date && dateEl) dateEl.value = date;
+        if (time && timeEl) timeEl.value = time;
+        if (duration && durationEl) durationEl.value = duration;
+        if (location && locationEl) locationEl.value = location;
+        if (proctors && proctorsEl) proctorsEl.value = proctors;
+    });
+
+    if (typeof showToast === 'function')
+        showToast(`✅ ${checkedBoxes.length} derse varsayılan değerler uygulandı.`, 'success');
+};
+
+/**
+ * Seçili dersler için DB.exams'a toplu sınav ekler.
+ */
+window.createBatchExams = async function() {
+    const type = document.getElementById('batch-default-type')?.value || 'Vize';
+    const checkedBoxes = document.querySelectorAll('.batch-course-check:checked');
+
+    if (checkedBoxes.length === 0) {
+        if (typeof showToast === 'function') showToast('⚠️ En az bir ders seçin.', 'warning');
+        else alert('En az bir ders seçin.');
+        return;
+    }
+
+    const catalog = window._batchPlannerData || [];
+    const errors = [];
+    const created = [];
+
+    checkedBoxes.forEach(cb => {
+        const idx = parseInt(cb.dataset.idx);
+        const course = catalog[idx];
+        if (!course) return;
+
+        const row = cb.closest('.batch-course-row');
+        if (!row) return;
+
+        const date = row.querySelector('.batch-row-date')?.value || '';
+        const time = row.querySelector('.batch-row-time')?.value || '09:00';
+        const duration = parseInt(row.querySelector('.batch-row-duration')?.value || '90', 10);
+        const location = row.querySelector('.batch-row-location')?.value || 'Belirsiz';
+        const requiredProctors = parseInt(row.querySelector('.batch-row-proctors')?.value || '2', 10);
+
+        if (!date) {
+            errors.push(`${course.code}: Tarih girilmedi`);
+            return;
+        }
+
+        // Bitiş saatini hesapla (HH:MM-HH:MM formatı)
+        let timeRange = time;
+        try {
+            const [h, m] = time.split(':').map(Number);
+            const endTotalMins = h * 60 + m + duration;
+            const endH = Math.floor(endTotalMins / 60) % 24;
+            const endM = endTotalMins % 60;
+            timeRange = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}-${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+        } catch(e) { timeRange = time; }
+
+        // Katsayı hesapla
+        const katsayi = (typeof calculateKatsayi === 'function')
+            ? calculateKatsayi({ duration, location, requiredProctors, type })
+            : parseFloat(((duration / 60) * 1.0).toFixed(2));
+
+        const newExam = {
+            id: Date.now() + Math.floor(Math.random() * 10000) + created.length,
+            name: `${course.code} - ${course.name}`,
+            lecturer: course.lecturer || '',
+            date,
+            time: timeRange,
+            duration,
+            location,
+            capacity: 30,
+            type,
+            requiredProctors,
+            proctors: [],
+            proctorIds: [],
+            isNonExam: false,
+            katsayi: katsayi,
+            isDraft: false
+        };
+
+        DB.exams.push(newExam);
+        created.push(newExam);
+    });
+
+    if (created.length === 0 && errors.length > 0) {
+        alert('Hiç sınav oluşturulamadı:\n' + errors.join('\n'));
+        return;
+    }
+
+    // Kaydet ve UI'ı güncelle
+    if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+    if (typeof saveToBackend === 'function') await saveToBackend();
+    if (typeof renderExams === 'function') renderExams();
+    if (typeof renderSchedule === 'function') renderSchedule();
+    if (typeof renderDashboard === 'function') renderDashboard();
+
+    closeBatchExamPlanner();
+
+    const msg = `✅ ${created.length} sınav başarıyla sisteme eklendi!${errors.length ? `\n⚠️ ${errors.length} ders atlandı (tarih girilmemiş).` : ''}`;
+    if (typeof showToast === 'function') showToast(msg, 'success');
+    else alert(msg);
+
+    // Yapay zeka ataması kısayolu
+    if (created.length > 0 && typeof openAIAssignModal === 'function') {
+        setTimeout(() => {
+            if (confirm(`${created.length} yeni sınav eklendi.\nHemen yapay zeka ile gözetmen ataması yapmak ister misiniz?`)) {
+                openAIAssignModal();
+            }
+        }, 500);
     }
 };

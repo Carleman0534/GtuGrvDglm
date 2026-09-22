@@ -908,7 +908,8 @@
                     <div style="display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end;">
                         <input type="text" id="exam-search" placeholder="🔍 Sınav veya Gözetmen Ara..." style="max-width:300px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:10px; color:white;">
                         <button id="btn-batch-assign" class="btn-primary admin-only" style="background:#6366f1;">🤖 Tümünü Ata</button>
-
+                        <button type="button" class="btn-primary admin-only" onclick="openBatchExamPlanner()" style="background: linear-gradient(135deg, #7c3aed, #5b21b6); border: 1px solid #6d28d9; box-shadow: 0 0 12px rgba(124,58,237,0.35);" title="Katalogdan toplu sınav dönemi planla">⚡ Vize / Final Sihirbazı</button>
+                        <button type="button" class="btn-primary" onclick="openCourseCatalogPicker('exam-name', 'exam-lecturer')" style="background:#0284c7; border: 1px solid #0369a1;" title="Tüm Lisans ve Servis Müfredat Kataloğunu Görüntüle">📚 Ders Kataloğu (127)</button>
                         <button id="btn-import-exams-excel" class="btn-primary admin-only" style="background:#1d6f42;">📂 Excel’den Aktar</button>
                         <button id="btn-add-exam" class="btn-primary admin-only">+ Yeni Sınav</button>
                         <div class="dropdown admin-only">
@@ -1624,10 +1625,15 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Ders / Sınav Adı</label>
-                        <input type="text" id="edit-exam-name" placeholder="Örn: MATH 101 veya YZV 501" required>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <label style="margin:0;">Ders / Sınav Adı</label>
+                            <button type="button" class="btn-icon" onclick="openCourseCatalogPicker('edit-exam-name', 'edit-exam-lecturer')" style="font-size:0.8rem; padding:2px 8px; background:rgba(14,165,233,0.2); border:1px solid #0284c7; color:#38bdf8; border-radius:4px; cursor:pointer;">📚 Katalogdan Seç</button>
+                        </div>
+                        <input type="text" id="edit-exam-name" list="edit-exam-memory-list" placeholder="Örn: MAT 101 veya MATH 101" required>
+                        <datalist id="edit-exam-memory-list"></datalist>
+                        <div id="edit-exam-catalog-info" style="display:none; font-size:0.75rem; color:#38bdf8; margin-top:4px; padding:5px 8px; background:rgba(14,165,233,0.1); border-radius:6px; border:1px solid rgba(14,165,233,0.25);"></div>
                         <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">
-                           💡 <b>Yıl Bilgisi:</b> Programda doğru yerde çıkması için ders kodunu veya <code>(1. Yıl)</code> gibi bir ibareyi ekleyin.
+                           💡 <b>Katalog Eşleşmesi:</b> Ders kodunu veya adını yazdığınızda sistem otomatik tanır ve sorumlu hocayı seçer.
                         </small>
                     </div>
                     <div class="form-group">
@@ -1686,6 +1692,48 @@
         </div>
     </div>
 
+    <!-- Ders Kataloğu Hızlı Seçim Modalı (127 Ders) -->
+    <div id="modal-course-catalog" class="modal hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-content card-large" style="max-width: 880px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.8rem;">📚</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.2rem; color: #38bdf8;">Lisans, Lisansüstü &amp; Servis Ders Kataloğu</h2>
+                        <p style="margin: 2px 0 0 0; color: var(--text-muted); font-size: 0.8rem;">127 Derslik Resmi Müfredat Kataloğu - Sınav formuna aktarmak için bir derse tıklayın</p>
+                    </div>
+                </div>
+                <button onclick="closeCourseCatalogPicker()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+
+            <!-- Arama & Filtre Sekmeleri -->
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                <input type="text" id="catalog-picker-search" placeholder="🔍 Ders Kodu veya Adı Ara (Örn: MAT 101, Calculus, Analiz, Lineer)..." 
+                    style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem 1rem; border-radius: 8px; color: white; font-size: 0.9rem;">
+                
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="catalog-picker-tabs">
+                    <button type="button" class="tab-btn active" onclick="filterCatalogPicker('all', this)" style="padding: 4px 10px; font-size: 0.8rem;">Tümü (127)</button>
+                    <button type="button" class="tab-btn" onclick="filterCatalogPicker(1, this)" style="padding: 4px 10px; font-size: 0.8rem;">1. Sınıf</button>
+                    <button type="button" class="tab-btn" onclick="filterCatalogPicker(2, this)" style="padding: 4px 10px; font-size: 0.8rem;">2. Sınıf</button>
+                    <button type="button" class="tab-btn" onclick="filterCatalogPicker(3, this)" style="padding: 4px 10px; font-size: 0.8rem;">3. Sınıf</button>
+                    <button type="button" class="tab-btn" onclick="filterCatalogPicker(4, this)" style="padding: 4px 10px; font-size: 0.8rem;">4. Sınıf</button>
+                    <button type="button" class="tab-btn" onclick="filterCatalogPicker('Lisansüstü', this)" style="padding: 4px 10px; font-size: 0.8rem;">Lisansüstü</button>
+                    <button type="button" class="tab-btn" onclick="filterCatalogPicker('Servis', this)" style="padding: 4px 10px; font-size: 0.8rem;">Servis Dersleri</button>
+                </div>
+            </div>
+
+            <!-- Ders Kartları Listesi -->
+            <div id="catalog-picker-list" style="flex: 1; overflow-y: auto; max-height: 52vh; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; padding-right: 4px;">
+                <!-- JS ile dinamik oluşturulur -->
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span id="catalog-picker-count" style="font-size: 0.8rem; color: var(--text-muted);">127 ders listeleniyor</span>
+                <button type="button" class="btn-secondary" onclick="closeCourseCatalogPicker()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Excel Import Modali -->
     <div id="modal-import" class="modal hidden admin-only">
         <div class="modal-content" style="max-width: 600px;">
@@ -1715,6 +1763,100 @@
     </div>
 
     </div> <!-- app-wrapper sonu -->
+
+    <!-- ⚡ Vize / Final Sihirbazı Modalı (Toplu Sınav Dönemi Planlayıcı) -->
+    <div id="modal-batch-exam-planner" class="modal hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9500;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:1rem 0;">
+        <div class="modal-content card-large batch-planner-modal" style="max-width:1100px;width:98%;margin:auto;display:flex;flex-direction:column;gap:0;">
+
+            <!-- Başlık -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid rgba(124,58,237,0.3);background:rgba(124,58,237,0.08);">
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <span style="font-size:2.2rem;filter:drop-shadow(0 0 14px #7c3aed);">⚡</span>
+                    <div>
+                        <h2 style="margin:0;font-size:1.25rem;color:#c4b5fd;">Vize / Final Sihirbazı</h2>
+                        <p style="margin:3px 0 0;color:var(--text-muted);font-size:0.8rem;">Katalogdan ders seçin → Toplu ayar yapın → Tek tıkla sisteme ekleyin</p>
+                    </div>
+                </div>
+                <button onclick="closeBatchExamPlanner()" style="background:none;border:none;color:#94a3b8;font-size:1.75rem;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+
+            <!-- Sınıf/Düzey Filtre Sekmeleri -->
+            <div style="display:flex;gap:6px;flex-wrap:wrap;padding:1rem 1.5rem;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.05);" id="batch-planner-year-tabs">
+                <button type="button" class="tab-btn active" onclick="filterBatchPlanner('all',this)">Tümü</button>
+                <button type="button" class="tab-btn" onclick="filterBatchPlanner(1,this)">1. Sınıf</button>
+                <button type="button" class="tab-btn" onclick="filterBatchPlanner(2,this)">2. Sınıf</button>
+                <button type="button" class="tab-btn" onclick="filterBatchPlanner(3,this)">3. Sınıf</button>
+                <button type="button" class="tab-btn" onclick="filterBatchPlanner(4,this)">4. Sınıf</button>
+                <button type="button" class="tab-btn" onclick="filterBatchPlanner('Lisansüstü',this)">Lisansüstü</button>
+                <button type="button" class="tab-btn" onclick="filterBatchPlanner('Servis',this)">Servis Dersleri</button>
+                <input type="text" id="batch-planner-search" placeholder="🔍 Ara..." oninput="filterBatchPlanner(window._batchPlannerFilter||'all', null, this.value)" style="margin-left:auto;max-width:180px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);padding:4px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+            </div>
+
+            <!-- Toplu Varsayılan Değerler Barı -->
+            <div style="background:rgba(16,185,129,0.07);border-bottom:1px solid rgba(16,185,129,0.2);padding:1rem 1.5rem;">
+                <div style="font-size:0.8rem;font-weight:700;color:#34d399;margin-bottom:10px;">⚙️ Toplu Varsayılan Değerleri Ayarla → Seçilen Derslere Uygula</div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Sınav Türü</label>
+                        <select id="batch-default-type" style="background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+                            <option>Vize</option><option>Final</option><option>Bütünleme</option><option>Mazeret</option><option>Ek Sınav</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Başlangıç Tarihi</label>
+                        <input type="date" id="batch-default-date" style="background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Saat</label>
+                        <input type="time" id="batch-default-time" value="09:00" style="background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Süre (dk)</label>
+                        <input type="number" id="batch-default-duration" value="90" min="30" max="300" style="width:80px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Derslik/Salon</label>
+                        <input type="text" id="batch-default-location" placeholder="Örn: Amfi 1" style="background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;width:120px;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Gözetmen Sayısı</label>
+                        <input type="number" id="batch-default-proctors" value="2" min="1" max="10" style="width:70px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+                    </div>
+                    <button type="button" onclick="applyBatchPlannerDefaults()" style="background:linear-gradient(135deg,#10b981,#059669);border:none;padding:6px 16px;border-radius:8px;color:white;font-weight:700;cursor:pointer;font-size:0.85rem;height:34px;margin-top:auto;">
+                        ⚡ Seçilenlere Uygula
+                    </button>
+                    <button type="button" onclick="selectAllBatchCourses(true)" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);padding:6px 12px;border-radius:8px;color:#a5b4fc;cursor:pointer;font-size:0.8rem;height:34px;margin-top:auto;">
+                        ☑ Tümünü Seç
+                    </button>
+                    <button type="button" onclick="selectAllBatchCourses(false)" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:6px 12px;border-radius:8px;color:#fca5a5;cursor:pointer;font-size:0.8rem;height:34px;margin-top:auto;">
+                        ☐ Seçimi Kaldır
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ders Tablosu -->
+            <div style="flex:1;overflow-y:auto;max-height:55vh;padding:0 0.5rem;">
+                <div id="batch-planner-list" style="display:flex;flex-direction:column;gap:0;">
+                    <!-- JS ile doldurulacak -->
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:1rem 1.5rem;border-top:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.2);">
+                <div style="font-size:0.85rem;color:var(--text-muted);">
+                    <span id="batch-planner-selected-count" style="color:#c4b5fd;font-weight:700;">0</span> ders seçili
+                    &bull; <span id="batch-planner-course-count" style="color:var(--text-muted);">0</span> ders listeleniyor
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button type="button" class="btn-secondary" onclick="closeBatchExamPlanner()">Vazgeç</button>
+                    <button type="button" id="btn-create-batch-exams" onclick="createBatchExams()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border:none;padding:0.75rem 1.5rem;border-radius:10px;color:white;font-weight:700;cursor:pointer;font-size:0.95rem;box-shadow:0 0 16px rgba(124,58,237,0.4);">
+                        ✨ Seçilen Sınavları Sisteme Ekle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Takas Talebi Modalı (Bireysel) -->
     <div id="modal-swap" class="modal hidden">
