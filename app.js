@@ -578,7 +578,116 @@ async function initApp() {
     if (typeof initOfflineSyncListener === 'function') {
         initOfflineSyncListener();
     }
+
+    // 🔄 PERİYODİK OTOMATİK SENKRONİZASYON
+    // Her 2 dakikada bir Firebase'den kontrol et.
+    // Başka bir kullanıcı değişiklik yaptıysa otomatik güncelle ve yedekle.
+    startPeriodicSync();
 }
+
+/**
+ * Her 2 dakikada bir Firebase'den veri çekip yerel veriyle karşılaştırır.
+ * Değişiklik varsa: DB güncellenir, ekran yenilenir, snapshot kaydedilir.
+ * Değişiklik yoksa: Hiçbir şey yapılmaz (sessiz).
+ */
+function startPeriodicSync() {
+    const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 dakika
+    const API_URL_SYNC = typeof API_URL !== 'undefined' ? API_URL :
+        'https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app/gizli_yol_gtu_admin_data.json';
+
+    async function checkForUpdates() {
+        // Çevrimdışıysa veya şu an kayıt yapılıyorsa atla
+        if (!navigator.onLine) return;
+        if (typeof _isSyncing !== 'undefined' && _isSyncing) return;
+
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const response = await fetch(API_URL_SYNC + '?t=' + Date.now(), {
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+
+            if (!response.ok) return;
+            const remoteData = await response.json();
+            if (!remoteData || !Array.isArray(remoteData.staff)) return;
+
+            // Değişiklik kontrolü: Sınav, personel, kısıt ve talep sayılarını karşılaştır
+            const localExamCount     = (DB.exams     || []).length;
+            const localStaffCount    = (DB.staff     || []).length;
+            const localRequestCount  = (DB.requests  || []).length;
+            const localConstraintStr = JSON.stringify(DB.constraints || {});
+
+            const remoteExamCount     = (remoteData.exams     || []).length;
+            const remoteStaffCount    = (remoteData.staff     || []).length;
+            const remoteRequestCount  = (remoteData.requests  || []).length;
+            const remoteConstraintStr = JSON.stringify(remoteData.constraints || {});
+
+            const hasChanges =
+                localExamCount    !== remoteExamCount    ||
+                localStaffCount   !== remoteStaffCount   ||
+                localRequestCount !== remoteRequestCount ||
+                localConstraintStr !== remoteConstraintStr;
+
+            if (!hasChanges) {
+                console.log('🔄 Periyodik senkronizasyon: Değişiklik yok.');
+                return;
+            }
+
+            console.log('📥 Periyodik senkronizasyon: Değişiklik algılandı! Güncelleniyor...', {
+                sınav: `${localExamCount} → ${remoteExamCount}`,
+                personel: `${localStaffCount} → ${remoteStaffCount}`,
+                talep: `${localRequestCount} → ${remoteRequestCount}`,
+                kısıtDeğişti: localConstraintStr !== remoteConstraintStr
+            });
+
+            // Yerel lecturers ve courseLecturers korunarak uzak veriyi birleştir
+            if (!remoteData.lecturers || remoteData.lecturers.length === 0) {
+                remoteData.lecturers = DB.lecturers;
+            }
+            if (!remoteData.courseLecturers || Object.keys(remoteData.courseLecturers).length === 0) {
+                remoteData.courseLecturers = DB.courseLecturers;
+            }
+
+            DB = remoteData;
+            if (!DB.constraints) DB.constraints = {};
+            if (!DB.requests) DB.requests = [];
+
+            // localStorage güncelle + snapshot kaydet
+            try { localStorage.setItem(typeof DB_KEY !== 'undefined' ? DB_KEY : 'gozetmenlik_db_v25', JSON.stringify(DB)); } catch(e) {}
+            if (typeof saveAutoSnapshot === 'function') {
+                saveAutoSnapshot(DB, 'Periyodik Senkronizasyon');
+            }
+
+            // Ekranları sessizce yenile (kullanıcıyı rahatsız etmeden)
+            if (typeof renderExams       === 'function') renderExams();
+            if (typeof renderStaff       === 'function') renderStaff();
+            if (typeof renderSchedule    === 'function') renderSchedule();
+            if (typeof renderDashboard   === 'function') renderDashboard();
+            if (typeof renderSwapRequests=== 'function') renderSwapRequests();
+            if (typeof updateRequestBadge=== 'function') updateRequestBadge();
+            if (typeof updateMarketplaceBadge === 'function') updateMarketplaceBadge();
+
+            // Kullanıcıya sessiz bildirim (toast — alert değil)
+            if (typeof window.showToast === 'function') {
+                window.showToast('🔄 Başka bir kullanıcının değişiklikleri senkronize edildi.', 'success');
+            }
+
+        } catch (e) {
+            // Hata durumunda sessizce atla, bir sonraki döngüde tekrar denenecek
+            console.warn('⚠️ Periyodik senkronizasyon hatası (önemsiz):', e.message);
+        }
+    }
+
+    // İlk kontrol: Sayfa açıldıktan 30 saniye sonra (başlangıç yüklemesiyle çakışmasın)
+    setTimeout(checkForUpdates, 30 * 1000);
+
+    // Sonraki kontroller: Her 2 dakikada bir
+    setInterval(checkForUpdates, SYNC_INTERVAL_MS);
+
+    console.log('⏱️ Periyodik senkronizasyon başlatıldı (her 2 dakikada bir).');
+}
+
 
 /**
  * GÜNLÜK OTOMATİK YEDEKLEME SİSTEMİ
@@ -632,6 +741,12 @@ function checkAndPerformDailyBackup() {
             console.error("Otomatik yedek alma hatası:", e);
         }
     }
+
+    // Ayrıca yaklaşan sınavların hatırlatmalarını kontrol et ve gönder
+    if (typeof checkAndSendExamReminders === 'function') {
+        checkAndSendExamReminders().catch(e => console.error("Hatırlatma kontrol hatası:", e));
+    }
+
 }
 
 /**
@@ -2767,7 +2882,17 @@ function renderSchedule() {
     const groups = {};
     const now = new Date();
     
+    const personalToggle = document.getElementById('toggle-personal-schedule');
+    const isPersonalOnly = personalToggle ? personalToggle.checked : false;
+    const myStaffId = localStorage.getItem('myStaffId');
+    
     DB.exams.forEach(ex => {
+        // Kişiye özel filtre açıksa ve bu sınav bana atanmamışsa atla
+        if (isPersonalOnly && myStaffId) {
+            const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+            if (!pIds.includes(myStaffId)) return;
+        }
+
         // Tarihi geçmiş sınavları programda gösterme
         const examDateStr = ex.date || "";
         const examTimeStr = ex.time || "00:00";

@@ -1002,6 +1002,15 @@
                             <div id="calendar-month-title" style="font-weight: 700; min-width: 150px; text-align: center; color: var(--primary);">Nisan 2024</div>
                             <button onclick="changeScheduleMonth(1)" style="background:none; border:none; color:white; cursor:pointer; font-size: 1.2rem;">▶</button>
                         </div>
+
+                        <!-- Kişiye Özel Takvim Seçeneği -->
+                        <div style="display: flex; align-items: center; gap: 10px; background: rgba(14, 165, 233, 0.1); padding: 0.5rem 1.2rem; border-radius: 20px; border: 1px solid rgba(14, 165, 233, 0.3);">
+                            <label class="switch" style="margin-bottom:0;">
+                                <input type="checkbox" id="toggle-personal-schedule" onchange="renderSchedule()">
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-weight: 600; color: #38bdf8; font-size: 0.9rem;">Sadece Benim Gözetmenliklerim</span>
+                        </div>
                     </div>
 
                     <!-- Toplu İşlemler Çubuğu -->

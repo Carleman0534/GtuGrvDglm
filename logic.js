@@ -2060,11 +2060,13 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
 
     const subjectTemplate = type === 'new' 
         ? DB.templates.assignment_email_subject 
-        : (type === 'cancel' ? DB.templates.cancel_email_subject : DB.templates.update_email_subject);
+        : (type === 'cancel' ? DB.templates.cancel_email_subject 
+            : (type === 'reminder' ? "HATIRLATMA: Yaklaşan Gözetmenlik Görevi ({sinav_adi})" : DB.templates.update_email_subject));
 
     const bodyTemplate = type === 'new' 
         ? DB.templates.assignment_email_body 
-        : (type === 'cancel' ? DB.templates.cancel_email_body : DB.templates.update_email_body);
+        : (type === 'cancel' ? DB.templates.cancel_email_body 
+            : (type === 'reminder' ? "<div style=\"font-family: sans-serif; padding: 20px;\"><h2 style=\"color: #f59e0b;\">Sınav Hatırlatması</h2><p>Sayın {personel_adi},</p><p>Yaklaşan bir sınav görevlendirmeniz bulunmaktadır. Sınav detayları aşağıdadır:</p><ul><li><b>Sınav:</b> {sinav_adi}</li><li><b>Tarih/Saat:</b> {tarih} - {saat}</li><li><b>Derslik:</b> {derslik}</li><li><b>Birlikte Görevli:</b> {gozetmenler}</li></ul><p>Lütfen sınav saatinden 15 dakika önce sınav yerinde olunuz.</p></div>" : DB.templates.update_email_body));
 
     // Tüm gözetmen isimlerini virgülle birleştir
     const proctorIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
@@ -2154,6 +2156,49 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
 }
 window.sendAssignmentEmail = sendAssignmentEmail;
 
+
+/**
+ * Yaklaşan sınavlar için (24 saat kala) hatırlatma maillerini gönderir
+ */
+async function checkAndSendExamReminders() {
+    if (!DB || !DB.exams || !DB.emailSettings || !DB.emailSettings.enabled) return;
+
+    let hasChanges = false;
+    const now = new Date();
+    // 24 saat sonrası
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    for (let exam of DB.exams) {
+        // Eğer zaten hatırlatma gönderildiyse veya taslaksa atla
+        if (exam.reminderSent || exam.isDraft) continue;
+        
+        if (!exam.date || !exam.time) continue;
+        
+        const examDate = getSafeDate(exam.date, exam.time);
+        
+        // Eğer sınav şu andan sonra ve 24 saatten yakınsa
+        if (examDate > now && examDate <= twentyFourHoursFromNow) {
+            console.log(`⏰ Sınav hatırlatması tetikleniyor: ${exam.name}`);
+            
+            const pIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+            for (let pid of pIds) {
+                // Email göndermeyi asenkron arka planda yap (tek tek beklemesin)
+                sendAssignmentEmail(pid, exam, 'reminder').catch(e => console.warn('Hatırlatma maili hatası:', e));
+            }
+            
+            exam.reminderSent = true;
+            hasChanges = true;
+        }
+    }
+
+    if (hasChanges) {
+        saveToLocalStorage();
+        if (typeof saveToBackend === 'function') {
+            saveToBackend();
+        }
+        console.log("⏰ Hatırlatmalar gönderildi ve veritabanı güncellendi.");
+    }
+}
 
 const API_URL = API_BASE_URL + "/gizli_yol_gtu_admin_data.json";
 
