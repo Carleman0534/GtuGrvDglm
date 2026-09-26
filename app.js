@@ -317,6 +317,7 @@ async function initApp() {
     if (!DB.constraints) DB.constraints = {};
     if (!DB.requests) DB.requests = [];
     if (!DB.feedbacks) DB.feedbacks = [];
+    if (!DB.taskStatuses) DB.taskStatuses = {};
 
     // Tarihi geçmiş kısıtları otomatik olarak temizle
     if (typeof cleanExpiredConstraints === 'function') {
@@ -1247,6 +1248,9 @@ function initUI() {
             }
             if (tabId === 'my-timeline') {
                 renderMyTimeline();
+            }
+            if (tabId === 'swap-history') {
+                if (typeof renderSwapHistory === 'function') renderSwapHistory();
             }
             if (tabId === 'responsible') {
                 clearMessageBadge();
@@ -7024,6 +7028,7 @@ window.renderProfile = function() {
         const activeBody = document.querySelector('#profile-table-active tbody');
         activeBody.innerHTML = '';
             activeExams.forEach(ex => {
+                const statusBadge = (typeof getTaskStatusBadge === 'function') ? getTaskStatusBadge(ex.id, myStaffId) : '';
                 activeBody.innerHTML += `
                     <tr>
                         <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
@@ -7033,11 +7038,12 @@ window.renderProfile = function() {
                         <td>${ex.time}</td>
                         <td>${ex.duration} dk</td>
                         <td><span class="score-tag">+${ex.score}</span></td>
-                        <td style="display: flex; gap: 5px; justify-content: flex-end;">
+                        <td>${statusBadge || '<span style="color:var(--text-muted);font-size:0.7rem;">Normal</span>'}</td>
+                        <td style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
                             <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sınavı Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
                             ${(() => {
                                 const hasRequest = (DB.requests || []).find(r => 
-                                    String(r.examId) === String(ex.id) && 
+                                    (String(r.examId) === String(ex.id) || String(r.initiatorExamId) === String(ex.id)) && 
                                     String(r.initiatorId) === String(myStaffId) && 
                                     ['pending', 'pending_peer'].includes(r.status)
                                 );
@@ -7045,8 +7051,10 @@ window.renderProfile = function() {
                                     return `<button class="btn-delete" onclick="cancelSwapRequest('${hasRequest.id}')" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
                                 }
                                 return `
-                                    <button class="btn-secondary" onclick="initiateDirectSwap('${ex.id}')" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
-                                    <button class="btn-primary" onclick="initiateOpenSwap('${ex.id}')" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
+                                    <button onclick="initiateDirectSwap('${ex.id}')" title="Hoca ile Takas Et (Sistem İçi Onay)" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35); color: #a78bfa; cursor:pointer; font-size:0.72rem; font-weight:600;">🔄 Takas</button>
+                                    <button onclick="typeof openSwapEmailModal==='function' && openSwapEmailModal('${ex.id}')" title="Takas Maili Oluştur" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.35); color: #fbbf24; cursor:pointer; font-size:0.72rem; font-weight:600;">✉️ Takas Mail</button>
+                                    <button onclick="initiateOpenSwap('${ex.id}')" title="Pazara Bırak (Sistem)" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.35); color: #38bdf8; cursor:pointer; font-size:0.72rem; font-weight:600;">📢 Pazar</button>
+                                    <button onclick="typeof openMarketEmailModal==='function' && openMarketEmailModal('${ex.id}')" title="Hocalara E-posta ile Bildir" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.35); color: #34d399; cursor:pointer; font-size:0.72rem; font-weight:600;">📤 Bildir</button>
                                 `;
                             })()}
                         </td>
@@ -8566,7 +8574,8 @@ window.initiateOpenSwap = function(examId) {
     const exam = DB.exams.find(e => e.id == examId);
     if (!exam) return;
 
-    if (confirm(`${exam.name} sınavı için yerinize birini aramak istediğinize emin misiniz? Bu talep diğer hocalara görünecektir.`)) {
+    const dateStr = exam.date ? exam.date.split('-').reverse().join('.') : '';
+    if (confirm(`${exam.name} sınavı (${dateStr} ${exam.time}) için yerinize birini aramak istediğinize emin misiniz?\n\nGörev "Pazar Yeri"ne alınacak ve diğer hocalar devralabilecektir.`)) {
         const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
         
         const newReq = {
@@ -8587,6 +8596,11 @@ window.initiateOpenSwap = function(examId) {
 
         if (!DB.requests) DB.requests = [];
         DB.requests.push(newReq);
+
+        // Görev durumunu güncelle
+        if (!DB.taskStatuses) DB.taskStatuses = {};
+        DB.taskStatuses[`${examId}_${myStaffId}`] = 'market_listed';
+
         logAction('SWAP_INITIATED', `${staff.name}, ${exam.name} için yer değiştirme talebi açtı.`, { examId });
         saveToLocalStorage();
         
@@ -8602,7 +8616,16 @@ window.initiateOpenSwap = function(examId) {
             requestId: newReq.id
         });
 
-        alert("Talebiniz oluşturuldu. Uygun gözetmenler 'Açık Görevler' sekmesinden kabul edebilir.");
+        // E-posta bildirimi gönderme seçeneği sun
+        const sendEmail = confirm("✅ Görev Pazar Yeri'ne alındı!\n\nHocalara e-posta ile de bildirim göndermek ister misiniz?\n\nTamam → E-posta Hazırla\nİptal → Sadece Pazar Yerine Ekle");
+        if (sendEmail && typeof openMarketEmailModal === 'function') {
+            openMarketEmailModal(examId);
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('✅ Görev Pazar Yeri\'ne eklendi. Diğer hocalar "Açık Görevler" sekmesinden kabul edebilir.', 'success');
+            }
+        }
+        
         renderProfile();
         updateMarketplaceBadge();
     }
@@ -8756,6 +8779,11 @@ window.acceptOpenRequest = async function(requestId) {
         req.receiverName = toStaff.name;
         req.toApproved = true;
 
+        // Görev durumlarını güncelle
+        if (!DB.taskStatuses) DB.taskStatuses = {};
+        DB.taskStatuses[`${exam.id}_${req.initiatorId}`] = 'transferred';
+        DB.taskStatuses[`${exam.id}_${toStaff.id}`] = 'normal';
+
         logAction('user', 'Açık Talep Kabulü', `${toStaff.name}, ${req.initiatorName}'in ${req.examName} görevini devraldı.`);
         
         saveToLocalStorage();
@@ -8882,7 +8910,20 @@ window.cancelSwapRequest = function(requestId) {
         if (reqIndex > -1) {
             const req = DB.requests[reqIndex];
             DB.requests.splice(reqIndex, 1);
-            logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName} için açtığı talebi iptal etti.`);
+
+            // Görev durumunu temizle
+            if (DB.taskStatuses) {
+                const myStaffId = localStorage.getItem('myStaffId');
+                const examId = req.examId || req.initiatorExamId;
+                if (examId && myStaffId) {
+                    const key = `${examId}_${myStaffId}`;
+                    if (DB.taskStatuses[key] === 'market_listed' || DB.taskStatuses[key] === 'swap_pending' || DB.taskStatuses[key] === 'swap_requested') {
+                        delete DB.taskStatuses[key];
+                    }
+                }
+            }
+
+            logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName || 'bilinmeyen sınav'} için açtığı talebi iptal etti.`);
             saveToLocalStorage();
             
             // Bildirim tetikle (Webhook)
@@ -8894,7 +8935,8 @@ window.cancelSwapRequest = function(requestId) {
             renderExams();
             renderProfile();
             updateMarketplaceBadge();
-            alert("✓ Talep başarıyla iptal edildi.");
+            if (typeof showToast === 'function') showToast('✓ Talep başarıyla iptal edildi.', 'success');
+            else alert("✓ Talep başarıyla iptal edildi.");
         }
     }
 };
@@ -9211,6 +9253,11 @@ window.acceptDirectSwap = async function(requestId) {
         // 5. Talebi Güncelle
         req.status = 'approved';
         req.updatedAt = new Date().toISOString();
+
+        // 6. Görev durumlarını güncelle
+        if (!DB.taskStatuses) DB.taskStatuses = {};
+        DB.taskStatuses[`${myExam.id}_${req.receiverId}`] = 'swap_completed';
+        DB.taskStatuses[`${hisExam.id}_${req.initiatorId}`] = 'swap_completed';
 
         saveToLocalStorage();
         logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sınavlarını takas etti.`);
