@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -734,6 +734,8 @@
                 </div>
 
                 <div id="dashboard-export-container" style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
+                    <!-- Görev Takası / Devir Yönetici Onayları (swap_market.js) -->
+                    <div id="card-swap-admin" class="card card-large admin-only hidden" style="margin-bottom: 2rem; border-color: rgba(139, 92, 246, 0.5);"></div>
                     <!-- Pazar Yeri (Açık Görevler) Hızlı Görünüm - TÜM KULLANICILAR İÇİN -->
                     <div id="card-marketplace-dashboard" class="card card-table card-large hidden" style="margin-bottom: 2rem; border-color: var(--accent-green);">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
@@ -2119,9 +2121,6 @@
         </div>
     </div>
 
-    <script src="logic.js?v=3"></script>
-    <script src="app.js?v=3"></script>
-
     <!-- Hoca Mesaj Gönderme Modalı -->
     <div id="modal-lecturer-message" class="modal hidden">
         <div class="modal-content" style="max-width: 500px;">
@@ -2613,6 +2612,43 @@
     <script src="logic.js?v=4"></script>
     <script src="app.js?v=4"></script>
     <script src="swap_email.js?v=1"></script>
+    <script src="swap_market.js?v=2"></script>
+
+    <!-- E-posta Taslağı / İstemci Seçimi Modalı (swap_market.js) -->
+    <div id="modal-mail-draft" class="modal hidden">
+        <div class="modal-content card-large swap-modal">
+            <div class="modal-header">
+                <h2 id="mail-draft-title">✉️ E-posta Taslağı</h2>
+                <button class="close-modal" onclick="SwapMarket.closeModal('modal-mail-draft')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="mail-draft-info" class="swap-hint hidden"></div>
+                <div id="mail-draft-recipients" class="mail-draft-recipients"></div>
+                <div class="form-group">
+                    <label for="mail-draft-subject">Konu</label>
+                    <input type="text" id="mail-draft-subject" style="width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label for="mail-draft-body">Mesaj (göndermeden önce düzenleyebilirsiniz)</label>
+                    <textarea id="mail-draft-body" class="swap-textarea mail-draft-body" rows="12"></textarea>
+                </div>
+                <div class="swap-step-label">E-postayı şununla aç:</div>
+                <div class="mail-client-grid">
+                    <button type="button" class="btn-primary mail-client-btn" data-mail-client="mailto" onclick="SwapMarket.mail.openWith('mailto')">📧 Varsayılan Uygulama<br><small>Outlook · Apple Mail</small></button>
+                    <button type="button" class="btn-secondary mail-client-btn" data-mail-client="gmail" onclick="SwapMarket.mail.openWith('gmail')">✉️ Gmail<br><small>web</small></button>
+                    <button type="button" class="btn-secondary mail-client-btn" data-mail-client="outlook" onclick="SwapMarket.mail.openWith('outlook')">📨 Outlook<br><small>web / Office 365</small></button>
+                    <button type="button" class="btn-secondary mail-client-btn" onclick="SwapMarket.mail.copy()">📋 Metni Kopyala</button>
+                </div>
+                <div id="mail-draft-providers" class="mail-client-grid" style="margin-top: 0.5rem;"></div>
+                <div id="mail-draft-batches" class="mail-draft-batches"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="SwapMarket.closeModal('modal-mail-draft')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+
 </body>
 </html>
 
