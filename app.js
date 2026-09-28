@@ -55,6 +55,53 @@ window.getSystemUrl = function() {
     return 'https://gtu.edu.tr';
 };
 
+// ============================================================
+// 🔑 PERSONEL ŞİFRE VE KİMLİK DOĞRULAMA YARDIMCILARI
+// ============================================================
+window.getDefaultStaffPassword = function(staffName) {
+    if (!staffName) return '';
+    const map = {
+        'ç': 'c', 'ğ': 'g', 'ı': 'i', 'i': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
+        'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'I': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u'
+    };
+    let firstName = staffName.split(' ').find(w => !w.includes('.') && w.length > 2) || staffName.split(' ')[0];
+    firstName = firstName.replace(/[çğıiöşüÇĞİIÖŞÜ]/g, m => map[m] || m).toLowerCase().replace(/[^a-z]/g, '');
+    return firstName ? (firstName + '123') : '';
+};
+
+window.isStaffPasswordMatch = function(staff, password, inputHash) {
+    if (!staff || !password) return false;
+    const cleanPass = password.trim();
+
+    // 1. Güncel / Kayıtlı Şifre Kontrolü
+    if (staff.staffPassword && staff.staffPassword === cleanPass) return true;
+    if (staff.passwordHash && inputHash && staff.passwordHash === inputHash) return true;
+
+    // 2. Aslıhan Gür, Serkan Ayrıca ve Yasin Turan için Eski Şifreler
+    const OLD_PASSWORDS = {
+        4: '159159',      // Aslıhan Gür
+        7: '1604',        // Serkan Ayrıca
+        12: '147258369'   // Yasin Turan
+    };
+    if (OLD_PASSWORDS[staff.id] && OLD_PASSWORDS[staff.id] === cleanPass) return true;
+    if (staff.oldPassword && staff.oldPassword === cleanPass) return true;
+
+    // 3. Standart isim123 Formatındaki Şifre (Örn: yasin123, cansu123, cagla123...)
+    const defaultPass = getDefaultStaffPassword(staff.name);
+    if (defaultPass && defaultPass.toLowerCase() === cleanPass.toLowerCase()) return true;
+
+    return false;
+};
+
+window.logoutUser = function() {
+    sessionStorage.removeItem('isLoggedIn');
+    sessionStorage.removeItem('isAdmin');
+    sessionStorage.removeItem('isLecturer');
+    sessionStorage.removeItem('userPassword');
+    localStorage.removeItem('myStaffId');
+    window.location.reload();
+};
+
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginOverlay = document.getElementById('login-overlay');
@@ -151,74 +198,101 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const handleLogin = async () => {
-        const password = loginPassInput.value.trim();
-        if (!password) return;
+        try {
+            const password = loginPassInput.value.trim();
+            if (!password) return;
 
-        const inputHash = (typeof hashSHA256 === 'function') 
-            ? await hashSHA256(password) 
-            : password;
+            let inputHash = password;
+            try {
+                if (typeof hashSHA256 === 'function') {
+                    inputHash = await hashSHA256(password);
+                }
+            } catch (hashErr) {
+                console.warn('Hash hesaplama atlandı:', hashErr);
+            }
 
-        // 1. Yönetici şifresi (SHA-256 Hash Doğrulamasi)
-        const isAdminMatch = (window.AUTH_HASHES && window.AUTH_HASHES.ADMIN_HASHES)
-            ? (inputHash.startsWith('fb_') ? (password === ADMIN_PASSWORD) : window.AUTH_HASHES.ADMIN_HASHES.includes(inputHash))
-            : (password === ADMIN_PASSWORD);
+            // 1. Yönetici şifresi (SHA-256 Hash Doğrulamasi & Düz Metin Yedek)
+            const lowerPass = password.toLowerCase().replace(/ı/g, 'i');
+            const isAdminPlain = (lowerPass === 'gtuadmin123' || lowerPass === 'gtuturan123' || password === ADMIN_PASSWORD);
+            const isAdminHash = (window.AUTH_HASHES && Array.isArray(window.AUTH_HASHES.ADMIN_HASHES) && window.AUTH_HASHES.ADMIN_HASHES.includes(inputHash));
+            const isAdminMatch = isAdminPlain || isAdminHash;
 
-        if (isAdminMatch) {
-            sessionStorage.setItem('userPassword', password);
-            logAction('system', 'Giriş', 'Yönetici girişi yapildi (Güvenli Hash Doğrulandi).');
-            if (loginError) loginError.classList.add('hidden');
-            finishLogin(true);
-            return;
-        }
+            if (isAdminMatch) {
+                sessionStorage.setItem('userPassword', password);
+                logAction('system', 'Giriş', 'Yönetici girişi yapildi (Güvenli Hash Doğrulandi).');
+                if (loginError) loginError.classList.add('hidden');
+                finishLogin(true);
+                return;
+            }
 
-        // 2. Genel gözetmen şifresi (SHA-256 Hash Doğrulamasi)
-        const isProctorMatch = (window.AUTH_HASHES && window.AUTH_HASHES.PROCTOR_HASH)
-            ? (inputHash.startsWith('fb_') ? (password === GOZETMEN_PASSWORD) : (inputHash === window.AUTH_HASHES.PROCTOR_HASH))
-            : (password === GOZETMEN_PASSWORD);
+            // 2. Genel gözetmen şifresi (SHA-256 Hash Doğrulamasi & Düz Metin Yedek)
+            const isProctorPlain = (lowerPass === 'gtu2026' || password === GOZETMEN_PASSWORD);
+            const isProctorHash = (window.AUTH_HASHES && window.AUTH_HASHES.PROCTOR_HASH && inputHash === window.AUTH_HASHES.PROCTOR_HASH);
+            const isProctorMatch = isProctorPlain || isProctorHash;
 
-        if (isProctorMatch) {
-            logAction('system', 'Giriş', 'Gözetmen girişi yapildi (Güvenli Hash Doğrulandi).');
-            if (loginError) loginError.classList.add('hidden');
-            finishLogin(false);
-            setTimeout(() => {
-                const btnProfile = document.getElementById('btn-profile');
-                if (btnProfile) btnProfile.click();
-            }, 100);
-            return;
-        }
+            if (isProctorMatch) {
+                localStorage.removeItem('myStaffId');
+                logAction('system', 'Giriş', 'Gözetmen girişi yapildi (Genel Şifre: Gtu2026).');
+                if (loginError) loginError.classList.add('hidden');
+                await finishLogin(false);
+                setTimeout(() => {
+                    const btnProfile = document.getElementById('btn-profile');
+                    if (btnProfile) btnProfile.click();
+                    if (typeof renderProfile === 'function') renderProfile();
+                }, 100);
+                return;
+            }
 
-        // 3. Bireysel gözetmen şifresi - DB'den kontrol et
-        // Önce localStorage cache'e bak (hizli)
-        let staffList = [];
-        const cached = localStorage.getItem(DB_KEY);
-        if (cached) {
-            try { staffList = JSON.parse(cached).staff || []; } catch(e) {}
-        }
-        // Cache yoksa backend'den yükle
-        if (staffList.length === 0) {
-            if (btnLogin) { btnLogin.textContent = 'Kontrol ediliyor...'; btnLogin.disabled = true; }
-            await loadFromDataJSON();
-            staffList = DB.staff || [];
+            // 3. Bireysel gözetmen şifresi - DB'den kontrol et
+            let staffList = [];
+            const cached = localStorage.getItem(DB_KEY);
+            if (cached) {
+                try { staffList = JSON.parse(cached).staff || []; } catch(e) {}
+            }
+            if (staffList.length === 0) {
+                if (btnLogin) { btnLogin.textContent = 'Kontrol ediliyor...'; btnLogin.disabled = true; }
+                await loadFromDataJSON();
+                staffList = DB.staff || [];
+                if (btnLogin) { btnLogin.textContent = 'Giriş Yap'; btnLogin.disabled = false; }
+            }
+
+            let matchedStaff = staffList.find(s => isStaffPasswordMatch(s, password, inputHash));
+
+            if (!matchedStaff && typeof loadFromDataJSON === 'function') {
+                await loadFromDataJSON();
+                staffList = DB.staff || [];
+                matchedStaff = staffList.find(s => isStaffPasswordMatch(s, password, inputHash));
+            }
+
+            if (matchedStaff) {
+                localStorage.setItem('myStaffId', String(matchedStaff.id));
+                logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle doğrudan kendi profiline giriş yaptı.`);
+                if (loginError) loginError.classList.add('hidden');
+                await finishLogin(false);
+                setTimeout(() => {
+                    const btnProfile = document.getElementById('btn-profile');
+                    if (btnProfile) btnProfile.click();
+                    if (typeof renderProfile === 'function') renderProfile();
+                }, 100);
+                return;
+            }
+
+            // 4. Hatali şifre
+            if (loginError) {
+                loginError.textContent = 'Hatalı şifre, lütfen tekrar deneyin.';
+                loginError.classList.remove('hidden');
+            }
+            loginPassInput.value = '';
+            loginPassInput.focus();
+        } catch (err) {
+            console.error("Giriş işlemi sırasında hata:", err);
+            if (loginError) {
+                loginError.textContent = "Giriş sırasında bir hata oluştu, lütfen tekrar deneyin.";
+                loginError.classList.remove('hidden');
+            }
+        } finally {
             if (btnLogin) { btnLogin.textContent = 'Giriş Yap'; btnLogin.disabled = false; }
         }
-
-        const matchedStaff = staffList.find(s => 
-            (s.passwordHash && s.passwordHash === inputHash) || 
-            (s.staffPassword && s.staffPassword === password)
-        );
-
-        if (matchedStaff) {
-            localStorage.setItem('myStaffId', String(matchedStaff.id));
-            logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle giriş yapti.`);
-            if (loginError) loginError.classList.add('hidden');
-            finishLogin(false);
-            return;
-        }
-
-        // 4. Hatali şifre
-        if (loginError) loginError.classList.remove('hidden');
-        loginPassInput.value = '';
-        loginPassInput.focus();
     };
 
     if (btnLogin) btnLogin.addEventListener('click', handleLogin);
@@ -1071,7 +1145,7 @@ function confirmWithPassword(description, staff) {
         };
 
         const onOk = () => {
-            if (input.value === staff.staffPassword) {
+            if (isStaffPasswordMatch(staff, input.value)) {
                 cleanup(true);
             } else {
                 error.classList.remove('hidden');
@@ -1211,7 +1285,7 @@ function initUI() {
         const pass = input ? input.value.trim() : '';
         if (!pass) return;
 
-        const matched = DB.staff.find(s => s.staffPassword && s.staffPassword === pass);
+        const matched = DB.staff.find(s => isStaffPasswordMatch(s, pass));
         if (matched) {
             localStorage.setItem('myStaffId', String(matched.id));
             if (errorEl) errorEl.classList.add('hidden');
@@ -6918,9 +6992,21 @@ window.renderProfile = function() {
 
         renderLevelSystem(staff);
 
-        // Şifre ayarlama bölümünü göster
-        renderPasswordSettings(staff);
+        // Kişisel Şifre Bilgilendirme Duyurusu Metnini Güncelle
+        const annText = document.getElementById('profile-password-announcement-text');
+        if (annText) {
+            const defaultPass = getDefaultStaffPassword(staff.name);
+            const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
+            let passInfo = 'Sisteme ilk giriş ekranında genel şifre (<strong>Gtu2026</strong>) yerine doğrudan <strong>' + defaultPass + '</strong>';
+            if (oldPass) {
+                passInfo += ' veya eski şifreniz (<strong>' + oldPass + '</strong>)';
+            }
+            passInfo += ' ile giriş yaparak doğrudan profilinize ulaşabilirsiniz. Şifrenizi değiştirmek isterseniz aşağıdaki <strong>"Kişisel Giriş Şifrem"</strong> panelinden dilediğiniz zaman güncelleyebilirsiniz.';
+            annText.innerHTML = passInfo;
+        }
 
+        // Şifre ayarlama bölümünü göster
+        renderPasswordSection(staff);
 
         // Yönetici Modu: Profil Başliğinda Hizli Personel Değiştirici Bari
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
@@ -8081,57 +8167,239 @@ function renderPasswordSection(staff) {
     let container = document.getElementById('profile-password-section');
     if (!container) return;
 
-    const hasPass = !!staff.staffPassword;
+    const hasCustomPass = !!staff.staffPassword;
+    const defaultPass = getDefaultStaffPassword(staff.name);
+    const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
+    
+    let passNote = `Varsayılan giriş şifreniz: <strong>${defaultPass}</strong>`;
+    if (oldPass) {
+        passNote += ` | Eski şifreniz: <strong>${oldPass}</strong>`;
+    }
+
     container.innerHTML = `
         <div style="margin-top: 1.5rem; padding: 1.25rem 1.5rem; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h4 style="margin: 0; font-size: 0.9rem; color: var(--primary);">🔑 Kişisel Giriş Şifrem</h4>
-                ${hasPass ? '<span style="font-size:0.75rem; color:var(--accent-green); background:rgba(34,197,94,0.1); padding:3px 10px; border-radius:20px;">✓ Şifre Ayarli</span>' : '<span style="font-size:0.75rem; color:var(--text-muted);">Henüz şifre yok</span>'}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <h4 style="margin: 0; font-size: 0.92rem; color: var(--primary); display: flex; align-items: center; gap: 6px;">
+                    <span>🔑</span> Kişisel Giriş Şifrem
+                </h4>
+                ${hasCustomPass ? '<span style="font-size:0.75rem; color:var(--accent-green); background:rgba(34,197,94,0.12); padding:3px 10px; border-radius:20px; font-weight:600;">✓ Özel Şifre Aktif</span>' : '<span style="font-size:0.75rem; color:#a5b4fc; background:rgba(99,102,241,0.12); padding:3px 10px; border-radius:20px;">Standart Şifre</span>'}
             </div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-                Kişisel şifrenizi belirleyerek giriş ekraninda doğrudan kendi profilinize geçiş yapabilirsiniz.
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.6rem; line-height: 1.45;">
+                Ana giriş ekranında genel şifre yerine kendi şifrenizle giriş yaparak doğrudan profilinize ulaşabilirsiniz. İsterseniz buradan yeni bir şifre belirleyebilirsiniz.
             </p>
+            <div style="font-size: 0.78rem; color: #94a3b8; background: rgba(0,0,0,0.2); padding: 7px 11px; border-radius: 8px; margin-bottom: 1rem; border: 1px dashed rgba(255,255,255,0.1);">
+                💡 ${passNote}
+            </div>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="password" id="profile-pass-input" placeholder="Yeni şifre girin" 
-                    style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.6rem 0.9rem; border-radius: 9px; color:white; font-family:inherit;">
-                <button onclick="saveProfilePassword(${staff.id})" class="btn-primary" style="white-space:nowrap; padding: 0.6rem 1.1rem; font-size:0.85rem;">Kaydet</button>
-                ${hasPass ? `<button onclick="removeProfilePassword(${staff.id})" class="btn-secondary" style="white-space:nowrap; padding: 0.6rem 0.9rem; font-size:0.85rem; color:var(--accent-red);">Kaldir</button>` : ''}
+                <input type="password" id="profile-pass-input" placeholder="Yeni şifrenizi girin..." 
+                    style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.65rem 0.9rem; border-radius: 9px; color:white; font-family:inherit; font-size: 0.88rem;">
+                <button onclick="saveProfilePassword(${staff.id})" class="btn-primary" style="white-space:nowrap; padding: 0.65rem 1.1rem; font-size:0.85rem; background: linear-gradient(135deg, var(--primary), #4f46e5);">Kaydet</button>
+                ${hasCustomPass ? `<button onclick="removeProfilePassword(${staff.id})" class="btn-secondary" style="white-space:nowrap; padding: 0.65rem 0.9rem; font-size:0.85rem; color:var(--accent-red); border-color: rgba(239,68,68,0.3);">Varsayılana Dön</button>` : ''}
             </div>
         </div>
     `;
 }
 
-window.saveProfilePassword = function(staffId) {
+window.saveProfilePassword = async function(staffId) {
     const input = document.getElementById('profile-pass-input');
     const newPass = (input && input.value) ? input.value.trim() : '';
     if (!newPass) { alert('Şifre boş olamaz!'); return; }
-    if (newPass.length < 4) { alert('Şifre en az 4 karakter olmalidir!'); return; }
+    if (newPass.length < 4) { alert('Şifre en az 4 karakter olmalıdır!'); return; }
 
-    // Ayni şifre başka birinde var mi?
-    const ADMIN_PASSWORD = 'Gtuturan123';
+    const ADMIN_PASSWORD_1 = 'GtuAdmın123';
+    const ADMIN_PASSWORD_2 = 'GtuAdmin123';
     const GOZETMEN_PASSWORD = 'Gtu2026';
-    if (newPass === ADMIN_PASSWORD || newPass === GOZETMEN_PASSWORD) {
-        alert('Bu şifre sisteme ayrilmiş, lütfen farkli bir şifre seçin.'); return;
+    if (newPass === ADMIN_PASSWORD_1 || newPass === ADMIN_PASSWORD_2 || newPass === GOZETMEN_PASSWORD) {
+        alert('Bu şifre sisteme ayrılmış genel bir şifredir, lütfen kendinize özel farklı bir şifre seçin.');
+        return;
     }
     const conflict = DB.staff.find(s => s.staffPassword === newPass && String(s.id) !== String(staffId));
-    if (conflict) { alert('Bu şifre zaten başka bir gözetmen tarafindan kullaniliyor!'); return; }
+    if (conflict) {
+        alert('Bu şifre zaten başka bir personel tarafından kullanılıyor! Lütfen farklı bir şifre belirleyin.');
+        return;
+    }
 
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
     staff.staffPassword = newPass;
     saveToLocalStorage();
-    alert(`✓ Şifreniz başariyla kaydedildi!\n\nArtik giriş ekraninda "${newPass}" şifresiyle doğrudan profilinize girebilirsiniz.`);
+    if (typeof saveToBackend === 'function') {
+        await saveToBackend();
+    }
+    alert(`✓ Şifreniz başarıyla kaydedildi!\n\nArtık ana giriş ekranında "${newPass}" şifrenizle doğrudan kendi profilinize giriş yapabilirsiniz.`);
     renderPasswordSection(staff);
+    if (typeof renderProfile === 'function') renderProfile();
 };
 
-window.removeProfilePassword = function(staffId) {
-    if (!confirm('Kişisel şifreniz kaldirilacak. Emin misiniz?')) return;
+window.removeProfilePassword = async function(staffId) {
+    if (!confirm('Kişisel şifrenizi kaldırıp standart isminiz123 şifresine dönmek istediğinize emin misiniz?')) return;
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
     delete staff.staffPassword;
     saveToLocalStorage();
+    if (typeof saveToBackend === 'function') {
+        await saveToBackend();
+    }
     renderPasswordSection(staff);
+    if (typeof renderProfile === 'function') renderProfile();
 };
+
+
+// ============================================================
+// 🔑 ŞİFRE DEĞİŞTİRME MODAL FONKSİYONLARI
+// ============================================================
+window.openChangePasswordModal = function(staffId) {
+    const targetId = staffId || localStorage.getItem('myStaffId');
+    if (!targetId) {
+        alert("Lütfen önce bir profil seçin veya giriş yapın.");
+        return;
+    }
+
+    const staff = DB.staff.find(s => String(s.id) === String(targetId));
+    if (!staff) {
+        alert("Personel kaydı bulunamadı.");
+        return;
+    }
+
+    const nameEl = document.getElementById('modal-pwd-staff-name');
+    if (nameEl) nameEl.textContent = staff.name;
+
+    const infoEl = document.getElementById('modal-pwd-current-info');
+    if (infoEl) {
+        const defaultPass = getDefaultStaffPassword(staff.name);
+        const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
+        let html = `<div><strong>Personel:</strong> ${staff.name}</div>`;
+        html += `<div style="margin-top:4px;"><strong>Varsayılan Şifre:</strong> <code>${defaultPass}</code></div>`;
+        if (oldPass) {
+            html += `<div style="margin-top:2px;"><strong>Eski Şifre:</strong> <code>${oldPass}</code></div>`;
+        }
+        if (staff.staffPassword) {
+            html += `<div style="margin-top:4px; color:var(--accent-green);"><strong>✓ Mevcut Özel Şifreniz:</strong> <code>${staff.staffPassword}</code></div>`;
+        } else {
+            html += `<div style="margin-top:4px; color:#a5b4fc;"><strong>Durum:</strong> Standart şifre aktif. Yeni bir şifre belirleyebilirsiniz.</div>`;
+        }
+        infoEl.innerHTML = html;
+    }
+
+    const passInput = document.getElementById('modal-input-new-pass');
+    const confirmInput = document.getElementById('modal-input-new-pass-confirm');
+    const errEl = document.getElementById('modal-pwd-error');
+
+    if (passInput) { passInput.value = ''; passInput.type = 'password'; }
+    if (confirmInput) { confirmInput.value = ''; confirmInput.type = 'password'; }
+    if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+
+    const modal = document.getElementById('modal-change-password');
+    if (modal) modal.classList.remove('hidden');
+    setTimeout(() => passInput?.focus(), 100);
+};
+
+window.closeChangePasswordModal = function() {
+    const modal = document.getElementById('modal-change-password');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.togglePassVisibility = function(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+};
+
+window.submitChangePasswordModal = async function() {
+    const staffId = localStorage.getItem('myStaffId');
+    if (!staffId) {
+        alert("Oturum bulunamadı.");
+        return;
+    }
+
+    const passInput = document.getElementById('modal-input-new-pass');
+    const confirmInput = document.getElementById('modal-input-new-pass-confirm');
+    const errEl = document.getElementById('modal-pwd-error');
+
+    const newPass = passInput ? passInput.value.trim() : '';
+    const confirmPass = confirmInput ? confirmInput.value.trim() : '';
+
+    const showError = (msg) => {
+        if (errEl) {
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+        } else {
+            alert(msg);
+        }
+    };
+
+    if (!newPass) return showError("Lütfen yeni şifrenizi girin.");
+    if (newPass.length < 4) return showError("Şifre en az 4 karakter uzunluğunda olmalıdır.");
+    if (newPass !== confirmPass) return showError("Girdiğiniz şifreler birbiriyle eşleşmiyor! Lütfen tekrar kontrol edin.");
+
+    const ADMIN_PASSWORD_1 = 'GtuAdmın123';
+    const ADMIN_PASSWORD_2 = 'GtuAdmin123';
+    const GOZETMEN_PASSWORD = 'Gtu2026';
+    if (newPass === ADMIN_PASSWORD_1 || newPass === ADMIN_PASSWORD_2 || newPass === GOZETMEN_PASSWORD) {
+        return showError("Bu şifre sisteme ayrılmış genel bir şifredir. Lütfen kendinize özel farklı bir şifre belirleyin.");
+    }
+
+    const conflict = DB.staff.find(s => s.staffPassword === newPass && String(s.id) !== String(staffId));
+    if (conflict) {
+        return showError(`Bu şifre zaten başka bir gözetmen (${conflict.name}) tarafından kullanılıyor! Lütfen farklı bir şifre seçin.`);
+    }
+
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff) return showError("Personel kaydı bulunamadı.");
+
+    const saveBtn = document.getElementById('btn-modal-save-pwd');
+    if (saveBtn) { saveBtn.textContent = 'Kaydediliyor...'; saveBtn.disabled = true; }
+
+    try {
+        staff.staffPassword = newPass;
+        saveToLocalStorage();
+        if (typeof saveToBackend === 'function') {
+            await saveToBackend();
+        }
+
+        closeChangePasswordModal();
+        if (typeof renderProfile === 'function') renderProfile();
+        if (typeof renderPasswordSection === 'function') renderPasswordSection(staff);
+        if (typeof window.showToast === 'function') {
+            window.showToast(`✅ Şifreniz başarıyla "${newPass}" olarak güncellendi!`);
+        } else {
+            alert(`✅ Şifreniz başarıyla kaydedildi!\n\nArtık ana giriş ekranında "${newPass}" şifrenizle doğrudan kendi profilinize giriş yapabilirsiniz.`);
+        }
+    } catch (e) {
+        showError("Kayıt sırasında bir hata oluştu: " + e.message);
+    } finally {
+        if (saveBtn) { saveBtn.textContent = '💾 Şifreyi Kaydet ve Güncelle'; saveBtn.disabled = false; }
+    }
+};
+
+window.resetToDefaultPasswordModal = async function() {
+    const staffId = localStorage.getItem('myStaffId');
+    if (!staffId) return;
+
+    const staff = DB.staff.find(s => String(s.id) === String(staffId));
+    if (!staff) return;
+
+    const defaultPass = getDefaultStaffPassword(staff.name);
+    if (!confirm(`Kişisel şifrenizi kaldırıp standart varsayılan şifrenize (${defaultPass}) dönmek istediğinize emin misiniz?`)) {
+        return;
+    }
+
+    delete staff.staffPassword;
+    saveToLocalStorage();
+    if (typeof saveToBackend === 'function') {
+        await saveToBackend();
+    }
+
+    closeChangePasswordModal();
+    if (typeof renderProfile === 'function') renderProfile();
+    if (typeof renderPasswordSection === 'function') renderPasswordSection(staff);
+    if (typeof window.showToast === 'function') {
+        window.showToast(`✅ Şifreniz standart (${defaultPass}) olarak sıfırlandı.`);
+    } else {
+        alert(`✅ Şifreniz standart (${defaultPass}) olarak sıfırlandı.`);
+    }
+};
+
 
 /**
  * DUYURU SİSTEMİ FONKSİYONLARI
@@ -13852,6 +14120,12 @@ window.exportScheduleToExcel = function() {
         window.showToast("Sinav programi başariyla Excel (CSV) formatinda indirildi.", "success");
     }
 };
+
+
+
+
+
+
 
 
 

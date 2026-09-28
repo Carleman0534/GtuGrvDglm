@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -64,6 +64,7 @@
                     </div>
 
                     <button id="btn-theme-toggle" class="btn-utility" title="Temayı Değiştir">🌓</button>
+                    <button id="btn-logout" class="btn-utility" title="Oturumu Kapat / Giriş Ekranına Dön" style="color: #ef4444; font-size: 1.1rem;" onclick="logoutUser()">🚪</button>
 
                     <div class="notif-wrapper" style="position: relative; display: flex; align-items: center;">
                         <button id="btn-notifications" class="btn-utility" title="Bildirimler">
@@ -138,7 +139,23 @@
                 <div id="profile-identity-setup" class="card-large identity-setup hidden" style="text-align: center; max-width: 500px; margin: 4rem auto;">
                     <div style="font-size: 5rem; margin-bottom: 2rem; filter: drop-shadow(0 0 15px var(--primary));">👤</div>
                     <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Profilinizi Kurun</h2>
-                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Kişisel şifrenizle giriş yapın ya da listeden isminizi seçin.</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Kişisel şifrenizle giriş yapın ya da listeden isminizi seçin.</p>
+
+                    <!-- Kişisel Şifre ile Hızlı Giriş Bilgilendirme Kartı -->
+                    <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(168, 85, 247, 0.08)); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 14px; padding: 1.1rem 1.25rem; margin-bottom: 1.75rem; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+                        <div style="display: flex; gap: 12px; align-items: flex-start;">
+                            <span style="font-size: 1.6rem; line-height: 1;">📢</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: #a5b4fc; margin-bottom: 4px;">Kişisel Şifre ile Doğrudan Giriş</div>
+                                <p style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.5; margin: 0 0 6px 0;">
+                                    Sisteme ana giriş ekranından genel şifre (<strong>Gtu2026</strong>) yerine doğrudan <strong>adınız123</strong> (örn: <code>yasin123</code>, <code>cansu123</code>...) formatındaki şifrenizle giriş yaparak doğrudan kendi profilinize ulaşabilirsiniz.
+                                </p>
+                                <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.4; margin: 0;">
+                                    💡 <em>Profilinize girdikten sonra şifrenizi dilediğiniz gibi güncelleyebilirsiniz. (Aslıhan, Serkan ve Yasin hocalarımız eski şifrelerini de kullanabilirler.)</em>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Şifreli Giriş -->
                     <div style="margin-bottom: 1.25rem;">
@@ -185,6 +202,9 @@
                             </div>
                         </div>
                         <div class="profile-hero-actions">
+                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="openChangePasswordModal()">
+                                <span>🔑</span> Şifremi Değiştir
+                            </button>
                             <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="exportMyExamsToICal()">
                                 <span>📅</span> Takvimime Ekle (.ics)
                             </button>
@@ -192,6 +212,24 @@
                                 <span>🔄 Kimliği Değiştir</span>
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Kişisel Şifre ile Hızlı Giriş Bilgilendirme Duyurusu -->
+                    <div id="profile-password-announcement-banner" class="profile-pwd-banner" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08)); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 14px; padding: 1rem 1.4rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <span style="font-size: 1.6rem; background: rgba(99, 102, 241, 0.2); width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">📢</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: #a5b4fc; margin-bottom: 2px;">
+                                    Kişisel Şifre ile Hızlı Giriş Bilgilendirmesi
+                                </div>
+                                <div id="profile-password-announcement-text" style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.45;">
+                                    Sisteme ana giriş ekranından genel şifre (<strong>Gtu2026</strong>) yerine doğrudan <strong>adınız123</strong> formatındaki kişisel şifrenizle giriş yaparak profilinize doğrudan erişebilirsiniz. Dilediğiniz zaman sağdaki <strong>"Kişisel Giriş Şifrem"</strong> bölümünden şifrenizi değiştirebilirsiniz.
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-primary" style="white-space: nowrap; padding: 0.6rem 1rem; font-size: 0.85rem; background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0;" onclick="openChangePasswordModal()">
+                            <span>🔑</span> Şifremi Değiştir
+                        </button>
                     </div>
 
                     <!-- 4 Bento KPI Kartı (Özet Metrikler) -->
@@ -2118,6 +2156,60 @@
             <div style="display: flex; gap: 10px;">
                 <button id="btn-swap-confirm-cancel" class="btn-secondary" style="flex: 1;">İptal</button>
                 <button id="btn-swap-confirm-ok" class="btn-primary" style="flex: 1; background: var(--accent-green);">✓ Onayla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Şifre Değiştirme Modalı -->
+    <div id="modal-change-password" class="modal hidden" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 440px; padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.8rem; background: rgba(99,102,241,0.15); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">🔑</span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.2rem; color: #f1f5f9;">Kişisel Şifremi Değiştir</h3>
+                        <span id="modal-pwd-staff-name" style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Personel Adı</span>
+                    </div>
+                </div>
+                <button class="close-modal" onclick="closeChangePasswordModal()">&times;</button>
+            </div>
+
+            <div id="modal-pwd-current-info" style="background: rgba(99,102,241,0.08); border: 1px dashed rgba(99,102,241,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: #cbd5e1; line-height: 1.45;">
+                💡 Yeni şifreniz ana giriş ekranında ve takas onaylarında geçerli olacaktır.
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;">Yeni Şifre</label>
+                <div style="position: relative;">
+                    <input type="password" id="modal-input-new-pass" placeholder="Yeni şifrenizi girin (en az 4 karakter)"
+                        style="width: 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--glass-border); padding: 0.75rem 2.5rem 0.75rem 0.9rem; border-radius: 10px; color: white; font-family: inherit; font-size: 0.95rem; box-sizing: border-box;">
+                    <button type="button" onclick="togglePassVisibility('modal-input-new-pass')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--text-muted);">👁️</button>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;">Yeni Şifre (Tekrar)</label>
+                <div style="position: relative;">
+                    <input type="password" id="modal-input-new-pass-confirm" placeholder="Yeni şifrenizi tekrar girin"
+                        style="width: 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--glass-border); padding: 0.75rem 2.5rem 0.75rem 0.9rem; border-radius: 10px; color: white; font-family: inherit; font-size: 0.95rem; box-sizing: border-box;">
+                    <button type="button" onclick="togglePassVisibility('modal-input-new-pass-confirm')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--text-muted);">👁️</button>
+                </div>
+            </div>
+
+            <p id="modal-pwd-error" class="login-error hidden" style="margin-bottom: 1rem; font-size: 0.85rem;"></p>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button type="button" id="btn-modal-save-pwd" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 0.95rem; background: linear-gradient(135deg, var(--primary), #4f46e5); font-weight: 600;" onclick="submitChangePasswordModal()">
+                    💾 Şifreyi Kaydet ve Güncelle
+                </button>
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; padding: 0.65rem; font-size: 0.82rem; color: var(--accent-orange); border-color: rgba(245,158,11,0.3);" onclick="resetToDefaultPasswordModal()">
+                        🔄 Varsayılana Sıfırla
+                    </button>
+                    <button type="button" class="btn-secondary" style="flex: 1; justify-content: center; padding: 0.65rem; font-size: 0.82rem;" onclick="closeChangePasswordModal()">
+                        Kapat
+                    </button>
+                </div>
             </div>
         </div>
     </div>
