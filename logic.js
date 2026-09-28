@@ -1123,8 +1123,9 @@ window.hashSHA256 = hashSHA256;
 // Yetkili SHA-256 Hash Değerleri (Plaintext şifreler kodda saklanmaz)
 const AUTH_HASHES = {
     ADMIN_HASHES: [
-        'b8e411d15dd5e2034aa6cce8319d2acb48da5a601081e3cef6207f9cb5cbcf68', // GtuAdmın123
-        'f01067db8f520b1b1f84e73c23d298c2de9f541ec78d852eb2fa7128d0956c5e'  // GtuAdmin123
+        '2c5d6078956f040e48eeb3e68e24deaeae547eff39fa8bc358d7ae02dbc8ab65', // Gtuturan123
+        'f01067db8f520b1b1f84e73c23d298c2de9f541ec78d852eb2fa7128d0956c5e', // GtuAdmin123
+        'b8e411d15dd5e2034aa6cce8319d2acb48da5a601081e3cef6207f9cb5cbcf68'  // GtuAdmın123
     ],
     PROCTOR_HASH: '529c6b49c165be870c4fc86cc679928cc32565286a8aa07b31e87bb298cbe408' // Gtu2026
 };

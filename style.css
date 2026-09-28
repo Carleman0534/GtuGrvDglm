@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     /* Color Palette - Academic (Oxford Blue & Burgundy) */
     --primary: hsl(212, 85%, 22%);       /* Balanced Oxford Blue */
     --primary-hover: hsl(212, 80%, 30%);
@@ -3536,3 +3536,110 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
     transform: translateZ(0);
 }
 
+/* =====================================================================
+   GÖREV TAKASI & GÖREV PAZARI (swap_market.js)
+   ===================================================================== */
+.swap-modal { max-width: 680px; width: 100%; }
+.swap-modal .modal-body { max-height: 70vh; overflow-y: auto; }
+.swap-step-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin: 0.25rem 0 0.5rem; display: block; }
+.swap-step-label small { text-transform: none; font-weight: 500; color: var(--text-muted); letter-spacing: 0; }
+.swap-hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin: 0.5rem 0; }
+.swap-empty { font-size: 0.85rem; color: var(--text-muted); padding: 0.75rem; margin: 0; }
+.swap-textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--glass-border); background: rgba(127,127,127,0.08); border-radius: 8px; color: var(--text-primary); padding: 0.6rem; font-family: inherit; font-size: 0.85rem; resize: vertical; }
+.mail-draft-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.78rem; line-height: 1.45; }
+.swap-check { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem; cursor: pointer; }
+
+.swap-exam-card { border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.7rem 0.85rem; background: rgba(127,127,127,0.06); }
+.swap-exam-title { font-weight: 700; font-size: 0.9rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.swap-exam-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.swap-type { display: inline-block; font-size: 0.65rem; font-weight: 600; padding: 2px 7px; border-radius: 20px; background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.swap-exam-list { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 2px; }
+.swap-exam-option { cursor: pointer; border-radius: 12px; border: 2px solid transparent; transition: border-color .15s, transform .15s; }
+.swap-exam-option:hover { border-color: rgba(139, 92, 246, 0.4); }
+.swap-exam-option.active { border-color: #8b5cf6; }
+.swap-exam-option.active .swap-exam-card { background: rgba(139, 92, 246, 0.1); }
+.swap-exam-option.disabled { cursor: not-allowed; opacity: 0.6; }
+.swap-exam-option.disabled:hover { border-color: transparent; }
+.swap-check-line { font-size: 0.74rem; margin-top: 6px; color: var(--text-secondary); }
+.swap-check-line.ok { color: #10b981; }
+.swap-check-line.bad { color: #ef4444; }
+
+.swap-summary { margin-top: 1rem; padding: 0.85rem; border-radius: 12px; border: 1px dashed #8b5cf6; background: rgba(139, 92, 246, 0.06); }
+.swap-summary-head { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+.swap-summary-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed; }
+.swap-summary-table th, .swap-summary-table td { padding: 5px 8px; border-bottom: 1px solid var(--glass-border); text-align: left; vertical-align: top; word-wrap: break-word; color: var(--text-primary); }
+.swap-summary-table thead th { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; }
+.swap-summary-table tbody th { width: 64px; color: var(--text-muted); font-weight: 600; }
+.swap-score-note, .swap-mail-preview-to { font-size: 0.76rem; color: var(--text-muted); margin-top: 6px; }
+
+/* Durum rozetleri */
+.swap-status { display: inline-flex; align-items: center; font-size: 0.66rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; white-space: nowrap; border: 1px solid transparent; }
+.st-normal { background: rgba(100,116,139,0.12); color: #64748b; }
+.st-swap-sent { background: rgba(59,130,246,0.14); color: #3b82f6; border-color: rgba(59,130,246,0.3); }
+.st-swap-wait { background: rgba(245,158,11,0.15); color: #d97706; border-color: rgba(245,158,11,0.35); }
+.st-market { background: rgba(139,92,246,0.14); color: #8b5cf6; border-color: rgba(139,92,246,0.3); }
+.st-claim { background: rgba(236,72,153,0.14); color: #db2777; border-color: rgba(236,72,153,0.3); }
+.st-admin { background: rgba(14,165,233,0.14); color: #0284c7; border-color: rgba(14,165,233,0.3); }
+.st-done { background: rgba(16,185,129,0.14); color: #059669; border-color: rgba(16,185,129,0.3); }
+.st-rejected { background: rgba(239,68,68,0.12); color: #dc2626; border-color: rgba(239,68,68,0.3); }
+.st-cancelled { background: rgba(100,116,139,0.12); color: #64748b; border-color: rgba(100,116,139,0.25); }
+
+/* Görev satırı düğmeleri */
+.swap-actions { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.btn-swap-action { border: 1px solid var(--glass-border); background: rgba(127,127,127,0.08); color: var(--text-primary); border-radius: 7px; padding: 0.3rem 0.6rem; font-size: 0.74rem; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background .15s, border-color .15s; }
+.btn-swap-action.swap:hover { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
+.btn-swap-action.market { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.35); color: #8b5cf6; }
+.btn-swap-action.market:hover { background: rgba(139,92,246,0.22); }
+.btn-swap-action.cancel:hover { background: rgba(239,68,68,0.15); border-color: #ef4444; }
+.btn-swap-action.review { background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.4); color: #d97706; }
+
+/* Pazar Yeri */
+.market-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.market-actions button { padding: 0.35rem 0.7rem; font-size: 0.74rem; }
+.market-actions button[disabled] { opacity: 0.45; cursor: not-allowed; }
+.market-row-disabled td { opacity: 0.7; }
+.market-section-row td { font-weight: 700; font-size: 0.78rem; color: #8b5cf6; background: rgba(139,92,246,0.06); }
+.market-note { font-size: 0.76rem; color: var(--text-secondary); margin-top: 6px; font-style: italic; }
+.market-drop-counts { font-size: 0.85rem; line-height: 1.7; color: var(--text-primary); }
+.market-drop-excluded details { font-size: 0.78rem; color: var(--text-muted); margin: 0.5rem 0; }
+.market-drop-excluded ul { max-height: 160px; overflow-y: auto; margin: 0.4rem 0 0; padding-left: 1.1rem; }
+.market-drop-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.75rem; }
+.market-drop-actions button[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* Taleplerim */
+.requests-section { margin-bottom: 1.25rem; }
+.requests-section h4 { font-size: 0.88rem; margin: 0 0 0.6rem; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.requests-count { font-size: 0.7rem; background: rgba(139,92,246,0.15); color: #8b5cf6; border-radius: 20px; padding: 1px 8px; }
+.request-card { border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.8rem; margin-bottom: 0.6rem; background: rgba(127,127,127,0.05); display: grid; gap: 0.5rem; }
+.request-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 0.85rem; color: var(--text-primary); }
+.request-card-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.request-card-foot small { color: var(--text-muted); font-size: 0.72rem; }
+.tab-count-badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 10px; background: var(--accent-red); color: #fff; font-size: 0.66rem; font-weight: 700; line-height: 18px; text-align: center; }
+.tab-count-badge.hidden { display: none; }
+.swap-proposals-banner { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0.9rem 1.1rem; margin-bottom: 1.25rem; border-radius: 12px; border: 1px solid rgba(139,92,246,0.45); background: rgba(139,92,246,0.1); font-size: 0.88rem; color: var(--text-primary); }
+.swap-proposal-chip { display: inline-block; font-size: 0.72rem; margin: 2px 4px 0 0; padding: 2px 8px; border-radius: 20px; background: rgba(139,92,246,0.15); }
+
+/* Yönetici paneli */
+.swap-admin-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 1rem; }
+.swap-admin-head h3 { margin: 0; font-size: 0.9rem; text-transform: uppercase; color: #8b5cf6; display: flex; align-items: center; gap: 8px; }
+.swap-admin-settings { display: grid; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
+.swap-admin-settings label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
+/* E-posta taslağı */
+.mail-draft-recipients { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem; display: grid; gap: 4px; }
+.mail-draft-recipients summary { cursor: pointer; }
+.mail-draft-bcc { font-size: 0.74rem; color: var(--text-muted); max-height: 110px; overflow-y: auto; padding: 4px 0 0 12px; word-break: break-all; }
+.mail-client-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.mail-client-btn { padding: 0.6rem 0.5rem; font-size: 0.8rem; line-height: 1.3; }
+.mail-client-btn small { font-size: 0.68rem; opacity: 0.8; font-weight: 400; }
+.mail-client-btn.preferred { outline: 2px solid #8b5cf6; outline-offset: 1px; }
+.mail-draft-batches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.75rem; }
+.mail-draft-note { width: 100%; font-size: 0.78rem; color: var(--text-secondary); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 0.5rem 0.7rem; line-height: 1.5; }
+.mail-batch-btn.done { opacity: 0.6; }
+
+@media (max-width: 640px) {
+    .swap-modal .modal-body { max-height: 75vh; }
+    .swap-summary-table { font-size: 0.72rem; }
+    .swap-summary-table tbody th { width: 48px; }
+    .market-actions { justify-content: flex-start; }
+}
