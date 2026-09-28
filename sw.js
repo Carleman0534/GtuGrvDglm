@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'gozetmenlik-ai-v12';
+const CACHE_NAME = 'gozetmenlik-ai-v8';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -51,7 +51,3 @@ self.addEventListener('fetch', event => {
         );
     }
 });
-
-
-
-

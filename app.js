@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Gözetmenlik UI Kontrolcü
  */
 
@@ -29,12 +29,12 @@ window.getAvatarHtml = function(name) {
 };
 
 /**
- * Puan rengine göre şik bir renk döndürür.
+ * Puan rengine göre şık bir renk döndürür.
  */
 window.getScoreColor = function(score) {
     if (score >= 80) return "#10b981"; // Yeşil (Çok Esnek)
     if (score >= 50) return "#f59e0b"; // Turuncu (Orta)
-    return "#ef4444"; // Kirmizi (Kisitli)
+    return "#ef4444"; // Kırmızı (Kısıtlı)
 };
 
 /**
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('login-error');
 
     // Şifreler (frontend yerel kontrolü)
-    const ADMIN_PASSWORD = 'Gtuturan123';
+    const ADMIN_PASSWORD = 'GtuAdmın123';
     const GOZETMEN_PASSWORD = 'Gtu2026';
 
     const finishLogin = async (isAdmin, isLecturer = false) => {
@@ -98,12 +98,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
         
-        // Hoca modunda her şeyi gizle, sadece programi ve yeni portali göster
+        // Hoca modunda her şeyi gizle, sadece programı ve yeni portalı göster
         if (isLecturerMode) {
             document.body.classList.add('lecturer-mode');
             document.querySelectorAll('.lecturer-only').forEach(el => el.classList.remove('hidden'));
             
-            // Başlangiçta Programi göster
+            // Başlangıçta Programı göster
             Object.values(sections).forEach(s => { if(s) s.classList.add('hidden'); });
             if (sections.schedule) sections.schedule.classList.remove('hidden');
             Object.values(navButtons).forEach(b => { if(b) b.classList.remove('active'); });
@@ -124,19 +124,19 @@ document.addEventListener('DOMContentLoaded', () => {
         await initApp();
         
         if (document.getElementById('btn-lecturer-portal')) {
-            // Buton zaten navButtons içinde olduğu için ayrica listener eklemeye gerek yok, 
-            // yukaridaki Object.entries(navButtons).forEach döngüsü bunu halledecek.
+            // Buton zaten navButtons içinde olduğu için ayrıca listener eklemeye gerek yok, 
+            // yukarıdaki Object.entries(navButtons).forEach döngüsü bunu halledecek.
         }
 
         // Portal dropdown listeners moved to functions themselves or global scope for reliability
         
         if (isLecturer) {
-            // Olasi event listener asenkron gecikmelerini aşmak için kisa bir gecikme ve fallback
+            // Olası event listener asenkron gecikmelerini aşmak için kısa bir gecikme ve fallback
             setTimeout(() => {
                 const btnSchedule = document.getElementById('btn-schedule');
                 if (btnSchedule) btnSchedule.click();
                 
-                // Eğer click listener henüz bağlanmadiysa diye manuel çağir (fallback)
+                // Eğer click listener henüz bağlanmadıysa diye manuel çağır (fallback)
                 if (typeof renderSchedule === 'function') renderSchedule();
             }, 50);
         }
@@ -158,33 +158,33 @@ document.addEventListener('DOMContentLoaded', () => {
             ? await hashSHA256(password) 
             : password;
 
-        // 1. Yönetici şifresi (SHA-256 Hash Doğrulamasi)
+        // 1. Yönetici şifresi (SHA-256 Hash Doğrulaması)
         const isAdminMatch = (window.AUTH_HASHES && window.AUTH_HASHES.ADMIN_HASHES)
-            ? (inputHash.startsWith('fb_') ? (password === ADMIN_PASSWORD) : window.AUTH_HASHES.ADMIN_HASHES.includes(inputHash))
-            : (password === ADMIN_PASSWORD);
+            ? window.AUTH_HASHES.ADMIN_HASHES.includes(inputHash)
+            : (password === 'GtuAdmın123' || password === 'GtuAdmin123');
 
         if (isAdminMatch) {
             sessionStorage.setItem('userPassword', password);
-            logAction('system', 'Giriş', 'Yönetici girişi yapildi (Güvenli Hash Doğrulandi).');
+            logAction('system', 'Giriş', 'Yönetici girişi yapıldı (Güvenli Hash Doğrulandı).');
             if (loginError) loginError.classList.add('hidden');
             finishLogin(true);
             return;
         }
 
-        // 2. Genel gözetmen şifresi (SHA-256 Hash Doğrulamasi)
+        // 2. Genel gözetmen şifresi (SHA-256 Hash Doğrulaması)
         const isProctorMatch = (window.AUTH_HASHES && window.AUTH_HASHES.PROCTOR_HASH)
-            ? (inputHash.startsWith('fb_') ? (password === GOZETMEN_PASSWORD) : (inputHash === window.AUTH_HASHES.PROCTOR_HASH))
-            : (password === GOZETMEN_PASSWORD);
+            ? (inputHash === window.AUTH_HASHES.PROCTOR_HASH)
+            : (password === 'Gtu2026');
 
         if (isProctorMatch) {
-            logAction('system', 'Giriş', 'Gözetmen girişi yapildi (Güvenli Hash Doğrulandi).');
+            logAction('system', 'Giriş', 'Gözetmen girişi yapıldı (Güvenli Hash Doğrulandı).');
             if (loginError) loginError.classList.add('hidden');
             finishLogin(false);
             return;
         }
 
         // 3. Bireysel gözetmen şifresi - DB'den kontrol et
-        // Önce localStorage cache'e bak (hizli)
+        // Önce localStorage cache'e bak (hızlı)
         let staffList = [];
         const cached = localStorage.getItem(DB_KEY);
         if (cached) {
@@ -205,13 +205,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (matchedStaff) {
             localStorage.setItem('myStaffId', String(matchedStaff.id));
-            logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle giriş yapti.`);
+            logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle giriş yaptı.`);
             if (loginError) loginError.classList.add('hidden');
             finishLogin(false);
             return;
         }
 
-        // 4. Hatali şifre
+        // 4. Hatalı şifre
         if (loginError) loginError.classList.remove('hidden');
         loginPassInput.value = '';
         loginPassInput.focus();
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnLoginLecturer) {
         btnLoginLecturer.addEventListener('click', () => {
-            logAction('system', 'Giriş', 'Hoca girişi yapildi (Sadece Program).');
+            logAction('system', 'Giriş', 'Hoca girişi yapıldı (Sadece Program).');
             if (loginError) loginError.classList.add('hidden');
             finishLogin(false, true);
         });
@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initExcelImport();
 });
 
-// UI Bileşenleri ve Navigasyon Yapisi
+// UI Bileşenleri ve Navigasyon Yapısı
 const navButtons = {};
 const sections = {};
 let navigationInitialized = false;
@@ -311,23 +311,22 @@ function initNavigation() {
 }
 
 async function initApp() {
-    // Sitenin en güncel veriyi Backend API'den asenkron olarak okumasini bekliyoruz
+    // Sitenin en güncel veriyi Backend API'den asenkron olarak okumasını bekliyoruz
     await loadFromDataJSON();
 
     if (!DB.constraints) DB.constraints = {};
     if (!DB.requests) DB.requests = [];
     if (!DB.feedbacks) DB.feedbacks = [];
-    if (!DB.taskStatuses) DB.taskStatuses = {};
 
-    // Tarihi geçmiş kisitlari otomatik olarak temizle
+    // Tarihi geçmiş kısıtları otomatik olarak temizle
     if (typeof cleanExpiredConstraints === 'function') {
         cleanExpiredConstraints(true);
     }
 
-    // Sinav tarihi geçmiş talepleri otomatik sona erdir
+    // Sınav tarihi geçmiş talepleri otomatik sona erdir
     const expireResult = autoExpireRequests();
     if (expireResult.expired > 0) {
-        console.log(`🕐 ${expireResult.expired} süresi geçmiş talep otomatik kapatildi.`);
+        console.log(`🕐 ${expireResult.expired} süresi geçmiş talep otomatik kapatıldı.`);
     }
     // Migration: Old single announcement to new announcements array
     if (DB.announcement && !DB.announcements) {
@@ -347,59 +346,59 @@ async function initApp() {
         DB.auditLogs = [];
     }
     
-    // Varsayilan/Zorunlu duyurulari kontrol et ve eksikse ekle
+    // Varsayılan/Zorunlu duyuruları kontrol et ve eksikse ekle
     const defaultAnnouncements = [
         {
             id: 1,
-            text: "### 📢 Rehber: Kisit Ayarlarim Sistemi Ne Zaman Kullanilmalidir?\n\nYeni eklenen **Kisit Ayarlarim** özelliği ile sinav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağidaki durumlarda kisit girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalik sabit ders saatlerinizi sisteme girerek sinavlarin derslerinizle çakişmasini engelleyebilirsiniz.\n2. **Toplantilar:** Sabit bölüm toplantilari veya araştirma saatleriniz için haftalik kisit ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşim:** Şehir dişina çikacağiniz tarihlerde sistemin size görev verilmesini önlemek için tarih bazli kisit ekleyebilirsiniz.\n\n[Kisit Ayarlarinizi Hemen Güncelleyin]({{AVAIL_LINK}})",
+            text: "### 📢 Rehber: Kısıt Ayarlarım Sistemi Ne Zaman Kullanılmalıdır?\n\nYeni eklenen **Kısıt Ayarlarım** özelliği ile sınav görevlendirmelerinizi daha düzenli hale getirebilirsiniz. Aşağıdaki durumlarda kısıt girmeniz önerilir:\n\n1. **Ders Saatleriniz:** Haftalık sabit ders saatlerinizi sisteme girerek sınavların derslerinizle çakışmasını engelleyebilirsiniz.\n2. **Toplantılar:** Sabit bölüm toplantıları veya araştırma saatleriniz için haftalık kısıt ekleyebilirsiniz.\n3. **Özel Randevular:** Sadece belirli bir tarihte (örn: hastane randevusu) özel bir işiniz varsa o günü kapatabilirsiniz.\n4. **Ulaşım:** Şehir dışına çıkacağınız tarihlerde sistemin size görev verilmesini önlemek için tarih bazlı kısıt ekleyebilirsiniz.\n\n[Kısıt Ayarlarınızı Hemen Güncelleyin]({{AVAIL_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 2,
-            text: "### 📢 DUYURU 2: Müsaitlik ve Kisit Girişi\n\nSistemin doğru çalişabilmesi için müsait olmadiğiniz gün ve saatleri girmeniz önemlidir.\n\n👉 Kendi müsait olmadiğiniz saatleri sistem üzerinden girebilirsiniz.\n\nBu bilgiler:\n- Size uygun görevlerin belirlenmesinde\n- Yerine geçme önerilerinin doğru yapilmasinda\n\naktif olarak kullanilacaktir.",
+            text: "### 📢 DUYURU 2: Müsaitlik ve Kısıt Girişi\n\nSistemin doğru çalışabilmesi için müsait olmadığınız gün ve saatleri girmeniz önemlidir.\n\n👉 Kendi müsait olmadığınız saatleri sistem üzerinden girebilirsiniz.\n\nBu bilgiler:\n- Size uygun görevlerin belirlenmesinde\n- Yerine geçme önerilerinin doğru yapılmasında\n\naktif olarak kullanılacaktır.",
             isImportant: false,
             updatedAt: new Date().toISOString()
         },
         {
             id: 3,
-            text: "### 📢 DUYURU 3: Akilli Eşleştirme Sistemi\n\nSistem, yerine geçecek kişileri rastgele değil, belirli kriterlere göre akilli şekilde önerir.\n\nDeğerlendirme kriterleri:\n- Müsaitlik durumu\n- Toplam görev sayisi (adaletli dağilim)\n- Ayni gün içindeki görev yoğunluğu\n\nBu sayede görev dağilimi daha dengeli ve adil hale getirilir.",
+            text: "### 📢 DUYURU 3: Akıllı Eşleştirme Sistemi\n\nSistem, yerine geçecek kişileri rastgele değil, belirli kriterlere göre akıllı şekilde önerir.\n\nDeğerlendirme kriterleri:\n- Müsaitlik durumu\n- Toplam görev sayısı (adaletli dağılım)\n- Aynı gün içindeki görev yoğunluğu\n\nBu sayede görev dağılımı daha dengeli ve adil hale getirilir.",
             isImportant: false,
             updatedAt: new Date().toISOString()
         },
         {
             id: 4,
-            text: "### 📢 DUYURU 4: Bildirim ve Devralma Süreci\n\nPazar yeri süreci artik daha hizli:\n1. Talep oluşturulur\n2. Uygun kişilere bildirim gider\n3. Bir kullanici talebi kabul eder\n4. İşlem aninda gerçekleşir ve puanlar güncellenir\n\nTüm süreç profilinizden takip edilebilir.",
+            text: "### 📢 DUYURU 4: Bildirim ve Devralma Süreci\n\nPazar yeri süreci artık daha hızlı:\n1. Talep oluşturulur\n2. Uygun kişilere bildirim gider\n3. Bir kullanıcı talebi kabul eder\n4. İşlem anında gerçekleşir ve puanlar güncellenir\n\nTüm süreç profilinizden takip edilebilir.",
             isImportant: false,
             updatedAt: new Date().toISOString()
         },
         {
             id: 5,
-            text: "### 📢 DUYURU 5: Önemli Bilgilendirme\n\n- Ayni görev için yalnizca bir aktif talep oluşturabilirsiniz\n- Pazar yerinden alinan görevler aninda kesinleşir\n- Kendi oluşturduğunuz talepleri dilediğiniz zaman iptal edebilirsiniz",
+            text: "### 📢 DUYURU 5: Önemli Bilgilendirme\n\n- Aynı görev için yalnızca bir aktif talep oluşturabilirsiniz\n- Pazar yerinden alınan görevler anında kesinleşir\n- Kendi oluşturduğunuz talepleri dilediğiniz zaman iptal edebilirsiniz",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 6,
-            text: "### 🛒 Pazar Yeri (Açik Görevler) Kullanim Kilavuzu\n\nSinav görevlendirme sisteminde yer alan **Pazar Yeri (Açik Görevler)** sekmesi, hocalarimizin kendi aralarinda görev devri yapmalarini kolaylaştirmak için tasarlanmiştir.\n\n**Pazar Yeri Nasil Çalişir?**\n1. **Görev Paylaşimi:** Bir hoca, \"Yerime Biri Lazim\" butonuna basarak görevini Pazar Yeri'ne birakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak aninda üstlenebilir.\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\n[Açik Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
+            text: "### 🛒 Pazar Yeri (Açık Görevler) Kullanım Kılavuzu\n\nSınav görevlendirme sisteminde yer alan **Pazar Yeri (Açık Görevler)** sekmesi, hocalarımızın kendi aralarında görev devri yapmalarını kolaylaştırmak için tasarlanmıştır.\n\n**Pazar Yeri Nasıl Çalışır?**\n1. **Görev Paylaşımı:** Bir hoca, \"Yerime Biri Lazım\" butonuna basarak görevini Pazar Yeri'ne bırakabilir.\n2. **Görev Almak:** Başka bir hoca, Pazar Yeri'nde listelenen bir görevi \"Görevi Al\" butonuna basarak anında üstlenebilir.\n3. **Gizleme:** İlgilenmediğiniz görevleri \"Reddet\" butonu ile listenizden gizleyebilirsiniz.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 7,
-            text: "### 📢 Manuel Yerine Atama Hakkinda\n\nSistem üzerinden otomatik talep oluşturmanin yani sira, dilerseniz yerinize geçecek kişiyi manuel olarak da seçebilirsiniz.\n\nBunun için:\n\n**Personel listesi üzerinden**\nveya\n**Sistem içinde ilgili kişinin adina tiklayarak**\n\n“Yerine Ata” seçeneğini kullanabilirsiniz.\n\nSeçtiğiniz kişinin müsait olmasi durumunda atama işlemini başlatabilirsiniz.",
+            text: "### 📢 Manuel Yerine Atama Hakkında\n\nSistem üzerinden otomatik talep oluşturmanın yanı sıra, dilerseniz yerinize geçecek kişiyi manuel olarak da seçebilirsiniz.\n\nBunun için:\n\n**Personel listesi üzerinden**\nveya\n**Sistem içinde ilgili kişinin adına tıklayarak**\n\n“Yerine Ata” seçeneğini kullanabilirsiniz.\n\nSeçtiğiniz kişinin müsait olması durumunda atama işlemini başlatabilirsiniz.",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 8,
-            text: "### 🛒 Pazar Yeri Süreç Güncellemesi\n\nArtik pazar yerinden (\"Açik Görevler\") bir görev devralmak çok daha kolay! Bir görevi kabul ettiğinizde, devreden kişinin onayina gerek kalmadan işlem aninda gerçekleşecek ve görev profilinize eklenecektir.\n\n[Açik Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
+            text: "### 🛒 Pazar Yeri Süreç Güncellemesi\n\nArtık pazar yerinden (\"Açık Görevler\") bir görev devralmak çok daha kolay! Bir görevi kabul ettiğinizde, devreden kişinin onayına gerek kalmadan işlem anında gerçekleşecek ve görev profilinize eklenecektir.\n\n[Açık Görevleri Şimdi İnceleyin]({{MARKET_LINK}})",
             isImportant: true,
             updatedAt: new Date().toISOString()
         },
         {
             id: 9,
-            text: "### 🔄 Önemli: Takas ve Devir Süreci Güncellendi!\n\nArtik gözetmenler arasindaki görev takaslari ve devirleri için **yönetici onayi gerekmemektedir.**\n\nİşleyiş:\n1. Diğer hoca ile anlaştiğinizda (Direct Swap) veya Pazar Yeri'nden bir görev aldiğinizda işlem **aninda** gerçekleşir.\n2. Puanlar ve görev listeleri otomatik olarak güncellenir.\n3. Süreci hizlandirmak için yönetici bekleme aşamasi tamamen kaldirilmiştir.\n\nİyi görevler dileriz.",
+            text: "### 🔄 Önemli: Takas ve Devir Süreci Güncellendi!\n\nArtık gözetmenler arasındaki görev takasları ve devirleri için **yönetici onayı gerekmemektedir.**\n\nİşleyiş:\n1. Diğer hoca ile anlaştığınızda (Direct Swap) veya Pazar Yeri'nden bir görev aldığınızda işlem **anında** gerçekleşir.\n2. Puanlar ve görev listeleri otomatik olarak güncellenir.\n3. Süreci hızlandırmak için yönetici bekleme aşaması tamamen kaldırılmıştır.\n\nİyi görevler dileriz.",
             isImportant: true,
             updatedAt: new Date().toISOString()
         }
@@ -408,21 +407,21 @@ async function initApp() {
     defaultAnnouncements.forEach(def => {
         const existingIdx = DB.announcements.findIndex(a => a.id === def.id);
         if (existingIdx !== -1) {
-            // Mevcut duyuruyu güncelle (Örn: Onay süreci kisimlari değiştiği için)
+            // Mevcut duyuruyu güncelle (Örn: Onay süreci kısımları değiştiği için)
             DB.announcements[existingIdx] = def;
         } else {
             DB.announcements.push(def);
         }
     });
 
-    // Sinav Türleri Başlatma
+    // Sınav Türleri Başlatma
     if (!DB.examTypes || !Array.isArray(DB.examTypes) || DB.examTypes.length === 0) {
-        DB.examTypes = ['Vize', 'Final', 'Bütünleme', 'Ek Sinav', 'Mazeret', 'Tercih Günü', 'Diğer'];
+        DB.examTypes = ['Vize', 'Final', 'Bütünleme', 'Ek Sınav', 'Mazeret', 'Tercih Günü', 'Diğer'];
     }
 
     if (!DB.templates) {
         DB.templates = {
-            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sinavimdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\n🌐 Sisteme Giriş: {site_url}\n\nİyi çalişmalar,\n{gonderen_adi}",
+            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\n🌐 Sisteme Giriş: {site_url}\n\nİyi çalışmalar,\n{gonderen_adi}",
             assignment_email_subject: "📅 Yeni Gözetmenlik Görevi: {sinav_adi} | {tarih}",
             assignment_email_body: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f4f4f4; padding: 20px; border-radius: 10px;">
   <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
@@ -430,11 +429,11 @@ async function initApp() {
     <p style="color: #c4b5fd; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
   </div>
   <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 15px; color: #374151;">Sayin <strong>{personel_adi} Hocam</strong>,</p>
-    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Aşağida belirtilen sinava <strong>gözetmen</strong> olarak atanmişsiniz. Lütfen tarih ve saati not aliniz.</p>
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Aşağıda belirtilen sınava <strong>gözetmen</strong> olarak atanmışsınız. Lütfen tarih ve saati not alınız.</p>
     <div style="background: #f8f7ff; border-left: 4px solid #4f46e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
-        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9; width: 140px;">&#128218; Sinav Adi</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #6d28d9;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
@@ -448,13 +447,13 @@ async function initApp() {
       <a href="{site_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);">
         🌐 Gözetmenlik Sistemine Giriş Yap
       </a>
-      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Doğrudan bağlanti: <a href="{site_url}" style="color: #4f46e5; word-break: break-all;">{site_url}</a></p>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Doğrudan bağlantı: <a href="{site_url}" style="color: #4f46e5; word-break: break-all;">{site_url}</a></p>
     </div>
     <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
       <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İçin:</strong></p>
-      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme (<a href="{site_url}" style="color: #92400e; font-weight: bold; text-decoration: underline;">{site_url}</a>) giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştirip, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri'ne Birak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayina gerek yoktur.</p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme (<a href="{site_url}" style="color: #92400e; font-weight: bold; text-decoration: underline;">{site_url}</a>) giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
     </div>
-    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafindan otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #6366f1;">{site_url}</a></p>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #6366f1;">{site_url}</a></p>
   </div>
 </div>`,
             update_email_subject: "🔄 Görev Güncellendi: {sinav_adi} | {tarih}",
@@ -464,11 +463,11 @@ async function initApp() {
     <p style="color: #fef3c7; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
   </div>
   <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 15px; color: #374151;">Sayin <strong>{personel_adi} Hocam</strong>,</p>
-    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Atandiğiniz sinavda bazi bilgiler <strong>güncellenmiştir</strong>. Ayrintilari aşağida bulabilirsiniz.</p>
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Atandığınız sınavda bazı bilgiler <strong>güncellenmiştir</strong>. Ayrıntıları aşağıda bulabilirsiniz.</p>
     <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
-        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309; width: 140px;">&#128218; Sinav Adi</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #b45309;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
@@ -480,15 +479,15 @@ async function initApp() {
     </div>
     <div style="text-align: center; margin: 25px 0;">
       <a href="{site_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #d97706, #f59e0b); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.3);">
-        🌐 Güncel Programi İncele
+        🌐 Güncel Programı İncele
       </a>
-      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Doğrudan bağlanti: <a href="{site_url}" style="color: #d97706; word-break: break-all;">{site_url}</a></p>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Doğrudan bağlantı: <a href="{site_url}" style="color: #d97706; word-break: break-all;">{site_url}</a></p>
     </div>
     <div style="background: #fefce8; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; margin: 20px 0;">
       <p style="margin: 0; font-size: 14px; color: #92400e;">&#9888;&#65039; <strong>Görev Değişikliği Yapmak İçin:</strong></p>
-      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme (<a href="{site_url}" style="color: #92400e; font-weight: bold; text-decoration: underline;">{site_url}</a>) giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştirip, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri'ne Birak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayina gerek yoktur.</p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;">Görevinizde değişiklik yapmak istediğinizde sisteme (<a href="{site_url}" style="color: #92400e; font-weight: bold; text-decoration: underline;">{site_url}</a>) giriş yaparak <strong>Profilim</strong> sekmesinden uygun bir kişiyi kendiniz araştırıp, <strong>Takas Teklifi Gönder</strong> veya <strong>Görevi Pazar Yeri'ne Bırak</strong> seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.</p>
     </div>
-    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafindan otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #d97706;">{site_url}</a></p>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #d97706;">{site_url}</a></p>
   </div>
 </div>`,
             cancel_email_subject: "❌ Görev İptal Edildi: {sinav_adi} | {tarih}",
@@ -498,11 +497,11 @@ async function initApp() {
     <p style="color: #fee2e2; margin: 8px 0 0 0; font-size: 14px;">GTU Matematik Bölümü - Gözetmenlik Sistemi</p>
   </div>
   <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 15px; color: #374151;">Sayin <strong>{personel_adi} Hocam</strong>,</p>
-    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Aşağida belirtilen sinavdaki gözetmenlik göreviniz <strong>iptal edilmiştir</strong>.</p>
+    <p style="font-size: 15px; color: #374151;">Sayın <strong>{personel_adi} Hocam</strong>,</p>
+    <p style="font-size: 15px; color: #374151; line-height: 1.6;">Aşağıda belirtilen sınavdaki gözetmenlik göreviniz <strong>iptal edilmiştir</strong>.</p>
     <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #374151;">
-        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626; width: 140px;">&#128218; Sinav Adi</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
+        <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626; width: 140px;">&#128218; Sınav Adı</td><td style="padding: 8px 0;"><strong>{sinav_adi}</strong></td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#128100; Dersi Veren</td><td style="padding: 8px 0;">{dersi_veren}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#128197; Tarih</td><td style="padding: 8px 0;">{tarih}</td></tr>
         <tr><td style="padding: 8px 0; font-weight: bold; color: #dc2626;">&#128336; Saat</td><td style="padding: 8px 0;">{saat}</td></tr>
@@ -514,9 +513,9 @@ async function initApp() {
       <a href="{site_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px;">
         🌐 Sisteme Giriş Yap & Görevlerimi Gör
       </a>
-      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Bağlanti: <a href="{site_url}" style="color: #4f46e5; word-break: break-all;">{site_url}</a></p>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Bağlantı: <a href="{site_url}" style="color: #4f46e5; word-break: break-all;">{site_url}</a></p>
     </div>
-    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafindan otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #6366f1;">{site_url}</a></p>
+    <p style="font-size: 13px; color: #9ca3af; margin-top: 30px;">Bu mesaj GTU Matematik Bölümü Gözetmenlik Sistemi tarafından otomatik olarak gönderilmiştir.<br>Sistem Adresi: <a href="{site_url}" style="color: #6366f1;">{site_url}</a></p>
   </div>
 </div>`
         };
@@ -554,7 +553,7 @@ async function initApp() {
     }
 
     processTercihGunleri2026(); // 2026 Tercih Günleri Görevlerini otomatik işleyip ekle
-    processAgustos2026Vizeler(); // Ağustos 2026 Vize (PHYS113/114 & MATH111/112) sinavlarini otomatik işleyip ekle
+    processAgustos2026Vizeler(); // Ağustos 2026 Vize (PHYS113/114 & MATH111/112) sınavlarını otomatik işleyip ekle
 
     initNavigation();
     initUI();
@@ -564,40 +563,40 @@ async function initApp() {
     updateAnnouncementBadge(); // New announcement badge
     updateMarketplaceBadge(); // Marketplace badge
     updateNotificationBadge(); // Notification badge
-    updateMessageBadge(); // Hoca mesaji rozeti
+    updateMessageBadge(); // Hoca mesajı rozeti
     updateFeedbackBadge(); // Öneri ve şikayet rozeti
-    loadStaffSelects(); // Personel seçim dropdownlarini yükle
-    updateDraftBanner(); // Taslak Modu Banner'i Güncelle
+    loadStaffSelects(); // Personel seçim dropdownlarını yükle
+    updateDraftBanner(); // Taslak Modu Banner'ı Güncelle
     if (typeof updateUndoUI === 'function') updateUndoUI(); // Undo UI
 
-    // Günlük otomatik yedeklemeyi tetikle (arayüz açildiktan 2 saniye sonra)
+    // Günlük otomatik yedeklemeyi tetikle (arayüz açıldıktan 2 saniye sonra)
     setTimeout(checkAndPerformDailyBackup, 2000);
-    // Gece yarisi dönümü ihtimaline karşi her saat başi tekrar kontrol et
+    // Gece yarısı dönümü ihtimaline karşı her saat başı tekrar kontrol et
     setInterval(checkAndPerformDailyBackup, 60 * 60 * 1000);
 
-    // 🔌 Firebase çevrimdişi senkronizasyon dinleyicisini başlat
+    // 🔌 Firebase çevrimdışı senkronizasyon dinleyicisini başlat
     if (typeof initOfflineSyncListener === 'function') {
         initOfflineSyncListener();
     }
 
     // 🔄 PERİYODİK OTOMATİK SENKRONİZASYON
     // Her 2 dakikada bir Firebase'den kontrol et.
-    // Başka bir kullanici değişiklik yaptiysa otomatik güncelle ve yedekle.
+    // Başka bir kullanıcı değişiklik yaptıysa otomatik güncelle ve yedekle.
     startPeriodicSync();
 }
 
 /**
- * Her 2 dakikada bir Firebase'den veri çekip yerel veriyle karşilaştirir.
+ * Her 2 dakikada bir Firebase'den veri çekip yerel veriyle karşılaştırır.
  * Değişiklik varsa: DB güncellenir, ekran yenilenir, snapshot kaydedilir.
- * Değişiklik yoksa: Hiçbir şey yapilmaz (sessiz).
+ * Değişiklik yoksa: Hiçbir şey yapılmaz (sessiz).
  */
 function startPeriodicSync() {
-    const SYNC_INTERVAL_MS = 5 * 1000; // 5 saniye (Aktif Canli Senkronizasyon)
+    const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 dakika
     const API_URL_SYNC = typeof API_URL !== 'undefined' ? API_URL :
         'https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app/gizli_yol_gtu_admin_data.json';
 
     async function checkForUpdates() {
-        // Çevrimdişiysa veya şu an kayit yapiliyorsa atla
+        // Çevrimdışıysa veya şu an kayıt yapılıyorsa atla
         if (!navigator.onLine) return;
         if (typeof _isSyncing !== 'undefined' && _isSyncing) return;
 
@@ -613,7 +612,7 @@ function startPeriodicSync() {
             const remoteData = await response.json();
             if (!remoteData || !Array.isArray(remoteData.staff)) return;
 
-            // Değişiklik kontrolü: Sinav, personel, kisit ve talep sayilarini karşilaştir
+            // Değişiklik kontrolü: Sınav, personel, kısıt ve talep sayılarını karşılaştır
             const localExamCount     = (DB.exams     || []).length;
             const localStaffCount    = (DB.staff     || []).length;
             const localRequestCount  = (DB.requests  || []).length;
@@ -625,21 +624,21 @@ function startPeriodicSync() {
             const remoteConstraintStr = JSON.stringify(remoteData.constraints || {});
 
             const hasChanges =
-                JSON.stringify(DB.exams || []) !== JSON.stringify(remoteData.exams || []) ||
-                JSON.stringify(DB.staff || []) !== JSON.stringify(remoteData.staff || []) ||
-                JSON.stringify(DB.requests || []) !== JSON.stringify(remoteData.requests || []) ||
-                JSON.stringify(DB.constraints || {}) !== JSON.stringify(remoteData.constraints || {});
+                localExamCount    !== remoteExamCount    ||
+                localStaffCount   !== remoteStaffCount   ||
+                localRequestCount !== remoteRequestCount ||
+                localConstraintStr !== remoteConstraintStr;
 
             if (!hasChanges) {
                 console.log('🔄 Periyodik senkronizasyon: Değişiklik yok.');
                 return;
             }
 
-            console.log('📥 Periyodik senkronizasyon: Değişiklik algilandi! Güncelleniyor...', {
-                sinav: `${localExamCount} → ${remoteExamCount}`,
+            console.log('📥 Periyodik senkronizasyon: Değişiklik algılandı! Güncelleniyor...', {
+                sınav: `${localExamCount} → ${remoteExamCount}`,
                 personel: `${localStaffCount} → ${remoteStaffCount}`,
                 talep: `${localRequestCount} → ${remoteRequestCount}`,
-                kisitDeğişti: localConstraintStr !== remoteConstraintStr
+                kısıtDeğişti: localConstraintStr !== remoteConstraintStr
             });
 
             // Yerel lecturers ve courseLecturers korunarak uzak veriyi birleştir
@@ -660,7 +659,7 @@ function startPeriodicSync() {
                 saveAutoSnapshot(DB, 'Periyodik Senkronizasyon');
             }
 
-            // Ekranlari sessizce yenile (kullaniciyi rahatsiz etmeden)
+            // Ekranları sessizce yenile (kullanıcıyı rahatsız etmeden)
             if (typeof renderExams       === 'function') renderExams();
             if (typeof renderStaff       === 'function') renderStaff();
             if (typeof renderSchedule    === 'function') renderSchedule();
@@ -669,30 +668,30 @@ function startPeriodicSync() {
             if (typeof updateRequestBadge=== 'function') updateRequestBadge();
             if (typeof updateMarketplaceBadge === 'function') updateMarketplaceBadge();
 
-            // Kullaniciya sessiz bildirim (toast — alert değil)
+            // Kullanıcıya sessiz bildirim (toast — alert değil)
             if (typeof window.showToast === 'function') {
-                window.showToast('🔄 Başka bir kullanicinin değişiklikleri senkronize edildi.', 'success');
+                window.showToast('🔄 Başka bir kullanıcının değişiklikleri senkronize edildi.', 'success');
             }
 
         } catch (e) {
             // Hata durumunda sessizce atla, bir sonraki döngüde tekrar denenecek
-            console.warn('⚠️ Periyodik senkronizasyon hatasi (önemsiz):', e.message);
+            console.warn('⚠️ Periyodik senkronizasyon hatası (önemsiz):', e.message);
         }
     }
 
-    // İlk kontrol: Sayfa açildiktan 30 saniye sonra (başlangiç yüklemesiyle çakişmasin)
-    setTimeout(checkForUpdates, 5 * 1000);
+    // İlk kontrol: Sayfa açıldıktan 30 saniye sonra (başlangıç yüklemesiyle çakışmasın)
+    setTimeout(checkForUpdates, 30 * 1000);
 
     // Sonraki kontroller: Her 2 dakikada bir
     setInterval(checkForUpdates, SYNC_INTERVAL_MS);
 
-    console.log('⏱️ Periyodik senkronizasyon başlatildi (her 2 dakikada bir).');
+    console.log('⏱️ Periyodik senkronizasyon başlatıldı (her 2 dakikada bir).');
 }
 
 
 /**
  * GÜNLÜK OTOMATİK YEDEKLEME SİSTEMİ
- * Yönetici (Admin) olarak giriş yapildiğinda ve o gün henüz yedek indirilmemişse otomatik olarak JSON dosyasini indirir.
+ * Yönetici (Admin) olarak giriş yapıldığında ve o gün henüz yedek indirilmemişse otomatik olarak JSON dosyasını indirir.
  */
 function downloadBackupFile(prefix = 'Yedek') {
     if (!DB) return;
@@ -715,7 +714,7 @@ function checkAndPerformDailyBackup() {
     if (sessionStorage.getItem('isAdmin') !== 'true') return;
     if (!DB || (!DB.staff && !DB.exams)) return;
 
-    // Otomatik Anlik Kasa Snapshot'i al
+    // Otomatik Anlık Kasa Snapshot'ı al
     if (typeof saveAutoSnapshot === 'function') {
         saveAutoSnapshot(DB, 'Admin Girişi Otomatik Yedeği');
     }
@@ -729,7 +728,7 @@ function checkAndPerformDailyBackup() {
     const lastBackupDate = localStorage.getItem('last_auto_backup_date');
 
     if (lastBackupDate !== todayStr) {
-        console.log(`⏳ Günlük otomatik yedekleme başlatiliyor: ${todayStr}`);
+        console.log(`⏳ Günlük otomatik yedekleme başlatılıyor: ${todayStr}`);
         try {
             downloadBackupFile('Otomatik_Gunluk_Yedek');
             localStorage.setItem('last_auto_backup_date', todayStr);
@@ -737,27 +736,27 @@ function checkAndPerformDailyBackup() {
             if (typeof window.showToast === 'function') {
                 window.showToast(`📅 Günlük Otomatik Yedek İndirildi (${todayStr})`, 'success');
             }
-            console.log(`✅ Günlük otomatik yedek başariyla indirildi (${todayStr}).`);
+            console.log(`✅ Günlük otomatik yedek başarıyla indirildi (${todayStr}).`);
         } catch (e) {
-            console.error("Otomatik yedek alma hatasi:", e);
+            console.error("Otomatik yedek alma hatası:", e);
         }
     }
 
-    // Ayrica yaklaşan sinavlarin hatirlatmalarini kontrol et ve gönder
+    // Ayrıca yaklaşan sınavların hatırlatmalarını kontrol et ve gönder
     if (typeof checkAndSendExamReminders === 'function') {
-        checkAndSendExamReminders().catch(e => console.error("Hatirlatma kontrol hatasi:", e));
+        checkAndSendExamReminders().catch(e => console.error("Hatırlatma kontrol hatası:", e));
     }
 
 }
 
 /**
  * 2026 TERCİH GÜNLERİ ETKİNLİĞİ GÖREVLERİNİ SİSTEME İŞLEME
- * Kongre Merkezi Fuaye Alani Görevleri (10:30 - 16:00 / 330 Dakika)
+ * Kongre Merkezi Fuaye Alanı Görevleri (10:30 - 16:00 / 330 Dakika)
  */
 function processTercihGunleri2026() {
     if (!DB || !DB.exams || !DB.staff) return;
 
-    // Daha önce eklenmiş mi kontrol et (23.07.2026 tarihli Tercih Günü görevi var mi)
+    // Daha önce eklenmiş mi kontrol et (23.07.2026 tarihli Tercih Günü görevi var mı)
     const alreadyAdded = DB.exams.some(ex => (ex.name || "").includes("Tercih") && ex.date === "2026-07-23");
     if (alreadyAdded) return;
 
@@ -766,7 +765,7 @@ function processTercihGunleri2026() {
     const normalize = (str) => (str || "").toLocaleLowerCase('tr-TR')
         .replace(/prof\.|dr\.|öğr\.|üyesi|doç\.|arş\.|gör\.|[\.\(\)]/g, '')
         .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/i/g, 'i')
+        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ı/g, 'i')
         .replace(/\s+/g, ' ').trim().toUpperCase();
 
     const tasks = [
@@ -775,7 +774,7 @@ function processTercihGunleri2026() {
         { date: "2026-07-25", lecturer: "Doç. Dr. Ayten KOÇ", proctorKey: "Yasin TURAN" },
         { date: "2026-07-27", lecturer: "Dr. Öğr. Üyesi Tuğba MAHMUTÇEPOĞLU", proctorKey: "Aysel ŞAHİN" },
         { date: "2026-07-28", lecturer: "Dr. Öğr. Üyesi Keremcan DOĞAN", proctorKey: "Çağla ÖZATAR" },
-        { date: "2026-07-29", lecturer: "Dr. Saliha DEMİRBÜKEN", proctorKey: "Aslihan GÜR" },
+        { date: "2026-07-29", lecturer: "Dr. Saliha DEMİRBÜKEN", proctorKey: "Aslıhan GÜR" },
         { date: "2026-07-30", lecturer: "Doç. Dr. Gülşen ULUCAK", proctorKey: "Serdal ÇÖMLEKCİ" },
         { date: "2026-07-31", lecturer: "Doç. Dr. Hülya ÖZTÜRK", proctorKey: "Oğuzhan SELÇUK" },
         { date: "2026-08-01", lecturer: "Dr. Öğr. Üyesi Hadi ALİZADEH", proctorKey: "Ezgi ÖZTEKİN" },
@@ -804,7 +803,7 @@ function processTercihGunleri2026() {
                 duration: 330,
                 type: "Tercih Günü",
                 isNonExam: true,
-                location: "Kongre Merkezi Fuaye Alani",
+                location: "Kongre Merkezi Fuaye Alanı",
                 capacity: 1,
                 lecturer: item.lecturer,
                 proctorId: matchedStaff.id,
@@ -822,21 +821,21 @@ function processTercihGunleri2026() {
             DB.exams.push(newTask);
             count++;
         } else {
-            console.warn("Tercih günleri için personel bulunamadi:", item.proctorKey);
+            console.warn("Tercih günleri için personel bulunamadı:", item.proctorKey);
         }
     });
 
     if (count > 0) {
         if (typeof recalculateAllScores === 'function') recalculateAllScores();
         if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-        if (typeof logAction === 'function') logAction('system', 'Görev Eşleşmesi', `2026 Tercih Günleri kapsaminda ${count} adet görev (330'ar dk) işlendi.`);
+        if (typeof logAction === 'function') logAction('system', 'Görev Eşleşmesi', `2026 Tercih Günleri kapsamında ${count} adet görev (330'ar dk) işlendi.`);
         
         setTimeout(() => {
             if (typeof window.showToast === 'function') {
                 window.showToast(`✨ 2026 Tercih Günleri (${count} Görev - 330 Dk) Sisteme İşlendi!`, 'success');
             }
         }, 1200);
-        console.log(`✅ 2026 Tercih Günleri Etkinliği kapsaminda ${count} görev sisteme başariyla işlendi!`);
+        console.log(`✅ 2026 Tercih Günleri Etkinliği kapsamında ${count} görev sisteme başarıyla işlendi!`);
     }
 }
 
@@ -847,16 +846,16 @@ function processTercihGunleri2026() {
 function processAgustos2026Vizeler() {
     if (!DB || !DB.exams || !DB.staff) return;
 
-    // Daha önce eklenip eklenmediğini kontrol et (10.08.2026 tarihli MATH111 veya 06.08.2026 PHYS 114 sinavi)
+    // Daha önce eklenip eklenmediğini kontrol et (10.08.2026 tarihli MATH111 veya 06.08.2026 PHYS 114 sınavı)
     const alreadyAdded = DB.exams.some(ex => (ex.name || "").toUpperCase().includes("MATH111") && ex.date === "2026-08-10");
     if (alreadyAdded) return;
 
-    console.log("⏳ Ağustos 2026 Vize sinavlari sisteme işleniyor...");
+    console.log("⏳ Ağustos 2026 Vize sınavları sisteme işleniyor...");
 
     const normalize = (str) => (str || "").toLocaleLowerCase('tr-TR')
         .replace(/prof\.|dr\.|öğr\.|üyesi|doç\.|arş\.|gör\.|[\.\(\)]/g, '')
         .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/i/g, 'i')
+        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ı/g, 'i')
         .replace(/\s+/g, ' ').trim().toUpperCase();
 
     const newExams = [
@@ -865,7 +864,7 @@ function processAgustos2026Vizeler() {
             date: "2026-08-06",
             time: "18:00",
             duration: 120,
-            location: "Elektronik Müh. Z02+Z03+Z09 (Derslik ile ilgili Ek Bilgilendirme yapilacaktir.)",
+            location: "Elektronik Müh. Z02+Z03+Z09 (Derslik ile ilgili Ek Bilgilendirme yapılacaktır.)",
             capacity: "200",
             proctorKeys: ["Yasin Turan"]
         },
@@ -876,14 +875,14 @@ function processAgustos2026Vizeler() {
             duration: 120,
             location: "Merkez Amfiler",
             capacity: "200",
-            proctorKeys: ["Aslihan Gür", "Aysel Şahin", "Cansu Şahin", "Ezgi Öztekin", "Ömer Demir", "Şeyma Yaşar"]
+            proctorKeys: ["Aslıhan Gür", "Aysel Şahin", "Cansu Şahin", "Ezgi Öztekin", "Ömer Demir", "Şeyma Yaşar"]
         },
         {
             name: "PHYS113 Physics for Natural Sciences I",
             date: "2026-08-05",
             time: "18:00",
             duration: 120,
-            location: "Elektronik Müh. Z04+Z07+Z09 (Derslik ile ilgili ek bilgilendirme yapilacaktir.)",
+            location: "Elektronik Müh. Z04+Z07+Z09 (Derslik ile ilgili ek bilgilendirme yapılacaktır.)",
             capacity: "200",
             proctorKeys: ["Ezgi Öztekin"]
         },
@@ -894,7 +893,7 @@ function processAgustos2026Vizeler() {
             duration: 120,
             location: "Elektronik Müh. Z16+Z40+Z42+Z46+Z50",
             capacity: "200",
-            proctorKeys: ["Cansu Şahin", "Muhammed Ergen", "Oğuzhan Selçuk", "Serdal Çömlekçi", "Serkan Ayrica"]
+            proctorKeys: ["Cansu Şahin", "Muhammed Ergen", "Oğuzhan Selçuk", "Serdal Çömlekçi", "Serkan Ayrıca"]
         }
     ];
 
@@ -917,7 +916,7 @@ function processAgustos2026Vizeler() {
                 matchedStaffIds.push(matchedStaff.id);
                 matchedStaffNames.push(matchedStaff.name);
             } else {
-                console.warn("Vize sinavi için personel bulunamadi:", proctorKey);
+                console.warn("Vize sınavı için personel bulunamadı:", proctorKey);
             }
         });
 
@@ -954,14 +953,14 @@ function processAgustos2026Vizeler() {
     if (count > 0) {
         if (typeof recalculateAllScores === 'function') recalculateAllScores();
         if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-        if (typeof logAction === 'function') logAction('system', 'Görev Eşleşmesi', `Ağustos 2026 programindan ${count} adet vize sinavi (120'şer dk) eklendi.`);
+        if (typeof logAction === 'function') logAction('system', 'Görev Eşleşmesi', `Ağustos 2026 programından ${count} adet vize sınavı (120'şer dk) eklendi.`);
         
         setTimeout(() => {
             if (typeof window.showToast === 'function') {
-                window.showToast(`✨ Ağustos 2026 Vize Programi (${count} Sinav) Sisteme İşlendi!`, 'success');
+                window.showToast(`✨ Ağustos 2026 Vize Programı (${count} Sınav) Sisteme İşlendi!`, 'success');
             }
         }, 1800);
-        console.log(`✅ Ağustos 2026 Vize Programi kapsaminda ${count} sinav başariyla işlendi!`);
+        console.log(`✅ Ağustos 2026 Vize Programı kapsamında ${count} sınav başarıyla işlendi!`);
     }
 }
 
@@ -989,20 +988,20 @@ function updateDraftBanner() {
             <span style="font-size:1.5rem;">🛠️</span>
             <div>
                 <div style="font-size:0.9rem; font-weight:800; letter-spacing:0.05em;">TASLAK MODU AKTİF</div>
-                <div style="font-size:0.7rem; opacity:0.8; font-weight:500;">Yapilan atamalar hocalara bildirilmez.</div>
+                <div style="font-size:0.7rem; opacity:0.8; font-weight:500;">Yapılan atamalar hocalara bildirilmez.</div>
             </div>
         </div>
         <div style="display:flex; gap:10px;">
             <button onclick="handleAIButtonClick()" class="btn-primary" style="background:#8b5cf6; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(139, 92, 246, 0.4);">✨ AI Optimizasyon</button>
-            <button onclick="handlePublishDraft()" class="btn-primary" style="background:#10b981; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(16, 185, 129, 0.4);">🚀 Taslaği Yayinla</button>
+            <button onclick="handlePublishDraft()" class="btn-primary" style="background:#10b981; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(16, 185, 129, 0.4);">🚀 Taslağı Yayınla</button>
         </div>
     `;
 }
 
 window.handleAIButtonClick = function() {
-    if (confirm("Atanmamiş tüm sinavlar için AI destekli en adil dağitim yapilacaktir. Onayliyor musunuz?")) {
+    if (confirm("Atanmamış tüm sınavlar için AI destekli en adil dağıtım yapılacaktır. Onaylıyor musunuz?")) {
         const res = runGlobalOptimization();
-        alert(`✅ Optimizasyon Tamamlandi!\n\n${res.assigned} sinav başariyla atandi.\n${res.failed} sinav için uygun gözetmen bulunamadi.`);
+        alert(`✅ Optimizasyon Tamamlandı!\n\n${res.assigned} sınav başarıyla atandı.\n${res.failed} sınav için uygun gözetmen bulunamadı.`);
         renderDashboard();
         renderExams();
         renderSchedule();
@@ -1012,13 +1011,13 @@ window.handleAIButtonClick = function() {
 window.handlePublishDraft = function() {
     const draftCount = DB.exams.filter(e => e.isDraft).length;
     if (draftCount === 0) {
-        alert("Yayina alinacak taslak sinav bulunamadi.");
+        alert("Yayına alınacak taslak sınav bulunamadı.");
         return;
     }
 
-    if (confirm(`${draftCount} adet sinav yayina alinacak ve ilgili gözetmenlere bildirim gönderilecektir. Devam edilsin mi?`)) {
+    if (confirm(`${draftCount} adet sınav yayına alınacak ve ilgili gözetmenlere bildirim gönderilecektir. Devam edilsin mi?`)) {
         const res = publishDraft();
-        alert(`🚀 Başarili!\n\n${res.examCount} sinav yayina alindi.\n${res.proctorCount} gözetmene bildirim gönderildi.`);
+        alert(`🚀 Başarılı!\n\n${res.examCount} sınav yayına alındı.\n${res.proctorCount} gözetmene bildirim gönderildi.`);
         updateDraftBanner();
         renderDashboard();
         renderExams();
@@ -1028,10 +1027,10 @@ window.handlePublishDraft = function() {
 
 
 /**
- * Takas onayi için şifre doğrulama yardimcisi.
- * Gözetmenin staffPassword'i varsa modal açar ve doğru şifre girilince resolve eder.
- * staffPassword yoksa doğrudan onay (confirm) alir.
- * @param {string} description - Modalde gösterilecek açiklama
+ * Takas onayı için şifre doğrulama yardımcısı.
+ * Gözetmenin staffPassword'ı varsa modal açar ve doğru şifre girilince resolve eder.
+ * staffPassword yoksa doğrudan onay (confirm) alır.
+ * @param {string} description - Modalde gösterilecek açıklama
  * @param {object} staff - DB.staff nesnesi
  * @returns {Promise<boolean>}
  */
@@ -1043,7 +1042,7 @@ function confirmWithPassword(description, staff) {
             return;
         }
 
-        // Şifre modalini aç
+        // Şifre modalını aç
         const modal = document.getElementById('modal-swap-confirm-password');
         const desc  = document.getElementById('swap-confirm-desc');
         const input = document.getElementById('swap-confirm-pass-input');
@@ -1117,12 +1116,12 @@ function initUI() {
     document.getElementById('btn-undo')?.addEventListener('click', () => {
         if (confirm("Son işlemi geri almak istediğinize emin misiniz? Puanlar ve atamalar bir önceki haline dönecek.")) {
             if (typeof undoLastAction === 'function' && undoLastAction()) {
-                // Ekranda değişiklikleri yansitmak için listeleri güncelle
+                // Ekranda değişiklikleri yansıtmak için listeleri güncelle
                 if (typeof renderDashboard === 'function') renderDashboard();
                 if (typeof renderExams === 'function') renderExams();
                 if (typeof renderSchedule === 'function') renderSchedule();
                 if (typeof renderStaff === 'function') renderStaff();
-                showToast("İşlem başariyla geri alindi.", "success");
+                showToast("İşlem başarıyla geri alındı.", "success");
             }
         }
     });
@@ -1136,14 +1135,14 @@ function initUI() {
     document.getElementById('btn-modal-cancel').addEventListener('click', hideModal);
 
     // PDF Export Listeners
-    document.getElementById('btn-export-dashboard-pdf')?.addEventListener('click', () => exportToPDF('table-duty-breakdown', 'Dashboard Puan Dağilimi'));
+    document.getElementById('btn-export-dashboard-pdf')?.addEventListener('click', () => exportToPDF('table-duty-breakdown', 'Dashboard Puan Dağılımı'));
     document.getElementById('btn-export-staff-pdf')?.addEventListener('click', () => exportToPDF('table-staff', 'Personel Listesi'));
-    document.getElementById('btn-export-exams-pdf')?.addEventListener('click', () => exportToPDF('table-exams', 'Sinav Listesi'));
+    document.getElementById('btn-export-exams-pdf')?.addEventListener('click', () => exportToPDF('table-exams', 'Sınav Listesi'));
     document.getElementById('btn-export-schedule-pdf')?.addEventListener('click', () => {
         let targetId = 'table-schedule';
-        let pdfTitle = 'Genel Sinav Programi';
+        let pdfTitle = 'Genel Sınav Programı';
         if (currentScheduleView === 'calendar') {
-             // Takvim görünümünde PDF yerine Resim öneriliyor ama opsiyonel olarak resim basariz
+             // Takvim görünümünde PDF yerine Resim öneriliyor ama opsiyonel olarak resim basarız
              exportElementAsImage(document.getElementById('calendar-grid'), 'Sinav_Programi_Takvim.png');
              return;
         }
@@ -1186,7 +1185,7 @@ function initUI() {
         if (selectedStaff && selectedStaff.staffPassword) {
             const errorEl = document.getElementById('profile-password-error');
             if (errorEl) {
-                errorEl.textContent = `🔒 "${selectedStaff.name}" profili şifre korumali. Lütfen yukaridaki şifre alanini kullanin.`;
+                errorEl.textContent = `🔒 "${selectedStaff.name}" profili şifre korumalı. Lütfen yukarıdaki şifre alanını kullanın.`;
                 errorEl.classList.remove('hidden');
             }
             // Şifre inputuna odaklan
@@ -1249,9 +1248,6 @@ function initUI() {
             if (tabId === 'my-timeline') {
                 renderMyTimeline();
             }
-            if (tabId === 'swap-history') {
-                if (typeof renderSwapHistory === 'function') renderSwapHistory();
-            }
             if (tabId === 'responsible') {
                 clearMessageBadge();
             }
@@ -1261,7 +1257,7 @@ function initUI() {
         });
     });
 
-    // Kişisel takvim ay nav butonlari
+    // Kişisel takvim ay nav butonları
     document.getElementById('btn-my-timeline-prev')?.addEventListener('click', () => {
         myTimelineDate.setMonth(myTimelineDate.getMonth() - 1);
         renderMyTimeline();
@@ -1314,7 +1310,7 @@ function initUI() {
         processSwap(requestId, true);
     });
 
-    // Kisit Yönetimi Form Olaylari
+    // Kısıt Yönetimi Form Olayları
     const constraintStaffSelect = document.getElementById('constraint-staff-select');
     if (constraintStaffSelect) {
         constraintStaffSelect.addEventListener('change', () => {
@@ -1339,7 +1335,7 @@ function initUI() {
         });
     }
 
-    // Tablo siralama dinleyicileri
+    // Tablo sıralama dinleyicileri
     document.querySelectorAll('.sortable').forEach(th => {
         th.addEventListener('click', () => {
             const sortKey = th.getAttribute('data-sort');
@@ -1369,9 +1365,9 @@ function initUI() {
             if (result.message) {
                 alert(`✅ ${result.message}`);
             } else {
-                let msg = `✅ ${result.resolved} çakişma başariyla giderildi!`;
+                let msg = `✅ ${result.resolved} çakışma başarıyla giderildi!`;
                 if (result.skipped > 0) {
-                    msg += `\n⚠️ ${result.skipped} çakişma için uygun yedek gözetmen bulunamadi. Bu sinavlari lütfen manuel olarak düzenleyin.`;
+                    msg += `\n⚠️ ${result.skipped} çakışma için uygun yedek gözetmen bulunamadı. Bu sınavları lütfen manuel olarak düzenleyin.`;
                 }
                 alert(msg);
             }
@@ -1403,7 +1399,7 @@ function initUI() {
         if (typeof renderProfile === 'function') renderProfile();
         const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
         if (typeof window.showToast === 'function') {
-            window.showToast(`👑 Yönetici Modu: ${staff ? staff.name : 'Personel'} profili açildi.`, 'info');
+            window.showToast(`👑 Yönetici Modu: ${staff ? staff.name : 'Personel'} profili açıldı.`, 'info');
         }
     };
 
@@ -1428,9 +1424,9 @@ function initUI() {
                 saveAutoSnapshot(DB, 'Yönetici Manuel Yedek');
                 renderSnapshotVaultList();
                 if (typeof window.showToast === 'function') {
-                    window.showToast('📸 Anlik yedek başariyla alindi!', 'success');
+                    window.showToast('📸 Anlık yedek başarıyla alındı!', 'success');
                 } else {
-                    alert('✓ Anlik yedek başariyla alindi!');
+                    alert('✓ Anlık yedek başarıyla alındı!');
                 }
             }
         });
@@ -1453,13 +1449,13 @@ function initUI() {
     const btnResetExams = document.getElementById('btn-reset-exams');
     if (btnResetExams) {
         btnResetExams.addEventListener('click', () => {
-            if (confirm("DİKKAT: Mevcut tüm sinav programi silinecek!\n\nAncak hocalarin birikmiş puanlari ve görev sayilari KORUNACAKTIR. Bu işlem vize sonu, final öncesi temizlik için kullanilir. Devam etmek istiyor musunuz?")) {
+            if (confirm("DİKKAT: Mevcut tüm sınav programı silinecek!\n\nAncak hocaların birikmiş puanları ve görev sayıları KORUNACAKTIR. Bu işlem vize sonu, final öncesi temizlik için kullanılır. Devam etmek istiyor musunuz?")) {
                 resetExamsButKeepScores();
                 renderExams();
                 renderSchedule();
                 renderDashboard();
                 renderStaff();
-                alert("✓ Sinav programi başariyla sifirlandi. Puanlar korundu.");
+                alert("✓ Sınav programı başarıyla sıfırlandı. Puanlar korundu.");
             }
         });
     }
@@ -1478,11 +1474,11 @@ function initUI() {
                     try {
                         const importedDB = JSON.parse(event.target.result);
                         if (importedDB && importedDB.staff && importedDB.exams) {
-                            if (confirm("Mevcut tüm veriler silinecek ve seçilen yedeğe dönülecek. Onayliyor musunuz?")) {
+                            if (confirm("Mevcut tüm veriler silinecek ve seçilen yedeğe dönülecek. Onaylıyor musunuz?")) {
                                 DB = importedDB;
                                 saveToLocalStorage();
                                 
-                                // Admin girişi ise reload öncesi sunucuya yazmayi BEKLE (reload işlemi fetch'i iptal etmesin diye)
+                                // Admin girişi ise reload öncesi sunucuya yazmayı BEKLE (reload işlemi fetch'i iptal etmesin diye)
                                 if (sessionStorage.getItem('isAdmin') === 'true') {
                                     try {
                                         await saveToBackend();
@@ -1494,10 +1490,10 @@ function initUI() {
                                 location.reload();
                             }
                         } else {
-                            alert("Hata: Geçersiz yedek dosyasi!");
+                            alert("Hata: Geçersiz yedek dosyası!");
                         }
                     } catch (err) {
-                        alert("Hata: Dosya okunamadi!");
+                        alert("Hata: Dosya okunamadı!");
                     }
                 };
                 reader.readAsText(file);
@@ -1511,7 +1507,7 @@ function initUI() {
         if (!container) return;
         const snapshots = typeof getSavedSnapshots === 'function' ? getSavedSnapshots() : [];
         if (!snapshots || snapshots.length === 0) {
-            container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 30px;">Henüz kaydedilmiş anlik görüntü bulunmuyor.<br><small style="opacity: 0.7;">Site açildiğinda veya işlem yapildiğinda otomatik oluşur.</small></div>`;
+            container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 30px;">Henüz kaydedilmiş anlık görüntü bulunmuyor.<br><small style="opacity: 0.7;">Site açıldığında veya işlem yapıldığında otomatik oluşur.</small></div>`;
             return;
         }
         
@@ -1527,13 +1523,13 @@ function initUI() {
                         <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(${snap.source || 'Otomatik'})</span>
                     </div>
                     <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">
-                        📋 <strong>${snap.examCount}</strong> Sinav &nbsp;|&nbsp; 👥 <strong>${snap.staffCount}</strong> Personel &nbsp;|&nbsp; 🔄 <strong>${snap.requestCount || 0}</strong> Talep
+                        📋 <strong>${snap.examCount}</strong> Sınav &nbsp;|&nbsp; 👥 <strong>${snap.staffCount}</strong> Personel &nbsp;|&nbsp; 🔄 <strong>${snap.requestCount || 0}</strong> Talep
                     </div>
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <button onclick="window.handleRestoreFromVault(${snap.id})" style="background: #16a34a; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 600;">↩️ Bu Yedeğe Dön</button>
                     <button onclick="window.handleDownloadVaultItem(${snap.id})" style="background: #475569; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;" title="JSON Olarak İndir">💾 İndir</button>
-                    <button onclick="window.handleDeleteVaultItem(${snap.id})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;" title="Kaydi Sil">🗑️</button>
+                    <button onclick="window.handleDeleteVaultItem(${snap.id})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;" title="Kaydı Sil">🗑️</button>
                 </div>
             </div>
             `;
@@ -1549,7 +1545,7 @@ function initUI() {
                 if (sessionStorage.getItem('isAdmin') === 'true') {
                     try { await saveToBackend(); } catch(e) {}
                 }
-                alert(`✓ ${restored.displayDate} tarihli yedeğe başariyla dönüldü! Sayfa yenileniyor...`);
+                alert(`✓ ${restored.displayDate} tarihli yedeğe başarıyla dönüldü! Sayfa yenileniyor...`);
                 location.reload();
             } catch(e) {
                 alert("Hata: " + e.message);
@@ -1576,7 +1572,7 @@ function initUI() {
     };
 
     window.handleDeleteVaultItem = function(id) {
-        if (confirm("Bu anlik görüntüyü kasadan silmek istediğinize emin misiniz?")) {
+        if (confirm("Bu anlık görüntüyü kasadan silmek istediğinize emin misiniz?")) {
             if (typeof deleteSnapshot === 'function') {
                 deleteSnapshot(id);
                 renderSnapshotVaultList();
@@ -1615,9 +1611,9 @@ function initUI() {
             saveToLocalStorage();
             updateDraftBanner();
             if (DB.isDraftMode) {
-                showToast("🛠️ Taslak Modu Açildi. Atamalar gizli kalacak.", "success");
+                showToast("🛠️ Taslak Modu Açıldı. Atamalar gizli kalacak.", "success");
             } else {
-                showToast("Taslak Modu Kapatildi.", "success");
+                showToast("Taslak Modu Kapatıldı.", "success");
             }
         });
     }
@@ -1654,7 +1650,7 @@ function initUI() {
 
 
 
-    // Excel Akilli Import Butonu (Sinav Listesi bölümü)
+    // Excel Akıllı Import Butonu (Sınav Listesi bölümü)
     const btnImportExamsExcel = document.getElementById('btn-import-exams-excel');
     if (btnImportExamsExcel) {
         btnImportExamsExcel.addEventListener('click', () => {
@@ -1684,17 +1680,17 @@ function initUI() {
         });
     }
 
-    // Şablon İndir - Sinav
+    // Şablon İndir - Sınav
     const btnTplExam = document.getElementById('btn-download-exam-template');
     if (btnTplExam) {
         btnTplExam.addEventListener('click', () => {
             const data = [
-                ['Dersin Kodu', 'Dersin Adi', 'Dersi veren Öğr Üyesi', 'Sinav Tarihi ve Saati', 'Sinif Mevcudu Derslik', 'Gözetmen'],
-                ['INF 100', 'Bilgisayara Giriş', 'Dr. Öğr. Üyesi Hadi ALIZADEH', '25 Kasim 2025 Sali, 18:15', '250', '']
+                ['Dersin Kodu', 'Dersin Adı', 'Dersi veren Öğr Üyesi', 'Sınav Tarihi ve Saati', 'Sınıf Mevcudu Derslik', 'Gözetmen'],
+                ['INF 100', 'Bilgisayara Giriş', 'Dr. Öğr. Üyesi Hadi ALIZADEH', '25 Kasım 2025 Salı, 18:15', '250', '']
             ];
             const ws = XLSX.utils.aoa_to_sheet(data);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Sinavlar');
+            XLSX.utils.book_append_sheet(wb, ws, 'Sınavlar');
             XLSX.writeFile(wb, 'Sinav_Sablonu.xlsx');
         });
     }
@@ -1718,16 +1714,16 @@ function initUI() {
                     }
 
                     // Önizleme tablosu
-                    let html = '<p style="color:#10b981; margin-bottom:.5rem;">✓ ' + (rows.length - 1) + ' satir bulundu. İçerik önizlemesi:</p>';
+                    let html = '<p style="color:#10b981; margin-bottom:.5rem;">✓ ' + (rows.length - 1) + ' satır bulundu. İçerik önizlemesi:</p>';
                     html += '<div style="overflow-x:auto; max-height:200px;"><table style="width:100%; font-size:0.75rem; border-collapse:collapse;">';
-                    // Başlik
+                    // Başlık
                     html += '<thead><tr>' + rows[0].map(h => `<th style="padding:6px 8px; border-bottom:1px solid #334155; color:#94a3b8; text-align:left;">${h}</th>`).join('') + '</tr></thead>';
-                    // İlk 5 satir önizleme
+                    // İlk 5 satır önizleme
                     html += '<tbody>';
                     rows.slice(1, 6).forEach(r => {
                         html += '<tr>' + rows[0].map((_, i) => `<td style="padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.05); color:#f1f5f9;">${r[i] || ''}</td>`).join('') + '</tr>';
                     });
-                    if (rows.length > 6) html += `<tr><td colspan="${rows[0].length}" style="padding:5px 8px; color:#94a3b8; font-style:italic;">... ve ${rows.length - 6} satir daha</td></tr>`;
+                    if (rows.length > 6) html += `<tr><td colspan="${rows[0].length}" style="padding:5px 8px; color:#94a3b8; font-style:italic;">... ve ${rows.length - 6} satır daha</td></tr>`;
                     html += '</tbody></table></div>';
 
                     document.getElementById('import-preview').innerHTML = html;
@@ -1741,16 +1737,16 @@ function initUI() {
                         SCHEMA_FIELDS = [
                             { key: 'name',      label: '👤 İsim Soyisim', required: true  },
                             { key: 'email',     label: '📧 E-posta',      required: false },
-                            { key: 'baseScore', label: '📊 Başl. Puani', required: false },
+                            { key: 'baseScore', label: '📊 Başl. Puanı', required: false },
                         ];
                         AUTO_KEYWORDS = {
                             name:      ['isim', 'ad soyad', 'personel', 'name', 'hoca'],
                             email:     ['eposta', 'mail', 'email'],
-                            baseScore: ['puan', 'score', 'başlangiç', 'base'],
+                            baseScore: ['puan', 'score', 'başlangıç', 'base'],
                         };
                     } else {
                         SCHEMA_FIELDS = [
-                            { key: 'name',     label: '📚 Sinav Adi',   required: true  },
+                            { key: 'name',     label: '📚 Sınav Adı',   required: true  },
                             { key: 'date',     label: '📅 Tarih',        required: true  },
                             { key: 'time',     label: '🕐 Saat',         required: true  },
                             { key: 'duration', label: '⌛ Süre (dk)',    required: false },
@@ -1760,11 +1756,11 @@ function initUI() {
                             { key: 'proctor',  label: '🛡️ Gözetmen',    required: false },
                         ];
                         AUTO_KEYWORDS = {
-                            name:     ['ders','sinav','isim','name','exam','kod'],
+                            name:     ['ders','sınav','isim','name','exam','kod'],
                             date:     ['tarih','date','gun'],
                             time:     ['saat','time','vakit'],
                             duration: ['süre','dakika','duration'],
-                            location: ['yer','derslik','sinif','location','room'],
+                            location: ['yer','derslik','sınıf','location','room'],
                             lecturer: ['hoca','lecturer','öğretim','instructor'],
                             type:     ['tür','type','kind'],
                             proctor:  ['gözetmen','proctor','invigilator'],
@@ -1784,7 +1780,7 @@ function initUI() {
                     };
 
                     let mapHtml = `<div id="smart-col-map" style="margin-top:1rem; background:rgba(99,102,241,0.1); border:1px solid #6366f1; border-radius:12px; padding:1rem;">`;
-                    mapHtml += `<div style="font-size:0.85rem; color:#a78bfa; font-weight:700; margin-bottom:10px;">🧠 Akilli Sütun Eşleştirme (${currentImportType === 'staff' ? 'Personel' : 'Sinav'})</div>`;
+                    mapHtml += `<div style="font-size:0.85rem; color:#a78bfa; font-weight:700; margin-bottom:10px;">🧠 Akıllı Sütun Eşleştirme (${currentImportType === 'staff' ? 'Personel' : 'Sınav'})</div>`;
                     mapHtml += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
                     rows[0].forEach((h, idx) => {
                         const guess = autoGuess(String(h).trim());
@@ -1804,18 +1800,18 @@ function initUI() {
                     mapHtml += `</div></div>`;
                     document.getElementById('import-preview').innerHTML += mapHtml;
 
-                    // Satirlari button'a aktar
+                    // Satırları button'a aktar
                     document.getElementById('btn-confirm-import')._importData = { rows, sheetName, smartMap: true };
 
                 } catch(err) {
-                    document.getElementById('import-preview').innerHTML = '<p style="color:#ef4444;">Dosya okunamadi: ' + err.message + '</p>';
+                    document.getElementById('import-preview').innerHTML = '<p style="color:#ef4444;">Dosya okunamadı: ' + err.message + '</p>';
                 }
             };
             reader.readAsBinaryString(file);
         });
     }
 
-    // Aktarmayi Onayla
+    // Aktarmayı Onayla
     const btnConfirm = document.getElementById('btn-confirm-import');
     if (btnConfirm) {
         btnConfirm.addEventListener('click', async () => {
@@ -1847,7 +1843,7 @@ function initUI() {
                 // --- PERSONEL MODU ---
                 if (currentImportType === 'staff') {
                     if (colMap.name === undefined) {
-                        alert('⚠️ En azindan İsim Soyisim sütununu eşleştirmeniz gerekiyor!');
+                        alert('⚠️ En azından İsim Soyisim sütununu eşleştirmeniz gerekiyor!');
                         return;
                     }
                     rows.slice(1).forEach(row => {
@@ -1876,19 +1872,19 @@ function initUI() {
                     if (typeof saveToBackend === 'function') await saveToBackend();
                     document.getElementById('modal-import').classList.add('hidden');
                     renderStaff(); renderDashboard();
-                    showToast(`✅ ${addedCount} hoca eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandi)` : ''}`);
+                    showToast(`✅ ${addedCount} hoca eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandı)` : ''}`);
                     return;
                 }
 
                 // --- SINAV MODU ---
                 if (!colMap.name || !colMap.date || !colMap.time) {
-                    alert('⚠️ En azindan Sinav Adi, Tarih ve Saat sütunlarini eşleştirmeniz gerekiyor!');
+                    alert('⚠️ En azından Sınav Adı, Tarih ve Saat sütunlarını eşleştirmeniz gerekiyor!');
                     return;
                 }
 
                 const monthsMap = {
-                    'ocak': '01', 'şubat': '02', 'mart': '03', 'nisan': '04', 'mayis': '05', 'haziran': '06',
-                    'temmuz': '07', 'ağustos': '08', 'eylül': '09', 'ekim': '10', 'kasim': '11', 'aralik': '12'
+                    'ocak': '01', 'şubat': '02', 'mart': '03', 'nisan': '04', 'mayıs': '05', 'haziran': '06',
+                    'temmuz': '07', 'ağustos': '08', 'eylül': '09', 'ekim': '10', 'kasım': '11', 'aralık': '12'
                 };
 
                 rows.slice(1).forEach(row => {
@@ -1897,12 +1893,12 @@ function initUI() {
                     let timeRaw = String(row[colMap.time] || '').trim();
                     if (!name || !dateRaw) return;
 
-                    // Tarih/Saat Akilli Ayriştirma
+                    // Tarih/Saat Akıllı Ayrıştırma
                     let combined = (dateRaw + " " + timeRaw).toLowerCase();
                     for (const [mName, mVal] of Object.entries(monthsMap)) {
                         combined = combined.replace(mName, mVal);
                     }
-                    combined = combined.replace(/pazartesi|sali|çarşamba|perşembe|cuma|cumartesi|pazar/g, '')
+                    combined = combined.replace(/pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar/g, '')
                                        .replace(/[,./-]/g, ' ')
                                        .replace(/\s+/g, ' ').trim();
 
@@ -1961,7 +1957,7 @@ function initUI() {
                 if (typeof saveToBackend === 'function') await saveToBackend();
                 document.getElementById('modal-import').classList.add('hidden');
                 renderExams(); renderStaff(); renderSchedule(); renderDashboard();
-                showToast(`✅ ${addedCount} sinav eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandi)` : ''}`);
+                showToast(`✅ ${addedCount} sınav eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer atlandı)` : ''}`);
                 return;
             }
 
@@ -1972,7 +1968,7 @@ function initUI() {
             const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k.toLowerCase())));
 
             // Import Türü Belirle
-            const isStaffImport = getIdx(['isim', 'personel', 'ad soyad']) !== -1 && getIdx(['sinav', 'ders', 'tarih']) === -1;
+            const isStaffImport = getIdx(['isim', 'personel', 'ad soyad']) !== -1 && getIdx(['sınav', 'ders', 'tarih']) === -1;
 
             let addedCount = 0;
             let skipCount = 0;
@@ -1999,14 +1995,14 @@ function initUI() {
                         skipCount++;
                     }
                 });
-                alert(`✅ ${addedCount} hoca sisteme eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer kayit atlandi.)` : ''}`);
+                alert(`✅ ${addedCount} hoca sisteme eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer kayıt atlandı.)` : ''}`);
             } else {
-                // --- Sinav İçe Aktar ---
-                const nameIdx = getIdx(['sinav', 'ders', 'name', 'exam']);
+                // --- Sınav İçe Aktar ---
+                const nameIdx = getIdx(['sınav', 'ders', 'name', 'exam']);
                 const dateIdx = getIdx(['tarih', 'date']);
                 const timeIdx = getIdx(['saat', 'time', 'vakit']);
                 const durIdx = getIdx(['süre', 'duration']);
-                const locIdx = getIdx(['yer', 'derslik', 'sinif', 'location']);
+                const locIdx = getIdx(['yer', 'derslik', 'sınıf', 'location']);
                 const lectIdx = getIdx(['hoca', 'lecturer', 'öğretim']);
                 const proctIdx = getIdx(['gözetmen', 'proctor']);
 
@@ -2070,7 +2066,7 @@ function initUI() {
                         skipCount++;
                     }
                 });
-                alert(`✅ ${addedCount} sinav başariyla eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer kayit atlandi.)` : ''}`);
+                alert(`✅ ${addedCount} sınav başarıyla eklendi.${skipCount > 0 ? ` (${skipCount} mükerrer kayıt atlandı.)` : ''}`);
             }
 
             saveToLocalStorage();
@@ -2159,7 +2155,7 @@ function initUI() {
         if (panel) panel.classList.add('hidden');
     });
 
-    // İlk kurulumda veya güncellemede bildirimleri sifirla (User'in isteği üzerine)
+    // İlk kurulumda veya güncellemede bildirimleri sıfırla (User'ın isteği üzerine)
     const isReset = localStorage.getItem('notifReset_v2');
     if (!isReset) {
         localStorage.setItem('lastNotifCheck', Date.now());
@@ -2191,7 +2187,7 @@ function exportElementAsImage(element, filename) {
         const origOverflowY = element.style.overflowY;
         const origHeight = element.style.height;
 
-        // Altindaki tüm tablo konteynerlerinin orijinal stillerini kaydet
+        // Altındaki tüm tablo konteynerlerinin orijinal stillerini kaydet
         const tableContainers = element.querySelectorAll('.table-container');
         const origTableStyles = Array.from(tableContainers).map(tc => ({
             el: tc,
@@ -2200,7 +2196,7 @@ function exportElementAsImage(element, filename) {
             height: tc.style.height
         }));
 
-        // Elemanlari tam boyuta genişlet (scroll/clipping engellemek için)
+        // Elemanları tam boyuta genişlet (scroll/clipping engellemek için)
         element.style.maxHeight = 'none';
         element.style.overflowY = 'visible';
         element.style.height = 'auto';
@@ -2234,7 +2230,7 @@ function exportElementAsImage(element, filename) {
             });
         });
     } catch(err) {
-        console.error("Resim çikartilamadi: ", err);
+        console.error("Resim çıkartılamadı: ", err);
         alert("Resim olarak indirilemedi, eklenti yükleniyor olabilir.");
     }
 }
@@ -2243,10 +2239,10 @@ function exportTableToExcel(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return;
     try {
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Sinav Programi" });
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Sınav Programı" });
         XLSX.writeFile(wb, filename);
     } catch (err) {
-        console.error("Excel çikartilamadi: ", err);
+        console.error("Excel çıkartılamadı: ", err);
         alert("Excel indirelemedi, eklenti yükleniyor olabilir.");
     }
 }
@@ -2257,7 +2253,7 @@ function renderDashboard() {
     tbody.innerHTML = '';
     if (tbodyBreakdown) tbodyBreakdown.innerHTML = '';
 
-    // Görev dağilim istatistiklerini hazirla
+    // Görev dağılım istatistiklerini hazırla
     const stats = {};
     DB.staff.forEach(s => {
         stats[s.id] = { hiG: 0, hiA: 0, hsG: 0, hsA: 0, total: 0 };
@@ -2278,14 +2274,14 @@ function renderDashboard() {
         });
     });
 
-    // Siralama (Puani en çoktan aza)
+    // Sıralama (Puanı en çoktan aza)
     const sortedStaffExam = [...DB.staff].sort((a, b) => b.totalScore - a.totalScore);
     const sortedStaffNonExam = [...DB.staff].sort((a, b) => (b.nonExamScore || 0) - (a.nonExamScore || 0));
 
     const tbodyNonExam = document.querySelector('#table-ranking-non-exam tbody');
     if (tbodyNonExam) tbodyNonExam.innerHTML = '';
 
-    // 1. Sinav Gözetmenliği Puan Siralamasi (totalScore'a göre azalan)
+    // 1. Sınav Gözetmenliği Puan Sıralaması (totalScore'a göre azalan)
     sortedStaffExam.forEach((s, idx) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -2303,7 +2299,7 @@ function renderDashboard() {
         tbody.appendChild(tr);
     });
 
-    // 2. Sinav Dişi Görev Siralamasi (nonExamScore'a göre azalan)
+    // 2. Sınav Dışı Görev Sıralaması (nonExamScore'a göre azalan)
     sortedStaffNonExam.forEach((s, idx) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -2320,7 +2316,7 @@ function renderDashboard() {
         `;
         if (tbodyNonExam) tbodyNonExam.appendChild(tr);
 
-        // Görev Dağilim Detay Tablosu
+        // Görev Dağılım Detay Tablosu
         if (tbodyBreakdown) {
             const trB = document.createElement('tr');
             const st = stats[s.id];
@@ -2352,14 +2348,14 @@ function renderDashboard() {
     const avg = DB.staff.length ? DB.staff.reduce((a, b) => a + b.totalScore, 0) / DB.staff.length : 0;
     if (avgScoreElem) avgScoreElem.textContent = avg.toFixed(1);
 
-    // Çakişma sayisi
+    // Çakışma sayısı
     const conflictElem = document.getElementById('stat-conflicts');
     if (conflictElem) {
         const conflicts = getConflicts();
         conflictElem.textContent = conflicts.size;
     }
 
-    // Pazar Yeri (Açik Görevler) Panel Kartini Güncelle
+    // Pazar Yeri (Açık Görevler) Panel Kartını Güncelle
     renderMarketplaceDashboard();
 }
 
@@ -2389,18 +2385,18 @@ function renderConstraintsList(staffName) {
     if (!DB.constraints) DB.constraints = {};
     const tbody = document.querySelector('#table-constraints tbody');
     const title = document.getElementById('current-constraints-title');
-    if (title) title.textContent = `${staffName} - Mevcut Kisitlar`;
+    if (title) title.textContent = `${staffName} - Mevcut Kısıtlar`;
     if (!tbody) return;
     tbody.innerHTML = '';
 
     const constraints = DB.constraints[staffName] || [];
 
     if (constraints.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu gözetmen için henüz kisit eklenmemiş.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu gözetmen için henüz kısıt eklenmemiş.</td></tr>';
         return;
     }
 
-    const dayNames = ["Pazar", "Pazartesi", "Sali", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
 
     constraints.forEach((c, idx) => {
         const tr = document.createElement('tr');
@@ -2440,7 +2436,7 @@ function addConstraint() {
     } else {
         newConstraint.date = document.getElementById('constraint-date').value;
         if (!newConstraint.date) { alert("Lütfen bir tarih seçin!"); return; }
-        // YYYY-MM-DD -> MM-DD formatina çevir (logic.js böyle bekliyor)
+        // YYYY-MM-DD -> MM-DD formatına çevir (logic.js böyle bekliyor)
         const parts = newConstraint.date.split('-');
         newConstraint.date = `${parts[1]}-${parts[2]}`;
     }
@@ -2450,11 +2446,11 @@ function addConstraint() {
 
     saveToLocalStorage();
     renderConstraintsList(staffName);
-    alert("✓ Kisit başariyla eklendi.");
+    alert("✓ Kısıt başarıyla eklendi.");
 }
 
 window.deleteConstraint = function(staffName, index) {
-    if (confirm("Bu kisitlamayi silmek istediğinize emin misiniz?")) {
+    if (confirm("Bu kısıtlamayı silmek istediğinize emin misiniz?")) {
         if (!DB.constraints) DB.constraints = {};
         if (DB.constraints[staffName]) {
             DB.constraints[staffName].splice(index, 1);
@@ -2539,7 +2535,7 @@ window.showExamDetail = function(examName, date, time, location) {
 
     tbody.innerHTML = '';
     if (relatedExams.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamiş.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamış.</td></tr>';
     } else {
         const now = new Date();
         // Tüm gözetmenleri (proctorIds içindeki her hoca için) tek tek listele
@@ -2586,35 +2582,35 @@ window.showExamDetail = function(examName, date, time, location) {
 window.takeOverDuty = async function(examId, oldProctorId) {
     try {
         const exam = DB.exams.find(e => String(e.id) === String(examId));
-        if (!exam) return alert("Sinav bulunamadi.");
+        if (!exam) return alert("Sınav bulunamadı.");
 
         const oldProctor = DB.staff.find(s => String(s.id) === String(oldProctorId));
-        if (!oldProctor) return alert("Hoca verisi bulunamadi.");
+        if (!oldProctor) return alert("Hoca verisi bulunamadı.");
 
         let newProctorName = "";
         let newProctor = null;
 
         if (sessionStorage.getItem('isAdmin') === 'true') {
-            // Admin ise kimi atayacağini seçsin
-            newProctor = await showStaffSelectModal("Görevi devralacak hocayi seçin:");
+            // Admin ise kimi atayacağını seçsin
+            newProctor = await showStaffSelectModal("Görevi devralacak hocayı seçin:");
             if (!newProctor) return;
         } else {
-            // Misafir ise "Kimseniz?" diye soralim
-            newProctor = await showStaffSelectModal("Lütfen kendi isminizi seçerek görevi devralin:");
+            // Misafir ise "Kimseniz?" diye soralım
+            newProctor = await showStaffSelectModal("Lütfen kendi isminizi seçerek görevi devralın:");
             if (!newProctor) return;
         }
 
-        if (!newProctor) return alert("Belirtilen isimde bir hoca bulunamadi! Lütfen tam ve doğru yazin.");
-        if (newProctor.id === oldProctor.id) return alert("Zaten bu görev bu hocaya atanmiş!");
+        if (!newProctor) return alert("Belirtilen isimde bir hoca bulunamadı! Lütfen tam ve doğru yazın.");
+        if (newProctor.id === oldProctor.id) return alert("Zaten bu görev bu hocaya atanmış!");
 
         // Müsaitlik kontrolü
         if (!isProctorTrulyFree(newProctor.id, exam.date, exam.time, exam.duration, exam.id)) {
-            if (!confirm("⚠️ Bu saatte başka bir göreviniz veya kisitiniz var! Yine de devam etmek istiyor musunuz?")) return;
+            if (!confirm("⚠️ Bu saatte başka bir göreviniz veya kısıtınız var! Yine de devam etmek istiyor musunuz?")) return;
         }
 
-        if (!confirm(`${oldProctor.name} hocanin görevini ${newProctor.name} hocaya devretmek istediğinize emin misiniz?`)) return;
+        if (!confirm(`${oldProctor.name} hocanın görevini ${newProctor.name} hocaya devretmek istediğinize emin misiniz?`)) return;
 
-        // PUAN GÜNCELLEME (nonExam/exam ayrimi)
+        // PUAN GÜNCELLEME (nonExam/exam ayrımı)
         if (shouldCountAsNonExam(exam)) {
             oldProctor.nonExamScore = Math.max(0, parseFloat(((oldProctor.nonExamScore || 0) - exam.score).toFixed(2)));
             oldProctor.nonExamTaskCount = Math.max(0, (oldProctor.nonExamTaskCount || 1) - 1);
@@ -2645,21 +2641,21 @@ window.takeOverDuty = async function(examId, oldProctorId) {
         renderSchedule();
         renderStaff();
         
-        console.log("Görev devralma başarili, sunucuya kaydediliyor...");
+        console.log("Görev devralma başarılı, sunucuya kaydediliyor...");
         await saveToBackend();
         
         logAction('user', 'Görev Devralma', `${exam.name} görevi ${oldProctor.name}'dan ${newProctor.name}'a devredildi.`);
-        alert(`✅ Başarili!\n${exam.name} görevi ${newProctor.name} hocaya başariyla devredildi.`);
+        alert(`✅ Başarılı!\n${exam.name} görevi ${newProctor.name} hocaya başarıyla devredildi.`);
         document.getElementById('modal-exam-detail').classList.add('hidden');
 
     } catch (err) {
-        console.error("Görevi devralma hatasi:", err);
+        console.error("Görevi devralma hatası:", err);
         alert("Bir hata oluştu: " + err.message);
     }
 };
 
 /**
- * Personel Seçim Modali (Promise tabanli)
+ * Personel Seçim Modalı (Promise tabanlı)
  */
 window.showStaffSelectModal = function(message) {
     return new Promise((resolve) => {
@@ -2706,7 +2702,7 @@ function renderExams() {
 
     const searchTerm = document.getElementById('exam-search')?.value.toLowerCase() || '';
 
-    // Siralama oklarini güncelle
+    // Sıralama oklarını güncelle
     document.querySelectorAll('.sortable').forEach(th => {
         const icon = th.querySelector('.sort-icon');
         if (icon) {
@@ -2718,7 +2714,7 @@ function renderExams() {
         }
     });
 
-    // DB'den sinavlari kopya alip sirala
+    // DB'den sınavları kopya alıp sırala
     const sortedExams = [...DB.exams].sort((a, b) => {
         let valA = a[currentSort.key];
         let valB = b[currentSort.key];
@@ -2775,7 +2771,7 @@ function renderExams() {
         const isLocConflict = locConflicts.has(ex.id);
 
         const dateObj = new Date(ex.date.replace(/-/g, "/"));
-        const dayNames = ["Pazar", "Pazartesi", "Sali", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+        const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
         const dayName = dayNames[dateObj.getDay()];
         const displayDate = ex.date.split("-").reverse().join(".") + " " + dayName;
 
@@ -2787,14 +2783,14 @@ function renderExams() {
             const icon = isNotified 
                 ? `<span title="E-posta Gönderildi" style="color:#10b981; margin-left:4px; cursor:help; font-size:0.85rem;">📧</span>` 
                 : `<span title="E-posta Gönderilmedi" style="color:#94a3b8; margin-left:4px; cursor:help; font-size:0.85rem;">✉️</span>`;
-            return `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${name}${s ? icon : ' <small style="color:var(--text-muted); margin-left:4px;">(Ayrildi)</small>'}</span>`;
+            return `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${name}${s ? icon : ' <small style="color:var(--text-muted); margin-left:4px;">(Ayrıldı)</small>'}</span>`;
         }).filter(Boolean).join(' ') || (ex.proctorName ? `<span style="display:inline-flex; align-items:center; margin-right:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${ex.proctorName}</span>` : '-');
 
         tr.innerHTML = `
             <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
             <td>
                 <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span>
-                ${conflicts.has(ex.id) ? '<span class="conflict-warning">⚠️ Zaman Çakişmasi!</span>' : ''}
+                ${conflicts.has(ex.id) ? '<span class="conflict-warning">⚠️ Zaman Çakışması!</span>' : ''}
             </td>
             <td>${ex.lecturer || '-'}</td>
             <td class="${isLocConflict ? 'location-conflict' : ''}">
@@ -2823,7 +2819,7 @@ function renderExams() {
                      if (isMe) {
                          return `
                             <button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
-                            <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Birak" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: #8b5cf6;"><span class="icon" style="margin:0;">📢</span></button>
+                            <button class="btn-primary" onclick="initiateOpenSwap(${ex.id})" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: #8b5cf6;"><span class="icon" style="margin:0;">📢</span></button>
                          `;
                      }
                      return '';
@@ -2875,7 +2871,7 @@ function renderSchedule() {
     const nextYear = nextMonthDate.getFullYear();
     const nextMonth = nextMonthDate.getMonth();
 
-    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasim", "Aralik"];
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     if (year === nextYear) {
         title.textContent = `${monthNames[month]} - ${monthNames[nextMonth]} ${year}`;
     } else {
@@ -2891,13 +2887,13 @@ function renderSchedule() {
     const myStaffId = localStorage.getItem('myStaffId');
     
     DB.exams.forEach(ex => {
-        // Kişiye özel filtre açiksa ve bu sinav bana atanmamişsa atla
+        // Kişiye özel filtre açıksa ve bu sınav bana atanmamışsa atla
         if (isPersonalOnly && myStaffId) {
             const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
             if (!pIds.includes(myStaffId)) return;
         }
 
-        // Tarihi geçmiş sinavlari programda gösterme
+        // Tarihi geçmiş sınavları programda gösterme
         const examDateStr = ex.date || "";
         const examTimeStr = ex.time || "00:00";
         const examDate = getSafeDate(examDateStr, examTimeStr);
@@ -2940,7 +2936,7 @@ function renderSchedule() {
     const scheduleList = Object.values(groups);
     const searchTerm = document.getElementById('schedule-search')?.value.toLowerCase() || '';
 
-    // Filtreleme (2 Aylik Dönem + Tür + Arama)
+    // Filtreleme (2 Aylık Dönem + Tür + Arama)
     const filteredSchedule = scheduleList.filter(ex => {
         if (!ex.date) return false;
         const d = new Date(ex.date.replace(/-/g, "/"));
@@ -2959,12 +2955,12 @@ function renderSchedule() {
         return matchesMonth && matchesType && matchesSearch;
     });
 
-    // Siralama ve Kategorize Etme
+    // Sıralama ve Kategorize Etme
     function getYear(name) {
         const lowerName = name.toLowerCase();
         
-        // Açikça (1. Yil, 2. Sinif vb) belirtilmişse öncelikli al
-        const explicitMatch = lowerName.match(/(1|2|3|4)\.\s*(yil|sinif)/);
+        // Açıkça (1. Yıl, 2. Sınıf vb) belirtilmişse öncelikli al
+        const explicitMatch = lowerName.match(/(1|2|3|4)\.\s*(yıl|sınıf)/);
         if (explicitMatch) return parseInt(explicitMatch[1]);
         
         if (lowerName.includes("yüksek lisans") || lowerName.includes("doktora") || lowerName.includes("yl")) return 5;
@@ -2976,7 +2972,7 @@ function renderSchedule() {
         const match = name.match(/\b(1|2|3|4)\d{2}\b/);
         if (match) return parseInt(match[1]);
         
-        // İsim bazli zorunlu/ortak dersler genelde 1. sinif
+        // İsim bazlı zorunlu/ortak dersler genelde 1. sınıf
         if (lowerName.includes("101") || lowerName.includes("102") || lowerName.includes("106") || lowerName.includes("112") || lowerName.includes("114")) return 1;
         
         // Bulunamayanlar
@@ -2987,7 +2983,7 @@ function renderSchedule() {
         const ya = getYear(a.name);
         const yb = getYear(b.name);
         
-        // 0 (Diğer) olanlari en sona atmak için ağirlik(weight) hesapliyoruz
+        // 0 (Diğer) olanları en sona atmak için ağırlık(weight) hesaplıyoruz
         const weightA = ya === 0 ? 99 : ya;
         const weightB = yb === 0 ? 99 : yb;
         
@@ -3026,7 +3022,7 @@ function renderSchedule() {
         const isLocConflict = DB.exams.some(e => e.name === ex.name && e.date === ex.date && e.time === ex.time && locConflicts.has(e.id));
 
         const dateObj = new Date(ex.date.replace(/-/g, "/"));
-        const dayNames = ["Pazar", "Pazartesi", "Sali", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+        const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
         const dayName = dayNames[dateObj.getDay()];
         const formatString = ex.date.split("-").reverse().join(".") + " " + dayName; 
         
@@ -3040,7 +3036,7 @@ function renderSchedule() {
                 <span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')"><strong>${ex.name}</strong></span>
                 ${isConflict ? `
                     <span class="conflict-warning" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#ef4444; margin-top:4px;">
-                        ⚠️ Gözetmen Çakişmasi
+                        ⚠️ Gözetmen Çakışması
                         <button class="btn-primary admin-only" onclick="autoResolveGroupConflict('${examGroupKey}')" style="background:#10b981; padding:2px 6px; font-size:0.65rem; border-radius:4px; border:none;">✨ Auto-Çöz</button>
                     </span>
                 ` : ''}
@@ -3049,7 +3045,7 @@ function renderSchedule() {
             <td>${ex.capacity}</td>
             <td class="${isLocConflict ? 'location-conflict' : ''}">
                 ${ex.location}
-                ${isLocConflict ? '<span class="location-warning" style="display:block; font-size:0.7rem; color:#f59e0b;">⚠️ Derslik Çakişmasi!</span>' : ''}
+                ${isLocConflict ? '<span class="location-warning" style="display:block; font-size:0.7rem; color:#f59e0b;">⚠️ Derslik Çakışması!</span>' : ''}
             </td>
             <td>${formatString}</td>
             <td>${ex.time}</td>
@@ -3063,7 +3059,7 @@ function renderSchedule() {
         tbodyActive.appendChild(tr);
     });
 
-    if (tbodyActive.children.length === 0) tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu 2 aylik dönem için sinav programi bulunmuyor.</td></tr>';
+    if (tbodyActive.children.length === 0) tbodyActive.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Bu 2 aylık dönem için sınav programı bulunmuyor.</td></tr>';
 
     // 2. Takvim Görünümü Render
     if (currentScheduleView === 'calendar' && grid) {
@@ -3076,15 +3072,15 @@ function renderCalendarGrid(exams, year, month) {
     if (!mainGrid) return;
     mainGrid.innerHTML = '';
 
-    // 2 ayi alt alta modern kartlar halinde yerleştirecek yapi
+    // 2 ayı alt alta modern kartlar halinde yerleştirecek yapı
     mainGrid.style.display = 'flex';
     mainGrid.style.flexDirection = 'column';
     mainGrid.style.gap = '2.5rem';
-    mainGrid.className = ''; // calendar-grid CSS izgara sinifini iptal edip iç bloklara veriyoruz
+    mainGrid.className = ''; // calendar-grid CSS ızgara sınıfını iptal edip iç bloklara veriyoruz
 
-    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasim", "Aralik"];
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
-    // İki aylik döngü (seçilen ay ve hemen sonraki ay)
+    // İki aylık döngü (seçilen ay ve hemen sonraki ay)
     for (let offset = 0; offset <= 1; offset++) {
         const targetDate = new Date(year, month + offset, 1);
         const curYear = targetDate.getFullYear();
@@ -3178,7 +3174,7 @@ function createScheduleDayCell(day, isOtherMonth, isToday = false, dayExams = []
 }
 
 /**
- * Genel Sinav Programinda Sekme Değiştirme
+ * Genel Sınav Programında Sekme Değiştirme
  */
 window.switchGeneralScheduleTab = (tabName) => {
     const btnActive = document.getElementById('tab-gen-btn-active');
@@ -3202,13 +3198,13 @@ function getCourseCatalogOptionsHtml() {
     const examNames = (DB.exams || []).map(e => e.name).filter(Boolean);
     
     const set = new Set();
-    // 1. Formatlanmiş tam ad, kod ve ders adi
+    // 1. Formatlanmış tam ad, kod ve ders adı
     catalog.forEach(c => {
         set.add(`${c.code} - ${c.name}`);
         set.add(c.code);
         set.add(c.name);
     });
-    // 2. Sistemde kayitli mevcut sinav adlari
+    // 2. Sistemde kayıtlı mevcut sınav adları
     examNames.forEach(n => set.add(n));
 
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr')).map(val => `<option value="${val}">`).join('');
@@ -3296,7 +3292,7 @@ window.renderCourseCatalogPickerList = function(yearFilter = 'all', searchQuery 
     if (filtered.length === 0) {
         container.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 30px;">
-                🔍 Arama kriterine uygun ders bulunamadi.
+                🔍 Arama kriterine uygun ders bulunamadı.
             </div>
         `;
         return;
@@ -3304,7 +3300,7 @@ window.renderCourseCatalogPickerList = function(yearFilter = 'all', searchQuery 
     
     container.innerHTML = filtered.map(c => {
         const fullTitle = `${c.code} - ${c.name}`;
-        const yearBadge = c.year === 'Servis' ? '🏛️ Servis' : `🎓 ${c.year}. Sinif`;
+        const yearBadge = c.year === 'Servis' ? '🏛️ Servis' : `🎓 ${c.year}. Sınıf`;
         const typeColor = c.type === 'Zorunlu' ? 'rgba(99,102,241,0.2)' : 'rgba(16,185,129,0.2)';
         const typeBorder = c.type === 'Zorunlu' ? '#6366f1' : '#10b981';
         const typeText = c.type === 'Zorunlu' ? '#a5b4fc' : '#6ee7b7';
@@ -3348,11 +3344,11 @@ window.selectCourseFromPicker = function(courseCode, courseName) {
 function showAddExamModal() {
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
-    document.getElementById('modal-title').textContent = "Yeni Sinav Ekle";
+    document.getElementById('modal-title').textContent = "Yeni Sınav Ekle";
 
-    // Eğer DB.lecturers bir şekilde boş kalmişsa, hardcoded değerleri geri getir (Güvenlik önlemi)
+    // Eğer DB.lecturers bir şekilde boş kalmışsa, hardcoded değerleri geri getir (Güvenlik önlemi)
     if (!DB.lecturers || DB.lecturers.length === 0) {
-        console.warn("DB.lecturers boş, varsayilanlar yükleniyor...");
+        console.warn("DB.lecturers boş, varsayılanlar yükleniyor...");
         DB.lecturers = [
             { name: "Mustafa AKKURT", title: "Prof. Dr." },
             { name: "Nuri ÇELİK", title: "Prof. Dr." },
@@ -3361,14 +3357,14 @@ function showAddExamModal() {
             { name: "Emil NOVRUZ", title: "Prof. Dr." },
             { name: "Sibel ÖZKAN", title: "Prof. Dr." },
             { name: "Serkan SÜTLÜ", title: "Prof. Dr." },
-            { name: "Coşkun YAKAR (Bölüm Başkani)", title: "Prof. Dr." },
+            { name: "Coşkun YAKAR (Bölüm Başkanı)", title: "Prof. Dr." },
             { name: "Nursel EREY", title: "Doç. Dr." },
             { name: "Gülden GÜN POLAT", title: "Doç. Dr." },
             { name: "Feray HACIVELİOĞLU", title: "Doç. Dr." },
             { name: "Roghayeh HAFEZIEH", title: "Doç. Dr." },
             { name: "Fatma KARAOĞLU CEYHAN", title: "Doç. Dr." },
             { name: "Ayten KOÇ", title: "Doç. Dr." },
-            { name: "Işil ÖNER", title: "Doç. Dr." },
+            { name: "Işıl ÖNER", title: "Doç. Dr." },
             { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
             { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
             { name: "Selçuk TOPAL", title: "Doç. Dr." },
@@ -3379,7 +3375,7 @@ function showAddExamModal() {
             { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" },
             { name: "Benan DURUKAN", title: "Öğr.Gör." },
             { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
-            { name: "Zeynep Karadeniz Cisdik", title: "Öğr. Gör." },
+            { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
             { name: "Orkun Canbek", title: "Öğr. Gör." },
             { name: "Oğuzhan DURSUN", title: "Öğr. Gör. Dr." },
             { name: "Pelin Ayşe GÖKGÖZ", title: "Araş. Gör. Dr." },
@@ -3393,7 +3389,7 @@ function showAddExamModal() {
     fields.innerHTML = `
         <div class="form-group">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <label style="margin:0;">Sinav Türü</label>
+                <label style="margin:0;">Sınav Türü</label>
                 <button type="button" class="btn-icon" onclick="openTypeManager()" style="font-size:0.8rem; padding:2px 5px; opacity:0.7;">⚙️ Yönet</button>
             </div>
             <select id="exam-type" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
@@ -3401,12 +3397,12 @@ function showAddExamModal() {
             </select>
             <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
                 <input type="checkbox" id="exam-is-non-exam" style="width: 16px; height: 16px;">
-                <label for="exam-is-non-exam" style="margin: 0; cursor: pointer; color: var(--accent-orange);">Sinav Dişi Görev (Sadece Görev Puanini Etkiler)</label>
+                <label for="exam-is-non-exam" style="margin: 0; cursor: pointer; color: var(--accent-orange);">Sınav Dışı Görev (Sadece Görev Puanını Etkiler)</label>
             </div>
         </div>
         <div class="form-group">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <label style="margin:0;">Sinav/Ders Adi</label>
+                <label style="margin:0;">Sınav/Ders Adı</label>
                 <button type="button" class="btn-icon" onclick="openCourseCatalogPicker('exam-name', 'exam-lecturer')" style="font-size:0.8rem; padding:2px 8px; background:rgba(14,165,233,0.2); border:1px solid #0284c7; color:#38bdf8; border-radius:4px; cursor:pointer;">📚 Katalogdan Seç</button>
             </div>
             <input type="text" id="exam-name" list="exam-memory-list" placeholder="Örn: MAT 101 veya MATH 101" required autocomplete="off">
@@ -3415,7 +3411,7 @@ function showAddExamModal() {
             </datalist>
             <div id="add-exam-catalog-info" style="display:none; font-size:0.75rem; color:#38bdf8; margin-top:4px; padding:5px 8px; background:rgba(14,165,233,0.1); border-radius:6px; border:1px solid rgba(14,165,233,0.25);"></div>
             <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">
-               💡 <b>Katalog Eşleşmesi:</b> Ders kodunu veya adini yazdiğinizda sistem dersi otomatik tanir ve sorumlu hocayi seçer.
+               💡 <b>Katalog Eşleşmesi:</b> Ders kodunu veya adını yazdığınızda sistem dersi otomatik tanır ve sorumlu hocayı seçer.
             </small>
         </div>
         <div class="form-group">
@@ -3426,15 +3422,15 @@ function showAddExamModal() {
             </select>
         </div>
         <div class="form-group">
-            <label>Sinif Mevcudu</label>
+            <label>Sınıf Mevcudu</label>
             <input type="number" id="exam-capacity" placeholder="Örn: 250">
         </div>
         <div class="form-group">
-            <label>Sinav Tarihi</label>
+            <label>Sınav Tarihi</label>
             <input type="date" id="exam-date" required>
         </div>
         <div class="form-group">
-            <label>Başlangiç Saati</label>
+            <label>Başlangıç Saati</label>
             <input type="time" id="exam-time" required>
         </div>
         <div class="form-group">
@@ -3456,7 +3452,7 @@ function showAddExamModal() {
             </div>
         </div>
         <div id="add-suggestions" class="suggestion-area hidden">
-            <h4>🤖 Akilli Öneriler</h4>
+            <h4>🤖 Akıllı Öneriler</h4>
             <div id="add-suggestion-list" class="suggestion-list"></div>
         </div>
     `;
@@ -3492,10 +3488,10 @@ function showAddExamModal() {
         const durInput = document.getElementById('exam-duration');
 
         /**
-         * Hoca adini select option'lardan bulup seçer.
-         * Önce tam eşleşme, sonra kismi eşleşme dener.
-         * @param {string} lecturerName  - Seçilecek hocanin adi (ünvan dahil veya hariç)
-         * @param {boolean} force        - true ise mevcut seçimi sifirlayip yeniden atar
+         * Hoca adını select option'lardan bulup seçer.
+         * Önce tam eşleşme, sonra kısmi eşleşme dener.
+         * @param {string} lecturerName  - Seçilecek hocanın adı (ünvan dahil veya hariç)
+         * @param {boolean} force        - true ise mevcut seçimi sıfırlayıp yeniden atar
          */
         function autoSelectLecturer(lecturerName, force = true) {
             if (!lecturerName || !selectL) return false;
@@ -3504,14 +3500,14 @@ function showAddExamModal() {
             for (let i = 0; i < selectL.options.length; i++) {
                 if (selectL.options[i].value.trim().toLowerCase() === needle) {
                     selectL.selectedIndex = i;
-                    // Görsel ipucu: select'i kisa süre vurgula
+                    // Görsel ipucu: select'i kısa süre vurgula
                     selectL.style.borderColor = '#10b981';
                     selectL.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
                     setTimeout(() => { selectL.style.borderColor = ''; selectL.style.boxShadow = ''; }, 1800);
                     return true;
                 }
             }
-            // 2. Kismi eşleşme: option içinde needle var mi? veya needle içinde option var mi?
+            // 2. Kısmi eşleşme: option içinde needle var mı? veya needle içinde option var mı?
             for (let i = 0; i < selectL.options.length; i++) {
                 const opt = selectL.options[i].value.trim().toLowerCase();
                 if (opt.includes(needle) || needle.includes(opt)) {
@@ -3522,7 +3518,7 @@ function showAddExamModal() {
                     return true;
                 }
             }
-            // 3. Soyadi ile eşleşme — sadece soyadin son parçasini karşilaştir
+            // 3. Soyadı ile eşleşme — sadece soyadın son parçasını karşılaştır
             const needleParts = needle.split(' ').filter(p => p.length > 2);
             for (let i = 0; i < selectL.options.length; i++) {
                 const opt = selectL.options[i].value.trim().toLowerCase();
@@ -3543,7 +3539,7 @@ function showAddExamModal() {
             infoBadge.style.display = 'block';
             infoBadge.innerHTML = `📘 <b>${catCourse.code} - ${catCourse.name}</b> &nbsp;|&nbsp; 🌐 ${catCourse.lang} &nbsp;|&nbsp; 📅 ${catCourse.term} &nbsp;|&nbsp; ⭐ ${catCourse.credit} Kredi / ${catCourse.akts} AKTS &nbsp;(${catCourse.type})`;
             
-            // Dersin sorumlu hocasini çoklu kaynaktan belirle
+            // Dersin sorumlu hocasını çoklu kaynaktan belirle
             const lecturerToSelect =
                 catCourse.lecturer ||
                 (DB.courseLecturers && (
@@ -3553,7 +3549,7 @@ function showAddExamModal() {
                 )) ||
                 (DB.courseLecturers && DB.courseLecturers[val]);
 
-            // Hoca bulunduysa her zaman güncelle (mevcut seçimden bağimsiz)
+            // Hoca bulunduysa her zaman güncelle (mevcut seçimden bağımsız)
             if (lecturerToSelect) {
                 autoSelectLecturer(lecturerToSelect, true);
             }
@@ -3562,11 +3558,11 @@ function showAddExamModal() {
             infoBadge.innerHTML = '';
         }
 
-        // 2. Geçmiş sinavlarda bu isimde bir kayit varsa o kayittan hoca ve diğer bilgileri al
+        // 2. Geçmiş sınavlarda bu isimde bir kayıt varsa o kayıttan hoca ve diğer bilgileri al
         const pastExams = DB.exams.filter(ex => ex.name.toLowerCase() === val.toLowerCase());
         if (pastExams.length > 0) {
             const latest = pastExams[pastExams.length - 1];
-            // Hoca: katalog eşleşmesi bulamazdiysa geçmiş sinavdan al
+            // Hoca: katalog eşleşmesi bulamazdıysa geçmiş sınavdan al
             if (latest.lecturer && (!catCourse || !catCourse.lecturer)) {
                 autoSelectLecturer(latest.lecturer, false);
             }
@@ -3574,7 +3570,7 @@ function showAddExamModal() {
             if (latest.location && locInput && !locInput.value) locInput.value = latest.location;
             if (latest.duration && durInput && durInput.value === '60') durInput.value = latest.duration;
         } else if (!catCourse) {
-            // 3. Katalogda da geçmiş sinavlarda da yoksa DB.courseLecturers doğrudan dene
+            // 3. Katalogda da geçmiş sınavlarda da yoksa DB.courseLecturers doğrudan dene
             const lecturerName = DB.courseLecturers && DB.courseLecturers[val];
             if (lecturerName) autoSelectLecturer(lecturerName, true);
         }
@@ -3674,7 +3670,7 @@ function hideModal() {
 }
 
 /**
- * Sinav gözetmenlerine Outlook üzerinden mail gönder (mailto: linki ile)
+ * Sınav gözetmenlerine Outlook üzerinden mail gönder (mailto: linki ile)
  */
 window.sendExamMailViaOutlook = (examId) => {
     const exam = DB.exams.find(e => String(e.id) === String(examId));
@@ -3687,11 +3683,11 @@ window.sendExamMailViaOutlook = (examId) => {
         .filter(Boolean);
 
     if (proctors.length === 0) {
-        alert('Bu sinava atanmiş gözetmen bulunamadi.');
+        alert('Bu sınava atanmış gözetmen bulunamadı.');
         return;
     }
 
-    // E-postasi olmayan gözetmenler varsa uyar
+    // E-postası olmayan gözetmenler varsa uyar
     const noEmail = proctors.filter(p => !p.email);
     if (noEmail.length > 0) {
         const names = noEmail.map(p => p.name).join(', ');
@@ -3700,7 +3696,7 @@ window.sendExamMailViaOutlook = (examId) => {
 
     const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
     if (!emailList) {
-        alert('Atanmiş gözetmenlerin hiçbirinin e-posta adresi girilmemiş.\nPersonel sekmesinden e-posta adreslerini ekleyin.');
+        alert('Atanmış gözetmenlerin hiçbirinin e-posta adresi girilmemiş.\nPersonel sekmesinden e-posta adreslerini ekleyin.');
         return;
     }
 
@@ -3710,13 +3706,13 @@ window.sendExamMailViaOutlook = (examId) => {
 
     const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
 
-    const body = `Sayin Hocam,
+    const body = `Sayın Hocam,
  
-${exam.date} tarihinde saat ${exam.time}'de yapilacak olan "${exam.name}" sinavina gözetmen olarak atandiniz.
+${exam.date} tarihinde saat ${exam.time}'de yapılacak olan "${exam.name}" sınavına gözetmen olarak atandınız.
  
 SINAV BİLGİLERİ
 ----------------------------
-📚 Sinav Adi : ${exam.name}
+📚 Sınav Adı : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
 📅 Tarih : ${exam.date}
 🕒 Saat : ${exam.time}
@@ -3727,17 +3723,17 @@ SINAV BİLGİLERİ
 ----------------------------
 
 🌐 SİSTEME ERİŞİM VE PROGRAM TAKİBİ:
-Sinav detaylarina ve kişisel programiniza aşağidaki web adresinden ulaşabilirsiniz:
+Sınav detaylarına ve kişisel programınıza aşağıdaki web adresinden ulaşabilirsiniz:
 ${siteUrl}
 
 ⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
-Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştirip, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Birak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayina gerek yoktur.
+Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
 
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
-    // Gizli link oluştur ve tikla (sayfa yenilenmeden Outlook açilir)
+    // Gizli link oluştur ve tıkla (sayfa yenilenmeden Outlook açılır)
     const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     const a = document.createElement('a');
     a.href = mailtoLink;
@@ -3746,7 +3742,7 @@ ${siteUrl}`;
     a.click();
     setTimeout(() => document.body.removeChild(a), 100);
 
-    logAction('admin', 'Mail Gönderim', `"${exam.name}" sinavi için ${proctors.length} gözetmene Outlook üzerinden mail hazirlandi.`);
+    logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
 
     // Bildirim durumunu güncelle (gönderilen gözetmenleri işaretle)
     if (!exam.notifiedStaffIds) exam.notifiedStaffIds = [];
@@ -3760,23 +3756,23 @@ ${siteUrl}`;
 };
 
 /**
- * Sinav Programi tablosundan (isim+tarih+saat+yer) gözetmenlere Outlook üzerinden mail gönder
+ * Sınav Programı tablosundan (isim+tarih+saat+yer) gözetmenlere Outlook üzerinden mail gönder
  */
 window.sendScheduleMailViaOutlook = (examName, examDate, examTime, examLocation) => {
-    // Gruba dahil olan tüm sinavlari bul (ayni ad+tarih+saat+yer)
+    // Gruba dahil olan tüm sınavları bul (aynı ad+tarih+saat+yer)
     const matchingExams = DB.exams.filter(e =>
         e.name === examName && e.date === examDate && e.time === examTime && e.location === examLocation
     );
 
-    if (matchingExams.length === 0) { alert('Sinav bulunamadi.'); return; }
+    if (matchingExams.length === 0) { alert('Sınav bulunamadı.'); return; }
 
-    // Tüm gözetmen ID'lerini topla (tekrarsiz)
+    // Tüm gözetmen ID'lerini topla (tekrarsız)
     const allProctorIds = [...new Set(matchingExams.flatMap(e => e.proctorIds || (e.proctorId ? [e.proctorId] : [])))];
     const proctors = allProctorIds.map(pid => DB.staff.find(s => String(s.id) === String(pid))).filter(Boolean);
 
-    if (proctors.length === 0) { alert('Bu sinava atanmiş gözetmen bulunamadi.'); return; }
+    if (proctors.length === 0) { alert('Bu sınava atanmış gözetmen bulunamadı.'); return; }
 
-    // E-postasi eksik olanlari kontrol et
+    // E-postası eksik olanları kontrol et
     const noEmail = proctors.filter(p => !p.email);
     if (noEmail.length > 0) {
         const names = noEmail.map(p => p.name).join(', ');
@@ -3792,13 +3788,13 @@ window.sendScheduleMailViaOutlook = (examName, examDate, examTime, examLocation)
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
 
     const subject = `📅 Yeni Gözetmenlik Görevi: ${examName} | ${examDate}`;
-    const body = `Sayin Hocam,
+    const body = `Sayın Hocam,
  
-${examDate} tarihinde saat ${examTime}'de yapilacak olan "${examName}" sinavina gözetmen olarak atandiniz.
+${examDate} tarihinde saat ${examTime}'de yapılacak olan "${examName}" sınavına gözetmen olarak atandınız.
  
 SINAV BİLGİLERİ
 ----------------------------
-📚 Sinav Adi : ${examName}
+📚 Sınav Adı : ${examName}
 👨‍🏫 Dersi Veren : ${refExam.lecturer || '-'}
 📅 Tarih : ${examDate}
 🕒 Saat : ${examTime}
@@ -3809,19 +3805,19 @@ SINAV BİLGİLERİ
 ----------------------------
 
 🌐 SİSTEME ERİŞİM VE PROGRAM TAKİBİ:
-Sinav detaylarina ve kişisel programiniza aşağidaki web adresinden ulaşabilirsiniz:
+Sınav detaylarına ve kişisel programınıza aşağıdaki web adresinden ulaşabilirsiniz:
 ${siteUrl}
 
 ⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
-Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştirip, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Birak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayina gerek yoktur.
+Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
 
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
     const mailtoLink = `mailto:${encodeURIComponent(emailList)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     
-    // Gizli link oluştur ve tikla (sayfa yenilenmeden Outlook açilir)
+    // Gizli link oluştur ve tıkla (sayfa yenilenmeden Outlook açılır)
     const a = document.createElement('a');
     a.href = mailtoLink;
     a.style.display = 'none';
@@ -3829,11 +3825,11 @@ ${siteUrl}`;
     a.click();
     setTimeout(() => document.body.removeChild(a), 100);
 
-    logAction('admin', 'Mail Gönderim', `"${examName}" sinavi için ${proctors.length} gözetmene Outlook üzerinden mail hazirlandi.`);
+    logAction('admin', 'Mail Gönderim', `"${examName}" sınavı için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
 };
 
 /**
- * Sinav iptali durumunda gözetmene Outlook üzerinden mail gönder (mailto: linki ile)
+ * Sınav iptali durumunda gözetmene Outlook üzerinden mail gönder (mailto: linki ile)
  */
 window.sendCancelMailViaOutlook = (staffId, exam) => {
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
@@ -3845,13 +3841,13 @@ window.sendCancelMailViaOutlook = (staffId, exam) => {
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
     const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
     
-    let body = `Sayin ${staff.name} Hocam,
+    let body = `Sayın ${staff.name} Hocam,
  
-Atandiğiniz sinavdaki gözetmenlik göreviniz iptal edilmiştir. Bilgileri aşağida bulabilirsiniz.
+Atandığınız sınavdaki gözetmenlik göreviniz iptal edilmiştir. Bilgileri aşağıda bulabilirsiniz.
  
 SINAV BİLGİLERİ
 ----------------------------
-📚 Sinav Adi   : ${exam.name}
+📚 Sınav Adı   : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
 📅 Tarih       : ${exam.date}
 🕒 Saat        : ${exam.time}
@@ -3860,15 +3856,15 @@ SINAV BİLGİLERİ
 ----------------------------
 
 🌐 SİSTEME GİRİŞ:
-Güncel sinav görevlerinizi görüntülemek için:
+Güncel sınav görevlerinizi görüntülemek için:
 ${siteUrl}
  
-Bu mesaj Gözetmenlik Takip ve Atama Sistemi üzerinden hazirlanmiştir.
-İyi çalişmalar dileriz.
+Bu mesaj Gözetmenlik Takip ve Atama Sistemi üzerinden hazırlanmıştır.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
-    // E-posta şablonlarindan temizlenmiş düz yazi kullanmaya çaliş (varsa)
+    // E-posta şablonlarından temizlenmiş düz yazı kullanmaya çalış (varsa)
     if (DB.templates && DB.templates.cancel_email_body) {
         let tempText = DB.templates.cancel_email_body;
         // HTML to plain text conversion
@@ -3912,7 +3908,7 @@ ${siteUrl}`;
     a.click();
     setTimeout(() => document.body.removeChild(a), 100);
 
-    logAction('admin', 'Mail Gönderim', `"${exam.name}" sinavi iptali için ${staff.name} hocaya Outlook üzerinden mail hazirlandi.`);
+    logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı iptali için ${staff.name} hocaya Outlook üzerinden mail hazırlandı.`);
 };
 
 window.removeProctorAndSendCancelMail = (staffId) => {
@@ -3923,7 +3919,7 @@ window.removeProctorAndSendCancelMail = (staffId) => {
     const staff = DB.staff.find(s => s.id === staffId);
     if (!staff) return;
     
-    if (confirm(`"${staff.name}" hocayi gözetmenlikten çikarip iptal maili hazirlamak istiyor musunuz?`)) {
+    if (confirm(`"${staff.name}" hocayı gözetmenlikten çıkarıp iptal maili hazırlamak istiyor musunuz?`)) {
         window.sendCancelMailViaOutlook(staffId, exam);
         window.removeProctorFromEditList(staffId);
     }
@@ -3948,13 +3944,13 @@ window.sendSingleProctorMailViaOutlook = (examId, staffId) => {
     const scoreText = typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-');
     const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
     
-    const body = `Sayin ${staff.name} Hocam,
+    const body = `Sayın ${staff.name} Hocam,
  
-${exam.date} tarihinde saat ${exam.time}'de yapilacak olan "${exam.name}" sinavina gözetmen olarak atandiniz.
+${exam.date} tarihinde saat ${exam.time}'de yapılacak olan "${exam.name}" sınavına gözetmen olarak atandınız.
  
 SINAV BİLGİLERİ
 ----------------------------
-📚 Sinav Adi : ${exam.name}
+📚 Sınav Adı : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
 📅 Tarih : ${exam.date}
 🕒 Saat : ${exam.time}
@@ -3965,13 +3961,13 @@ SINAV BİLGİLERİ
 ----------------------------
 
 🌐 SİSTEME ERİŞİM VE PROGRAM TAKİBİ:
-Sinav detaylarina ve kişisel programiniza aşağidaki web adresinden ulaşabilirsiniz:
+Sınav detaylarına ve kişisel programınıza aşağıdaki web adresinden ulaşabilirsiniz:
 ${siteUrl}
 
 ⚠️ GÖREV DEĞİŞİKLİĞİ YAPMAK İÇİN:
-Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştirip, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Birak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayina gerek yoktur.
+Görevinizde değişiklik yapmak istediğinizde sisteme (${siteUrl}) giriş yaparak "Profilim" sekmesinden uygun bir kişiyi kendiniz araştırıp, "Takas Teklifi Gönder" veya "Görevi Pazar Yeri'ne Bırak" seçeneğini kullanarak değişikliği kendiniz gerçekleştirebilirsiniz. Herhangi bir yönetici onayına gerek yoktur.
  
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
@@ -4003,7 +3999,7 @@ window.sendBulkCancelMailViaOutlook = (examId) => {
         .filter(Boolean);
 
     if (proctors.length === 0) {
-        alert('Bu sinava atanmiş gözetmen bulunamadi.');
+        alert('Bu sınava atanmış gözetmen bulunamadı.');
         return;
     }
 
@@ -4013,19 +4009,19 @@ window.sendBulkCancelMailViaOutlook = (examId) => {
         return;
     }
 
-    if (!confirm(`"${exam.name}" sinavi için ${proctors.length} gözetmene Outlook üzerinden Toplu İptal Maili hazirlansin mi?`)) {
+    if (!confirm(`"${exam.name}" sınavı için ${proctors.length} gözetmene Outlook üzerinden Toplu İptal Maili hazırlansın mı?`)) {
         return;
     }
 
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
     const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
-    let body = `Sayin Hocalarim,
+    let body = `Sayın Hocalarım,
  
-${exam.date} tarihindeki "${exam.name}" sinavi iptal edilmiştir. Bu sinavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
+${exam.date} tarihindeki "${exam.name}" sınavı iptal edilmiştir. Bu sınavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
  
 İPTAL OLAN SINAV BİLGİLERİ
 ----------------------------
-📚 Sinav Adi   : ${exam.name}
+📚 Sınav Adı   : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
 📅 Tarih       : ${exam.date}
 🕒 Saat        : ${exam.time}
@@ -4034,10 +4030,10 @@ ${exam.date} tarihindeki "${exam.name}" sinavi iptal edilmiştir. Bu sinavdaki g
 ----------------------------
 
 🌐 SİSTEME GİRİŞ:
-Güncel sinav programina aşağidaki bağlantidan erişebilirsiniz:
+Güncel sınav programına aşağıdaki bağlantıdan erişebilirsiniz:
 ${siteUrl}
  
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
@@ -4058,7 +4054,7 @@ ${siteUrl}`;
         const gozetmenler = proctors.map(p => p.name).join(', ');
 
         body = tempText
-            .replace(/{personel_adi}/g, 'Hocalarim')
+            .replace(/{personel_adi}/g, 'Hocalarım')
             .replace(/{sinav_adi}/g, exam.name || '-')
             .replace(/{dersi_veren}/g, exam.lecturer || '-')
             .replace(/{tarih}/g, exam.date || '-')
@@ -4079,7 +4075,7 @@ ${siteUrl}`;
     a.click();
     setTimeout(() => document.body.removeChild(a), 100);
 
-    logAction('admin', 'Mail Gönderim', `"${exam.name}" sinavi toplu iptali için ${proctors.length} gözetmene Outlook üzerinden mail hazirlandi.`);
+    logAction('admin', 'Mail Gönderim', `"${exam.name}" sınavı toplu iptali için ${proctors.length} gözetmene Outlook üzerinden mail hazırlandı.`);
 };
 
 window.deleteExam = async (id) => {
@@ -4094,29 +4090,29 @@ window.deleteExam = async (id) => {
     if (proctors.length > 0) {
         const hasEmails = proctors.some(p => p.email);
         if (hasEmails) {
-            wantMail = confirm(`"${ex.name}" sinavi siliniyor.\nAtanmiş gözetmenlere (${proctors.map(p=>p.name).join(', ')}) Outlook üzerinden Toplu İptal Maili hazirlamak ister misiniz?`);
+            wantMail = confirm(`"${ex.name}" sınavı siliniyor.\nAtanmış gözetmenlere (${proctors.map(p=>p.name).join(', ')}) Outlook üzerinden Toplu İptal Maili hazırlamak ister misiniz?`);
         } else {
-            if (!confirm(`"${ex.name}" sinavini silmek istediğinize emin misiniz?`)) return;
+            if (!confirm(`"${ex.name}" sınavını silmek istediğinize emin misiniz?`)) return;
         }
     } else {
-        if (!confirm(`"${ex.name}" sinavini silmek istediğinize emin misiniz?`)) return;
+        if (!confirm(`"${ex.name}" sınavını silmek istediğinize emin misiniz?`)) return;
     }
 
-    takeSnapshot("Sinav Silme");
+    takeSnapshot("Sınav Silme");
 
     if (wantMail) {
-        // Toplu mailto hazirliği
+        // Toplu mailto hazırlığı
         const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
         const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
-        const subject = `❌ Sinav İptali / Görev İptal Edildi: ${ex.name} | ${ex.date}`;
+        const subject = `❌ Sınav İptali / Görev İptal Edildi: ${ex.name} | ${ex.date}`;
         
-        let body = `Sayin Hocalarim,
+        let body = `Sayın Hocalarım,
  
-${ex.date} tarihindeki "${ex.name}" sinavi iptal edilmiştir. Bu sinavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
+${ex.date} tarihindeki "${ex.name}" sınavı iptal edilmiştir. Bu sınavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
  
 İPTAL OLAN SINAV BİLGİLERİ
 ----------------------------
-📚 Sinav Adi   : ${ex.name}
+📚 Sınav Adı   : ${ex.name}
 👨‍🏫 Dersi Veren : ${ex.lecturer || '-'}
 📅 Tarih       : ${ex.date}
 🕒 Saat        : ${ex.time}
@@ -4125,10 +4121,10 @@ ${ex.date} tarihindeki "${ex.name}" sinavi iptal edilmiştir. Bu sinavdaki göze
 ----------------------------
 
 🌐 SİSTEME GİRİŞ:
-Güncel sinav takvimine erişmek için:
+Güncel sınav takvimine erişmek için:
 ${siteUrl}
  
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
@@ -4149,7 +4145,7 @@ ${siteUrl}`;
             const gozetmenler = proctors.map(p => p.name).join(', ');
 
             body = tempText
-                .replace(/{personel_adi}/g, 'Hocalarim')
+                .replace(/{personel_adi}/g, 'Hocalarım')
                 .replace(/{sinav_adi}/g, ex.name || '-')
                 .replace(/{dersi_veren}/g, ex.lecturer || '-')
                 .replace(/{tarih}/g, ex.date || '-')
@@ -4189,7 +4185,7 @@ ${siteUrl}`;
 
     DB.exams.splice(exIndex, 1);
     saveToLocalStorage();
-    logAction('admin', 'Sinav Silme', `${ex.name} sinavi silindi ${wantMail ? '(Toplu iptal maili tetiklendi)' : ''}.`);
+    logAction('admin', 'Sınav Silme', `${ex.name} sınavı silindi ${wantMail ? '(Toplu iptal maili tetiklendi)' : ''}.`);
     renderExams();
     renderSchedule();
     renderDashboard();
@@ -4202,13 +4198,13 @@ window.showEditExamModal = (id) => {
 
     document.getElementById('edit-exam-id').value = ex.id;
     
-    // Header'da yönetim butonu ekle (opsiyonel ama tutarlilik için)
+    // Header'da yönetim butonu ekle (opsiyonel ama tutarlılık için)
     const typeLabelContainer = document.querySelector('#edit-modal .form-group:first-child');
     if (typeLabelContainer) {
          typeLabelContainer.style.position = 'relative';
-         // Eğer zaten buton yoksa ekleyelim (burada select'in üstündeki label'i bulup yanina koyuyoruz)
+         // Eğer zaten buton yoksa ekleyelim (burada select'in üstündeki label'ı bulup yanına koyuyoruz)
          // Not: Index.html'de sabit durabilir veya burada dinamik ekletebiliriz.
-         // En iyisi index.html'de label yanina butonu koymak.
+         // En iyisi index.html'de label yanına butonu koymak.
     }
 
     const typeSelect = document.getElementById('edit-exam-type');
@@ -4232,9 +4228,9 @@ window.showEditExamModal = (id) => {
     const isNonExamEl = document.getElementById('edit-exam-is-non-exam');
     if (isNonExamEl) isNonExamEl.checked = !!ex.isNonExam;
     
-    // Eğer DB.lecturers bir şekilde boş kalmişsa, hardcoded değerleri geri getir (Güvenlik önlemi)
+    // Eğer DB.lecturers bir şekilde boş kalmışsa, hardcoded değerleri geri getir (Güvenlik önlemi)
     if (!DB.lecturers || DB.lecturers.length === 0) {
-        console.warn("DB.lecturers boş, varsayilanlar yükleniyor...");
+        console.warn("DB.lecturers boş, varsayılanlar yükleniyor...");
         DB.lecturers = [
             { name: "Mustafa AKKURT", title: "Prof. Dr." },
             { name: "Nuri ÇELİK", title: "Prof. Dr." },
@@ -4243,14 +4239,14 @@ window.showEditExamModal = (id) => {
             { name: "Emil NOVRUZ", title: "Prof. Dr." },
             { name: "Sibel ÖZKAN", title: "Prof. Dr." },
             { name: "Serkan SÜTLÜ", title: "Prof. Dr." },
-            { name: "Coşkun YAKAR (Bölüm Başkani)", title: "Prof. Dr." },
+            { name: "Coşkun YAKAR (Bölüm Başkanı)", title: "Prof. Dr." },
             { name: "Nursel EREY", title: "Doç. Dr." },
             { name: "Gülden GÜN POLAT", title: "Doç. Dr." },
             { name: "Feray HACIVELİOĞLU", title: "Doç. Dr." },
             { name: "Roghayeh HAFEZIEH", title: "Doç. Dr." },
             { name: "Fatma KARAOĞLU CEYHAN", title: "Doç. Dr." },
             { name: "Ayten KOÇ", title: "Doç. Dr." },
-            { name: "Işil ÖNER", title: "Doç. Dr." },
+            { name: "Işıl ÖNER", title: "Doç. Dr." },
             { name: "Hülya ÖZTÜRK", title: "Doç. Dr." },
             { name: "Ayşe SÖNMEZ", title: "Doç. Dr." },
             { name: "Selçuk TOPAL", title: "Doç. Dr." },
@@ -4261,7 +4257,7 @@ window.showEditExamModal = (id) => {
             { name: "Samire YAZAR", title: "Dr. Öğr. Üyesi" },
             { name: "Benan DURUKAN", title: "Öğr.Gör." },
             { name: "Fatih KINDAZ", title: "Öğr. Gör. Dr." },
-            { name: "Zeynep Karadeniz Cisdik", title: "Öğr. Gör." },
+            { name: "Zeynep Karadeniz Cısdık", title: "Öğr. Gör." },
             { name: "Orkun Canbek", title: "Öğr. Gör." },
             { name: "Oğuzhan DURSUN", title: "Öğr. Gör. Dr." },
             { name: "Pelin Ayşe GÖKGÖZ", title: "Araş. Gör. Dr." },
@@ -4322,9 +4318,9 @@ window.showEditExamModal = (id) => {
             }
 
             if (hasOverlap) {
-                busy.push({ name: s.name, reason: `Başka Sinav: ${overlapName}` });
+                busy.push({ name: s.name, reason: `Başka Sınav: ${overlapName}` });
             } else if (typeof isAvailable === 'function' && !isAvailable(s.name, d, t, dur)) {
-                restricted.push({ name: s.name, reason: 'Ders / Kisitli' });
+                restricted.push({ name: s.name, reason: 'Ders / Kısıtlı' });
             } else {
                 available.push(s);
             }
@@ -4335,14 +4331,14 @@ window.showEditExamModal = (id) => {
             statusBox.style.background = 'rgba(16, 185, 129, 0.12)';
             statusBox.style.borderColor = 'rgba(16, 185, 129, 0.4)';
             statusBox.style.color = '#10b981';
-            statusBox.innerHTML = `🟢 <strong>Tüm Gözetmenler Müsait (${available.length}/${DB.staff.length})</strong> - Herhangi bir ders veya sinav çakişmasi yok.`;
+            statusBox.innerHTML = `🟢 <strong>Tüm Gözetmenler Müsait (${available.length}/${DB.staff.length})</strong> - Herhangi bir ders veya sınav çakışması yok.`;
         } else {
             statusBox.style.background = 'rgba(245, 158, 11, 0.12)';
             statusBox.style.borderColor = 'rgba(245, 158, 11, 0.4)';
             statusBox.style.color = '#fbbf24';
             const clashDetails = [];
-            if (restricted.length > 0) clashDetails.push(`<strong>${restricted.length} Gözetmenin Dersi/Kisiti Var:</strong> ${restricted.map(r => r.name).join(', ')}`);
-            if (busy.length > 0) clashDetails.push(`<strong>${busy.length} Gözetmen Başka Sinavda:</strong> ${busy.map(b => b.name).join(', ')}`);
+            if (restricted.length > 0) clashDetails.push(`<strong>${restricted.length} Gözetmenin Dersi/Kısıtı Var:</strong> ${restricted.map(r => r.name).join(', ')}`);
+            if (busy.length > 0) clashDetails.push(`<strong>${busy.length} Gözetmen Başka Sınavda:</strong> ${busy.map(b => b.name).join(', ')}`);
             statusBox.innerHTML = `⚠️ <strong>Müsaitlik Durumu (${available.length}/${DB.staff.length} Müsait):</strong><br>` + clashDetails.join('<br>');
         }
     };
@@ -4359,7 +4355,7 @@ window.showEditExamModal = (id) => {
             .map(s => {
                 let badge = '';
                 if (d && t && typeof isAvailable === 'function' && !isAvailable(s.name, d, t, dur)) {
-                    badge = ' ⚠️ [Kisitli/Derste]';
+                    badge = ' ⚠️ [Kısıtlı/Derste]';
                 }
                 return `<option value="${s.id}">${s.name}${badge}</option>`;
             }).join('');
@@ -4374,7 +4370,7 @@ window.showEditExamModal = (id) => {
                     <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
                     <div style="display:flex; gap:10px; align-items:center;">
                         <button type="button" class="btn-icon" onclick="removeProctorAndSendCancelMail(${id})" title="Gözetmenliği İptal Et ve Mail Gönder" style="color:#38bdf8; font-size:1.1rem; cursor:pointer; background:none; border:none; padding:0;">📧</button>
-                        <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" title="Sadece Listeden Çikar" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2); cursor:pointer; background:none; border:none; padding:0;">🗑️</button>
+                        <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" title="Sadece Listeden Çıkar" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2); cursor:pointer; background:none; border:none; padding:0;">🗑️</button>
                     </div>
                 </div>
             `;
@@ -4411,7 +4407,7 @@ window.showEditExamModal = (id) => {
     const durEl  = document.getElementById('edit-exam-duration');
     const nameEl = document.getElementById('edit-exam-name');
 
-    // Değerleri direkt set et (cloneNode ile kayip yaşanmaz)
+    // Değerleri direkt set et (cloneNode ile kayıp yaşanmaz)
     dateEl.value = ex.date;
     timeEl.value = ex.time;
     durEl.value  = ex.duration;
@@ -4426,7 +4422,7 @@ window.showEditExamModal = (id) => {
         updateSuggestionsUI(d, t, dur, 'edit-suggestions', 'edit-suggestion-list', ex.id, null, isNonExam, name);
     };
 
-    // Datalist seçeneklerini ve başlangiç katalog rozetini güncelle
+    // Datalist seçeneklerini ve başlangıç katalog rozetini güncelle
     const editDatalist = document.getElementById('edit-exam-memory-list');
     if (editDatalist) {
         editDatalist.innerHTML = getCourseCatalogOptionsHtml();
@@ -4442,7 +4438,7 @@ window.showEditExamModal = (id) => {
         editInfoBadge.innerHTML = '';
     }
 
-    // Her açilişta listener'lari temizle ve yeniden ekle (flag ile)
+    // Her açılışta listener'ları temizle ve yeniden ekle (flag ile)
     if (dateEl._editHandler)  dateEl.removeEventListener('change', dateEl._editHandler);
     if (timeEl._editHandler)  timeEl.removeEventListener('change', timeEl._editHandler);
     if (durEl._editHandler)   durEl.removeEventListener('input',  durEl._editHandler);
@@ -4479,7 +4475,7 @@ window.showEditExamModal = (id) => {
                         selectL.selectedIndex = i; found = true; break;
                     }
                 }
-                // 2. Kismi eşleşme
+                // 2. Kısmi eşleşme
                 if (!found) {
                     for (let i = 0; i < selectL.options.length; i++) {
                         const opt = selectL.options[i].value.trim().toLowerCase();
@@ -4519,10 +4515,10 @@ window.showEditExamModal = (id) => {
 
 document.getElementById('edit-modal-form').onsubmit = async (e) => {
     e.preventDefault();
-    // ID'yi string olarak al — parseInt büyük Date.now() değerlerinde precision kaybi yaratir
+    // ID'yi string olarak al — parseInt büyük Date.now() değerlerinde precision kaybı yaratır
     const id = document.getElementById('edit-exam-id').value;
 
-    // tempEditProctors atanmişsa doğrudan kullan (boş dizi de olsa, kullanici tümünü silmiş demektir)
+    // tempEditProctors atanmışsa doğrudan kullan (boş dizi de olsa, kullanıcı tümünü silmiş demektir)
     const currentExam = DB.exams.find(ex => String(ex.id) === String(id));
     const proctorIds = Array.isArray(window.tempEditProctors)
         ? window.tempEditProctors
@@ -4576,7 +4572,7 @@ window.showEditScheduleModal = (name, date, time, location) => {
     
     fields.innerHTML = `
         <div class="form-group">
-            <label>Ders Adi</label>
+            <label>Ders Adı</label>
             <input type="text" id="sch-exam-name" value="${baseEx.name}" required>
         </div>
         <div class="form-group">
@@ -4607,7 +4603,7 @@ window.showEditScheduleModal = (name, date, time, location) => {
         const newTime = document.getElementById('sch-exam-time').value;
         const newDuration = parseInt(document.getElementById('sch-exam-duration').value) || 60;
 
-        // O gruba ait tüm kayitlari güncelle
+        // O gruba ait tüm kayıtları güncelle
         for (const ex of groupExams) {
             updateExam(ex.id, {
                 name: newName,
@@ -4619,7 +4615,7 @@ window.showEditScheduleModal = (name, date, time, location) => {
         }
 
         saveToLocalStorage(); // Tek seferde kaydet
-        logAction('admin', 'Sinav Programi Güncelleme', `${newName} grubundaki ${groupExams.length} sinav güncellendi.`);
+        logAction('admin', 'Sınav Programı Güncelleme', `${newName} grubundaki ${groupExams.length} sınav güncellendi.`);
         
         hideModal();
         renderExams();
@@ -4663,14 +4659,14 @@ function renderStats() {
         });
     }
 
-    // 2. Detayli Tablo
+    // 2. Detaylı Tablo
     const tbody = document.querySelector('#table-staff-stats tbody');
     if (tbody) {
         tbody.innerHTML = '';
         data.staffStats.forEach(s => {
             const tr = document.createElement('tr');
             
-            // Ortalama görev sayisindan %50 fazla ise kirmizi göster (Yüklenme uyarisi)
+            // Ortalama görev sayısından %50 fazla ise kırmızı göster (Yüklenme uyarısı)
             const isHighLoad = s.totalTasks > (GLOBAL_LIMITS.MAX_TASKS - 1);
             
             tr.innerHTML = `
@@ -4696,7 +4692,7 @@ function renderStats() {
         });
     }
 
-    // Puan Dağilim Grafiğini de güncelle
+    // Puan Dağılım Grafiğini de güncelle
     setTimeout(() => {
         if (typeof renderScoreChart === 'function') renderScoreChart();
     }, 100);
@@ -4727,7 +4723,7 @@ function getStaffConstraintsSummaryHtml(staffName, staffId) {
     });
 
     if (constraints.length > 2) {
-        pills.push(`<span class="badge" style="background: rgba(255, 255, 255, 0.1); color: #cbd5e1; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; cursor: pointer;" onclick="showStaffConstraintsModal(${staffId})" title="Tüm kisitlari görüntüle">+${constraints.length - 2} daha</span>`);
+        pills.push(`<span class="badge" style="background: rgba(255, 255, 255, 0.1); color: #cbd5e1; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; cursor: pointer;" onclick="showStaffConstraintsModal(${staffId})" title="Tüm kısıtları görüntüle">+${constraints.length - 2} daha</span>`);
     }
 
     return `<div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">${pills.join('')}</div>`;
@@ -4754,7 +4750,7 @@ function renderStaff() {
             <td>${s.totalScore.toFixed(1)}</td>
             <td>${s.taskCount}</td>
             <td>
-                <div class="flex-score-container" title="Esneklik Puani: %${calculateAvailabilityScore(s.id)}">
+                <div class="flex-score-container" title="Esneklik Puanı: %${calculateAvailabilityScore(s.id)}">
                     <div class="flex-score-bar" style="width: ${calculateAvailabilityScore(s.id)}%; background: ${getScoreColor(calculateAvailabilityScore(s.id))}"></div>
                     <span class="flex-score-text">%${calculateAvailabilityScore(s.id)}</span>
                 </div>
@@ -4763,7 +4759,7 @@ function renderStaff() {
                 ${getStaffConstraintsSummaryHtml(s.name, s.id)}
             </td>
             <td class="admin-only" style="white-space: nowrap; text-align: right;">
-                <button class="btn-primary" style="background:#ef4444; padding:0.25rem 0.55rem; font-size:0.8rem; margin-right:4px;" onclick="showStaffConstraintsModal(${s.id})" title="Kisit zamanlarini görüntüle ve düzenle">🚫 Kisitlar</button>
+                <button class="btn-primary" style="background:#ef4444; padding:0.25rem 0.55rem; font-size:0.8rem; margin-right:4px;" onclick="showStaffConstraintsModal(${s.id})" title="Kısıt zamanlarını görüntüle ve düzenle">🚫 Kısıtlar</button>
                 <button class="btn-primary" style="background:#10b981; padding:0.25rem 0.5rem; font-size:0.8rem; margin-right:4px;" onclick="adminGoToStaffProfile(${s.id})" title="Bu personelin profiline doğrudan geçiş yap">👤 Profil</button>
                 <button class="btn-primary" style="background:#6366f1; padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="showStaffReportModal(${s.id})">🔍 Karne</button>
                 <button class="btn-edit" style="margin-left:4px;" onclick="showEditStaffModal(${s.id})">Düzenle</button>
@@ -4815,7 +4811,7 @@ window.renderStaffConstraintsMaster = function() {
         const weeklyConstraints = constraints.filter(c => c.day !== undefined);
         const specialConstraints = constraints.filter(c => c.day === undefined);
 
-        let weeklyBadges = '<span style="color:var(--text-muted); font-size:0.8rem;">Kayit yok</span>';
+        let weeklyBadges = '<span style="color:var(--text-muted); font-size:0.8rem;">Kayıt yok</span>';
         if (weeklyConstraints.length > 0) {
             weeklyBadges = weeklyConstraints.map(c => 
                 `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; margin: 2px; display: inline-block;">
@@ -4824,7 +4820,7 @@ window.renderStaffConstraintsMaster = function() {
             ).join('');
         }
 
-        let specialBadges = '<span style="color:var(--text-muted); font-size:0.8rem;">Kayit yok</span>';
+        let specialBadges = '<span style="color:var(--text-muted); font-size:0.8rem;">Kayıt yok</span>';
         if (specialConstraints.length > 0) {
             specialBadges = specialConstraints.map(c => {
                 let text = "";
@@ -4855,13 +4851,13 @@ window.renderStaffConstraintsMaster = function() {
                 </span>
             </td>
             <td>
-                <strong style="color:${constraints.length > 0 ? '#f87171' : '#10b981'}; font-size:0.9rem;">${constraints.length} Kisit</strong>
+                <strong style="color:${constraints.length > 0 ? '#f87171' : '#10b981'}; font-size:0.9rem;">${constraints.length} Kısıt</strong>
             </td>
             <td>${weeklyBadges}</td>
             <td>${specialBadges}</td>
             <td class="admin-only" style="text-align: right;">
                 <button class="btn-primary" style="background:#ef4444; padding:0.35rem 0.75rem; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px;" onclick="showStaffConstraintsModal(${s.id})">
-                    <span>⚙️</span> Kisitlari Yönet
+                    <span>⚙️</span> Kısıtları Yönet
                 </button>
             </td>
         `;
@@ -4869,21 +4865,21 @@ window.renderStaffConstraintsMaster = function() {
     });
 
     if (renderedCount === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Seçilen kriterlere uygun personel kisiti bulunamadi.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2.5rem;">Seçilen kriterlere uygun personel kısıtı bulunamadı.</td></tr>`;
     }
 };
 
 window.showStaffConstraintsModal = function(staffId) {
     const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
     if (!staff) {
-        showToast('Personel bulunamadi!', 'error');
+        showToast('Personel bulunamadı!', 'error');
         return;
     }
 
     const modal = document.getElementById('modal-staff-constraints-admin');
     if (!modal) return;
 
-    document.getElementById('modal-staff-constraints-name').textContent = `${staff.name} - Kisit Zamanlari`;
+    document.getElementById('modal-staff-constraints-name').textContent = `${staff.name} - Kısıt Zamanları`;
     const flexScore = calculateAvailabilityScore(staff.id);
     document.getElementById('modal-staff-constraints-subtitle').innerHTML = `Müsaitlik Esneklik Skoru: <strong style="color:${getScoreColor(flexScore)};">%${flexScore}</strong> | E-posta: ${staff.email || '-'}`;
 
@@ -4899,11 +4895,11 @@ window.renderStaffConstraintsModalTable = function(staffName) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const TurkishDays = ["Pazar", "Pazartesi", "Sali", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    const TurkishDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
     const constraints = (typeof getConstraintsForStaff === 'function') ? getConstraintsForStaff(staffName) : ((DB.constraints && DB.constraints[staffName]) || []);
 
     if (constraints.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Bu personele ait kayitli kisit bulunmuyor. Personel tüm saatlerde tam müsaittir.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Bu personele ait kayıtlı kısıt bulunmuyor. Personel tüm saatlerde tam müsaittir.</td></tr>`;
         return;
     }
 
@@ -4911,10 +4907,10 @@ window.renderStaffConstraintsModalTable = function(staffName) {
         let label = "";
         let typeBadge = "";
         if (c.day !== undefined) {
-            typeBadge = '<span class="badge" style="background:rgba(99,102,241,0.2); color:#818cf8; margin-right:6px;">Haftalik</span>';
+            typeBadge = '<span class="badge" style="background:rgba(99,102,241,0.2); color:#818cf8; margin-right:6px;">Haftalık</span>';
             label = `Her Hafta ${TurkishDays[c.day]}`;
         } else if (c.startDate && c.endDate) {
-            typeBadge = '<span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; margin-right:6px;">Tarih Araliği</span>';
+            typeBadge = '<span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; margin-right:6px;">Tarih Aralığı</span>';
             label = `${c.startDate} - ${c.endDate}`;
         } else if (c.date) {
             typeBadge = '<span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; margin-right:6px;">Özel Tarih</span>';
@@ -4954,7 +4950,7 @@ window.saveStaffConstraintAdmin = async function() {
     const endTime = document.getElementById('admin-constraint-end-time')?.value || '12:30';
 
     if (startTime >= endTime) {
-        showToast('Başlangiç saati bitiş saatinden önce olmalidir!', 'error');
+        showToast('Başlangıç saati bitiş saatinden önce olmalıdır!', 'error');
         return;
     }
 
@@ -4977,11 +4973,11 @@ window.saveStaffConstraintAdmin = async function() {
         const startDate = document.getElementById('admin-constraint-start-date')?.value;
         const endDate = document.getElementById('admin-constraint-end-date')?.value;
         if (!startDate || !endDate) {
-            showToast('Lütfen başlangiç ve bitiş tarihlerini seçiniz!', 'error');
+            showToast('Lütfen başlangıç ve bitiş tarihlerini seçiniz!', 'error');
             return;
         }
         if (startDate > endDate) {
-            showToast('Başlangiç tarihi bitiş tarihinden sonra olamaz!', 'error');
+            showToast('Başlangıç tarihi bitiş tarihinden sonra olamaz!', 'error');
             return;
         }
         newConstraint.startDate = startDate;
@@ -4996,13 +4992,13 @@ window.saveStaffConstraintAdmin = async function() {
     renderStaffConstraintsMaster();
     if (typeof renderProfileConstraints === 'function') renderProfileConstraints();
 
-    showToast(`✅ ${staffName} için kisit kaydedildi!`, 'success');
+    showToast(`✅ ${staffName} için kısıt kaydedildi!`, 'success');
     await saveToBackend();
 };
 
 window.deleteStaffConstraintAdmin = async function(staffName, index) {
     if (!DB.constraints || !DB.constraints[staffName]) return;
-    if (!confirm('Bu kisiti silmek istediğinize emin misiniz?')) return;
+    if (!confirm('Bu kısıtı silmek istediğinize emin misiniz?')) return;
 
     DB.constraints[staffName].splice(index, 1);
     saveToLocalStorage();
@@ -5012,7 +5008,7 @@ window.deleteStaffConstraintAdmin = async function(staffName, index) {
     renderStaffConstraintsMaster();
     if (typeof renderProfileConstraints === 'function') renderProfileConstraints();
 
-    showToast('Kisit silindi.', 'info');
+    showToast('Kısıt silindi.', 'info');
     await saveToBackend();
 };
 
@@ -5020,7 +5016,7 @@ window.clearAllStaffConstraintsAdmin = async function() {
     const staffName = document.getElementById('admin-constraint-staff-name')?.value;
     if (!staffName || !DB.constraints || !DB.constraints[staffName]) return;
 
-    if (!confirm(`${staffName} personeline ait TÜM kisitlari silmek istediğinize emin misiniz?`)) return;
+    if (!confirm(`${staffName} personeline ait TÜM kısıtları silmek istediğinize emin misiniz?`)) return;
 
     DB.constraints[staffName] = [];
     saveToLocalStorage();
@@ -5030,7 +5026,7 @@ window.clearAllStaffConstraintsAdmin = async function() {
     renderStaffConstraintsMaster();
     if (typeof renderProfileConstraints === 'function') renderProfileConstraints();
 
-    showToast(`${staffName} için tüm kisitlar temizlendi.`, 'info');
+    showToast(`${staffName} için tüm kısıtlar temizlendi.`, 'info');
     await saveToBackend();
 };
 
@@ -5158,12 +5154,12 @@ window.showAddLecturerModal = function() {
     
     fields.innerHTML = `
         <div class="form-group">
-            <label>Unvani (Title)</label>
+            <label>Unvanı (Title)</label>
             <input type="text" id="lecturer-title" placeholder="Örn: Prof. Dr. veya Dr. Öğr. Üyesi" required>
         </div>
         <div class="form-group">
             <label>İsim Soyisim</label>
-            <input type="text" id="lecturer-name" placeholder="Örn: Ahmet Yilmaz" required>
+            <input type="text" id="lecturer-name" placeholder="Örn: Ahmet Yılmaz" required>
         </div>
     `;
     modal.classList.remove('hidden');
@@ -5196,12 +5192,12 @@ window.showEditLecturerModal = function(index) {
     
     fields.innerHTML = `
         <div class="form-group">
-            <label>Unvani (Title)</label>
+            <label>Unvanı (Title)</label>
             <input type="text" id="lecturer-title" value="${l.title || ''}" placeholder="Örn: Prof. Dr." required>
         </div>
         <div class="form-group">
             <label>İsim Soyisim</label>
-            <input type="text" id="lecturer-name" value="${l.name || ''}" placeholder="Örn: Ahmet Yilmaz" required>
+            <input type="text" id="lecturer-name" value="${l.name || ''}" placeholder="Örn: Ahmet Yılmaz" required>
         </div>
     `;
     modal.classList.remove('hidden');
@@ -5225,10 +5221,10 @@ window.deleteLecturer = async function(index) {
     if (!DB.lecturers || !DB.lecturers[index]) return;
     const l = DB.lecturers[index];
     const fullName = `${l.title} ${l.name}`;
-    if (confirm(`"${fullName}" hocasini silmek istediğinize emin misiniz?`)) {
+    if (confirm(`"${fullName}" hocasını silmek istediğinize emin misiniz?`)) {
         DB.lecturers.splice(index, 1);
         saveToLocalStorage();
-        logAction('admin', 'Hoca Silme', `"${fullName}" hocasi sistemden silindi.`);
+        logAction('admin', 'Hoca Silme', `"${fullName}" hocası sistemden silindi.`);
         renderLecturers();
         await saveToBackend();
     }
@@ -5247,7 +5243,7 @@ window.showAddMappingModal = function() {
 
     fields.innerHTML = `
         <div class="form-group">
-            <label>Ders Adi</label>
+            <label>Ders Adı</label>
             <input type="text" id="mapping-course" placeholder="Örn: PHYS 113 veya Türk Dili I" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
         </div>
         <div class="form-group">
@@ -5289,7 +5285,7 @@ window.showEditMappingModal = function(oldCourse, currentLecturer) {
 
     fields.innerHTML = `
         <div class="form-group">
-            <label>Ders Adi</label>
+            <label>Ders Adı</label>
             <input type="text" id="mapping-course" value="${oldCourse}" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
         </div>
         <div class="form-group">
@@ -5343,7 +5339,7 @@ function showAddStaffModal() {
     
     fields.innerHTML = `
         <div class="form-group">
-            <label>Personel Adi Soyadi</label>
+            <label>Personel Adı Soyadı</label>
             <input type="text" id="staff-name" placeholder="Örn: Dr. Can Berk" required>
         </div>
         <div class="form-group">
@@ -5355,7 +5351,7 @@ function showAddStaffModal() {
             <select id="staff-gender" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
                 <option value="Belirtilmemiş">Belirtilmemiş (İsimden Tahmin Et)</option>
                 <option value="Erkek">Erkek</option>
-                <option value="Kadin">Kadin</option>
+                <option value="Kadın">Kadın</option>
             </select>
         </div>
     `;
@@ -5396,7 +5392,7 @@ window.showEditStaffModal = (id) => {
     
     fields.innerHTML = `
         <div class="form-group">
-            <label>Personel Adi Soyadi</label>
+            <label>Personel Adı Soyadı</label>
             <input type="text" id="staff-name" value="${staff.name}" required>
         </div>
         <div class="form-group">
@@ -5408,7 +5404,7 @@ window.showEditStaffModal = (id) => {
             <select id="staff-gender" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
                 <option value="Belirtilmemiş" ${gender === 'Belirtilmemiş' ? 'selected' : ''}>Belirtilmemiş (İsimden Tahmin Et)</option>
                 <option value="Erkek" ${gender === 'Erkek' ? 'selected' : ''}>Erkek</option>
-                <option value="Kadin" ${gender === 'Kadin' ? 'selected' : ''}>Kadin</option>
+                <option value="Kadın" ${gender === 'Kadın' ? 'selected' : ''}>Kadın</option>
             </select>
         </div>
     `;
@@ -5432,12 +5428,12 @@ window.deleteStaff = async (id) => {
     const staff = DB.staff.find(s => String(s.id) === String(id));
     if (!staff) return;
 
-    if (confirm(`"${staff.name}" personelini silmek istediğinize emin misiniz?\n\nℹ️ Bu personelin geçmiş veya mevcut sinavlarda yaptiği görevler korunacak, sadece personel listesinden ve aktif panelden çikarilacaktir.`)) {
+    if (confirm(`"${staff.name}" personelini silmek istediğinize emin misiniz?\n\nℹ️ Bu personelin geçmiş veya mevcut sınavlarda yaptığı görevler korunacak, sadece personel listesinden ve aktif panelden çıkarılacaktır.`)) {
         if (typeof takeSnapshot === 'function') {
             takeSnapshot("Personel Silme: " + staff.name);
         }
 
-        // Sinav kayitlarinda görev geçmişini ve ismini koru
+        // Sınav kayıtlarında görev geçmişini ve ismini koru
         if (DB.exams && Array.isArray(DB.exams)) {
             DB.exams.forEach(ex => {
                 const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
@@ -5449,29 +5445,29 @@ window.deleteStaff = async (id) => {
             });
         }
 
-        // Personel listesinden çikar
+        // Personel listesinden çıkar
         DB.staff = DB.staff.filter(s => String(s.id) !== String(id));
 
-        // Personelin kisitlarini temizle
+        // Personelin kısıtlarını temizle
         if (DB.constraints && DB.constraints[staff.name]) {
             delete DB.constraints[staff.name];
         }
 
         saveToLocalStorage();
-        logAction('admin', 'Personel Silme', `${staff.name} sistemden silindi (Sinavlardaki görev geçmişi korundu).`);
+        logAction('admin', 'Personel Silme', `${staff.name} sistemden silindi (Sınavlardaki görev geçmişi korundu).`);
         renderStaff();
         renderExams();
         renderSchedule();
         renderDashboard();
         await saveToBackend();
-        alert(`✓ ${staff.name} sistemden silindi. Sinavlardaki görev geçmişi korundu.`);
+        alert(`✓ ${staff.name} sistemden silindi. Sınavlardaki görev geçmişi korundu.`);
     }
 };
 
 window.showEmailSettingsModal = () => {
     const modal = document.getElementById('modal');
     const fields = document.getElementById('form-fields');
-    document.getElementById('modal-title').textContent = "📢 Bildirim & Webhook Ayarlari";
+    document.getElementById('modal-title').textContent = "📢 Bildirim & Webhook Ayarları";
     
     if (!DB.emailSettings) {
         DB.emailSettings = {
@@ -5504,10 +5500,10 @@ window.showEmailSettingsModal = () => {
                     <span>🌐</span> Sistem Web Adresi (URL)
                 </strong>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
-                    Gözetmenlere gönderilen tüm görev, güncelleme, iptal ve takas bildirimlerinde personelin tek tikla sisteme ulaşabilmesi için bu web adresi kullanilir.
+                    Gözetmenlere gönderilen tüm görev, güncelleme, iptal ve takas bildirimlerinde personelin tek tıkla sisteme ulaşabilmesi için bu web adresi kullanılır.
                 </p>
                 <div class="form-group" style="margin-bottom: 0;">
-                    <input type="text" id="email-system-url" value="${es.systemUrl || ''}" placeholder="Örn: https://sinav.gtu.edu.tr (Boş birakilirsa mevcut site adresi otomatik kullanilir)" style="font-size: 0.85rem; font-family: monospace;">
+                    <input type="text" id="email-system-url" value="${es.systemUrl || ''}" placeholder="Örn: https://sinav.gtu.edu.tr (Boş bırakılırsa mevcut site adresi otomatik kullanılır)" style="font-size: 0.85rem; font-family: monospace;">
                 </div>
             </div>
 
@@ -5516,10 +5512,10 @@ window.showEmailSettingsModal = () => {
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                     <div>
                         <strong style="color: #6366f1; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
-                            <span>🚀</span> Discord / Webhook Anlik Bildirimi
+                            <span>🚀</span> Discord / Webhook Anlık Bildirimi
                         </strong>
                         <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                            Takas teklifleri ve pazar yeri hareketleri Discord / Telegram / Slack kanalina zengin formatta aninda iletilir.
+                            Takas teklifleri ve pazar yeri hareketleri Discord / Telegram / Slack kanalına zengin formatta anında iletilir.
                         </p>
                     </div>
                     <label class="switch">
@@ -5552,7 +5548,7 @@ window.showEmailSettingsModal = () => {
                 </div>
 
                 <div class="form-group">
-                    <label style="font-size: 0.8rem;">E-Posta Servis Sağlayici</label>
+                    <label style="font-size: 0.8rem;">E-Posta Servis Sağlayıcı</label>
                     <select id="email-provider" onchange="toggleEmailProviderFields()" style="font-size: 0.85rem;">
                         <option value="emailjs" ${es.provider === 'emailjs' ? 'selected' : ''}>EmailJS (Önerilen - Sunucusuz & Ücretsiz)</option>
                         <option value="smtpjs" ${es.provider === 'smtpjs' ? 'selected' : ''}>SmtpJS</option>
@@ -5560,7 +5556,7 @@ window.showEmailSettingsModal = () => {
                     </select>
                 </div>
 
-                <!-- EmailJS Alanlari -->
+                <!-- EmailJS Alanları -->
                 <div id="group-emailjs" class="${es.provider !== 'emailjs' ? 'hidden' : ''}">
                     <div class="form-group">
                         <label style="font-size: 0.8rem;">EmailJS Service ID</label>
@@ -5577,7 +5573,7 @@ window.showEmailSettingsModal = () => {
                     </div>
                 </div>
 
-                <!-- SmtpJS Alanlari -->
+                <!-- SmtpJS Alanları -->
                 <div id="group-smtpjs" class="${es.provider !== 'smtpjs' ? 'hidden' : ''}">
                     <div class="form-group">
                         <label style="font-size: 0.8rem;">Gönderen E-posta (From)</label>
@@ -5590,7 +5586,7 @@ window.showEmailSettingsModal = () => {
                     </div>
                 </div>
 
-                <!-- Özel API Alanlari -->
+                <!-- Özel API Alanları -->
                 <div id="group-api" class="${es.provider !== 'api' ? 'hidden' : ''}">
                     <div class="form-group">
                         <label style="font-size: 0.8rem;">API Endpoint (POST)</label>
@@ -5605,7 +5601,7 @@ window.showEmailSettingsModal = () => {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
                         <input type="checkbox" id="toggle-event-marketplace" ${toggles.marketplace_drop !== false ? 'checked' : ''}>
-                        <span>📢 Pazar Yeri Açik İlanlari</span>
+                        <span>📢 Pazar Yeri Açık İlanları</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer;">
                         <input type="checkbox" id="toggle-event-swap-offer" ${toggles.swap_offer !== false ? 'checked' : ''}>
@@ -5656,24 +5652,24 @@ window.showEmailSettingsModal = () => {
         if (webhookEnabled && webhookUrl) {
             try {
                 const res = await sendWebhookNotification({
-                    title: "🧪 GTÜ Gözetmenlik Sistemi - Canli Test Bildirimi",
-                    description: "Tebrikler! Webhook entegrasyonu başariyla çalişiyor. Takas ve pazar yeri hareketleri anlik olarak bu kanala iletilecektir.",
+                    title: "🧪 GTÜ Gözetmenlik Sistemi - Canlı Test Bildirimi",
+                    description: "Tebrikler! Webhook entegrasyonu başarıyla çalışıyor. Takas ve pazar yeri hareketleri anlık olarak bu kanala iletilecektir.",
                     fields: [
-                        { name: "📡 Servis Durumu", value: "Aktif / Canli", inline: true },
+                        { name: "📡 Servis Durumu", value: "Aktif / Canlı", inline: true },
                         { name: "🕒 Tarih & Saat", value: new Date().toLocaleString('tr-TR'), inline: true },
-                        { name: "⚖️ Sistem", value: "GTÜ Matematik Gözetmenlik Katsayi Sistemi", inline: false }
+                        { name: "⚖️ Sistem", value: "GTÜ Matematik Gözetmenlik Katsayı Sistemi", inline: false }
                     ],
                     color: 0x10b981,
                     eventType: 'test_notification',
                     url: webhookUrl
                 });
                 if (res.success) {
-                    results.push("✅ Webhook testi başarili!");
+                    results.push("✅ Webhook testi başarılı!");
                 } else {
-                    results.push("⚠️ Webhook testi başarisiz: " + (res.error || res.statusText || 'Bilinmeyen hata'));
+                    results.push("⚠️ Webhook testi başarısız: " + (res.error || res.statusText || 'Bilinmeyen hata'));
                 }
             } catch (err) {
-                results.push("⚠️ Webhook testi hatasi: " + err.message);
+                results.push("⚠️ Webhook testi hatası: " + err.message);
             }
         } else if (webhookEnabled && !webhookUrl) {
             results.push("⚠️ Webhook etkin ancak Webhook URL girilmemiş.");
@@ -5702,7 +5698,7 @@ window.showEmailSettingsModal = () => {
                 const res = await sendSwapNotificationEmail({
                     toEmail: testEmail,
                     subject: "🧪 GTÜ Gözetmenlik - E-posta Test Bildirimi",
-                    body: `Sayin ${targetStaff ? targetStaff.name : 'Gözetmen'},\n\nBu bir test e-postasidir. E-posta bildirim entegrasyonunuz başariyla çalişmaktadir.\n\nTarih: ${new Date().toLocaleString('tr-TR')}\nGTÜ Matematik Bölümü`,
+                    body: `Sayın ${targetStaff ? targetStaff.name : 'Gözetmen'},\n\nBu bir test e-postasıdır. E-posta bildirim entegrasyonunuz başarıyla çalışmaktadır.\n\nTarih: ${new Date().toLocaleString('tr-TR')}\nGTÜ Matematik Bölümü`,
                     templateParams: {
                         to_name: targetStaff ? targetStaff.name : 'Gözetmen',
                         test_time: new Date().toLocaleString('tr-TR')
@@ -5713,12 +5709,12 @@ window.showEmailSettingsModal = () => {
                 DB.emailSettings = origSettings;
 
                 if (res.success) {
-                    results.push(`✅ E-posta testi başarili (${testEmail} adresine gönderildi)!`);
+                    results.push(`✅ E-posta testi başarılı (${testEmail} adresine gönderildi)!`);
                 } else {
-                    results.push(`⚠️ E-posta testi başarisiz: ${res.reason || res.error || 'Ayrinti konsolda'}`);
+                    results.push(`⚠️ E-posta testi başarısız: ${res.reason || res.error || 'Ayrıntı konsolda'}`);
                 }
             } catch (err) {
-                results.push("⚠️ E-posta gönderim hatasi: " + err.message);
+                results.push("⚠️ E-posta gönderim hatası: " + err.message);
             }
         }
 
@@ -5754,17 +5750,17 @@ window.showEmailSettingsModal = () => {
         };
         
         saveToLocalStorage();
-        logAction('admin', 'Bildirim Ayarlari', `Bildirim ve Webhook ayarlari güncellendi (Webhook: ${DB.emailSettings.webhookEnabled ? 'Açik' : 'Kapali'}, E-posta: ${DB.emailSettings.enabled ? 'Açik' : 'Kapali'}).`);
+        logAction('admin', 'Bildirim Ayarları', `Bildirim ve Webhook ayarları güncellendi (Webhook: ${DB.emailSettings.webhookEnabled ? 'Açık' : 'Kapalı'}, E-posta: ${DB.emailSettings.enabled ? 'Açık' : 'Kapalı'}).`);
         hideModal();
         await saveToBackend();
-        alert('✅ Bildirim ve Webhook ayarlari başariyla kaydedildi.');
+        alert('✅ Bildirim ve Webhook ayarları başarıyla kaydedildi.');
     };
 };
 
 window.showEmailTemplatesModal = () => {
     if (!DB.templates) {
         DB.templates = {
-            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sinavimdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\n🌐 Sisteme Giriş: {site_url}\n\nİyi çalişmalar,\n{gonderen_adi}",
+            swap_request: "Merhaba {alici_adi},\n\n{tarih} tarihindeki {sinav_adi} sınavımdaki görevimi seninle takas etmek istiyorum. Onay verirsen yöneticiye bildireceğim.\n\n🌐 Sisteme Giriş: {site_url}\n\nİyi çalışmalar,\n{gonderen_adi}",
             assignment_email_subject: "📅 Yeni Gözetmenlik Görevi: {sinav_adi} | {tarih}",
             assignment_email_body: "",
             update_email_subject: "🔄 Görev Güncellendi: {sinav_adi} | {tarih}",
@@ -5826,9 +5822,9 @@ window.saveEmailTemplates = async (e) => {
     DB.templates.cancel_email_body = document.getElementById('tpl-cancel-body').value;
 
     saveToLocalStorage();
-    logAction('admin', 'Şablon Güncelleme', 'E-posta şablonlari güncellendi.');
+    logAction('admin', 'Şablon Güncelleme', 'E-posta şablonları güncellendi.');
     document.getElementById('modal-email-templates').classList.add('hidden');
-    alert('E-posta şablonlari kaydedildi.');
+    alert('E-posta şablonları kaydedildi.');
     await saveToBackend();
 };
 
@@ -5841,7 +5837,7 @@ window.showStaffSchedule = (staffName) => {
     title.textContent = `${staffName} - Bireysel Program`;
     nameHeader.textContent = staffName;
     
-    // Sekme sifirlama
+    // Sekme sıfırlama
     switchIndividualTab('active');
     
     const tbodyActive = document.querySelector('#table-individual-schedule tbody');
@@ -5849,10 +5845,10 @@ window.showStaffSchedule = (staffName) => {
     tbodyActive.innerHTML = '';
     tbodyArchive.innerHTML = '';
     
-    // Şimdiki zamani al (Karşilaştirma için)
+    // Şimdiki zamanı al (Karşılaştırma için)
     const now = new Date();
     
-    // Filtrele ve tarihe göre sirala
+    // Filtrele ve tarihe göre sırala
     const staffObj = DB.staff.find(s => s.name === staffName);
     const individualExams = DB.exams
         .filter(ex => {
@@ -5866,7 +5862,7 @@ window.showStaffSchedule = (staffName) => {
         const tr = document.createElement('tr');
         const dateStr = ex.date.split("-").reverse().join(".");
         
-        // Sinavin bitiş zamanini hesapla (yaklaşik)
+        // Sınavın bitiş zamanını hesapla (yaklaşık)
         const examDate = getSafeDate(ex.date, ex.time);
         const examEnd = new Date(examDate.getTime() + ex.duration * 60000);
         
@@ -5881,7 +5877,7 @@ window.showStaffSchedule = (staffName) => {
             <td>${ex.duration} dk</td>
         `;
 
-        // Eğer sinav bittiyse Arşiv'e, bitmediyse veya bugünse Aktif'e
+        // Eğer sınav bittiyse Arşiv'e, bitmediyse veya bugünse Aktif'e
         if (examEnd < now) {
             tbodyArchive.appendChild(tr);
         } else {
@@ -5896,7 +5892,7 @@ window.showStaffSchedule = (staffName) => {
             if (activeReq) {
                 const isInitiator = String(activeReq.initiatorId) === String(localStorage.getItem('myStaffId'));
                 const statusLabels = {
-                    'pending': '<span class="status-badge status-pending" style="font-size:0.6rem;">Açik Talep</span>',
+                    'pending': '<span class="status-badge status-pending" style="font-size:0.6rem;">Açık Talep</span>',
                     'accepted_waiting_approval': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>',
                     'pending_peer': '<span class="status-badge status-pending-peer" style="font-size:0.6rem;">Onay Bekliyor</span>'
                 };
@@ -5907,7 +5903,7 @@ window.showStaffSchedule = (staffName) => {
             } else {
                 tdAction.innerHTML = `
                     ${isMe ? `<button class="btn-secondary" onclick="initiateDirectSwap(${ex.id})" title="Hoca ile Takas Et" style="padding: 0.35rem 0.6rem; border-size: 0.7rem; margin-right: 5px;"><span class="icon" style="margin:0;">🔄</span></button>` : ''}
-                    ${isMe ? `<button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazim</button>` : ''}
+                    ${isMe ? `<button class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--accent-orange); margin-right: 5px;" onclick="initiateOpenSwap(${ex.id})">Yerime Biri Lazım</button>` : ''}
                     <span class="badge active">Görevli</span>
                 `;
             }
@@ -5930,7 +5926,7 @@ window.showStaffSchedule = (staffName) => {
     if (peerSection && peerList) {
         const staff = DB.staff.find(s => s.name === staffName);
         if (staff) {
-            // Eğer ben receiver isem ve onaylamadiysam:
+            // Eğer ben receiver isem ve onaylamadıysam:
             const myIncoming = (DB.requests || []).filter(r => r.status === 'pending_peer' && r.receiverId === staff.id && !r.toApproved);
 
             if (myIncoming.length > 0) {
@@ -5991,7 +5987,7 @@ window.assignAsSubstitute = async function(targetStaffId, targetStaffName, curre
         if (!confirm(`${selectedExam.name} (${selectedExam.date} ${selectedExam.time}) görevini ${targetStaffName} hocaya devretmek istiyor musunuz?`)) return;
     } else {
         const examOptions = myExams.map((ex, i) => `${i+1}-) ${ex.name} (${ex.date} ${ex.time})`).join('\n');
-        const choice = prompt(`Hangi görevi devretmek istiyorsunuz? (1-${myExams.length} arasi rakam girin)\n\n${examOptions}`);
+        const choice = prompt(`Hangi görevi devretmek istiyorsunuz? (1-${myExams.length} arası rakam girin)\n\n${examOptions}`);
         const idx = parseInt(choice) - 1;
         if (isNaN(idx) || idx < 0 || idx >= myExams.length) {
             alert("Geçersiz seçim.");
@@ -6005,7 +6001,7 @@ window.assignAsSubstitute = async function(targetStaffId, targetStaffName, curre
         return;
     }
 
-    if (confirm("Atama işlemini başlatiyorum. Onayliyor musunuz?")) {
+    if (confirm("Atama işlemini başlatıyorum. Onaylıyor musunuz?")) {
         const oldProctorIds = [...(selectedExam.proctorIds || [])];
         const newProctorIds = oldProctorIds.filter(id => id !== currentUser.id);
         newProctorIds.push(targetStaffId);
@@ -6016,7 +6012,7 @@ window.assignAsSubstitute = async function(targetStaffId, targetStaffName, curre
         };
         
         updateExam(selectedExam.id, updateData);
-        alert("Görev başariyla devredildi.");
+        alert("Görev başarıyla devredildi.");
         hideIndividualModal();
         renderExams();
         renderSchedule();
@@ -6028,7 +6024,7 @@ window.approveSwapPeer = async function(requestId, staffId) {
     const req = DB.requests.find(r => r.id === requestId);
     if (!req) return;
 
-    // Direct swap desteği ekle (Eğer yanlişlikla buradan gelirse)
+    // Direct swap desteği ekle (Eğer yanlışlıkla buradan gelirse)
     if (req.type === 'direct_swap') {
         return acceptDirectSwap(requestId);
     }
@@ -6075,7 +6071,7 @@ window.approveSwapPeer = async function(requestId, staffId) {
                 swapType: 'peer_transfer'
             });
 
-            alert("✅ Görev devri işlemini onayladiniz. Değişiklik aninda kaydedildi.");
+            alert("✅ Görev devri işlemini onayladınız. Değişiklik anında kaydedildi.");
         }
         
         const staff = DB.staff.find(s => s.id === staffId);
@@ -6109,10 +6105,10 @@ function hideIndividualModal() {
 }
 
 /**
- * Bireysel Program Modalinda Sekme Değiştirme
+ * Bireysel Program Modalında Sekme Değiştirme
  */
 window.switchIndividualTab = function(tab) {
-    // Butonlari güncelle
+    // Butonları güncelle
     const btnActive = document.getElementById('tab-btn-active');
     const btnArchive = document.getElementById('tab-btn-archive');
     
@@ -6173,24 +6169,24 @@ function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId
 }
 
 window.selectSuggestedProctor = (areaId, selectId, staffId) => {
-    // Eğer düzenleme modalindaysak selectId bellidir, ekleme modalindaysak select yoktur (Çünkü henüz eklenmedi)
-    // Ekleme modalinda proctor seçimi için logic.js içindeki atama mantiğini kullaniyoruz, 
-    // ancak kullanici deneyimi için ekleme modalinda da bir select olsaydi iyi olurdu.
-    // Şimdilik ekleme modalinda öneriye tiklayinca hoca adini saklayip form submit'te kullanabiliriz veya ekleme modalina da select ekleyebiliriz.
+    // Eğer düzenleme modalındaysak selectId bellidir, ekleme modalındaysak select yoktur (Çünkü henüz eklenmedi)
+    // Ekleme modalında proctor seçimi için logic.js içindeki atama mantığını kullanıyoruz, 
+    // ancak kullanıcı deneyimi için ekleme modalında da bir select olsaydı iyi olurdu.
+    // Şimdilik ekleme modalında öneriye tıklayınca hoca adını saklayıp form submit'te kullanabiliriz veya ekleme modalına da select ekleyebiliriz.
     
     if (selectId && selectId !== 'null') {
         const select = document.getElementById(selectId);
         if (select) {
             select.value = staffId;
-            // Görsel geribildirim için alani gizle
+            // Görsel geribildirim için alanı gizle
             document.getElementById(areaId).classList.add('hidden');
         }
     } else {
-        // Ekleme modalinda "proctor" seçimi yok, algoritmaya birakiliyor. 
-        // Ancak kullanici "Ben bunu istiyorum" diyorsa, bir hoca ismi seçtirip Manuel atama gibi davranabiliriz.
-        // Basitlik adina ekleme modalinda öneriye tiklayinca otomatik atama yapacak bir gizli alan ekleyelim.
+        // Ekleme modalında "proctor" seçimi yok, algoritmaya bırakılıyor. 
+        // Ancak kullanıcı "Ben bunu istiyorum" diyorsa, bir hoca ismi seçtirip Manuel atama gibi davranabiliriz.
+        // Basitlik adına ekleme modalında öneriye tıklayınca otomatik atama yapacak bir gizli alan ekleyelim.
         window.selectedProctorId = staffId;
-        alert(`${DB.staff.find(s=>s.id === staffId).name} seçildi. Kaydet'e bastiğinizda bu hoca atanacaktir.`);
+        alert(`${DB.staff.find(s=>s.id === staffId).name} seçildi. Kaydet'e bastığınızda bu hoca atanacaktır.`);
         document.getElementById(areaId).classList.add('hidden');
     }
 };
@@ -6207,16 +6203,16 @@ function renderAvailability() {
         return;
     }
 
-    // Seçilen günde sinav saatlerini topla (benzersiz saatler)
+    // Seçilen günde sınav saatlerini topla (benzersiz saatler)
     const dayExams = DB.exams.filter(e => e.date === selectedDate);
     const timeSlots = [...new Set(dayExams.map(e => e.time))].sort();
 
     if (timeSlots.length === 0) {
-        grid.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Bu tarihte kayitli sinav bulunmuyor.</p>';
+        grid.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Bu tarihte kayıtlı sınav bulunmuyor.</p>';
         return;
     }
 
-    // Tarih için gün numarasi (kisit kontrolü)
+    // Tarih için gün numarası (kısıt kontrolü)
     const dateObj = new Date(`${selectedDate}T08:00`);
     const dayOfWeek = dateObj.getDay(); // 0=Paz, 6=Cts
 
@@ -6238,16 +6234,16 @@ function renderAvailability() {
         html += `<tr><td class="staff-col"><span class="clickable-name" onclick="showStaffSchedule('${s.name}')">${s.name}</span></td>`;
 
         timeSlots.forEach(t => {
-            // Bu saatte bu personelin sinavi var mi?
+            // Bu saatte bu personelin sınavı var mı?
             const busyExam = dayExams.find(e => e.time === t && e.proctorId === s.id);
 
             if (busyExam) {
                 html += `<td class="avail-cell-busy" title="${busyExam.name}">📋 ${busyExam.name}</td>`;
             } else {
-                // Kisit kontrolü
+                // Kısıt kontrolü
                 const isRestricted = !isAvailable(s.name, selectedDate, t, 60);
                 if (isRestricted) {
-                    html += '<td class="avail-cell-restricted" title="Kisitli">⚠️</td>';
+                    html += '<td class="avail-cell-restricted" title="Kısıtlı">⚠️</td>';
                 } else {
                     html += '<td class="avail-cell-free">✓</td>';
                 }
@@ -6290,7 +6286,7 @@ window.showSwapModal = function(examId, forceInitiatorId = null) {
         initiatorSelect.value = exam.proctorId;
     }
 
-    // Çakişma kontrolü için dinleyici
+    // Çakışma kontrolü için dinleyici
     const checkSwapConflict = () => {
         const receiverId = parseInt(receiverSelect.value);
         const warnDiv = document.getElementById('swap-conflict-warning');
@@ -6307,7 +6303,7 @@ window.showSwapModal = function(examId, forceInitiatorId = null) {
     receiverSelect.addEventListener('change', checkSwapConflict);
     checkSwapConflict();
 
-    // Akilli Önerileri Tetikle (Feature 4.1)
+    // Akıllı Önerileri Tetikle (Feature 4.1)
     updateSuggestionsUI(exam.date, exam.time, exam.duration, 'swap-suggestions', 'swap-suggestion-list', exam.id, 'swap-receiver-select', exam.isNonExam, exam.name);
 
     document.getElementById('modal-swap').classList.remove('hidden');
@@ -6329,7 +6325,7 @@ function createSwapRequest(examId, initiatorId, receiverId) {
         initiatorId: initiator.id,
         initiatorName: initiator.name,
         receiverId: receiver ? receiver.id : null,
-        receiverName: receiver ? receiver.name : "Açik Talep",
+        receiverName: receiver ? receiver.name : "Açık Talep",
         status: 'pending',
         fromApproved: true,
         toApproved: false,
@@ -6351,7 +6347,7 @@ function createSwapRequest(examId, initiatorId, receiverId) {
             isRead: false
         });
 
-        // Anlik Webhook & E-posta Bildirimi (Birebir)
+        // Anlık Webhook & E-posta Bildirimi (Birebir)
         dispatchNotificationEvent('swap_offer', {
             initiatorName: initiator.name,
             receiverName: receiver.name,
@@ -6364,7 +6360,7 @@ function createSwapRequest(examId, initiatorId, receiverId) {
             requestId: newReq.id
         });
     } else {
-        // Anlik Webhook Bildirimi (Pazar Yeri Açik İlan)
+        // Anlık Webhook Bildirimi (Pazar Yeri Açık İlan)
         dispatchNotificationEvent('marketplace_drop', {
             initiatorName: initiator.name,
             initiatorId: initiator.id,
@@ -6389,7 +6385,7 @@ window.submitSwapForm = async function() {
         const receiverElem = document.getElementById('swap-receiver-select');
 
         if (!examIdElem || !initiatorElem || !receiverElem) {
-            console.error("Form elemanlari bulunamadi!");
+            console.error("Form elemanları bulunamadı!");
             return;
         }
 
@@ -6398,7 +6394,7 @@ window.submitSwapForm = async function() {
         const receiverId = receiverElem.value || null;
 
         if (!initiatorId) {
-            alert("Lütfen görevi devredecek hocayi seçin.");
+            alert("Lütfen görevi devredecek hocayı seçin.");
             return;
         }
 
@@ -6412,17 +6408,17 @@ window.submitSwapForm = async function() {
         const exam = DB.exams.find(e => String(e.id) === String(examId));
 
         if (!exam) {
-            console.error("Sinav bulunamadi. Aranan ID:", examId, "Mevcut ID'ler:", DB.exams.map(e => e.id));
-            alert("Sinav verisi bulunamadi (ID: " + examId + "). Lütfen sayfayi yenileyip tekrar deneyin.");
+            console.error("Sınav bulunamadı. Aranan ID:", examId, "Mevcut ID'ler:", DB.exams.map(e => e.id));
+            alert("Sınav verisi bulunamadı (ID: " + examId + "). Lütfen sayfayı yenileyip tekrar deneyin.");
             return;
         }
         if (!initiator) {
-            alert("Devreden personel verisi bulunamadi (ID: " + initiatorId + ").");
+            alert("Devreden personel verisi bulunamadı (ID: " + initiatorId + ").");
             return;
         }
 
         if (receiver) {
-            const hasConfirmed = await showChoiceModal(`${receiver.name} hocanin takas isteğinden haberi var mi?`);
+            const hasConfirmed = await showChoiceModal(`${receiver.name} hocanın takas isteğinden haberi var mı?`);
             if (!hasConfirmed) {
                 alert("Talep gönderilmedi.");
                 return;
@@ -6430,16 +6426,16 @@ window.submitSwapForm = async function() {
         }
 
         if (createSwapRequest(examId, initiatorId, receiverId)) {
-            alert("Takas talebiniz başariyla oluşturuldu.");
+            alert("Takas talebiniz başarıyla oluşturuldu.");
             document.getElementById('modal-swap').classList.add('hidden');
 
             renderDashboard();
             await saveToBackend();
         } else {
-            alert("Takas gerçekleştirilemedi: Sinav bulunamadi.");
+            alert("Takas gerçekleştirilemedi: Sınav bulunamadı.");
         }
     } catch (err) {
-        console.error("Takas gönderme hatasi:", err);
+        console.error("Takas gönderme hatası:", err);
         alert("Takas talebi gönderilirken bir hata oluştu: " + err.message);
     }
 };
@@ -6467,7 +6463,7 @@ window.updateMarketplaceBadge = function() {
         .filter(r => {
             if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
             if (dismissedIds.includes(r.id)) return false;
-            // Geçmiş sinavlari gösterme
+            // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
             const examDate = getSafeDate(exam.date, exam.time);
@@ -6505,7 +6501,7 @@ window.renderMarketplaceDashboard = function() {
         .filter(r => {
             if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
             if (dismissedIds.includes(r.id)) return false;
-            // Geçmiş sinavlari gösterme
+            // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
             const examDate = getSafeDate(exam.date, exam.time);
@@ -6551,12 +6547,12 @@ window.updateProfileMarketplaceAnnouncement = function() {
     const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
 
     const now = new Date();
-    // Kullanicinin müsait olduğu açik talepleri bul
+    // Kullanıcının müsait olduğu açık talepleri bul
     const openRequests = (DB.requests || [])
         .filter(r => {
             if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
             if (dismissedIds.includes(r.id)) return false;
-            // Geçmiş sinavlari gösterme
+            // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
             const examDate = getSafeDate(exam.date, exam.time);
@@ -6564,7 +6560,7 @@ window.updateProfileMarketplaceAnnouncement = function() {
             return examEnd >= now;
         });
 
-    // Müsaitlik kontrolü yapilmiş olanlari filtrele (renderMarketplace mantiği gibi)
+    // Müsaitlik kontrolü yapılmış olanları filtrele (renderMarketplace mantığı gibi)
     const availableRequests = openRequests.filter(req => {
         const exam = DB.exams.find(e => e.id == req.examId);
         return exam && isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration);
@@ -6575,7 +6571,7 @@ window.updateProfileMarketplaceAnnouncement = function() {
         return;
     }
 
-    // En yakin/güncel olani göster
+    // En yakın/güncel olanı göster
     const req = availableRequests[0];
     const exam = DB.exams.find(e => e.id == req.examId);
     const formattedDate = req.examDate.split('-').reverse().join('.');
@@ -6585,7 +6581,7 @@ window.updateProfileMarketplaceAnnouncement = function() {
             <div class="marketplace-notice-icon">🛒</div>
             <div class="marketplace-notice-text">
                 <h4>Pazar Yeri Duyurusu</h4>
-                <p><b>${req.examName}</b> (${formattedDate} - ${req.examTime}) görevi için yer araniyor. Devralmak isterseniz <b>Açik Görevler</b> sekmesine göz atabilirsiniz.</p>
+                <p><b>${req.examName}</b> (${formattedDate} - ${req.examTime}) görevi için yer aranıyor. Devralmak isterseniz <b>Açık Görevler</b> sekmesine göz atabilirsiniz.</p>
             </div>
         </div>
         <button class="marketplace-notice-btn" onclick="document.querySelector('.tab-btn[data-tab=\'marketplace\']').click()">İncele</button>
@@ -6698,7 +6694,7 @@ window.showChoiceModal = function(message) {
 };
 
 /**
- * En Sik Beraber Görev Yaptiğim Arkadaşlarimi Hesapla ve Render Et
+ * En Sık Beraber Görev Yaptığım Arkadaşlarımı Hesapla ve Render Et
  */
 function renderCollaborators() {
     const myStaffId = localStorage.getItem('myStaffId');
@@ -6706,7 +6702,7 @@ function renderCollaborators() {
 
     const collaboratorsMap = {}; // staffId -> count
     
-    // Tüm sinavlari tara (aktif + arşiv)
+    // Tüm sınavları tara (aktif + arşiv)
     DB.exams.forEach(ex => {
         const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
         const pIdsStr = pIds.map(id => String(id));
@@ -6748,9 +6744,9 @@ function renderCollaborators() {
         let funTag = "🤝";
         let funTitle = "Ekip Üyesi";
         
-        if (c.count >= 5) { funTag = "🔥"; funTitle = "Ayrilmaz Parça"; }
-        else if (c.count >= 3) { funTag = "⭐"; funTitle = "Yilmaz İkili"; }
-        else if (c.count >= 2) { funTag = "💪"; funTitle = "Siki Dost"; }
+        if (c.count >= 5) { funTag = "🔥"; funTitle = "Ayrılmaz Parça"; }
+        else if (c.count >= 3) { funTag = "⭐"; funTitle = "Yılmaz İkili"; }
+        else if (c.count >= 2) { funTag = "💪"; funTitle = "Sıkı Dost"; }
 
         return `
             <div class="collaborator-card" onclick="showStaffSchedule('${c.staff.name.replace(/'/g, "\\'")}')">
@@ -6765,7 +6761,7 @@ function renderCollaborators() {
 }
 
 /**
- * Başari Rozetlerini Hesapla
+ * Başarı Rozetlerini Hesapla
  */
 function calculateAchievements(myStaffId) {
     const exams = DB.exams.filter(ex => {
@@ -6784,28 +6780,28 @@ function calculateAchievements(myStaffId) {
             id: 'early_bird',
             name: 'Erken Kalkan',
             icon: '🌅',
-            desc: '3+ sabah sinavina (09:30 ve öncesi) katildiniz.',
+            desc: '3+ sabah sınavına (09:30 ve öncesi) katıldınız.',
             isUnlocked: completedExams.filter(ex => ex.time <= "09:30").length >= 3
         },
         {
             id: 'night_owl',
             name: 'Gece Kuşu',
             icon: '🦉',
-            desc: '3+ akşam sinavina (17:00 ve sonrasi) katildiniz.',
+            desc: '3+ akşam sınavına (17:00 ve sonrası) katıldınız.',
             isUnlocked: completedExams.filter(ex => ex.time >= "17:00").length >= 3
         },
         {
             id: 'helper',
-            name: 'Yardimsever',
+            name: 'Yardımsever',
             icon: '🛡️',
-            desc: 'Başkalarindan gelen 3+ takas talebini kabul ettiniz.',
+            desc: 'Başkalarından gelen 3+ takas talebini kabul ettiniz.',
             isUnlocked: (DB.requests || []).filter(r => r.status === 'approved' && String(r.receiverId) === String(myStaffId)).length >= 3
         },
         {
             id: 'weekend',
-            name: 'Hafta Sonu Savaşçisi',
+            name: 'Hafta Sonu Savaşçısı',
             icon: '🏔️',
-            desc: 'Hafta sonu 2+ sinav görevini başariyla tamamladiniz.',
+            desc: 'Hafta sonu 2+ sınav görevini başarıyla tamamladınız.',
             isUnlocked: completedExams.filter(ex => {
                 const day = new Date(ex.date).getDay();
                 return day === 0 || day === 6;
@@ -6815,21 +6811,21 @@ function calculateAchievements(myStaffId) {
             id: 'marathon',
             name: 'Maratoncu',
             icon: '📚',
-            desc: 'Toplam gözetmenlik süreniz 500 dakikayi aşti.',
+            desc: 'Toplam gözetmenlik süreniz 500 dakikayı aştı.',
             isUnlocked: completedExams.reduce((sum, ex) => sum + (ex.duration || 60), 0) >= 500
         },
         {
             id: 'task_master',
-            name: 'Görev Adami',
+            name: 'Görev Adamı',
             icon: '🎯',
-            desc: 'Sistemde toplam 5+ görevi başariyla tamamladiniz.',
+            desc: 'Sistemde toplam 5+ görevi başarıyla tamamladınız.',
             isUnlocked: completedExams.length >= 5
         }
     ];
 }
 
 /**
- * Başari Rozetlerini Render Et (Kaldirildi - Güvenli No-op)
+ * Başarı Rozetlerini Render Et (Kaldırıldı - Güvenli No-op)
  */
 function renderAchievements() {
     const container = document.getElementById('profile-achievements-list');
@@ -6848,7 +6844,7 @@ function renderLevelSystem(staff) {
 }
 
 /**
- * Kişisel Notlari Render Et (Güvenli No-op)
+ * Kişisel Notları Render Et (Güvenli No-op)
  */
 function renderQuickNotes(staff) {
     const notesInput = document.getElementById('profile-notes-input');
@@ -6858,7 +6854,7 @@ function renderQuickNotes(staff) {
 }
 
 /**
- * Kişisel Notlari Kaydet
+ * Kişisel Notları Kaydet
  */
 window.saveQuickNotes = async function() {
     const myStaffId = localStorage.getItem('myStaffId');
@@ -6873,7 +6869,7 @@ window.saveQuickNotes = async function() {
 };
 
 /**
- * Profil Sayfasini Yönet
+ * Profil Sayfasını Yönet
  */
 window.renderProfile = function() {
     if (typeof applyGenderTheme === 'function') applyGenderTheme();
@@ -6889,7 +6885,7 @@ window.renderProfile = function() {
         mainSection.classList.add('hidden');
         
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-        // Dropdown'i doldur — normal kullanici için şifreliler kilitli, yönetici için hepsi açik
+        // Dropdown'ı doldur — normal kullanıcı için şifreliler kilitli, yönetici için hepsi açık
         const dropdown = document.getElementById('profile-setup-dropdown');
         dropdown.innerHTML = '<option value="">' + (isAdmin ? '👑 [Yönetici] Profilini Açmak İstediğiniz Personeli Seçin...' : 'İsminizi Seçin...') + '</option>';
         DB.staff.slice().sort((a,b) => a.name.localeCompare(b.name, 'tr')).forEach(s => {
@@ -6918,7 +6914,7 @@ window.renderProfile = function() {
         renderPasswordSettings(staff);
 
 
-        // Yönetici Modu: Profil Başliğinda Hizli Personel Değiştirici Bari
+        // Yönetici Modu: Profil Başlığında Hızlı Personel Değiştirici Barı
         const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
         const heroActions = document.querySelector('.profile-hero-actions');
         if (heroActions) {
@@ -6977,8 +6973,8 @@ window.renderProfile = function() {
                                     <div style="font-size: 0.9rem;">
                                         ${isSmart ? '<span style="background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-right: 8px; font-weight: 700;">AI ÖNERİSİ</span>' : ''}
                                         <strong>${r.initiatorName || 'Hoca'}</strong>, 
-                                        <span style="color: var(--accent-orange);">${hisExam ? hisExam.name : '???'}</span> sinavi ile 
-                                        sizin <span style="color: var(--primary);">${myExam ? myExam.name : '???'}</span> sinavinizi takas etmek istiyor.
+                                        <span style="color: var(--accent-orange);">${hisExam ? hisExam.name : '???'}</span> sınavı ile 
+                                        sizin <span style="color: var(--primary);">${myExam ? myExam.name : '???'}</span> sınavınızı takas etmek istiyor.
                                     </div>
                                     <div style="display: flex; gap: 10px;">
                                         <button class="btn-primary" onclick="${acceptFn}" style="background: var(--accent-green); padding: 0.4rem 0.8rem; font-size: 0.8rem;">Kabul Et</button>
@@ -6995,7 +6991,7 @@ window.renderProfile = function() {
         }
 
         // Header Bilgileri
-        // Header Bilgileri (Yeni Premium Hero Tasarimi)
+        // Header Bilgileri (Yeni Premium Hero Tasarımı)
         const profileName = document.getElementById('profile-name');
         if (profileName) profileName.textContent = staff.name;
         
@@ -7028,7 +7024,6 @@ window.renderProfile = function() {
         const activeBody = document.querySelector('#profile-table-active tbody');
         activeBody.innerHTML = '';
             activeExams.forEach(ex => {
-                const statusBadge = (typeof getTaskStatusBadge === 'function') ? getTaskStatusBadge(ex.id, myStaffId) : '';
                 activeBody.innerHTML += `
                     <tr>
                         <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
@@ -7038,12 +7033,11 @@ window.renderProfile = function() {
                         <td>${ex.time}</td>
                         <td>${ex.duration} dk</td>
                         <td><span class="score-tag">+${ex.score}</span></td>
-                        <td>${statusBadge || '<span style="color:var(--text-muted);font-size:0.7rem;">Normal</span>'}</td>
-                        <td style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
-                            <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sinavi Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
+                        <td style="display: flex; gap: 5px; justify-content: flex-end;">
+                            <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sınavı Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
                             ${(() => {
                                 const hasRequest = (DB.requests || []).find(r => 
-                                    (String(r.examId) === String(ex.id) || String(r.initiatorExamId) === String(ex.id)) && 
+                                    String(r.examId) === String(ex.id) && 
                                     String(r.initiatorId) === String(myStaffId) && 
                                     ['pending', 'pending_peer'].includes(r.status)
                                 );
@@ -7051,10 +7045,8 @@ window.renderProfile = function() {
                                     return `<button class="btn-delete" onclick="cancelSwapRequest('${hasRequest.id}')" title="Talebi İptal Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🚫</span></button>`;
                                 }
                                 return `
-                                    <button onclick="initiateDirectSwap('${ex.id}')" title="Hoca ile Takas Et (Sistem İçi Onay)" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35); color: #a78bfa; cursor:pointer; font-size:0.72rem; font-weight:600;">🔄 Takas</button>
-                                    <button onclick="typeof openSwapEmailModal==='function' && openSwapEmailModal('${ex.id}')" title="Takas Maili Oluştur" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.35); color: #fbbf24; cursor:pointer; font-size:0.72rem; font-weight:600;">✉️ Takas Mail</button>
-                                    <button onclick="initiateOpenSwap('${ex.id}')" title="Pazara Birak (Sistem)" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.35); color: #38bdf8; cursor:pointer; font-size:0.72rem; font-weight:600;">📢 Pazar</button>
-                                    <button onclick="typeof openMarketEmailModal==='function' && openMarketEmailModal('${ex.id}')" title="Hocalara E-posta ile Bildir" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.35); color: #34d399; cursor:pointer; font-size:0.72rem; font-weight:600;">📤 Bildir</button>
+                                    <button class="btn-secondary" onclick="initiateDirectSwap('${ex.id}')" title="Hoca ile Takas Et" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">🔄</span></button>
+                                    <button class="btn-primary" onclick="initiateOpenSwap('${ex.id}')" title="Pazar Yerine Bırak" style="padding: 0.3rem 0.6rem; border-radius: 6px;"><span class="icon" style="margin:0;">📢</span></button>
                                 `;
                             })()}
                         </td>
@@ -7106,7 +7098,7 @@ window.renderProfile = function() {
     }
 };
 
-// ===== KİŞİSEL PORTAL YARDIMCI FONKSİYONLARI (Gözetmenlik'ten uyarlandi) =====
+// ===== KİŞİSEL PORTAL YARDIMCI FONKSİYONLARI (Gözetmenlik'ten uyarlandı) =====
 
 let myTimelineDate = new Date();
 
@@ -7261,7 +7253,7 @@ function changeMonth(delta) {
     if (myStaffId) renderPersonalCalendar(myStaffId);
 }
 
-// Takvim filtre butonlari
+// Takvim filtre butonları
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('calendar-filter-btn')) {
         document.querySelectorAll('.calendar-filter-btn').forEach(b => {
@@ -7385,7 +7377,7 @@ window.showProfileCalDayDetail = function(dateStr) {
         .sort((a,b) => a.time.localeCompare(b.time));
 
     const formattedDate = dateStr.split('-').reverse().join('.');
-    titleEl.textContent = `📅 ${formattedDate} Programi`;
+    titleEl.textContent = `📅 ${formattedDate} Programı`;
     
     examsEl.innerHTML = allRelevantExams.length > 0 
         ? allRelevantExams.map(ex => {
@@ -7420,16 +7412,16 @@ function updateProfileDashboard(staffId) {
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
 
-    // 1. Puan & Siralama
+    // 1. Puan & Sıralama
     const puanEl = document.getElementById('profile-dash-puan');
     if (puanEl) puanEl.textContent = (staff.totalScore || 0).toFixed(1);
 
     const sorted = [...(DB.staff || [])].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
     const rank = sorted.findIndex(s => String(s.id) === String(staffId)) + 1;
     const rankEl = document.getElementById('profile-dash-rank');
-    if (rankEl) rankEl.textContent = `#${rank} Sirada`;
+    if (rankEl) rankEl.textContent = `#${rank} Sırada`;
 
-    // Bölüm Ortalamasi ve Farki
+    // Bölüm Ortalaması ve Farkı
     const allStaff = DB.staff || [];
     const avgScore = allStaff.length > 0 ? (allStaff.reduce((sum, s) => sum + (s.totalScore || 0), 0) / allStaff.length) : 0;
     const diff = (staff.totalScore || 0) - avgScore;
@@ -7438,9 +7430,9 @@ function updateProfileDashboard(staffId) {
         if (diff > 1.5) {
             diffBadge.innerHTML = `<span style="color:#fb923c; font-weight:600;">+${diff.toFixed(1)} P. (Ort. Üzeri)</span>`;
         } else if (diff < -1.5) {
-            diffBadge.innerHTML = `<span style="color:#38bdf8; font-weight:600;">${diff.toFixed(1)} P. (Ort. Alti)</span>`;
+            diffBadge.innerHTML = `<span style="color:#38bdf8; font-weight:600;">${diff.toFixed(1)} P. (Ort. Altı)</span>`;
         } else {
-            diffBadge.innerHTML = `<span style="color:#34d399; font-weight:600;">✓ Dengeli Dağilim</span>`;
+            diffBadge.innerHTML = `<span style="color:#34d399; font-weight:600;">✓ Dengeli Dağılım</span>`;
         }
     }
 
@@ -7464,7 +7456,7 @@ function updateProfileDashboard(staffId) {
     if (dutyHoursEl) dutyHoursEl.textContent = `${totalHours} Saat (${myExams.length} Toplam)`;
     if (avgBadgeEl) avgBadgeEl.textContent = `Bölüm Ort: ${avgScore.toFixed(1)} P.`;
 
-    // 3. Müsaitlik Esnekliği & Kisit Özeti
+    // 3. Müsaitlik Esnekliği & Kısıt Özeti
     const flexScore = (typeof calculateAvailabilityScore === 'function') ? calculateAvailabilityScore(staffId) : 100;
     const flexScoreEl = document.getElementById('profile-kpi-flex-score');
     if (flexScoreEl) {
@@ -7484,11 +7476,11 @@ function updateProfileDashboard(staffId) {
                 if (c.type === 'day') return `${c.day.substring(0,3)} ${c.startHour || ''}-${c.endHour || ''}`;
                 return `${c.date ? c.date.substring(5) : 'Tarih'}`;
             }).slice(0, 2).join(', ');
-            constrSummaryEl.innerHTML = `<span style="color:#f87171;" title="${staffConstraints.length} kisit">🚫 ${cList}${staffConstraints.length > 2 ? '...' : ''}</span>`;
+            constrSummaryEl.innerHTML = `<span style="color:#f87171;" title="${staffConstraints.length} kısıt">🚫 ${cList}${staffConstraints.length > 2 ? '...' : ''}</span>`;
         }
     }
 
-    // 4. Sinav Günü Canli Durum Banner'i (Bugün / Yarin)
+    // 4. Sınav Günü Canlı Durum Banner'ı (Bugün / Yarın)
     const liveBanner = document.getElementById('profile-live-duty-banner');
     if (liveBanner) {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -7529,7 +7521,7 @@ function updateProfileDashboard(staffId) {
                             📅 .ics İndir
                         </button>
                         <button type="button" class="btn-secondary" style="background: rgba(245,158,11,0.2); color:#fbbf24; border-color: rgba(245,158,11,0.4); padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="initiateDirectSwap('${nextToday.id}')">
-                            🔄 Takasa Çikar
+                            🔄 Takasa Çıkar
                         </button>
                     </div>
                 </div>
@@ -7567,7 +7559,7 @@ function updateProfileDashboard(staffId) {
                             📅 .ics İndir
                         </button>
                         <button type="button" class="btn-secondary" style="background: rgba(245,158,11,0.2); color:#fbbf24; border-color: rgba(245,158,11,0.4); padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="initiateDirectSwap('${nextTomorrow.id}')">
-                            🔄 Takasa Çikar
+                            🔄 Takasa Çıkar
                         </button>
                     </div>
                 </div>
@@ -7578,7 +7570,7 @@ function updateProfileDashboard(staffId) {
         }
     }
 
-    // 5. Sik Birlikte Çaliştiklarim
+    // 5. Sık Birlikte Çalıştıklarım
     const matesCount = {};
     myExams.forEach(ex => {
         const ids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
@@ -7594,17 +7586,17 @@ function updateProfileDashboard(staffId) {
     if (matesEl) {
         matesEl.innerHTML = sortedMates.length > 0
             ? sortedMates.map(([name, cnt]) => `<span style="display:block; margin-bottom:2px;">&bull; <strong>${name}</strong> <span style="color:var(--primary); font-weight:700;">(${cnt} kez)</span></span>`).join('')
-            : '<span style="color:var(--text-muted);">Henüz ortak görev yapilmadi</span>';
+            : '<span style="color:var(--text-muted);">Henüz ortak görev yapılmadı</span>';
     }
 
-    // 6. Geri sayim
+    // 6. Geri sayım
     startProfileCountdown(staffId);
 }
 
 window.exportSingleExamToICal = function(examId) {
     const exam = (DB.exams || []).find(e => String(e.id) === String(examId));
     if (!exam) {
-        if (typeof showToast === 'function') showToast('Sinav bulunamadi.', 'warning');
+        if (typeof showToast === 'function') showToast('Sınav bulunamadı.', 'warning');
         return;
     }
     if (typeof generateICalContent === 'function' && typeof downloadICalFile === 'function') {
@@ -7612,7 +7604,7 @@ window.exportSingleExamToICal = function(examId) {
         const cleanName = exam.name.replace(/[^a-zA-Z0-9_\u00C0-\u017F]/g, '_');
         downloadICalFile(icsData, `${cleanName}_Sinav_Gorevi.ics`);
         if (typeof showToast === 'function') {
-            showToast(`📅 "${exam.name}" takvim (.ics) dosyasi indirildi!`, 'success');
+            showToast(`📅 "${exam.name}" takvim (.ics) dosyası indirildi!`, 'success');
         }
     }
 };
@@ -7641,7 +7633,7 @@ function startProfileCountdown(staffId) {
     const update = () => {
         const diff = targetDate - new Date();
         if (diff <= 0) { 
-            countVal.textContent = 'Sinav Başladi!'; 
+            countVal.textContent = 'Sınav Başladı!'; 
             clearInterval(profileCountdownTimer); 
             return; 
         }
@@ -7698,7 +7690,7 @@ function renderResponsibleExamsTab(staffId, staff) {
     if (!tbody || !staff) return;
     tbody.innerHTML = '';
 
-    // Bu sekme artik "Proctor olarak atandiğim sinavlarin hocalarindan gelen mesajlar" olacak
+    // Bu sekme artık "Proctor olarak atandığım sınavların hocalarından gelen mesajlar" olacak
     const now = new Date();
     const myMessages = DB.exams
         .filter(ex => {
@@ -7706,7 +7698,7 @@ function renderResponsibleExamsTab(staffId, staff) {
             const isMe = pIds.some(pid => String(pid) === String(staff.id));
             if (!isMe) return false;
 
-            // Sinav bitmiş mi kontrolü (Sadece gelecek/aktif sinavlari göster)
+            // Sınav bitmiş mi kontrolü (Sadece gelecek/aktif sınavları göster)
             const exDate = getSafeDate(ex.date, ex.time);
             const exEnd = new Date(exDate.getTime() + (ex.duration || 60) * 60000);
             return exEnd > now;
@@ -7719,7 +7711,7 @@ function renderResponsibleExamsTab(staffId, staff) {
     }
 
     myMessages.forEach(ex => {
-        const msg = ex.lecturerNote || `${ex.name} sinavi içi bilgilendirme bekleniyor...`;
+        const msg = ex.lecturerNote || `${ex.name} sınavı içi bilgilendirme bekleniyor...`;
         
         tbody.innerHTML += `
             <tr>
@@ -7748,7 +7740,7 @@ function renderLecturerExamsTab(staffId, staff) {
         .sort((a, b) => (a.date + 'T' + a.time).localeCompare(b.date + 'T' + b.time));
 
     if (lecturerExams.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Henüz sorumlu olduğunuz ders sinavi bulunmuyor.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Henüz sorumlu olduğunuz ders sınavı bulunmuyor.</td></tr>`;
         return;
     }
 
@@ -7758,7 +7750,7 @@ function renderLecturerExamsTab(staffId, staff) {
             return s ? s.name : '???';
         }).filter(n => n !== '???');
         
-        const proctorsStr = pNames.length > 0 ? pNames.join(', ') : '<span style="color:var(--accent-orange);">Henüz atanmadi</span>';
+        const proctorsStr = pNames.length > 0 ? pNames.join(', ') : '<span style="color:var(--accent-orange);">Henüz atanmadı</span>';
         const msg = ex.lecturerNote || '<span style="opacity:0.5;">Fikir/Not yok</span>';
 
         tbody.innerHTML += `
@@ -7802,25 +7794,25 @@ window.saveLecturerMessage = function() {
     const ex = DB.exams.find(e => String(e.id) === String(id));
     if (ex) {
         ex.lecturerNote = text;
-        ex.lecturerNoteTimestamp = Date.now(); // Bildirim için zaman damgasi
+        ex.lecturerNoteTimestamp = Date.now(); // Bildirim için zaman damgası
         
         // Kaydet
         if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
         if (typeof saveToBackend === 'function') saveToBackend();
         
-        showToast('Mesajiniz gözetmenlere iletildi.');
+        showToast('Mesajınız gözetmenlere iletildi.');
         if (document.getElementById('lecturer-message-text')) {
             document.getElementById('lecturer-message-text').value = '';
         }
         closeLecturerMessageModal();
         
-        // Tablolari yenile
+        // Tabloları yenile
         const myStaffId = localStorage.getItem('myStaffId');
         const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
         renderLecturerExamsTab(myStaffId, staff);
         renderResponsibleExamsTab(myStaffId, staff);
         
-        // Eğer portal açiksa orayi da yenile
+        // Eğer portal açıksa orayı da yenile
         const portalSelect = document.getElementById('lecturer-portal-staff-select');
         if (portalSelect && portalSelect.value) {
             renderLecturerPortal(portalSelect.value);
@@ -7829,7 +7821,7 @@ window.saveLecturerMessage = function() {
 };
 
 /**
- * HOCA PORTALI (Şifresiz Login Tarafi)
+ * HOCA PORTALI (Şifresiz Login Tarafı)
  */
 function loadLecturerPortalStaff() {
     const select = document.getElementById('lecturer-portal-staff-select');
@@ -7837,7 +7829,7 @@ function loadLecturerPortalStaff() {
     
     if (select.options.length > 1) return;
 
-    // DB.lecturers listesini kullan (Title + Name formatinda)
+    // DB.lecturers listesini kullan (Title + Name formatında)
     const sortedLecturers = (DB.lecturers || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
     
     select.innerHTML = '<option value="">Lütfen İsminizi Seçin...</option>' + 
@@ -7864,7 +7856,7 @@ window.onLecturerPortalStaffChange = function(lecturerName) {
     if (empty) empty.classList.add('hidden');
     if (editor) editor.classList.add('hidden');
 
-    // Bu hocaya ait sinavlari bul (Daha esnek bir isim eşleşmesi için trim ve toLocaleLowerCase('tr') kullaniyoruz)
+    // Bu hocaya ait sınavları bul (Daha esnek bir isim eşleşmesi için trim ve toLocaleLowerCase('tr') kullanıyoruz)
     const myExams = DB.exams.filter(ex => {
         if (!ex.lecturer) return false;
         
@@ -7883,7 +7875,7 @@ window.onLecturerPortalStaffChange = function(lecturerName) {
         courseSelect.innerHTML += '<option value="all-exams">★★★ TÜM SINAVLARIM / TÜM GÖZETMENLER ★★★</option>';
         courseSelect.innerHTML += myExams.map(ex => `<option value="${ex.id}">${ex.name} (${ex.date} ${ex.time})</option>`).join('');
     } else {
-        courseSelect.innerHTML = '<option value="">Adiniza kayitli ders bulunamadi.</option>';
+        courseSelect.innerHTML = '<option value="">Adınıza kayıtlı ders bulunamadı.</option>';
     }
 };
 
@@ -7912,8 +7904,8 @@ window.onLecturerPortalCourseChange = function(examId) {
                    lecturerName.toLocaleLowerCase('tr').trim().includes(ex.lecturer.toLocaleLowerCase('tr').trim());
         });
 
-        title.textContent = "🚀 Tüm Sinavlarim (Toplu Mesaj)";
-        details.innerHTML = `<span style="color:var(--accent-orange);">Bu alana yazacağiniz not, aşağida listelenen tüm sinavlariniza ve görevli gözetmenlere iletilecektir.</span>`;
+        title.textContent = "🚀 Tüm Sınavlarım (Toplu Mesaj)";
+        details.innerHTML = `<span style="color:var(--accent-orange);">Bu alana yazacağınız not, aşağıda listelenen tüm sınavlarınıza ve görevli gözetmenlere iletilecektir.</span>`;
         
         // Tüm gözetmenleri topla (tekil hoca isimleri)
         const allPids = [];
@@ -7931,14 +7923,14 @@ window.onLecturerPortalCourseChange = function(examId) {
         if (proctorsEl) {
             proctorsEl.innerHTML = pNames.length > 0 
                 ? pNames.map(n => `<div style="margin-bottom:2px;">• ${n}</div>`).join('') 
-                : '<span style="color:var(--accent-orange); opacity:0.7;">Atanmiş gözetmen bulunamadi</span>';
+                : '<span style="color:var(--accent-orange); opacity:0.7;">Atanmış gözetmen bulunamadı</span>';
         }
         
-        // Eğer tüm sinavlarin notu ayniysa onu getir, farkliysa boş birak veya ilkini getir
+        // Eğer tüm sınavların notu aynıysa onu getir, farklıysa boş bırak veya ilkini getir
         const firstNote = myExams.length > 0 ? (myExams[0].lecturerNote || '') : '';
         const allSame = myExams.every(ex => (ex.lecturerNote || '') === firstNote);
         textarea.value = allSame ? firstNote : "";
-        textarea.placeholder = "Tüm sinavlariniza ortak bir not iletmek için buraya yazin...";
+        textarea.placeholder = "Tüm sınavlarınıza ortak bir not iletmek için buraya yazın...";
 
     } else {
         const exam = DB.exams.find(e => String(e.id) === String(examId));
@@ -7956,11 +7948,11 @@ window.onLecturerPortalCourseChange = function(examId) {
         if (proctorsEl) {
             proctorsEl.innerHTML = pNames.length > 0 
                 ? pNames.map(n => `<div style="margin-bottom:2px;">• ${n}</div>`).join('') 
-                : '<span style="color:var(--accent-orange); opacity:0.7;">Henüz atanmadi</span>';
+                : '<span style="color:var(--accent-orange); opacity:0.7;">Henüz atanmadı</span>';
         }
 
         textarea.value = exam.lecturerNote || '';
-        textarea.placeholder = "Sinav gözetmenlerine iletmek istediğiniz notu buraya yazin...";
+        textarea.placeholder = "Sınav gözetmenlerine iletmek istediğiniz notu buraya yazın...";
     }
 };
 
@@ -7990,18 +7982,18 @@ window.saveLecturerPortalNote = async function() {
                 ex.lecturerNote = note;
                 ex.lecturerNoteTimestamp = Date.now();
             });
-            showToast(`${myExams.length} sinava ortak mesajiniz iletildi.`);
+            showToast(`${myExams.length} sınava ortak mesajınız iletildi.`);
             if (textarea) textarea.value = '';
         } else {
             const exam = DB.exams.find(e => String(e.id) === String(examId));
-            if (!exam) throw new Error("Sinav bulunamadi.");
+            if (!exam) throw new Error("Sınav bulunamadı.");
             exam.lecturerNote = note;
             exam.lecturerNoteTimestamp = Date.now();
-            showToast('Mesajiniz gözetmenlere iletildi.');
+            showToast('Mesajınız gözetmenlere iletildi.');
             if (textarea) textarea.value = '';
         }
 
-        // Yerel kaydet (Aninda başarili olsun)
+        // Yerel kaydet (Anında başarılı olsun)
         saveToLocalStorage();
 
         // Geri bildirim
@@ -8015,7 +8007,7 @@ window.saveLecturerPortalNote = async function() {
 
     } catch (err) {
         console.error("Save error:", err);
-        showToast('Kayit sirasinda bir hata oluştu: ' + err.message, 'error');
+        showToast('Kayıt sırasında bir hata oluştu: ' + err.message, 'error');
     }
 
     const myStaffId = localStorage.getItem('myStaffId');
@@ -8028,32 +8020,32 @@ window.saveLecturerPortalNote = async function() {
 
 
 /**
- * Gözetmenin Kendi Sinav Süresini Düzenlemesi
+ * Gözetmenin Kendi Sınav Süresini Düzenlemesi
  */
 window.updateExamDurationFromProfile = function(id) {
     try {
         const ex = DB.exams.find(e => String(e.id) === String(id));
         if (!ex) {
-            console.error('Sinav bulunamadi:', id);
+            console.error('Sınav bulunamadı:', id);
             return;
         }
 
-        const newDur = prompt(`${ex.name} sinavi için yeni süreyi (dakika) girin:`, ex.duration || 60);
+        const newDur = prompt(`${ex.name} sınavı için yeni süreyi (dakika) girin:`, ex.duration || 60);
         if (newDur !== null) {
             const val = parseInt(newDur);
             if (!isNaN(val) && val > 0) {
                 // Centralized update function (it handles score, proctor totals, and storage)
                 updateExam(id, { duration: val });
                 
-                // Kayit ve UI Yenileme
+                // Kayıt ve UI Yenileme
                 if (typeof saveToBackend === 'function') saveToBackend();
                 
-                if (typeof showToast === 'function') showToast('Sinav süresi güncellendi.');
-                else alert('Sinav süresi güncellendi.');
+                if (typeof showToast === 'function') showToast('Sınav süresi güncellendi.');
+                else alert('Sınav süresi güncellendi.');
 
                 renderProfile(); // Görüntüyü yenile
                 
-                // Eğer "Sorumlu Olduğum" sekmesi açiksa orayi da yenile
+                // Eğer "Sorumlu Olduğum" sekmesi açıksa orayı da yenile
                 const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
                 if (activeTab === 'responsible') {
                     const myStaffId = localStorage.getItem('myStaffId');
@@ -8068,7 +8060,7 @@ window.updateExamDurationFromProfile = function(id) {
             }
         }
     } catch (err) {
-        console.error('Süre güncelleme hatasi:', err);
+        console.error('Süre güncelleme hatası:', err);
         alert('Bir hata oluştu: ' + err.message);
     }
 };
@@ -8082,16 +8074,16 @@ function renderPasswordSection(staff) {
         <div style="margin-top: 1.5rem; padding: 1.25rem 1.5rem; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h4 style="margin: 0; font-size: 0.9rem; color: var(--primary);">🔑 Kişisel Giriş Şifrem</h4>
-                ${hasPass ? '<span style="font-size:0.75rem; color:var(--accent-green); background:rgba(34,197,94,0.1); padding:3px 10px; border-radius:20px;">✓ Şifre Ayarli</span>' : '<span style="font-size:0.75rem; color:var(--text-muted);">Henüz şifre yok</span>'}
+                ${hasPass ? '<span style="font-size:0.75rem; color:var(--accent-green); background:rgba(34,197,94,0.1); padding:3px 10px; border-radius:20px;">✓ Şifre Ayarlı</span>' : '<span style="font-size:0.75rem; color:var(--text-muted);">Henüz şifre yok</span>'}
             </div>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-                Kişisel şifrenizi belirleyerek giriş ekraninda doğrudan kendi profilinize geçiş yapabilirsiniz.
+                Kişisel şifrenizi belirleyerek giriş ekranında doğrudan kendi profilinize geçiş yapabilirsiniz.
             </p>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <input type="password" id="profile-pass-input" placeholder="Yeni şifre girin" 
                     style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.6rem 0.9rem; border-radius: 9px; color:white; font-family:inherit;">
                 <button onclick="saveProfilePassword(${staff.id})" class="btn-primary" style="white-space:nowrap; padding: 0.6rem 1.1rem; font-size:0.85rem;">Kaydet</button>
-                ${hasPass ? `<button onclick="removeProfilePassword(${staff.id})" class="btn-secondary" style="white-space:nowrap; padding: 0.6rem 0.9rem; font-size:0.85rem; color:var(--accent-red);">Kaldir</button>` : ''}
+                ${hasPass ? `<button onclick="removeProfilePassword(${staff.id})" class="btn-secondary" style="white-space:nowrap; padding: 0.6rem 0.9rem; font-size:0.85rem; color:var(--accent-red);">Kaldır</button>` : ''}
             </div>
         </div>
     `;
@@ -8101,27 +8093,27 @@ window.saveProfilePassword = function(staffId) {
     const input = document.getElementById('profile-pass-input');
     const newPass = (input && input.value) ? input.value.trim() : '';
     if (!newPass) { alert('Şifre boş olamaz!'); return; }
-    if (newPass.length < 4) { alert('Şifre en az 4 karakter olmalidir!'); return; }
+    if (newPass.length < 4) { alert('Şifre en az 4 karakter olmalıdır!'); return; }
 
-    // Ayni şifre başka birinde var mi?
-    const ADMIN_PASSWORD = 'Gtuturan123';
+    // Aynı şifre başka birinde var mı?
+    const ADMIN_PASSWORD = 'GtuAdmın123';
     const GOZETMEN_PASSWORD = 'Gtu2026';
     if (newPass === ADMIN_PASSWORD || newPass === GOZETMEN_PASSWORD) {
-        alert('Bu şifre sisteme ayrilmiş, lütfen farkli bir şifre seçin.'); return;
+        alert('Bu şifre sisteme ayrılmış, lütfen farklı bir şifre seçin.'); return;
     }
     const conflict = DB.staff.find(s => s.staffPassword === newPass && String(s.id) !== String(staffId));
-    if (conflict) { alert('Bu şifre zaten başka bir gözetmen tarafindan kullaniliyor!'); return; }
+    if (conflict) { alert('Bu şifre zaten başka bir gözetmen tarafından kullanılıyor!'); return; }
 
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
     staff.staffPassword = newPass;
     saveToLocalStorage();
-    alert(`✓ Şifreniz başariyla kaydedildi!\n\nArtik giriş ekraninda "${newPass}" şifresiyle doğrudan profilinize girebilirsiniz.`);
+    alert(`✓ Şifreniz başarıyla kaydedildi!\n\nArtık giriş ekranında "${newPass}" şifresiyle doğrudan profilinize girebilirsiniz.`);
     renderPasswordSection(staff);
 };
 
 window.removeProfilePassword = function(staffId) {
-    if (!confirm('Kişisel şifreniz kaldirilacak. Emin misiniz?')) return;
+    if (!confirm('Kişisel şifreniz kaldırılacak. Emin misiniz?')) return;
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
     delete staff.staffPassword;
@@ -8240,7 +8232,7 @@ async function handleAnnouncementSubmit(e) {
     renderAnnouncements();
     
     document.getElementById('modal-edit-announcement').classList.add('hidden');
-    alert("✓ Duyuru başariyla kaydedildi.");
+    alert("✓ Duyuru başarıyla kaydedildi.");
 }
 
 window.deleteAnnouncement = function(id) {
@@ -8295,13 +8287,13 @@ function renderProfileConstraints() {
     container.innerHTML = '';
 
     if (userConstraints.length === 0) {
-        container.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir kisit girmediniz.</td></tr>';
+        container.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz bir kısıt girmediniz.</td></tr>';
     } else {
-        const TurkishDays = ["Pazar", "Pazartesi", "Sali", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+        const TurkishDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
         userConstraints.forEach((c, idx) => {
             let label = "";
             if (c.day !== undefined) {
-                label = `Haftalik: ${TurkishDays[c.day]}`;
+                label = `Haftalık: ${TurkishDays[c.day]}`;
             } else if (c.startDate && c.endDate) {
                 label = `Toplu Tarih: ${c.startDate} / ${c.endDate}`;
             } else if (c.date) {
@@ -8319,7 +8311,7 @@ function renderProfileConstraints() {
         });
     }
 
-    // Görsel izgarayi ve mini takvimi aninda yenile
+    // Görsel ızgarayı ve mini takvimi anında yenile
     vcgBuild(staff.name);
     if (typeof renderMiniAvailabilityGrid === 'function') renderMiniAvailabilityGrid(userConstraints);
     if (typeof renderPersonalCalendar === 'function') renderPersonalCalendar(myStaffId);
@@ -8327,13 +8319,13 @@ function renderProfileConstraints() {
 
 /**
  * GÖRSEL HAFTALIK KISIT IZGARASI
- * Satirlar: 08:00–18:30 arasi 30dk dilimler (21 satir)
+ * Satırlar: 08:00–18:30 arası 30dk dilimler (21 satır)
  * Sütunlar: Pzt(1) Sal(2) Çar(3) Per(4) Cum(5) Cmt(6) Paz(0)
  */
 const VCG_SLOTS   = []; // ["08:00","08:30", ... "18:00"]
 const VCG_DAYS    = [1, 2, 3, 4, 5, 6, 0]; // JS getDay değerleri
 const VCG_DAYNAMES= ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"];
-// Izgara state: vcgState[dayIndex][slotIndex] = true (kapali)
+// Izgara state: vcgState[dayIndex][slotIndex] = true (kapalı)
 let vcgState = Array.from({length: 7}, () => []);
 
 (function initVcgSlots() {
@@ -8349,11 +8341,11 @@ function vcgBuild(staffName) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    // Mevcut kisitlardan izgara state'ini yükle
+    // Mevcut kısıtlardan ızgara state'ini yükle
     vcgState = Array.from({length: 7}, () => Array(VCG_SLOTS.length - 1).fill(false));
     const constraints = (DB.constraints && DB.constraints[staffName]) || [];
     constraints.forEach(c => {
-        if (c.day === undefined) return; // Sadece haftalik kisitlar
+        if (c.day === undefined) return; // Sadece haftalık kısıtlar
         const dayIdx = VCG_DAYS.indexOf(c.day);
         if (dayIdx === -1) return;
         const startMins = timeStrToMins(c.start);
@@ -8416,17 +8408,17 @@ window.vcgSaveAll = function() {
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
     if (!staff) {
-        alert("Lütfen önce profil sayfasindan kimliğinizi seçin.");
+        alert("Lütfen önce profil sayfasından kimliğinizi seçin.");
         return;
     }
 
     if (!DB.constraints) DB.constraints = {};
 
-    // Mevcut özel tarih kisitlarini koru (sadece haftalik olanlari sil ve yeniden yaz)
+    // Mevcut özel tarih kısıtlarını koru (sadece haftalık olanları sil ve yeniden yaz)
     const oldConstraints = DB.constraints[staff.name] || [];
     const nonDayConstraints = oldConstraints.filter(c => c.day === undefined);
 
-    // vcgState'den ardişik bloklari birleştirerek kisit oluştur
+    // vcgState'den ardışık blokları birleştirerek kısıt oluştur
     const newConstraints = [...nonDayConstraints];
 
     VCG_DAYS.forEach((dayNum, di) => {
@@ -8449,15 +8441,15 @@ window.vcgSaveAll = function() {
     DB.constraints[staff.name] = newConstraints;
     saveToLocalStorage();
     renderProfileConstraints();
-    showToast('✅ Kisitlariniz kaydedildi!', 'success');
+    showToast('✅ Kısıtlarınız kaydedildi!', 'success');
 };
 
 window.vcgClearAll = function() {
-    if (!confirm('Tüm haftalik kisitlariniz silinecek. Emin misiniz?')) return;
+    if (!confirm('Tüm haftalık kısıtlarınız silinecek. Emin misiniz?')) return;
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
     if (!staff) {
-        alert("Lütfen önce profil sayfasindan kimliğinizi seçin.");
+        alert("Lütfen önce profil sayfasından kimliğinizi seçin.");
         return;
     }
     if (!DB.constraints) DB.constraints = {};
@@ -8466,7 +8458,7 @@ window.vcgClearAll = function() {
     vcgState = Array.from({length: 7}, () => Array(VCG_SLOTS.length - 1).fill(false));
     saveToLocalStorage();
     renderProfileConstraints();
-    showToast('Tüm haftalik kisitlariniz temizlendi.', 'info');
+    showToast('Tüm haftalık kısıtlarınız temizlendi.', 'info');
 };
 
 window.toggleDateConstraintFields = function() {
@@ -8510,7 +8502,7 @@ function handleProfileConstraintAdd() {
     const myStaffId = localStorage.getItem('myStaffId');
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
     if (!staff) {
-        alert("Lütfen önce profil sayfasindan kimliğinizi seçin.");
+        alert("Lütfen önce profil sayfasından kimliğinizi seçin.");
         return;
     }
 
@@ -8526,12 +8518,12 @@ function handleProfileConstraintAdd() {
         const dateVal = document.getElementById('profile-constraint-date').value; // YYYY-MM-DD
         if (!dateVal) { alert("Lütfen tarih seçin!"); return; }
         const parts = dateVal.split('-');
-        newConstraint.date = `${parts[1]}-${parts[2]}`; // MM-DD formati logic.js uyumlu
+        newConstraint.date = `${parts[1]}-${parts[2]}`; // MM-DD formatı logic.js uyumlu
     } else if (type === 'daterange') {
         const startVal = document.getElementById('profile-constraint-daterange-start').value;
         const endVal = document.getElementById('profile-constraint-daterange-end').value;
-        if (!startVal || !endVal) { alert("Lütfen başlangiç ve bitiş tarihlerini seçin!"); return; }
-        if (startVal > endVal) { alert("Başlangiç tarihi bitiş tarihinden sonra olamaz!"); return; }
+        if (!startVal || !endVal) { alert("Lütfen başlangıç ve bitiş tarihlerini seçin!"); return; }
+        if (startVal > endVal) { alert("Başlangıç tarihi bitiş tarihinden sonra olamaz!"); return; }
         newConstraint.startDate = startVal;
         newConstraint.endDate = endVal;
     }
@@ -8542,17 +8534,17 @@ function handleProfileConstraintAdd() {
 
     saveToLocalStorage();
     renderProfileConstraints();
-    showToast("✓ Müsaitlik kisiti profilinize eklendi.", "success");
+    showToast("✓ Müsaitlik kısıtı profilinize eklendi.", "success");
 }
 
 window.handleProfileConstraintDelete = function(name, idx) {
-    if (confirm("Bu kisiti silmek istediğinize emin misiniz?")) {
+    if (confirm("Bu kısıtı silmek istediğinize emin misiniz?")) {
         if (!DB.constraints) DB.constraints = {};
         if (DB.constraints[name]) {
             DB.constraints[name].splice(idx, 1);
             saveToLocalStorage();
             renderProfileConstraints();
-            showToast("Kisit silindi.", "info");
+            showToast("Kısıt silindi.", "info");
         }
     }
 }
@@ -8574,8 +8566,7 @@ window.initiateOpenSwap = function(examId) {
     const exam = DB.exams.find(e => e.id == examId);
     if (!exam) return;
 
-    const dateStr = exam.date ? exam.date.split('-').reverse().join('.') : '';
-    if (confirm(`${exam.name} sinavi (${dateStr} ${exam.time}) için yerinize birini aramak istediğinize emin misiniz?\n\nGörev "Pazar Yeri"ne alinacak ve diğer hocalar devralabilecektir.`)) {
+    if (confirm(`${exam.name} sınavı için yerinize birini aramak istediğinize emin misiniz? Bu talep diğer hocalara görünecektir.`)) {
         const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
         
         const newReq = {
@@ -8587,7 +8578,7 @@ window.initiateOpenSwap = function(examId) {
             initiatorId: staff.id,
             initiatorName: staff.name,
             receiverId: null,
-            receiverName: "Açik Talep",
+            receiverName: "Açık Talep",
             status: 'pending', // Spec: pending
             fromApproved: true,
             toApproved: false,
@@ -8596,12 +8587,7 @@ window.initiateOpenSwap = function(examId) {
 
         if (!DB.requests) DB.requests = [];
         DB.requests.push(newReq);
-
-        // Görev durumunu güncelle
-        if (!DB.taskStatuses) DB.taskStatuses = {};
-        DB.taskStatuses[`${examId}_${myStaffId}`] = 'market_listed';
-
-        logAction('SWAP_INITIATED', `${staff.name}, ${exam.name} için yer değiştirme talebi açti.`, { examId });
+        logAction('SWAP_INITIATED', `${staff.name}, ${exam.name} için yer değiştirme talebi açtı.`, { examId });
         saveToLocalStorage();
         
         // Pazar Yeri Webhook bildirimi gönder
@@ -8616,16 +8602,7 @@ window.initiateOpenSwap = function(examId) {
             requestId: newReq.id
         });
 
-        // E-posta bildirimi gönderme seçeneği sun
-        const sendEmail = confirm("✅ Görev Pazar Yeri'ne alindi!\n\nHocalara e-posta ile de bildirim göndermek ister misiniz?\n\nTamam → E-posta Hazirla\nİptal → Sadece Pazar Yerine Ekle");
-        if (sendEmail && typeof openMarketEmailModal === 'function') {
-            openMarketEmailModal(examId);
-        } else {
-            if (typeof showToast === 'function') {
-                showToast('✅ Görev Pazar Yeri\'ne eklendi. Diğer hocalar "Açik Görevler" sekmesinden kabul edebilir.', 'success');
-            }
-        }
-        
+        alert("Talebiniz oluşturuldu. Uygun gözetmenler 'Açık Görevler' sekmesinden kabul edebilir.");
         renderProfile();
         updateMarketplaceBadge();
     }
@@ -8639,8 +8616,8 @@ window.renderMarketplace = function() {
     tbody.innerHTML = '';
     const myStaffIdNum = parseInt(myStaffId);
 
-    // Açik talepleri bul (pending ve receiverId null)
-    // Filtreleme: Kullanici tarafindan reddedilmiş (gizlenmiş) talepleri çikar
+    // Açık talepleri bul (pending ve receiverId null)
+    // Filtreleme: Kullanıcı tarafından reddedilmiş (gizlenmiş) talepleri çıkar
     const dismissedKey = `dismissed_requests_${myStaffId}`;
     const dismissedIds = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
 
@@ -8649,7 +8626,7 @@ window.renderMarketplace = function() {
         .filter(r => {
             if (r.status !== 'pending' || r.receiverId !== null || r.initiatorId === myStaffIdNum) return false;
             if (dismissedIds.includes(r.id)) return false;
-            // Geçmiş sinavlari gösterme
+            // Geçmiş sınavları gösterme
             const exam = DB.exams.find(e => String(e.id) === String(r.examId));
             if (!exam) return false;
             const examDate = getSafeDate(exam.date, exam.time);
@@ -8658,7 +8635,7 @@ window.renderMarketplace = function() {
         });
 
     if (openRequests.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Şu an için uygun açik görev bulunmuyor.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Şu an için uygun açık görev bulunmuyor.</td></tr>';
         return;
     }
 
@@ -8666,13 +8643,13 @@ window.renderMarketplace = function() {
         const exam = DB.exams.find(e => e.id == req.examId);
         if (!exam) return;
 
-        // Kullanici bu saatte müsait mi?
+        // Kullanıcı bu saatte müsait mi?
         const isFree = isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration);
         
         if (isFree) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${req.examName}</strong><br><small>${req.initiatorName} tarafindan birakildi</small></td>
+                <td><strong>${req.examName}</strong><br><small>${req.initiatorName} tarafından bırakıldı</small></td>
                 <td>${req.examDate.split("-").reverse().join(".")}</td>
                 <td>${req.examTime}</td>
                 <td>${exam.duration} dk</td>
@@ -8688,7 +8665,7 @@ window.renderMarketplace = function() {
     });
 
     if (tbody.children.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Müsait olduğunuz bir açik görev bulunmuyor.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Müsait olduğunuz bir açık görev bulunmuyor.</td></tr>';
     }
 };
 
@@ -8718,7 +8695,7 @@ window.acceptOpenRequest = async function(requestId) {
 
     // Race condition kontrolü
     if (req.status !== 'pending') {
-        alert("Üzgünüz, bu görev az önce başkasi tarafindan kabul edildi veya iptal edildi.");
+        alert("Üzgünüz, bu görev az önce başkası tarafından kabul edildi veya iptal edildi.");
         renderProfile();
         return;
     }
@@ -8727,14 +8704,14 @@ window.acceptOpenRequest = async function(requestId) {
     if (!exam) return;
 
     const confirmed = await confirmWithPassword(
-        `"${req.examName}" görevini devralacağinizi onaylamak için lütfen kişisel şifrenizi girin.`,
+        `"${req.examName}" görevini devralacağınızı onaylamak için lütfen kişisel şifrenizi girin.`,
         staff
     );
     if (confirmed) {
         const fromStaff = DB.staff.find(s => s.id == req.initiatorId);
         const toStaff = staff;
 
-        // Puan ve Görev Sayisi Güncelleme (nonExam/exam ayrimi)
+        // Puan ve Görev Sayısı Güncelleme (nonExam/exam ayrımı)
         if (fromStaff) {
             if (shouldCountAsNonExam(exam)) {
                 fromStaff.nonExamScore = Math.max(0, parseFloat(((fromStaff.nonExamScore || 0) - exam.score).toFixed(2)));
@@ -8752,10 +8729,10 @@ window.acceptOpenRequest = async function(requestId) {
             toStaff.taskCount = (toStaff.taskCount || 0) + 1;
         }
 
-        // Sinavi Güncelle
+        // Sınavı Güncelle
         if (!exam.proctorIds) exam.proctorIds = [exam.proctorId];
         
-        // Initiator'i bul ve değiştir
+        // Initiator'ı bul ve değiştir
         const idx = exam.proctorIds.indexOf(req.initiatorId);
         if (idx !== -1) {
             exam.proctorIds[idx] = toStaff.id;
@@ -8779,12 +8756,7 @@ window.acceptOpenRequest = async function(requestId) {
         req.receiverName = toStaff.name;
         req.toApproved = true;
 
-        // Görev durumlarini güncelle
-        if (!DB.taskStatuses) DB.taskStatuses = {};
-        DB.taskStatuses[`${exam.id}_${req.initiatorId}`] = 'transferred';
-        DB.taskStatuses[`${exam.id}_${toStaff.id}`] = 'normal';
-
-        logAction('user', 'Açik Talep Kabulü', `${toStaff.name}, ${req.initiatorName}'in ${req.examName} görevini devraldi.`);
+        logAction('user', 'Açık Talep Kabulü', `${toStaff.name}, ${req.initiatorName}'in ${req.examName} görevini devraldı.`);
         
         saveToLocalStorage();
         
@@ -8801,7 +8773,7 @@ window.acceptOpenRequest = async function(requestId) {
         // Admin modundaysa sunucuya kaydet
         await saveToBackend();
         
-        alert("✓ Görev başariyla devralindi ve puanlar güncellendi.");
+        alert("✓ Görev başarıyla devralındı ve puanlar güncellendi.");
         
         renderProfile();
         updateMarketplaceBadge();
@@ -8815,7 +8787,7 @@ window.confirmOpenRequest = async function(requestId) {
     const req = DB.requests.find(r => r.id === requestId);
     if (!req) return;
 
-    if (confirm(`${req.receiverName} hocaya görevi devretmek istediğinize emin misiniz? İşlem aninda gerçekleşecektir.`)) {
+    if (confirm(`${req.receiverName} hocaya görevi devretmek istediğinize emin misiniz? İşlem anında gerçekleşecektir.`)) {
         req.toApproved = true;
         
         const exam = DB.exams.find(e => e.id == req.examId);
@@ -8844,7 +8816,7 @@ window.confirmOpenRequest = async function(requestId) {
             }
 
             req.status = 'approved';
-            logAction('SWAP_CONFIRMED', `${req.initiatorName}, ${req.receiverName}'i onayladi (Aninda gerçekleşti).`, { requestId });
+            logAction('SWAP_CONFIRMED', `${req.initiatorName}, ${req.receiverName}'i onayladı (Anında gerçekleşti).`, { requestId });
             saveToLocalStorage();
             
             // Bildirim tetikle (Webhook & E-posta)
@@ -8857,7 +8829,7 @@ window.confirmOpenRequest = async function(requestId) {
                 swapType: 'open_confirm'
             });
 
-            alert("✓ Onaylandi. Görev devri aninda gerçekleşti ve puanlar güncellendi.");
+            alert("✓ Onaylandı. Görev devri anında gerçekleşti ve puanlar güncellendi.");
             renderProfile();
         }
     }
@@ -8867,11 +8839,11 @@ window.rejectOpenRequest = function(requestId) {
     const req = DB.requests.find(r => r.id === requestId);
     if (!req) return;
 
-    if (confirm("Bu hocanin kabulünü reddetmek istediğinize emin misiniz? Talebiniz tekrar açik hale gelecektir.")) {
+    if (confirm("Bu hocanın kabulünü reddetmek istediğinize emin misiniz? Talebiniz tekrar açık hale gelecektir.")) {
         req.receiverId = null;
-        req.receiverName = "Açik Talep";
+        req.receiverName = "Açık Talep";
         req.status = 'pending';
-        logAction('SWAP_REJECTED', `${req.initiatorName}, ${req.receiverName}'i reddetti (Talep tekrar açildi).`, { requestId });
+        logAction('SWAP_REJECTED', `${req.initiatorName}, ${req.receiverName}'i reddetti (Talep tekrar açıldı).`, { requestId });
         saveToLocalStorage();
         renderProfile();
     }
@@ -8881,7 +8853,7 @@ window.goToProfileAvailability = function() {
     // 1. Profil sekmesine geç
     document.getElementById('btn-profile').click();
     
-    // 2. Kisit Ayarlarim tabina geç
+    // 2. Kısıt Ayarlarım tabına geç
     const availTabBtn = document.querySelector('#section-profile .tab-btn[data-tab="availability"]');
     if (availTabBtn) availTabBtn.click();
 };
@@ -8890,7 +8862,7 @@ window.goToProfileMarketplace = function() {
     // 1. Profil sekmesine geç
     document.getElementById('btn-profile').click();
     
-    // 2. Pazar Yeri tabina geç
+    // 2. Pazar Yeri tabına geç
     const marketTabBtn = document.querySelector('#section-profile .tab-btn[data-tab="marketplace"]');
     if (marketTabBtn) marketTabBtn.click();
 };
@@ -8910,20 +8882,7 @@ window.cancelSwapRequest = function(requestId) {
         if (reqIndex > -1) {
             const req = DB.requests[reqIndex];
             DB.requests.splice(reqIndex, 1);
-
-            // Görev durumunu temizle
-            if (DB.taskStatuses) {
-                const myStaffId = localStorage.getItem('myStaffId');
-                const examId = req.examId || req.initiatorExamId;
-                if (examId && myStaffId) {
-                    const key = `${examId}_${myStaffId}`;
-                    if (DB.taskStatuses[key] === 'market_listed' || DB.taskStatuses[key] === 'swap_pending' || DB.taskStatuses[key] === 'swap_requested') {
-                        delete DB.taskStatuses[key];
-                    }
-                }
-            }
-
-            logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName || 'bilinmeyen sinav'} için açtiği talebi iptal etti.`);
+            logAction('user', 'Talep İptali', `${req.initiatorName}, ${req.examName} için açtığı talebi iptal etti.`);
             saveToLocalStorage();
             
             // Bildirim tetikle (Webhook)
@@ -8935,8 +8894,7 @@ window.cancelSwapRequest = function(requestId) {
             renderExams();
             renderProfile();
             updateMarketplaceBadge();
-            if (typeof showToast === 'function') showToast('✓ Talep başariyla iptal edildi.', 'success');
-            else alert("✓ Talep başariyla iptal edildi.");
+            alert("✓ Talep başarıyla iptal edildi.");
         }
     }
 };
@@ -8980,7 +8938,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
     const container = document.getElementById('direct-swap-target-exams-container');
     const list = document.getElementById('direct-swap-exam-list');
     
-    // Hocanin aktif sinavlarini bul
+    // Hocanın aktif sınavlarını bul
     const now = new Date();
     const targetExams = DB.exams.filter(e => {
         if (String(e.proctorId) !== String(targetStaffId)) return false;
@@ -8991,7 +8949,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
     });
 
     if (targetExams.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">Bu hocanin aktif görevi bulunmuyor.</p>';
+        list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">Bu hocanın aktif görevi bulunmuyor.</p>';
     } else {
         list.innerHTML = targetExams.map(ex => `
             <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, \`${ex.name.replace(/`/g, '').replace(/"/g, '&quot;')}\`, '${ex.date}', this)">
@@ -9026,7 +8984,7 @@ document.getElementById('btn-confirm-direct-swap').onclick = async function() {
         const myStaffId = localStorage.getItem('myStaffId');
 
         if (!myExamId || !targetStaffId || !targetExamId) {
-            alert("Lütfen karşi tarafin sinavini seçiniz.");
+            alert("Lütfen karşı tarafın sınavını seçiniz.");
             return;
         }
 
@@ -9036,7 +8994,7 @@ document.getElementById('btn-confirm-direct-swap').onclick = async function() {
         const targetExam = DB.exams.find(e => String(e.id) === String(targetExamId));
 
         if (!myStaff || !targetStaff || !myExam || !targetExam) {
-            alert("Kayit bulunamadi. Lütfen sayfayi yenileyin.");
+            alert("Kayıt bulunamadı. Lütfen sayfayı yenileyin.");
             return;
         }
 
@@ -9070,7 +9028,7 @@ document.getElementById('btn-confirm-direct-swap').onclick = async function() {
                 examTime: myExam.time
             });
 
-            alert("Takas teklifiniz iletildi. Hocanin onaylamasi bekleniyor.");
+            alert("Takas teklifiniz iletildi. Hocanın onaylaması bekleniyor.");
             document.getElementById('modal-direct-swap').classList.add('hidden');
             renderProfile();
         }
@@ -9093,7 +9051,7 @@ window.openOfferSwapModal = function(requestId) {
     document.getElementById('offer-swap-request-id').value = requestId;
     document.getElementById('offer-swap-target-exam-name').textContent = `${targetExam.name} (${targetExam.date})`;
     
-    // Kendi aktif sinavlarimi bul
+    // Kendi aktif sınavlarımı bul
     const now = new Date();
     const myExams = DB.exams.filter(e => {
         if (!e.proctorIds && e.proctorId !== parseInt(myStaffId)) return false;
@@ -9142,7 +9100,7 @@ window.confirmOfferSwap = async function() {
         const myStaffId = localStorage.getItem('myStaffId');
 
         if (!myExamId || !requestId) {
-            alert("Lütfen vereceğiniz sinavi seçiniz.");
+            alert("Lütfen vereceğiniz sınavı seçiniz.");
             return;
         }
 
@@ -9153,7 +9111,7 @@ window.confirmOfferSwap = async function() {
         const targetExam = DB.exams.find(e => String(e.id) === String(openReq.examId));
 
         if (!myStaff || !targetStaff || !myExam || !targetExam || !openReq) {
-            alert("Kayit bulunamadi. Lütfen sayfayi yenileyin.");
+            alert("Kayıt bulunamadı. Lütfen sayfayı yenileyin.");
             return;
         }
 
@@ -9187,7 +9145,7 @@ window.confirmOfferSwap = async function() {
                 examTime: myExam.time
             });
 
-            alert("Takas teklifiniz iletildi. Görevin sahibinin profilinden onaylamasi bekleniyor.");
+            alert("Takas teklifiniz iletildi. Görevin sahibinin profilinden onaylaması bekleniyor.");
             document.getElementById('modal-offer-swap').classList.add('hidden');
             renderProfile();
         }
@@ -9209,7 +9167,7 @@ window.acceptDirectSwap = async function(requestId) {
     if (!myExam || !hisExam || !myStaff || !hisStaff) {
         req.status = 'rejected';
         saveToLocalStorage();
-        alert("Eski veri veya uyumsuz sinav hatasi oluştu, bu hatali talep iptal edildi.");
+        alert("Eski veri veya uyumsuz sınav hatası oluştu, bu hatalı talep iptal edildi.");
         renderProfile();
         return;
     }
@@ -9220,18 +9178,18 @@ window.acceptDirectSwap = async function(requestId) {
     );
     if (confirmed) {
         // PUAN GÜNCELLEME
-        // Benim eski sinavimi ondan çikar, onun sinavini bana ekle demiyoruz. 
+        // Benim eski sınavımı ondan çıkar, onun sınavını bana ekle demiyoruz. 
         // Birebir değişim: MyExam onun oluyor, HisExam benim oluyor.
         
-        // 1. Benim puanimdan benim eski sinavimi düş, onun sinavini ekle
+        // 1. Benim puanımdan benim eski sınavımı düş, onun sınavını ekle
         myStaff.totalScore = parseFloat((myStaff.totalScore - myExam.score + hisExam.score).toFixed(2));
         
-        // 2. Onun puanindan onun sinavini düş, benimkini ekle
+        // 2. Onun puanından onun sınavını düş, benimkini ekle
         hisStaff.totalScore = parseFloat((hisStaff.totalScore - hisExam.score + myExam.score).toFixed(2));
 
-        // 3. Görev sayilari değişmez (1 verildi 1 alindi)
+        // 3. Görev sayıları değişmez (1 verildi 1 alındı)
 
-        // 4. Sinavlarin Gözetmenlerini Değiştir
+        // 4. Sınavların Gözetmenlerini Değiştir
         // MyExam -> hisStaff
         myExam.proctorId = hisStaff.id;
         myExam.proctorName = hisStaff.name;
@@ -9254,13 +9212,8 @@ window.acceptDirectSwap = async function(requestId) {
         req.status = 'approved';
         req.updatedAt = new Date().toISOString();
 
-        // 6. Görev durumlarini güncelle
-        if (!DB.taskStatuses) DB.taskStatuses = {};
-        DB.taskStatuses[`${myExam.id}_${req.receiverId}`] = 'swap_completed';
-        DB.taskStatuses[`${hisExam.id}_${req.initiatorId}`] = 'swap_completed';
-
         saveToLocalStorage();
-        logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sinavlarini takas etti.`);
+        logAction('user', 'Birebir Takas', `${hisStaff.name} ve ${myStaff.name} hocalar ${hisExam.name} ile ${myExam.name} sınavlarını takas etti.`);
         
         // Webhook ve E-posta bildirimi tetikle
         dispatchNotificationEvent('swap_accepted', {
@@ -9273,7 +9226,7 @@ window.acceptDirectSwap = async function(requestId) {
             swapType: 'direct_swap'
         });
 
-        alert("✅ Takas işlemi başariyla tamamlandi!");
+        alert("✅ Takas işlemi başarıyla tamamlandı!");
         
         await saveToBackend();
         
@@ -9315,7 +9268,7 @@ window.renderExamTypesList = () => {
         </div>
     `).join('');
 
-    // Mevcut açik modal'lardaki dropdown'lari tazele
+    // Mevcut açık modal'lardaki dropdown'ları tazele
     const addTypeSelect = document.getElementById('exam-type');
     if (addTypeSelect) {
         addTypeSelect.innerHTML = (DB.examTypes || []).map(t => `<option value="${t}">${t}</option>`).join('');
@@ -9349,11 +9302,11 @@ window.deleteExamType = async (type) => {
 window.batchAutoAssign = async function() {
     const unassignedExams = DB.exams.filter(ex => !ex.proctorId && (!ex.proctorIds || ex.proctorIds.length === 0));
     if (unassignedExams.length === 0) {
-        alert("Atama yapilacak gözetmensiz sinav bulunamadi.");
+        alert("Atama yapılacak gözetmensiz sınav bulunamadı.");
         return;
     }
 
-    if (confirm(`${unassignedExams.length} adet sinava otomatik gözetmen atansin mi?`)) {
+    if (confirm(`${unassignedExams.length} adet sınava otomatik gözetmen atansın mı?`)) {
         let assignedCount = 0;
         unassignedExams.forEach(ex => {
             const best = findBestProctor(ex.date, ex.time, ex.duration);
@@ -9379,12 +9332,12 @@ window.batchAutoAssign = async function() {
         saveToLocalStorage();
         await saveToBackend();
         
-        logAction('admin', 'Toplu Atama', `${assignedCount} unassigned sinava otomatik gözetmen atandi.`);
+        logAction('admin', 'Toplu Atama', `${assignedCount} unassigned sınava otomatik gözetmen atandı.`);
         
         renderExams();
         renderDashboard();
         renderStaff();
-        alert(`✓ ${assignedCount} sinava başariyla atama yapildi.`);
+        alert(`✓ ${assignedCount} sınava başarıyla atama yapıldı.`);
     }
 };
 
@@ -9392,8 +9345,8 @@ window.quickFixConflict = async function(examId) {
     const exam = DB.exams.find(e => e.id === examId);
     if (!exam) return;
 
-    if (confirm(`${exam.name} sinavi için çakişmayi otomatik gidermek istiyor musunuz? Uygun en iyi gözetmen atanacaktir.`)) {
-        // Eski gözetmen puanlarini düş (Multi-proctor desteğiyle)
+    if (confirm(`${exam.name} sınavı için çakışmayı otomatik gidermek istiyor musunuz? Uygun en iyi gözetmen atanacaktır.`)) {
+        // Eski gözetmen puanlarını düş (Multi-proctor desteğiyle)
         const oldPIds = exam.proctorIds || [exam.proctorId];
         oldPIds.forEach(pid => {
             const s = DB.staff.find(staff => staff.id === pid);
@@ -9430,7 +9383,7 @@ window.quickFixConflict = async function(examId) {
             renderDashboard();
             renderStaff();
             renderSchedule();
-            alert(`✓ ${best.name} başariyla atandi.`);
+            alert(`✓ ${best.name} başarıyla atandı.`);
         } else {
             // Eski gözetmenleri geri al (yetersiz yedek)
             oldPIds.forEach(pid => {
@@ -9445,7 +9398,7 @@ window.quickFixConflict = async function(examId) {
                     }
                 }
             });
-            alert("⚠️ Uygun yedek gözetmen bulunamadi!");
+            alert("⚠️ Uygun yedek gözetmen bulunamadı!");
         }
     }
 };
@@ -9516,7 +9469,7 @@ function renderAuditLogs() {
     tbody.innerHTML = '';
     
     if (!DB.auditLogs || DB.auditLogs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz işlem kaydi bulunmuyor.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz işlem kaydı bulunmuyor.</td></tr>';
         return;
     }
     
@@ -9539,7 +9492,7 @@ function renderAuditLogs() {
 }
 
 /**
- * PDF Olarak Dişa Aktar (jsPDF & AutoTable)
+ * PDF Olarak Dışa Aktar (jsPDF & AutoTable)
  */
 async function exportToPDF(tableId, title) {
     const { jsPDF } = window.jspdf;
@@ -9548,7 +9501,7 @@ async function exportToPDF(tableId, title) {
     let pdfFont = 'helvetica';
     let hasRoboto = false;
     try {
-        // Türkçe destekleyen Roboto fontlarini çekip sanal dosya sistemine ekliyoruz
+        // Türkçe destekleyen Roboto fontlarını çekip sanal dosya sistemine ekliyoruz
         const [fontRes, boldRes] = await Promise.all([
             fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf'),
             fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf')
@@ -9575,7 +9528,7 @@ async function exportToPDF(tableId, title) {
             pdfFont = 'Roboto';
         }
     } catch (e) {
-        console.warn('Font yüklenemedi. Varsayilan font kullanilacak:', e);
+        console.warn('Font yüklenemedi. Varsayılan font kullanılacak:', e);
     }
     doc.setFont(pdfFont);
 
@@ -9583,10 +9536,10 @@ async function exportToPDF(tableId, title) {
         if (typeof str !== 'string') return str;
         if (pdfFont === 'helvetica') {
             const trMap = {
-                'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'i': 'i', 'İ': 'I',
+                'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
                 'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
             };
-            return str.replace(/[çÇğĞiİöÖşŞüÜ]/g, m => trMap[m]);
+            return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m]);
         }
         return str;
     };
@@ -9610,7 +9563,7 @@ async function exportToPDF(tableId, title) {
 
     const table = document.getElementById(tableId);
     if (!table) {
-        alert('Tablo bulunamadi!');
+        alert('Tablo bulunamadı!');
         return;
     }
 
@@ -9646,13 +9599,13 @@ async function exportToPDF(tableId, title) {
         }
     });
 
-    // Sadece Dosya ismi için güvenlik amaciyla Türkçe karakter değiştirelim (indirilirken hata olmasin)
+    // Sadece Dosya ismi için güvenlik amacıyla Türkçe karakter değiştirelim (indirilirken hata olmasın)
     const replaceTRForFilename = (str) => {
         const trMap = {
-            'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'i': 'i', 'İ': 'I',
+            'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
             'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
         };
-        return str.replace(/[çÇğĞiİöÖşŞüÜ]/g, m => trMap[m]).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+        return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m]).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
     };
 
     const filename = `${replaceTRForFilename(title).toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.pdf`;
@@ -9664,7 +9617,7 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
     const doc = new jsPDF('p', 'mm', 'a4'); // Dikey A4
     
     try {
-        // Türkçe fontlari yükle
+        // Türkçe fontları yükle
         const [fontRes, boldRes] = await Promise.all([
             fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf'),
             fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf')
@@ -9688,7 +9641,7 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
         }
         doc.setFont('Roboto');
     } catch (e) {
-        console.warn('Font yüklenemedi. Varsayilan font kullanilacak:', e);
+        console.warn('Font yüklenemedi. Varsayılan font kullanılacak:', e);
     }
 
     const cleanStr = (str) => {
@@ -9709,24 +9662,24 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
             });
         }
     });
-    const proctorsStr = Array.from(proctorsSet).join(', ') || 'Atanmadi';
+    const proctorsStr = Array.from(proctorsSet).join(', ') || 'Atanmadı';
 
-    // Akilli sinif / bölüm tespiti
+    // Akıllı sınıf / bölüm tespiti
     let classStr = "";
     const nameLower = examName.toLowerCase();
-    const classMatch = nameLower.match(/(1|2|3|4)\.\s*(sinif|yil)/);
+    const classMatch = nameLower.match(/(1|2|3|4)\.\s*(sınıf|yıl)/);
     if (classMatch) {
-        classStr = classMatch[1] + ". Sinif";
+        classStr = classMatch[1] + ". Sınıf";
     } else {
         const codeMatch = examName.match(/\b([1-4])\d{2}\b/);
         if (codeMatch) {
-            classStr = codeMatch[1] + ". Sinif";
+            classStr = codeMatch[1] + ". Sınıf";
         }
     }
     const deptStr = "Matematik Bölümü" + (classStr ? " / " + classStr : "");
 
-    // Logo çizimi (Base64 olarak doğrudan gömülüdür, CORS veya dosya yolu hatalarini önler)
-    let startY = 32; // Üst tablonun başlayacaği koordinat
+    // Logo çizimi (Base64 olarak doğrudan gömülüdür, CORS veya dosya yolu hatalarını önler)
+    let startY = 32; // Üst tablonun başlayacağı koordinat
     try {
         const logoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAADACAYAAABidSoPAAAQAElEQVR4Aey9h3cVV74u+FXVyUc5ZwQSEkggcsYkG4PBud1ud9vd/bpf33vfnXlzZ9a8tWbNmvh/zMyaebfbnex2tjFgDBiDyVFIQkhCOecsnTjfrySBhAICBBykXdI+VbX3rt/e+6tT3/mFXVV6UC0KAYWAQkAhMCMCOtSiEFAIKAQUAjMioIhyRnhUoUJAIaAQAEKCKNWJUAgoBBQCoYyAIspQPjuqbwoBhUBIIKCIMiROg+qEQkAhEMoIKKIcOztqrRBQCCgEpkFAEeU0wKhshYBCQCEwhoAiyjEk1FohoBBQCEyDgCLKaYB5NtmqVYWAQiAUEVBEGYpnRfVJIaAQCCkEFFGG1OlQnVEIKARCEQFFlKF4Vp5tn1TrCgGFwH0IKKK8DxC1qxBQCCgE7kdAEeX9iKh9hYBCQCFwHwKKKO8DRA2GBgKqFwqBUEJAEWUonQ3VF4WAQiAkEVBEGZKnRXVKIaAQCCUEFFGG0tlQfQktBFRvFAKjCCiiHAVCrRQCCgGFwHQIKKKcDhmVrxBQCCgERhFQRDkKhFopBEITAdWrUEBAEWUonAXVB4WAQiCkEVBEGdKnR3VOIaAQCAUEFFGGwllQfVAIhDYCC753iigX/FdAAaAQUAg8CAFFlA9CSJUrBBQCCx4BRZQL/iugAFAIPB8IPMteKqJ8luirthUCCoHnAgFFlM/FaVKdVAgoBJ4lAooonyX6qm2FgELguUDgLlE+F71VnVQIKAQUAs8AAUWUzwB01aRCQCHwfCGgiPL5Ol+qtwoBhcAzQCC0iPIZAKCaVAgoBBQCD0JAEeWDEFLlCgGFwIJHQBHlgv8KKAAUAgqBByGgiHISQipDIaAQUAhMREAR5UQ81J5CQCGgEJiEgCLKSZCoDIWAQkAhMBEBRZQT8QiVPdUPhYBCIIQQUEQZQidDdUUhoBAITQQUUYbmeVG9UggoBEIIAUWUIXQyQq0rqj8KAYXACAKKKEdwUJ8KAYWAQmBaBBRRTguNKlAIKAQUAiMIKKIcwUF9hioCql8KgRBAQBFlCJwE1QWFgEIgtBFQRBna50f1TiGgEAgBBBRRhsBJUF0IdQRU/xY6AoooF/o3QI1fIaAQeCACiigfCJGqoBBYGAh4vX40tXbD6/MvjAE/xCgVUT4EWKqqQuAZIvBEm27t6MPZy+UwyAhWi/FE23oehROW57Hbqs8KAYXAXCFQUdmKr78vREpSNOJjI+dK7LySo4hyXp1ONRiFwMMhcLmwGp8evoo1y1ORnZnwcAcvoNqKKBfQyVZDVQiMIRBEED+cK8XXR29gbUEGVq/IGCuacb1QCxVRLtQzr8a9YBEYGBzGF99ex8nvS5C/LAU7Ni5dsFjMduCKKGeLlKqnEJgHCHT1DOCjQ1fR3t2HX/5iM17fuwpWqwrePOjUKqJ8EEKqXCEwTxDo6OzDx19fRmfXAH52YC1yspNgs1mev9E9gx4ronwGoKsmFQJPG4GW1m787ZvLaKjvRFSECxFhzqfdhee6PUWUz/XpU51XCMwOAV3XECnkSDPbaTPg96tJ5bNDbqSWIsoRHNSnQmBeIhAMjgwrLjYCr724EokRYdi8JpN+SWVyjyAzu8/JRDm741QthYBCIMQRKK9qQXll091eBsiam9ZnIiMt7m6e2pgdAoooZ4eTqqUQeK4QkOh2d3c/6pu7cfVmNW7eqkNhSR2WZiVCzPDnajAh0FlFlFlCFwElQXFAJziYDfH0BdYxcq6ztw8WYtDp0sxpff30RsdBjC3I65bGrByApRolww+KuBKgTmHIHK2jZ89X0hblW0AIEA/4PIWRyP3KykOW9roQhURLlQzrQa54JBICLMgbTkKAZsDAwN++B22LFtXRYMeTTQgkFhbgeqiHJu8VTSFALPBAGPx4e+/iH0Dwyj8FY9kuMisH1tJl7cmoN3Dq5GcmLUM+nXfGlUEeX0Z1KVKASeCwR8Pj8OnyzCn/5xgUGbWhSXNeLMxQq0dQ1i6/psZKTGPhfjCOVOKqIM5bOj+qYQeAAC8lTyk2dLcZ1aZEfvAAaoUcbHRwCGhtmVLaiiv/IBIlTxLBBQRDkLkFQVhUCoItDdO4jiimYYFh3iguwe8CDCzsj2sB/QAJk7CbU8NgKKKB8bwicrQElXCMyEQEyU27zjxuWwwcG0Jj8DL+1Yhg3rMpGRFI3F6Wpy+Uz4zbZMn21FVU8hoBAIPQRk8riQYUZiNOIiXFhEf6TNbsELm5bihQ1Z0DQt9Dr9CD0KBkfvxXyEY+fiEEWUc4GikqEQeMYIOJw21DR14VpxLeobulBYUo+Y6LBn3KtHbz4QCKCzqx89dC00NHdB7jR6dGmPf6QiysfHcP5LUCMMaQSEUGqaOgBdwzcnivD//OkU+umrdNitId3v8Z0TjVGmNxWXNeCr727g8PEiVNe1YWjYYz4SLjrSPb76U99WRPnUIVcNKgQeHYGfLpWjrLIZMm9yeNiL1rZe1DV2YnDQA6/Hx4COBt1lRfaSRITyIv3v7RtELft+6nwZ/vjpefzj0BVcu1lDvg9iyaI4FOSlIyEuEmFu+zMfiiLKZ34KVAcUArNDQCaSl1a0oKGpE3/96iL+/vUl/H8fnzPnTW5atQjrVqSTVBxISYhAcnz47IQ+xVqDQx7UNrSjpa0HV29W4dNvr+K7U0UoohY5OORFVLgLu7ctx8GXVmHZ0mTouv4UezdzU6HTk5n7qUoXPAILG4Cmlm5culKFnMUJKKtpR1V9JxpaehDgX0VtG+Kj3Xj1pQK8ujsfedlJZgQ8FBATrVc0x+Lb9ThKUvzyaCEuXa9CW0c//PRDpiVG4qWtufj1Wxvx5v7VSE6IDIVuT+qDIspJkKgMhUDoIeBgJHvXtqVoG310WoTLBpvVgNXQYTEM9A4MQ5aE2DBkpETL5jNLQ3QJNJLYL16rxA/nbpMgi6n1NtGk1pGbFW8+XV3uJlqbn4b1qxcje0kS3K5nb17PBJgiypnQUWUKgWeMgM8XQB9JMCrSjcWLEqDLLJlAEB6fn4EOH4a9fsjMmTOXK/Hx55dw8lw5YmPCnkmvu3sGzDuB5GHBpWX1ZqTa6/OZk941TYOXfa5v6oGMZWVeGn2QGYiJCoP2THr7cI0qonw4vFTthY3AUx99WVUzPv72Gurolywub0R8XDg2FGTAabciPSUG6amxsF09DOYU1zegCb6/2zWp/eaByHxy4U1+PK76zh88iauFFahvLKFGq6HGq+FROiG22FDDYM2wogvbMzGlnVZWJKREFI+yAedWEWUD0JIlSsEniECjc1dqKlqwV8+v4gvjt7Aj5fvQJTKt15ehfdfX48P3lhvvgNHumijOZ6eFPnECShAjVZeM3H2cjnOM529cgfXSxvR3N6H9q5BdPUOoYXbV2/V48L1GgzSFN+1aSl2b87FkkXxsFgM6e5zlfTnqreqswqBBYLAsMeH81cq4HLasCw3xSRHQ9fg8/pws6wJ0dFh0A0dmqbR75cEp80CWumIjHA+MYR6+4YYra7BiTMlOPR9EX66Uon+AQ+y0mIQHWYnIfrQSZLs6Bk0yTAm3AW5tXIj/ZBrVmQgOsr9xPr2pAXrT7oBJV8hoBB4eATK77Tg8LEiXCysNYMz71NzfGnbMojJLb6+krJGU6hM1L59pxnd/cMI+APm5GyzYA4/mlu78eOFMvzp8wv48sgNNDLanp4WBcNiQUS4A06HBdGRTgZrNFhI5r0kT4fDir0v5OKDtzZAXARz2J1nIkoR5TOBXTWqEJgeAblDpa6hy6zQ0zeIQpq1SfERyFmSADuj31aS0Y8Xy/HRN5fx0VeX8OOlO0hOiMBylsfHhJnHzcVHR/cASknCXxwrxPHTt9BDbTEpKQJhbhscNhvs1Gh7egdQR+IMY9Q6EAjQNzmMzNQYbF6dieTEaDid9rnoyjOXoT/zHqgOKAQUAncRkBeDtbR1I42+xjiSo5X+vJ6efvyNhPjZkWvo7RuG1WpQewziTnUbypgMQ8PBXfl497X1jHiH43EW0VaraltRfqcJJ86WonOrDxnsiwSR0hLDIf2prO/E1ZI6DHq8jL4H4aTZ76VLIDbKxUBTJn5+YA0WzbNX4iqifGxVLgLu7ctx8GXVmHZ0mTouv4UezdzU6HTk5n7qUoXPAILG4Cmlm5culKFnMUJKKtpR1V9JxpaehDgX0VtG+Kj3Xj1pQK8ujsfedlJZgQ8FBATrVc0x+Lb9ThKUvzyaCEuXa9CW0c//PRDpiVG4qWtufj1Wxvx5v7VSE6IDIVuT+qDIspJkKgMhUDoIeBgJHvXtqVoG310WoTLBpvVgNXQYTEM9A4MQ5aE2DBkpETL5jNLQ3QJNJLYL16rxA/nbpMgi6n1NtGk1pGbFW8+XV3uJlqbn4b1qxcje0kS3K5nb17PBJgiypnQUWUKgWeMgM8XQB9JMCrSjcWLEqDLLJlAEB6fn4EOH4a9fsjMmTOXK/Hx55dw8lw5YmPCnkmvu3sGzDuB5GHBpWX1ZqTa6/OZk941TYOXfa5v6oGMZWVeGn2QGYiJCoP2THr7cI0qonw4vFTthY3AUx99WVUzPv72Gurolywub0R8XDg2FGTAabciPSUG6amxsF09DOYU1zegCb6/2zWp/eaByHxy4U1+PK76zh88iauFFahvLKFGq6HGq+FROiG22FDDYM2wogvbMzGlnVZWJKREFI+yAedWEWUD0JIlSsEniECjc1dqKlqwV8+v4gvjt7Aj5fvQJTKt15ehfdfX48P3lhvvgNHumijOZ6eFPnECShAjVZeM3H2cjnOM529cgfXSxvR3N6H9q5BdPUOoYXbV2/V48L1GgzSFN+1aSl2b87FkkXxsFgM6e5zlfTnqreqswqBBYLAsMeH81cq4HLasCw3xSRHQ9fg8/pws6wJ0dFh0A0dmqbR75cEp80CWumIjHA+MYR6+4YYra7BiTMlOPR9EX66Uon+AQ+y0mIQHWYnIfrQSZLs6Bk0yTAm3AW5tXIj/ZBrVmQgOsr9xPr2pAXrT7oBJV8hoBB4eATK77Tg8LEiXCysNYMz71NzfGnbMojJLb6+krJGU6hM1L59pxnd/cMI+APm5GyzYA4/mlu78eOFMvzp8wv48sgNNDLanp4WBcNiQUS4A06HBdGRTgZrNFhI5r0kT4fDir0v5OKDtzZAXARz2J1nIkoR5TOBXTWqEJgeAblDpa6hy6zQ0zeIQpq1SfERyFmSADuj31aS0Y8Xy/HRN5fx0VeX8OOlO0hOiMBylsfHhJnHzcVHR/cASknCXxwrxPHTt9BDbTEpKQJhbhscNhvs1Gh7egdQR+IMY9Q6EAjQNzmMzNQYbF6dieTEaDid9rnoyjOXoT/zHqgOKAQUAncRkBeDtbR1I42+xjiSo5X+vJ6efvyNhPjZkWvo7RuG1WpQewziTnUbypgMQ8PBXfl497X1jHiH43EW0VaraltRfqcJJ86WonOrDxnsiwSR0hLDIf2prO/E1ZI6DHq8jL4H4aTZ76VLIDbKxUBTJn5+YA0WzbNX4iqifGxVLgLu7ctx8GXVmHZ0mTouv4UezdzU6HTk5n7qUoXPAILG4Cmlm5culKFnMUJKKtpR1V9JxpaehDgX0VtG+Kj3Xj1pQK8ujsfedlJZgQ8FBATrVc0x+Lb9ThKUvzyaCEuXa9CW0c//PRDpiVG4qWtufj1Wxvx5v7VSE6IDIVuT+qDIspJkKgMhUDoIeBgJHvXtqVoG310WoTLBpvVgNXQYTEM9A4MQ5aE2DBkpETL5jNLQ3QJNJLYL16rxA/nbpMgi6n1NtGk1pGbFW8+XV3uJlqbn4b1qxcje0kS3K5nb17PBJgiypnQUWUKgWeMgM8XQB9JMCrSjcWLEqDLLJlAEB6fn4EOH4a9fsjMmTOXK/Hx55dw8lw5YmPCnkmvu3sGzDuB5GHBpWX1ZqTa6/OZk941TYOXfa5v6oGMZWVeGn2QGYiJCoP2THr7cI0qonw4vFTthY3AUx99WVUzPv72Gurolywub0R8XDg2FGTAabciPSUG6amxsF09DOYU1zegCb6/2zWp/eaByHxy4U1+PK76zh88iauFFahvLKFGq6HGq+FROiG22FDDYM2wogvbMzGlnVZWJKREFI+yAedWEWUD0JIlSsEniECjc1dqKlqwV8+v4gvjt7Aj5fvQJTKt15ehfdfX48P3lhvvgNHumijOZ6eFPnECShAjVZeM3H2cjnOM529cgfXSxvR3N6H9q5BdPUOoYXbV2/V48L1GgzSFN+1aSl2b87FkkXxsFgM6e5zlfTnqreqswqBBYLAsMeH81cq4HLasCw3xSRHQ9fg8/pws6wJ0dFh0A0dmqbR75cEp80CWumIjHA+MYR6+4YYra7BiTMlOPR9EX66Uon+AQ+y0mIQHWYnIfrQSZLs6Bk0yTAm3AW5tXIj/ZBrVmQgOsr9xPr2pAXrT7oBJV8hoBB4eATK77Tg8LEiXCysNYMz71NzfGnbMojJLb6+krJGU6hM1L59pxnd/cMI+APm5GyzYA4/mlu78eOFMvzp8wv48sgNNDLanp4WBcNiQUS4A06HBdGRTgZrNFhI5r0kT4fDir0v5OKDtzZAXARz2J1nIkoR5TOBXTWqEJgeAblDpa6hy6zQ0zeIQpq1SfERyFmSADuj31aS0Y8Xy/HRN5fx0VeX8OOlO0hOiMBylsfHhJnHzcVHR/cASknCXxwrxPHTt9BDbTEpKQJhbhscNhvs1Gh7egdQR+IMY9Q6EAjQNzmMzNQYbF6dieTEaDid9rnoyjOXoT/zHqgOKAQUAncRkBeDtbR1I42+xjiSo5X+vJ6efvyNhPjZkWvo7RuG1WpQewziTnUbypgMQ8PBXfl497X1jHiH43EW0VaraltRfqcJJ86WonOrDxnsiwSR0hLDIf2prO/E1ZI6DHq8jL4H4aTZ76VLIDbKxUBTJn5+YA0WzbNX4iqifGxVLgLu7ctx8GXVmHZ0mTouv4UezdzU6HTk5n7qUoXPAILG4Cmlm5culKFnMUJKKtpR1V9JxpaehDgX0VtG+Kj3Xj1pQK8ujsfedlJZgQ8FBATrVc0x+Lb9ThKUvzyaCEuXa9CW0c//PRDpiVG4qWtufj1Wxvx5v7VSE6IDIVuT+qDIspJkKgMhUDoIeBgJHvXtqVoG310WoTLBpvVgNXQYTEM9A4MQ5aE2DBkpETL5jNLQ3QJNJLYL16rxA/nbpMgi6n1NtGk1pGbFW8+XV3uJlqbn4b1qxcje0kS3K5nb17PBJgiypnQUWUKgWeMgM8XQB9JMCrSjcWLEqDLLJlAEB6fn4EOH4a9fsjMmTOXK/Hx55dw8lw5YmPCnkmvu3sGzDuB5GHBpWX1ZqTa6/OZk941TYOXfa5v6oGMZWVeGn2QGYiJCoP2THr7cI0qonw4vFTthY3AUx99WVUzPv72Gurolywub0R8XDg2FGTAabciPSUG6amxsF09DOYU1zegCb6/2zWp/eaByHxy4U1+PK76zh88iauFFahvLKFGq6HGq+FROiG22FDDYM2wogvbMzGlnVZWJKREFI+yAedWEWUD0JIlSsEniECjc1dqKlqwV8+v4gvjt7Aj5fvQJTKt15ehfdfX48P3lhvvgNHumijOZ6eFPnECShAjVZeM3H2cjnOM529cgfXSxvR3N6H9q5BdPUOoYXbV2/V48L1GgzSFN+1aSl2b87FkkXxsFgM6e5zlfTnqreqswqBBYLAsMeH81cq4HLasCw3xSRHQ9fg8/pws6wJ0dFh0A0dmqbR75cEp80CWumIjHA+MYR6+4YYra7BiTMlOPR9EX66Uon+AQ+y0mIQHWYnIfrQSZLs6Bk0yTAm3AW5tXIj/ZBrVmQgOsr9xPr2pAXrT7oBJV8hoBB4eATK77Tg8LEiXCysNYMz71NzfGnbMojJLb6+krJGU6hM1L59pxnd/cMI+APm5GyzYA4/mlu78eOFMvzp8wv48sgNNDLanp4WBcNiQUS4A06HBdGRTgZrNFhI5r0kT4fDir0v5OKDtzZAXARz2J1nIkoR5TOBXTWqEJgeAblDpa6hy6zQ0zeIQpq1SfERyFmSADuj31aS0Y8Xy/HRN5fx0VeX8OOlO0hOiMBylsfHhJnHzcVHR/cASknCXxwrxPHTt9BDbTEpKQJhbhscNhvs1Gh7egdQR+IMY9Q6EAjQNzmMzNQYbF6dieTEaDid9rnoyjOXoT/zHqgOKAQUAncRkBeDtbR1I42+xjiSo5X+vJ6efvyNhPjZkWvo7RuG1WpQewziTnUbypgMQ8PBXfl497X1jHiH43EW0VaraltRfqcJJ86WonOrDxnsiwSR0hLDIf2prO/E1ZI6DHq8jL4H4aTZ76VLIDbKxUBTJn5+YA0WzbNX4iqifGxVLgLu7ctx8GXVmHZ0mTouv4UezdzU6HTk5n7qUoXPAILG4Cmlm5culKFnMUJKKtpR1V9JxpaehDgX0VtG+Kj3Xj1pQK8ujsfedlJZgQ8FBATrVc0x+Lb9ThKUvzyaCEuXa9CW0c//PRDpiVG4qWtufj1Wxvx5v7VSE6IDIVuT+qDIspJkKgMhUDoIeBgJHvXtqVoG310WoTLBpvVgNXQYTEM9A4MQ5aE2DBkpETL5jNLQ3QJNJLYL16rxA/nbpMgi6n1NtGk1pGbFW8+XV3uJlqbn4b1qxcje0kS3K5nb17PBJgiypnQUWUKgWeMgM8XQB9JMCrSjcWLEqDLLJlAEB6fn4EOH4a9fsjMmTOXK/Hx55dw8lw5YmPCnkmvu3sGzDuB5GHBpWX1ZqTa6/OZk941TYOXfa5v6oGMZWVeGn2QGYiJCoP2THr7cI0qonw4vFTthY3AUx99WVUzPv72Gurolywub0R8XDg2FGTAabciPSUG6amxsF09DOYU1zegCb6/2zWp/eaByHxy4U1+PK76zh88iauFFahvLKFGq6HGq+FROiG22FDDYM2wogvbMzGlnVZWJKREFI+yAedWEWUD0JIlSsEniECjc1dqKlqwV8+v4gvjt7Aj5fvQJTKt15ehfdfX48P3lhvvgNHumijOZ6eFPnECShAjVZeM3H2cjnOM529cgfXSxvR3N6H9q5BdPUOoYXbV2/V48L1GgzSFN+1aSl2b87FkkXxsFgM6e5zlfTnqreqswqBBYLAsMeH81cq4HLasCw3xSRHQ9fg8/pws6wJ0dFh0A0dmqbR75cEp80CWumIjHA+MYR6+4YYra7BiTMlOPR9EX66Uon+AQ+y0mIQHWYnIfrQSZLs6Bk0yTAm3AW5tXIj/ZBrVmQgOsr9xPr2pAXrT7oBJV8hoBB4eATK77Tg8LEiXCysNYMz71NzfGnbMojJLb6+krJGU6hM1L59pxnd/cMI+APm5GyzYA4/mlu78eOFMvzp8wv48sgNNDLanp4WBcNiQUS4A06HBdGRTgZrNFhI5r0kT4fDir0v5OKDtzZAXARz2J1nIkoR5TOBXTWqEJgeAblDpa6hy6zQ0zeIQpq1SfERyFmSADuj31aS0Y8Xy/HRN5fx0VeX8OOlO0hOiMBylsfHhJnHzcVHR/cASknCXxwrxPHTt9BDbTEpKQJhbhscNhvs1Gh7egdQR+IMY9Q6EAjQNzmMzNQYbF6dieTEaDid9rnoyjOXoT/zHqgOKAQUAncRkBeDtbR1I42+xjiSo5X+vJ6efvyNhPjZkWvo7RuG1WpQewziTnUbypgMQ8PBXfl497X1jHiH43EW0VaraltRfqcJJ86WonOrDxnsiwSR0hLDIf2prO/E1ZI6DHq8jL4H4aTZ76VLIDbKxUBTJn5+YA0WzbNX4iqifGxVLgLu7ctx8GXVmHZ0mTouv4UezdzU6HTk5n7qUoXPAILG4Cmlm5culKFnMUJKKtpR1V9JxpaehDgX0VtG+Kj3Xj1pQK8ujsfedlJZgQ8FBATrVc0x+Lb9ThKUvzyaCEuXa9CW0c//PRDpiVG4qWtufj1Wxvx5v7VSE6IDIVuT+qDIspJkKgMhUDoIeBgJHvXtqVoG310WoTLBpvVgNXQYTEM9A4MQ5aE2DBkpETL5jNLQ3QJNJLYL16rxA/nbpMgi6n1NtGk1pGbFW8+XV3uJlqbn4b1qxcje0kS3K5nb17PBJgiypnQUWUKgWeMgM8XQB9JMCrSjcWLEqDLLJlAEB6fn4EOH4a9fsjMmTOXK/Hx55dw8lw5YmPCnkmvu3sGzDuB5GHBpWX1ZqTa6/OZk941TYOXfa5v6oGMZWVeGn2QGYiJCoP2THr7cI0qonw4vFTthY3AUx99WVUzPv72Gurolywub0R8XDg2FGTAabciPSUG6amxsF09DOYU1zegCb6/2zWp/eaByHxy4U1+PK76zh88iauFFahvLKFGq6HGq+FROiG22FDDYM2wogvbMzGlnVZWJKREFI+yAedWEWUD0JIlSsEniECjc1dqKlqwV8+v4gvjt7Aj5fvQJTKt15ehfdfX48P3lhvvgNHumijOZ6eFPnECShAjVZeM3H2cjnOM529cgfXSxvR3N6H9q5BdPUOoYXbV2/V48L1GgzSFN+1aSl2b87FkkXxsFgM6e5zlfTnqreqswqBBYLAsMeH81cq4HLasCw3xSRHQ9fg8/pws6wJ0dFh0A0dmqbR75cEp80CWumIjHA+MYR6+4YYra7BiTMlOPR9EX66Uon+AQ+y0mIQHWYnIfrQSZLs6Bk0yTAm3AW5tXIj/ZBrVmQgOsr9xPr2pAXrT7oBJV8hoBB4eATK77Tg8LEiXCysNYMz71NzfGnbMojJLb6+krJGU6hM1L59pxnd/cMI+APm5GyzYA4/mlu78eOFMvzp8wv48sgNNDLanp4WBcNiQUS4A06HBdGRTgZrNFhI5r0kT4fDir0v5OKDtzZAXARz2J1nIkoR5TOBXTWqEJgeAblDpa6hy6zQ0zeIQpq1SfERyFmSADuj31aS0Y8Xy/HRN5fx0VeX8OOlO0hOiMBylsfHhJnHzcVHR/cASknCXxwrxPHTt9BDbTEpKQJhbhscNhvs1Gh7egdQR+IMY9Q6EAjQNzmMzNQYbF6dieTEaDid9rnoyjOXoT/zHqgOKAQUAncRkBeDtbR1I42+xjiSo5X+vUednqqbIYSQYDSXlTbhyswZXmW6U1KG4rAFCiEUkxcuFNRxDOb44dgN//vwCvjpeiLaOfvPHQSaMW60G9u9YjqT4iLtNDAwO04frhzzMQzItFgM1DR34+Nur+IjYPEr665eXcPhkMUR7FZljaey2Sg+1bTv7UttUxXNwiW1dwdFTxbPD6KdSlFdO/1CMsbamWoetWwFLXCQGyybPV3SuXGoSaYC+XPMXdQoBwaAPwYB/ipLJWbrLiagDOxH99l62GYWgvLBsJj/ofSI0hw3e+lb0HD+PoPlk9PsqLKBdRZRP6WSLprT3heXYs3kpLJpOzc8LQ9cgQZ5KBnjO0DQVDfCH8yNkeYpkdvpiBS6ReNq6BiAkEiDBgmaUfxoNdMOqTGxYtYiyfSYhWyi/u3cIpXdaIPdZi8wfKHfaRJL8gSRw/73YAV5cAWpAOuVJn29VNOPID8U4+mOJuf7m+E18c+ImDnEtwZhT52/jRkk9Tds+U3vz83jxOcZHh+OdV9ZgWXbyBNQNwyC5Y0Sz1gA2w2P7IbhUMwr+KEmOLWY/5S2N4xsT7X43z4G0OTDkJfEDQqaVte04f60K0vdp8RnDjhjdmuExa+Pbm7St6wiTKUEkLX/PyJsax+poxCF81wZY42IQnHLKkMaqAWqHw1zP/l9umYx9/1W41uaZAZpZa5f8ZdTorxy4XIz+c4Wzb3Ae1lRE+RRPqs6LZOv6bPzqrfVYtTzdNEGF/PwkP53soOk6dK4Ng2uLDs3ghUGCkikyg0M+s6dhYTbERLjM7fs/RBM7sHsF5KEUcj+27HuoYQrR6ZSlU6aVsi33JUPXYbBdTWN7FCp94sr815kfFxsGH8mut98DSR7210vSHuZ6iPJlQvgggy8D3DbbCwAiSTS2iDAnFmfE4SCDMr99ZxPN6Tjcv4ivMm9xImwWi0nyPQMeRr59JLDAIydQqzasOn2ROu5fVuWlakaTQLmY/hL/4Z/gK/7Z/tW4Y//H/tW/9Xn994/hN/97P/hW/9f/+V//9yP0nB1/27vNl/p3V2L86E1vXLMF2mv5f/r4Qb+3Lxca1y/HLX27Gez/djN+9s9Fk1G/e3oD3f7oF77+5Ebt3FMAU7Vz09g//u904VbU4L64X06C5T2f7WnI0XnqxAO/tXY039qzEr94uwC9eXI0XNixFRmokhL2h0RwnxUUgKz0e2zdm4c1XVuPnb67HRz/bgv//d5uRejTefpL4EwK29tIkeEky1n/tBw3Q41YnU3oH/gYwNUR7fFh8ej57vjkKP19/WNywFexiAh+0rQOAYtPAs0GN3wK+vBex976B/D9Cnz+N3wNce3vX6P/v8Wb/7s9Hn8TveZ/gYf/P4H7b/f7oZ8P3v//G/4Wf//8j5Gv3v/vF9d/T5/jF8/W98E/m4Z+q+5v7H+Mff7n/rG+419H9D/gZ6x+fJqX3Xv+Z/51rAP4B7Wvj77v0Z9HfC97v3ZtF77s/gZtA0YI7pGkCjKRs0N+B/QOIB+tqH0XfsArzNZv/f894/I/+N7cZ4j9L3e4fHj3e0N3T3tPD33TvK6bY1M/9rT/4Zg+VvQ6NZGkPQpYfO13tP/vG/4Wf/f6d7Y48Wj2y8PzvC//q/Wd3393QzoM8/tWbvD7Fp/3e098N1D30eZp/j32P+N/Z6gNn/3v8drnt4/HhH7/9t6O/uPXzO+8ff5v+t9/D3nZ/B5/Gz/nv4hP7r//F9d/T5v/F9R5/x93D3Pf8zVtfzP2P+NzCgzz+1Zu8PsWn/d7T3w9P0O0eCexiAh8WPe/eM3/Yv7wV8H34+G/q8/ofvP/p8Hv+/Z3yNv93/7vP9d/T5v/F9R5/j/cZq9Dvf/xvff3r997/7x/fd0+f7p+j/+bPhZ/8zH+Nn9L//wfvvdP/u9N3/2dDfeP8d/Rvff//P/n9Pf2P8zfb3/nvff6ebv//P/u+d7o3t9Dvv39PX/sbf7n9v6HP9d//u+f5p+nz/GL7+N76JfNyz9P//Dx5Fv3e/3f/WM9xr6P+G/A30js/0jvX/A/4fMNDP/wP2vvdP0/e7P4P+Tvj3kH/nWsA/gHtav9+9P4P+Tvj3Pv/WGPj/AcWf8d/jxwAAAABJRU5CYII=";
         doc.addImage(logoBase64, 'PNG', 15, 6, 32, 19);
@@ -9734,20 +9687,20 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
         console.warn("Logo yüklenirken hata oluştu:", err);
     }
 
-    // SINAV TUTANAĞI Başliği
+    // SINAV TUTANAĞI Başlığı
     doc.setFont('Roboto', 'bold');
     doc.setFontSize(15);
     doc.setTextColor(60, 60, 60);
     doc.text("SINAV TUTANAĞI", 105, 17, { align: "center" });
 
-    // Üst Tablo (Sinav Detaylari)
+    // Üst Tablo (Sınav Detayları)
     doc.autoTable({
         startY: startY,
         margin: { left: 15, right: 15 },
         body: [
             [{ content: 'Tarih', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: formatDate, colSpan: 3 }],
-            [{ content: 'Bölüm/Program/Sinif', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: deptStr, colSpan: 3 }],
-            [{ content: 'Ders Adi', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: cleanStr(examName), colSpan: 3 }],
+            [{ content: 'Bölüm/Program/Sınıf', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: deptStr, colSpan: 3 }],
+            [{ content: 'Ders Adı', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, { content: cleanStr(examName), colSpan: 3 }],
             [
                 { content: 'Gözetmen', styles: { fontStyle: 'bold', fillColor: [255, 255, 255] } }, 
                 { content: cleanStr(proctorsStr) }, 
@@ -9775,14 +9728,14 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
 
     const topTableFinalY = doc.lastAutoTable.finalY;
 
-    // "Sinava giren öğrencinin" başliği
+    // "Sınava giren öğrencinin" başlığı
     doc.setFont('Roboto', 'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(0, 0, 0);
-    doc.text("Sinava giren öğrencinin", 15, topTableFinalY + 4);
+    doc.text("Sınava giren öğrencinin", 15, topTableFinalY + 4);
 
     // Boş Tablo Verisi (40 Öğrenci Kapasiteli)
-    // Sütun sirasi: Sira No, Adi Soyadi, Numarasi, İmza
+    // Sütun sırası: Sıra No, Adı Soyadı, Numarası, İmza
     const tableData = [];
     for (let i = 1; i <= 40; i++) {
         tableData.push([i.toString(), "", "", ""]);
@@ -9791,7 +9744,7 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
     doc.autoTable({
         startY: topTableFinalY + 5.5,
         margin: { left: 15, right: 15 },
-        head: [['Sira No', 'Adi, Soyadi', 'Numarasi', 'İmza']],
+        head: [['Sıra No', 'Adı, Soyadı', 'Numarası', 'İmza']],
         body: tableData,
         theme: 'grid',
         styles: {
@@ -9820,27 +9773,27 @@ window.generateAttendancePDF = async function(examName, date, time, location, re
 
     const studentTableFinalY = doc.lastAutoTable.finalY;
 
-    // Sinava katilim ve not bilgileri
+    // Sınava katılım ve not bilgileri
     doc.setFont('Roboto', 'normal');
     doc.setFontSize(9);
-    doc.text("Sinava toplam ........................ öğrenci katilmiştir.", 15, studentTableFinalY + 5);
+    doc.text("Sınava toplam ........................ öğrenci katılmıştır.", 15, studentTableFinalY + 5);
 
     doc.setFont('Roboto', 'bold');
-    doc.text("Not: Sinav tutanaği sinav kâğitlariyla birlikte muhafaza edilecektir.", 15, studentTableFinalY + 9);
+    doc.text("Not: Sınav tutanağı sınav kâğıtlarıyla birlikte muhafaza edilecektir.", 15, studentTableFinalY + 9);
 
-    // Sayfa alti kodu (FR-0282)
+    // Sayfa altı kodu (FR-0282)
     doc.setFont('Roboto', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
-    doc.text("FR-0282 Yayin Tarihi: 06.11.2017 Değ.No:0 Değ.Tarihi:-", 15, 288);
+    doc.text("FR-0282 Yayın Tarihi: 06.11.2017 Değ.No:0 Değ.Tarihi:-", 15, 288);
 
-    // Dosyayi İndir
+    // Dosyayı İndir
     const replaceTRForFilename = (str) => {
         const trMap = {
-            'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'i': 'i', 'İ': 'I',
+            'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
             'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
         };
-        return str.replace(/[çÇğĞiİöÖşŞüÜ]/g, m => trMap[m]).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+        return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m]).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
     };
     
     const filename = `Yoklama_${replaceTRForFilename(examName).toLowerCase().replace(/\s+/g, '_')}_${formatDate}.pdf`;
@@ -9863,7 +9816,7 @@ function applyTheme() {
     const savedTheme = localStorage.getItem('theme');
     const toggleBtn = document.getElementById('btn-theme-toggle');
     
-    // Varsayilan tema artik 'light' (Akademik Tema). Sadece 'dark' ise dark-theme class'i ekle.
+    // Varsayılan tema artık 'light' (Akademik Tema). Sadece 'dark' ise dark-theme class'ı ekle.
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-theme');
         if (toggleBtn) toggleBtn.textContent = '🌙';
@@ -9881,13 +9834,13 @@ function renderTimeline() {
     const container = document.getElementById('timeline-container');
     if (!container) return;
 
-    // Sinavlari tarihe göre filtrele
+    // Sınavları tarihe göre filtrele
     const exams = DB.exams.filter(ex => ex.date === currentTimelineDate);
     
     if (exams.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding:5rem; color:var(--text-muted);">
             <div style="font-size:3rem; margin-bottom:1rem;">📅</div>
-            <p>Bu tarihte (${currentTimelineDate.split('-').reverse().join('.')}) kayitli sinav bulunmuyor.</p>
+            <p>Bu tarihte (${currentTimelineDate.split('-').reverse().join('.')}) kayıtlı sınav bulunmuyor.</p>
         </div>`;
         return;
     }
@@ -9914,7 +9867,7 @@ function renderTimeline() {
 
     let html = `<div class="timeline-grid">`;
     
-    // Saat Başliklari
+    // Saat Başlıkları
     html += `<div class="timeline-header-hours">`;
     for (let i = startHour; i <= endHour; i++) {
         html += `<div class="hour-mark">${String(i).padStart(2, '0')}:00</div>`;
@@ -9933,12 +9886,12 @@ function renderTimeline() {
         }
     }
 
-    // Satirlar (Derslikler)
+    // Satırlar (Derslikler)
     Object.entries(roomGroups).forEach(([room, roomExams]) => {
         html += `<div class="timeline-row">
             <div class="timeline-room-label">
                 <div class="room-name">${room}</div>
-                <div class="room-capacity">${roomExams.length} Sinav</div>
+                <div class="room-capacity">${roomExams.length} Sınav</div>
             </div>
             <div class="timeline-content-area">`;
         
@@ -9946,7 +9899,7 @@ function renderTimeline() {
             const left = timeToPx(ex.time);
             const width = (ex.duration / (totalHours * 60)) * 100;
             
-            // Sinav türüne göre renkler
+            // Sınav türüne göre renkler
             let blockStyle = "";
             if (ex.type === 'Final') blockStyle = "background: linear-gradient(135deg, #ef4444, #b91c1c);";
             else if (ex.type === 'Bütünleme') blockStyle = "background: linear-gradient(135deg, #f59e0b, #d97706);";
@@ -9981,7 +9934,7 @@ function toggleNotifPanel() {
 
     if (!isHidden) {
         renderNotifications();
-        // Panel açildiğinda tüm bildirimleri görülmüş say (Badge'i gizle ve süreyi kaydet)
+        // Panel açıldığında tüm bildirimleri görülmüş say (Badge'i gizle ve süreyi kaydet)
         setTimeout(() => {
             localStorage.setItem('lastNotifCheck', Date.now());
             updateNotifBadge();
@@ -9997,7 +9950,7 @@ function getNotifications() {
     
     // 2. Takas Talepleri ve Pazar Yeri (Marketplace) Güncellemeleri
     if (myStaffId) {
-        // Pazar Yerindeki Açik Görevler (Initiator ben değilsem ve sinav bitmediyse)
+        // Pazar Yerindeki Açık Görevler (Initiator ben değilsem ve sınav bitmediyse)
         const openMarketplace = (DB.requests || []).filter(r => 
             r.status === 'open' && 
             String(r.initiatorId) !== String(myStaffId)
@@ -10006,7 +9959,7 @@ function getNotifications() {
         openMarketplace.forEach(req => {
             notifs.push({
                 type: 'marketplace',
-                title: 'Açik Görev',
+                title: 'Açık Görev',
                 message: `Pazar yerinde yeni bir görev var: "${req.examName}"`,
                 time: req.timestamp,
                 icon: '🛒'
@@ -10025,13 +9978,13 @@ function getNotifications() {
             let icon = "🔄";
 
             if (req.status === 'approved') {
-                msg = `"${req.examName}" takas talebi onaylandi!`;
+                msg = `"${req.examName}" takas talebi onaylandı!`;
                 icon = "✅";
             } else if (req.status === 'rejected') {
                 msg = `"${req.examName}" takas talebi reddedildi.`;
                 icon = "❌";
             } else if (req.status === 'pending_peer' && !isInitiator) {
-                msg = `Size yeni bir takas teklifi geldi: "${req.examName || 'Bilinmeyen Sinav'}"`;
+                msg = `Size yeni bir takas teklifi geldi: "${req.examName || 'Bilinmeyen Sınav'}"`;
                 icon = "📩";
             }
 
@@ -10046,7 +9999,7 @@ function getNotifications() {
             }
         });
 
-        // 3. Yaklaşan Sinavlar (Sonraki 48 saat içindeki sinavlar)
+        // 3. Yaklaşan Sınavlar (Sonraki 48 saat içindeki sınavlar)
         const now = Date.now();
         const futureLimit = now + (48 * 60 * 60 * 1000);
         DB.exams.filter(ex => String(ex.proctorId) === String(myStaffId)).forEach(ex => {
@@ -10055,15 +10008,15 @@ function getNotifications() {
                 notifs.push({
                     type: 'exam',
                     title: 'Yaklaşan Görev',
-                    message: `Hatirlatma: "${ex.name}" sinavi yaklaşiyor (${ex.date} ${ex.time})`,
-                    time: exDate - 1, // Sinavin tam vaktinden bir saniye önce olsun ki listede üstte görünsün
+                    message: `Hatırlatma: "${ex.name}" sınavı yaklaşıyor (${ex.date} ${ex.time})`,
+                    time: exDate - 1, // Sınavın tam vaktinden bir saniye önce olsun ki listede üstte görünsün
                     icon: '⏳'
                 });
             }
         });
     }
 
-    // Tarihe göre yeniden eskiye sirala
+    // Tarihe göre yeniden eskiye sırala
     return notifs.sort((a,b) => b.time - a.time);
 }
 
@@ -10102,7 +10055,7 @@ function updateNotifBadge() {
 
     const notifs = getNotifications();
     const lastCheck = parseInt(localStorage.getItem('lastNotifCheck') || '0');
-    // Sadece görülmemiş bildirimlerin sayisini al
+    // Sadece görülmemiş bildirimlerin sayısını al
     const newCount = notifs.filter(n => n.time > lastCheck).length;
 
     if (newCount > 0) {
@@ -10141,9 +10094,9 @@ function renderMonthlyCalendar() {
     const year = d.getFullYear();
     const month = d.getMonth();
 
-    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasim", "Aralik"];
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     label.textContent = `${monthNames[month]} ${year}`;
-    if (subLabel) subLabel.textContent = `${monthNames[month]} ayi genel sinav dağilimi`;
+    if (subLabel) subLabel.textContent = `${monthNames[month]} ayı genel sınav dağılımı`;
 
     const firstDay = new Date(year, month, 1).getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -10188,7 +10141,7 @@ function renderMonthlyCalendar() {
                             ${ex.time} ${ex.name}
                         </div>
                     `).join('')}
-                    ${dayExams.length > 3 ? `<div style="font-size:0.6rem; color:var(--text-muted); margin-top:2px;">+${dayExams.length - 3} Sinav Daha</div>` : ''}
+                    ${dayExams.length > 3 ? `<div style="font-size:0.6rem; color:var(--text-muted); margin-top:2px;">+${dayExams.length - 3} Sınav Daha</div>` : ''}
                 </div>
             </div>
         `;
@@ -10203,7 +10156,7 @@ function showDailyTimeline(dateStr) {
     const modal = document.getElementById('modal-daily-detail');
     const title = document.getElementById('daily-detail-title');
     if (modal && title) {
-        title.innerHTML = `📅 ${dateStr.split('-').reverse().join('.')} Tarihli Detayli Çizelge`;
+        title.innerHTML = `📅 ${dateStr.split('-').reverse().join('.')} Tarihli Detaylı Çizelge`;
         modal.classList.remove('hidden');
         renderTimeline();
     }
@@ -10221,13 +10174,13 @@ function updateMessageBadge() {
 
     const lastChecked = parseInt(localStorage.getItem('lastCheckedMessages') || '0');
     
-    // Benim gözetmen olduğum ve yeni veya güncellenmiş notu olan sinavlar
+    // Benim gözetmen olduğum ve yeni veya güncellenmiş notu olan sınavlar
     const hasNewMessage = DB.exams.some(ex => {
         const pIds = ex.proctorIds || [ex.proctorId];
         const isMe = pIds.some(pid => String(pid) === String(myStaffId));
         if (!isMe) return false;
         
-        // Not var mi ve son kontrolümüzden sonra mi güncellenmiş?
+        // Not var mı ve son kontrolümüzden sonra mı güncellenmiş?
         return ex.lecturerNote && ex.lecturerNoteTimestamp && ex.lecturerNoteTimestamp > lastChecked;
     });
 
@@ -10269,7 +10222,7 @@ window.renderSmartSwaps = function() {
                     <span>${m.myExam.name}</span>
                 </div>
                 <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 5px; line-height: 1.4;">
-                    🔄 <strong>${m.otherStaff.name}</strong> hocanin <strong>${m.otherExam.name}</strong> (${m.otherExam.date.split('-').reverse().join('.')} ${m.otherExam.time}) sinavi ile takas edebilirsiniz. Her iki tarafin da programi bu takas için uygundur.
+                    🔄 <strong>${m.otherStaff.name}</strong> hocanın <strong>${m.otherExam.name}</strong> (${m.otherExam.date.split('-').reverse().join('.')} ${m.otherExam.time}) sınavı ile takas edebilirsiniz. Her iki tarafın da programı bu takas için uygundur.
                 </div>
             </div>
             <button class="btn-primary" onclick="initiateSmartSwapProposal(${m.myExam.id}, ${m.otherStaff.id}, ${m.otherExam.id})" 
@@ -10284,7 +10237,7 @@ window.initiateSmartSwapProposal = async function(myExamId, otherStaffId, otherE
 
     const res = requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId);
     if (res.success) {
-        alert("✅ Başarili!\n" + res.message);
+        alert("✅ Başarılı!\n" + res.message);
         renderProfile();
         updateNotificationBadge();
         await saveToBackend();
@@ -10294,7 +10247,7 @@ window.initiateSmartSwapProposal = async function(myExamId, otherStaffId, otherE
 };
 
 /**
- * Şifre Ayarlarini Render Et (Profil Güvenliği)
+ * Şifre Ayarlarını Render Et (Profil Güvenliği)
  */
 function renderPasswordSettings(staff) {
     const container = document.getElementById('profile-password-section');
@@ -10307,7 +10260,7 @@ function renderPasswordSettings(staff) {
                     <span style="font-size: 1.5rem;">🔒</span>
                     <h4 style="margin: 0; font-size: 0.9rem; color: #f59e0b; text-transform: uppercase;">Profil Şifreleme</h4>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.25rem;">Hesabinizi güvene almak ve başkalarinin profilinize erişmesini engellemek için bir giriş şifresi belirleyebilirsiniz.</p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.25rem;">Hesabınızı güvene almak ve başkalarının profilinize erişmesini engellemek için bir giriş şifresi belirleyebilirsiniz.</p>
                 <div style="display: flex; gap: 10px;">
                     <input type="password" id="new-staff-password" placeholder="Yeni Şifre..." style="flex:1; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 8px; color: white;">
                     <button class="btn-primary" onclick="setStaffPassword()" style="background: #f59e0b;">Şifreyi Kaydet</button>
@@ -10319,9 +10272,9 @@ function renderPasswordSettings(staff) {
             <div class="card-large" style="margin-bottom: 2rem; border: 1px solid #10b98166; background: rgba(16, 185, 129, 0.03);">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
                     <span style="font-size: 1.5rem;">✅</span>
-                    <h4 style="margin: 0; font-size: 0.9rem; color: #10b981; text-transform: uppercase;">Hesabiniz Güvende</h4>
+                    <h4 style="margin: 0; font-size: 0.9rem; color: #10b981; text-transform: uppercase;">Hesabınız Güvende</h4>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted);">Sistem şifreniz aktif. Şifrenizi değiştirmek veya kaldirmak için yönetici ile iletişime geçebilirsiniz.</p>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Sistem şifreniz aktif. Şifrenizi değiştirmek veya kaldırmak için yönetici ile iletişime geçebilirsiniz.</p>
             </div>
         `;
     }
@@ -10336,12 +10289,12 @@ window.setStaffPassword = async function() {
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
     if (!staff) return;
 
-    if (confirm("Profilinizi bu şifre ile korumak istediğinize emin misiniz? Bir sonraki girişte bu şifre sorulacaktir.")) {
+    if (confirm("Profilinizi bu şifre ile korumak istediğinize emin misiniz? Bir sonraki girişte bu şifre sorulacaktır.")) {
         staff.staffPassword = pass;
         saveToLocalStorage();
         renderProfile();
         await saveToBackend();
-        alert("✅ Şifreniz başariyla kaydedildi.");
+        alert("✅ Şifreniz başarıyla kaydedildi.");
     }
 };
 
@@ -10359,12 +10312,12 @@ window.acceptSmartSwap = async function(requestId) {
     const him = DB.staff.find(s => String(s.id) === String(req.initiatorId));
 
     if (!myExam || !hisExam || !me || !him) {
-        alert("Hata: Sinav veya personel bilgisi bulunamadi!");
+        alert("Hata: Sınav veya personel bilgisi bulunamadı!");
         return;
     }
 
-    if (confirm("Bu akilli takas teklifini kabul etmek istiyor musunuz? Sinav görevleriniz karşilikli olarak değiştirilecektir.")) {
-        // Puan ve görev sayilarini güncelle – nonExam/exam ayrimina göre (Önce eskileri çikar)
+    if (confirm("Bu akıllı takas teklifini kabul etmek istiyor musunuz? Sınav görevleriniz karşılıklı olarak değiştirilecektir.")) {
+        // Puan ve görev sayılarını güncelle – nonExam/exam ayrımına göre (Önce eskileri çıkar)
         if (shouldCountAsNonExam(myExam)) {
             me.nonExamScore = Math.max(0, parseFloat(((me.nonExamScore || 0) - myExam.score).toFixed(2)));
             me.nonExamTaskCount = Math.max(0, (me.nonExamTaskCount || 0) - 1);
@@ -10380,7 +10333,7 @@ window.acceptSmartSwap = async function(requestId) {
             him.taskCount = Math.max(0, him.taskCount - 1);
         }
 
-        // Şimdi karşilikli ata
+        // Şimdi karşılıklı ata
         myExam.proctorId = him.id;
         myExam.proctorIds = [him.id];
         myExam.proctorName = him.name;
@@ -10389,7 +10342,7 @@ window.acceptSmartSwap = async function(requestId) {
         hisExam.proctorIds = [me.id];
         hisExam.proctorName = me.name;
 
-        // Yeni puanlari ekle
+        // Yeni puanları ekle
         if (shouldCountAsNonExam(hisExam)) {
             me.nonExamScore = parseFloat(((me.nonExamScore || 0) + hisExam.score).toFixed(2));
             me.nonExamTaskCount = (me.nonExamTaskCount || 0) + 1;
@@ -10405,7 +10358,7 @@ window.acceptSmartSwap = async function(requestId) {
             him.taskCount += 1;
         }
 
-        // Talebi tamamlandi olarak işaretle ve kaldir
+        // Talebi tamamlandı olarak işaretle ve kaldır
         DB.requests.splice(reqIndex, 1);
         
         // Bildirim gönder
@@ -10413,7 +10366,7 @@ window.acceptSmartSwap = async function(requestId) {
         if (!Array.isArray(DB.notifications[him.id])) DB.notifications[him.id] = [];
         DB.notifications[him.id].unshift({
             id: Date.now(),
-            message: `✅ **Takas Onaylandi:** ${me.name}, gönderdiğin akilli takas teklifini kabul etti!`,
+            message: `✅ **Takas Onaylandı:** ${me.name}, gönderdiğin akıllı takas teklifini kabul etti!`,
             type: 'swap_approved',
             createdAt: new Date().toISOString(),
             isRead: false
@@ -10436,7 +10389,7 @@ window.acceptSmartSwap = async function(requestId) {
 
         await saveToBackend();
         
-        alert("✅ Takas başariyla gerçekleştirildi!");
+        alert("✅ Takas başarıyla gerçekleştirildi!");
     }
 };
 
@@ -10446,7 +10399,7 @@ window.rejectSmartSwap = async function(requestId) {
     const req = DB.requests[reqIndex];
 
     if (confirm("Bu takas teklifini reddetmek istediğinize emin misiniz?")) {
-        // Talebi kaldir
+        // Talebi kaldır
         const removed = DB.requests.splice(reqIndex, 1)[0];
         
         saveToLocalStorage();
@@ -10458,7 +10411,7 @@ window.rejectSmartSwap = async function(requestId) {
             initiatorName: req.initiatorName,
             initiatorId: req.initiatorId,
             receiverName: req.receiverName,
-            examName: 'Akilli Takas Teklifi'
+            examName: 'Akıllı Takas Teklifi'
         });
 
         await saveToBackend();
@@ -10483,7 +10436,7 @@ function initExcelImport() {
             if (dropZone) dropZone.style.borderColor = 'rgba(99,102,241,0.5)';
             const text = document.getElementById('excel-drop-text');
             const icon = document.getElementById('excel-drop-icon');
-            if (text) text.innerHTML = "Excel Dosyasini Sürükleyin";
+            if (text) text.innerHTML = "Excel Dosyasını Sürükleyin";
             if (icon) icon.innerHTML = "📥";
             uploadModal.classList.remove('hidden');
         });
@@ -10541,7 +10494,7 @@ function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 60) {
 
     rawStr = String(rawStr).replace(/\r?\n/g, ' ').trim();
     
-    // 1. Saat Araliği Kontrolü: "09:30-11:20", "13:30-15:20", "09:30 - 11:20", "15:30-16:20"
+    // 1. Saat Aralığı Kontrolü: "09:30-11:20", "13:30-15:20", "09:30 - 11:20", "15:30-16:20"
     const timeRangeMatch = rawStr.match(/(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/);
     if (timeRangeMatch) {
         const startH = parseInt(timeRangeMatch[1], 10);
@@ -10572,12 +10525,12 @@ function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 60) {
     }
     
     const months = {
-        "ocak": "01", "şubat": "02", "subat": "02", "mart": "03", "nisan": "04", "mayis": "05", "mayis": "05", "haziran": "06",
-        "temmuz": "07", "ağustos": "08", "agustos": "08", "eylül": "09", "eylul": "09", "ekim": "10", "kasim": "11", "kasim": "11", "aralik": "12", "aralik": "12"
+        "ocak": "01", "şubat": "02", "subat": "02", "mart": "03", "nisan": "04", "mayıs": "05", "mayis": "05", "haziran": "06",
+        "temmuz": "07", "ağustos": "08", "agustos": "08", "eylül": "09", "eylul": "09", "ekim": "10", "kasım": "11", "kasim": "11", "aralık": "12", "aralik": "12"
     };
     
-    // Ay ismi içeren Türkçe Tarih: "16 Haziran 2026 Sali 10:30", "11 Haziran 2026"
-    const regexTurkishDate = /(\d{1,2})\s+([a-zA-ZğüşiöçĞÜŞİÖÇ]+)\s+(\d{4})/;
+    // Ay ismi içeren Türkçe Tarih: "16 Haziran 2026 Salı 10:30", "11 Haziran 2026"
+    const regexTurkishDate = /(\d{1,2})\s+([a-zA-ZğüşıöçĞÜŞİÖÇ]+)\s+(\d{4})/;
     const dateMatch = rawStr.match(regexTurkishDate);
     
     if (dateMatch && months[dateMatch[2].toLowerCase()]) {
@@ -10586,7 +10539,7 @@ function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 60) {
         const y = dateMatch[3];
         dateStr = `${y}-${m}-${d}`;
     } else {
-        // Noktali veya tireli tarih: "08.06.2026", "9.06.2026", "15.06.2026Pazartesi"
+        // Noktalı veya tireli tarih: "08.06.2026", "9.06.2026", "15.06.2026Pazartesi"
         const stdMatch = rawStr.match(/(\d{1,4})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
         if (stdMatch) {
             let p1 = stdMatch[1], p2 = stdMatch[2], p3 = stdMatch[3];
@@ -10621,8 +10574,8 @@ async function handleExcelExamsFile(e) {
     const subObj = document.getElementById('excel-drop-subtext');
     const iconObj = document.getElementById('excel-drop-icon');
     
-    if (textObj) textObj.innerHTML = "Yükleniyor ve Yapay Zeka Hesaplaniyor...";
-    if (subObj) subObj.innerHTML = "Lütfen bekleyin, sinavlar ve gözetmenler adil katsayi puanlariyla hesaplaniyor...";
+    if (textObj) textObj.innerHTML = "Yükleniyor ve Yapay Zeka Hesaplanıyor...";
+    if (subObj) subObj.innerHTML = "Lütfen bekleyin, sınavlar ve gözetmenler adil katsayı puanlarıyla hesaplanıyor...";
     if (iconObj) iconObj.innerHTML = "⏳";
 
     const reader = new FileReader();
@@ -10642,7 +10595,7 @@ async function handleExcelExamsFile(e) {
                     const r = rawRows[i];
                     if (!r) continue;
                     const rowStr = r.join(' ').toLowerCase();
-                    if (rowStr.includes('dersin adi') || rowStr.includes('sinav adi') || rowStr.includes('ders') || rowStr.includes('kodu') || rowStr.includes('hocalar')) {
+                    if (rowStr.includes('dersin adı') || rowStr.includes('sınav adı') || rowStr.includes('ders') || rowStr.includes('kodu') || rowStr.includes('hocalar')) {
                         headerRowIndex = i;
                         headers = r.map(h => h ? String(h).trim().toLowerCase() : '');
                         break;
@@ -10650,8 +10603,8 @@ async function handleExcelExamsFile(e) {
                 }
 
                 if (headerRowIndex === -1) {
-                    showToast('Excel dosyasinda geçerli bir başlik satiri ("Dersin Kodu", "Dersin Adi", "Hocalar" vb.) bulunamadi!', 'error');
-                    if (textObj) textObj.innerHTML = "Excel Dosyasini Sürükleyin";
+                    showToast('Excel dosyasında geçerli bir başlık satırı ("Dersin Kodu", "Dersin Adı", "Hocalar" vb.) bulunamadı!', 'error');
+                    if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
                     if (iconObj) iconObj.innerHTML = "📥";
                     return;
                 }
@@ -10674,8 +10627,8 @@ async function handleExcelExamsFile(e) {
                 }
 
                 if (mappedRows.length === 0) {
-                    showToast('Excel dosyasi veri içermiyor!', 'error');
-                    if (textObj) textObj.innerHTML = "Excel Dosyasini Sürükleyin";
+                    showToast('Excel dosyası veri içermiyor!', 'error');
+                    if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
                     if (iconObj) iconObj.innerHTML = "📥";
                     return;
                 }
@@ -10683,8 +10636,8 @@ async function handleExcelExamsFile(e) {
                 processExcelRows(mappedRows);
             } catch (err) {
                 console.error(err);
-                showToast('Excel okuma hatasi! Lütfen geçerli bir dosya yükleyin.', 'error');
-                if (textObj) textObj.innerHTML = "Excel Dosyasini Sürükleyin";
+                showToast('Excel okuma hatası! Lütfen geçerli bir dosya yükleyin.', 'error');
+                if (textObj) textObj.innerHTML = "Excel Dosyasını Sürükleyin";
                 if (iconObj) iconObj.innerHTML = "❌";
             }
             
@@ -10699,7 +10652,7 @@ async function handleExcelExamsFile(e) {
 function processExcelRows(rows) {
     draftExams = [];
     
-    // Geçici durum (state) kopyalari
+    // Geçici durum (state) kopyaları
     let tempStaff = JSON.parse(JSON.stringify(DB.staff || []));
     let tempExams = JSON.parse(JSON.stringify(DB.exams || []));
 
@@ -10717,41 +10670,41 @@ function processExcelRows(rows) {
             return null;
         };
 
-        // 1. Sinif / Yil Başliği Tespiti: "1. YIL", "2. YIL", "3. YIL", "4. YIL", "HAZIRLIK"
+        // 1. Sınıf / Yıl Başlığı Tespiti: "1. YIL", "2. YIL", "3. YIL", "4. YIL", "HAZIRLIK"
         const allVals = Object.values(row).map(v => String(v).trim()).filter(v => v !== "" && !v.startsWith("__"));
         const firstVal = allVals[0] || "";
-        const isYearHeader = (/^(\d+)\.\s*y[ii]l/i.test(firstVal) || /^(haz[ii]rl[ii]k|dönem|sinif|sinif)/i.test(firstVal)) && allVals.length <= 2;
+        const isYearHeader = (/^(\d+)\.\s*y[ıi]l/i.test(firstVal) || /^(haz[ıi]rl[ıi]k|dönem|sinif|sınıf)/i.test(firstVal)) && allVals.length <= 2;
         if (isYearHeader) {
             currentYearTag = firstVal;
-            return; // Sinav satiri değil, atla
+            return; // Sınav satırı değil, atla
         }
 
-        // 2. Ders Kodu ve Ders Adi
+        // 2. Ders Kodu ve Ders Adı
         const courseCode = (getVal(["dersin kodu", "ders kodu", "kodu", "kod", "code"]) || "").toString().trim();
-        let courseName = (getVal(["dersin adi", "sinav adi", "ders adi", "ders", "name", "course"]) || "").toString().trim();
+        let courseName = (getVal(["dersin adı", "sınav adı", "ders adı", "ders", "name", "course"]) || "").toString().trim();
         
-        // Eğer dersin adi bulunamadiysa ama ilk sütunda ders kodu varsa
+        // Eğer dersin adı bulunamadıysa ama ilk sütunda ders kodu varsa
         if (!courseName && !courseCode) {
-            courseName = firstVal || "Bilinmeyen Sinav";
+            courseName = firstVal || "Bilinmeyen Sınav";
         }
 
         let displayName = "";
         if (courseCode && courseName && !courseName.toLowerCase().includes(courseCode.toLowerCase())) {
             displayName = `${courseCode} - ${courseName}`;
         } else {
-            displayName = courseName || courseCode || "Bilinmeyen Sinav";
+            displayName = courseName || courseCode || "Bilinmeyen Sınav";
         }
 
         // 3. Öğretim Üyesi / Dersi Veren Hocalar
         const lecturer = (getVal(["öğretim üyesi", "hocalar", "hoca", "lecturer", "öğr", "veren", "sorumlu"]) || "").toString().trim();
 
-        // 4. Sinif Mevcudu ve Sinav Yerleri
-        let locationRaw = getVal(["sinif mevcudu", "sinav yerleri", "derslik", "yer", "location", "sinif", "salon", "mevcut"]);
+        // 4. Sınıf Mevcudu ve Sınav Yerleri
+        let locationRaw = getVal(["sınıf mevcudu", "sınav yerleri", "derslik", "yer", "location", "sınıf", "salon", "mevcut"]);
         if (!locationRaw) {
             // Sütun ismi eşleşmediyse hücre değerlerinden derslik ara
             for (let k of Object.keys(row)) {
                 const val = String(row[k] || '');
-                if (/amfi|derslik|salon|\bd\d+\b/i.test(val) && !/pazartesi|sali|çarşamba|perşembe|cuma|cumartesi|pazar|haziran|ocak|mayis/i.test(val)) {
+                if (/amfi|derslik|salon|\bd\d+\b/i.test(val) && !/pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar|haziran|ocak|mayıs/i.test(val)) {
                     locationRaw = val;
                     break;
                 }
@@ -10780,15 +10733,15 @@ function processExcelRows(rows) {
             if (!cleanLocation) cleanLocation = strLoc;
         } else {
             // Havuz / Servis dersi kontrolü
-            cleanLocation = "Ortak / Havuz Sinavi";
+            cleanLocation = "Ortak / Havuz Sınavı";
         }
 
         // 5. Tarih, Saat ve Süre
-        let dateTimeRaw = getVal(["sinav tarihi", "tarih ve saat", "tarih", "saat", "date", "time"]);
+        let dateTimeRaw = getVal(["sınav tarihi", "tarih ve saat", "tarih", "saat", "date", "time"]);
         if (!dateTimeRaw) {
             for (let k of Object.keys(row)) {
                 const val = String(row[k] || '');
-                if (/\d{1,2}[\.\/\-]\d{1,2}[\.\/\-]\d{2,4}/.test(val) || /ocak|şubat|mart|nisan|mayis|haziran|temmuz|ağustos|eylül|ekim|kasim|aralik/i.test(val)) {
+                if (/\d{1,2}[\.\/\-]\d{1,2}[\.\/\-]\d{2,4}/.test(val) || /ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık/i.test(val)) {
                     dateTimeRaw = val;
                     break;
                 }
@@ -10801,7 +10754,7 @@ function processExcelRows(rows) {
         const duration = parsedDT.duration;
         const endTime = parsedDT.endTime;
 
-        // 6. Gözetmen İhtiyaci Hesabi (Kapasite + Çoklu Salon)
+        // 6. Gözetmen İhtiyacı Hesabı (Kapasite + Çoklu Salon)
         let roomCount = 1;
         if (cleanLocation.includes('+')) {
             roomCount = cleanLocation.split('+').filter(Boolean).length;
@@ -10816,7 +10769,7 @@ function processExcelRows(rows) {
             requiredProctors = Math.max(1, roomCount);
         }
 
-        // 7. Akilli Gözetmen Atama (Simülasyon)
+        // 7. Akıllı Gözetmen Atama (Simülasyon)
         let assignedProctors = [];
         
         for (let i = 0; i < requiredProctors; i++) {
@@ -10872,7 +10825,7 @@ function processExcelRows(rows) {
                 const chosen = available[0];
                 assignedProctors.push(chosen);
                 
-                // Simülasyon Puanini Arttir
+                // Simülasyon Puanını Arttır
                 const weight = typeof getRoleWeight === 'function' ? getRoleWeight(chosen.role) : 1.0;
                 let scoreToAdd = parseFloat((duration * 1.5 * weight).toFixed(2));
                 chosen.totalScore = parseFloat(((chosen.totalScore || 0) + scoreToAdd).toFixed(2));
@@ -10885,7 +10838,7 @@ function processExcelRows(rows) {
         
         let pNamesDisplay;
         if (assignedProctors.length === 0) {
-             pNamesDisplay = '<span style="color:#ef4444; font-weight:700;">⚠️ Atanmadi</span>';
+             pNamesDisplay = '<span style="color:#ef4444; font-weight:700;">⚠️ Atanmadı</span>';
         } else if (assignedProctors.length === 1) {
              pNamesDisplay = `<span class="badge" style="background:rgba(99,102,241,0.2); color:#818cf8; font-weight:600; padding:4px 8px; border-radius:6px;">👤 ${assignedProctors[0].name}</span>`;
         } else {
@@ -10909,7 +10862,7 @@ function processExcelRows(rows) {
             duration: duration,
             proctorIds: pIds,
             proctorId: pIds[0] || 0,
-            proctorName: pNames.join(', ') || "Atanmadi",
+            proctorName: pNames.join(', ') || "Atanmadı",
             proctorDisplay: pNamesDisplay,
             proctors: assignedProctors
         };
@@ -10931,7 +10884,7 @@ function renderExcelPreview() {
 
     const subText = modal.querySelector('p');
     if (subText) {
-        subText.innerHTML = `Toplam <strong>${draftExams.length}</strong> sinav Excel'den okundu. 🤖 <strong>Akilli Atama</strong> sistemi <strong>${totalProctorsAssigned} / ${totalRequiredProctors}</strong> gözetmen görevlendirmesini adil puan dengesine göre tamamladi.`;
+        subText.innerHTML = `Toplam <strong>${draftExams.length}</strong> sınav Excel'den okundu. 🤖 <strong>Akıllı Atama</strong> sistemi <strong>${totalProctorsAssigned} / ${totalRequiredProctors}</strong> gözetmen görevlendirmesini adil puan dengesine göre tamamladı.`;
     }
 
     tbody.innerHTML = '';
@@ -10967,16 +10920,16 @@ function renderExcelPreview() {
 
 window.exportExcelWithProctors = function() {
     if (!draftExams || draftExams.length === 0) {
-        showToast('İndirilecek sinav verisi bulunamadi!', 'warning');
+        showToast('İndirilecek sınav verisi bulunamadı!', 'warning');
         return;
     }
 
     const headers = [
         "Dersin Kodu",
-        "Dersin Adi",
+        "Dersin Adı",
         "Dersi veren Hocalar",
-        "Sinif mevcudu ve Sinav yerleri",
-        "Sinav Tarihi ve Saati",
+        "Sınıf mevcudu ve Sınav yerleri",
+        "Sınav Tarihi ve Saati",
         "GÖZETMEN"
     ];
 
@@ -11002,7 +10955,7 @@ window.exportExcelWithProctors = function() {
             ex.lecturer || "",
             locStr || "",
             timeStr || "",
-            proctorStr || "Atanmadi"
+            proctorStr || "Atanmadı"
         ]);
     });
 
@@ -11010,23 +10963,23 @@ window.exportExcelWithProctors = function() {
     
     ws['!cols'] = [
         { wch: 15 }, // Dersin Kodu
-        { wch: 32 }, // Dersin Adi
+        { wch: 32 }, // Dersin Adı
         { wch: 30 }, // Dersi veren Hocalar
-        { wch: 28 }, // Sinif mevcudu ve Sinav yerleri
-        { wch: 30 }, // Sinav Tarihi ve Saati
+        { wch: 28 }, // Sınıf mevcudu ve Sınav yerleri
+        { wch: 30 }, // Sınav Tarihi ve Saati
         { wch: 40 }  // GÖZETMEN
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Sinav Programi');
+    XLSX.utils.book_append_sheet(wb, ws, 'Sınav Programı');
     XLSX.writeFile(wb, `Sinav_Programi_Gozetmenli_${new Date().toISOString().split('T')[0]}.xlsx`);
-    showToast('Gözetmen sütunlari doldurulmuş Excel dosyasi indirildi!', 'success');
+    showToast('Gözetmen sütunları doldurulmuş Excel dosyası indirildi!', 'success');
 };
 
 async function importAllExcelExams() {
     if (draftExams.length === 0) return;
 
-    if (!confirm(`${draftExams.length} sinavi sisteme aktarmak istediğinize emin misiniz?`)) return;
+    if (!confirm(`${draftExams.length} sınavı sisteme aktarmak istediğinize emin misiniz?`)) return;
 
     takeSnapshot("Excel İçe Aktarma");
     
@@ -11048,7 +11001,7 @@ async function importAllExcelExams() {
     });
 
     document.getElementById('modal-excel-preview').classList.add('hidden');
-    showToast(`${draftExams.length} sinav başariyla aktarildi!`);
+    showToast(`${draftExams.length} sınav başarıyla aktarıldı!`);
     
     // UI Güncelle
     renderExams();
@@ -11091,9 +11044,9 @@ function initBulkActions() {
             const selectedKeys = getSelectedGroupKeys();
             if (selectedKeys.length === 0) return;
             
-            if (confirm(`Seçilen ${selectedKeys.length} sinavi silmek istediğinize emin misiniz?`)) {
+            if (confirm(`Seçilen ${selectedKeys.length} sınavı silmek istediğinize emin misiniz?`)) {
                 if (typeof takeSnapshot === 'function') {
-                    takeSnapshot(`Toplu Sinav Silme (${selectedKeys.length} grup)`);
+                    takeSnapshot(`Toplu Sınav Silme (${selectedKeys.length} grup)`);
                 }
 
                 let initialCount = DB.exams.length;
@@ -11103,7 +11056,7 @@ function initBulkActions() {
                 });
                 const deleted = initialCount - DB.exams.length;
 
-                // Puanlari yeniden hesapla (Silinen sinavlarin puanlari hocalardan düşer)
+                // Puanları yeniden hesapla (Silinen sınavların puanları hocalardan düşer)
                 if (typeof recalculateAllScores === 'function') {
                     recalculateAllScores();
                 }
@@ -11111,7 +11064,7 @@ function initBulkActions() {
                 saveToLocalStorage();
                 renderAll();
                 await saveToBackend();
-                showToast(`${deleted} kayit başariyla silindi ve puanlar güncellendi!`, 'success');
+                showToast(`${deleted} kayıt başarıyla silindi ve puanlar güncellendi!`, 'success');
             }
         });
     }
@@ -11123,14 +11076,14 @@ function initBulkActions() {
             const selectedKeys = getSelectedGroupKeys();
             if (selectedKeys.length === 0) return;
             
-            if (confirm(`Seçilen ${selectedKeys.length} sinava yapay zeka ile baştan gözetmen atanacak. Daha önceki gözetmenler görevden alinacaktir! Emin misiniz?`)) {
+            if (confirm(`Seçilen ${selectedKeys.length} sınava yapay zeka ile baştan gözetmen atanacak. Daha önceki gözetmenler görevden alınacaktır! Emin misiniz?`)) {
                 selectedKeys.forEach(b64Key => {
                     processAutoResolve(b64Key, false);
                 });
                 
                 saveToLocalStorage();
                 renderAll();
-                showToast(`✨ ${selectedKeys.length} grup için yapay zeka atamalari başariyla gerçekleşti!`, 'success');
+                showToast(`✨ ${selectedKeys.length} grup için yapay zeka atamaları başarıyla gerçekleşti!`, 'success');
             }
         });
     }
@@ -11143,13 +11096,13 @@ function initBulkActions() {
             if (selectedKeys.length === 0) return;
 
             if (!DB.emailSettings || !DB.emailSettings.enabled) {
-                alert("⚠️ E-posta gönderimi kapali! Önce 'Sistem Ayarlari > E-posta Ayarlari' kismindan sistemi aktif etmelisiniz.");
+                alert("⚠️ E-posta gönderimi kapalı! Önce 'Sistem Ayarları > E-posta Ayarları' kısmından sistemi aktif etmelisiniz.");
                 return;
             }
 
-            if (confirm(`Seçilen ${selectedKeys.length} sinavin tüm gözetmenlerine otomatik bilgilendirme maili gönderilecek. Onayliyor musunuz?`)) {
+            if (confirm(`Seçilen ${selectedKeys.length} sınavın tüm gözetmenlerine otomatik bilgilendirme maili gönderilecek. Onaylıyor musunuz?`)) {
                 let sentCount = 0;
-                showToast("📧 Toplu gönderim başladi, lütfen bekleyin...", "info");
+                showToast("📧 Toplu gönderim başladı, lütfen bekleyin...", "info");
 
                 for (const b64Key of selectedKeys) {
                     const key = decodeURIComponent(atob(b64Key));
@@ -11168,7 +11121,7 @@ function initBulkActions() {
                     sentCount++;
                 }
 
-                showToast(`✅ ${sentCount} grup sinav için gözetmenlere mailler başariyla iletildi!`, "success");
+                showToast(`✅ ${sentCount} grup sınav için gözetmenlere mailler başarıyla iletildi!`, "success");
             }
         });
     }
@@ -11180,7 +11133,7 @@ function initBulkActions() {
             const selectedKeys = getSelectedGroupKeys();
             if (selectedKeys.length === 0) return;
 
-            // Seçilen tüm sinavlardaki benzersiz gözetmenleri topla
+            // Seçilen tüm sınavlardaki benzersiz gözetmenleri topla
             const allEmails = new Set();
             const proctorNames = new Set();
             const missingEmailNames = [];
@@ -11204,29 +11157,29 @@ function initBulkActions() {
             });
 
             if (allEmails.size === 0) {
-                alert("Seçilen sinavlarin gözetmenlerine ait hiçbir e-posta adresi bulunamadi.");
+                alert("Seçilen sınavların gözetmenlerine ait hiçbir e-posta adresi bulunamadı.");
                 return;
             }
 
             if (missingEmailNames.length > 0) {
                 const uniqueMissing = [...new Set(missingEmailNames)];
-                if (!confirm(`⚠️ Şu hocalarin e-posta adresi eksik: ${uniqueMissing.join(', ')}\n\nDiğer ${allEmails.size} kişiye mail hazirlansin mi?`)) return;
+                if (!confirm(`⚠️ Şu hocaların e-posta adresi eksik: ${uniqueMissing.join(', ')}\n\nDiğer ${allEmails.size} kişiye mail hazırlansın mı?`)) return;
             }
 
             const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
             const emailList = Array.from(allEmails).join(';');
-            const subject = "📢 Yeni Sinav Gözetmenlikleri Hakkinda Bilgilendirme";
-            const body = `Sayin hocalarim,
+            const subject = "📢 Yeni Sınav Gözetmenlikleri Hakkında Bilgilendirme";
+            const body = `Sayın hocalarım,
 
-Yeni sinav gözetmenlikleriniz verilmiştir. Sistemden ve ekteki pdf dosyasindan kontrol edebilirsiniz.
+Yeni sınav gözetmenlikleriniz verilmiştir. Sistemden ve ekteki pdf dosyasından kontrol edebilirsiniz.
 
 🌐 SİSTEME ERİŞİM VE SINAV PROGRAMI:
 ${siteUrl}
 
 ⚠️ GÖREV DEĞİŞİKLİKLERİ HAKKINDA:
-Gözetmenliklerinizde değişiklik yapmak isterseniz yöneticiye gerek kalmadan sistem üzerinden (${siteUrl}) "Profilim" sekmesini kullanarak kendi aranizda değişiklik yapabilirsiniz.
+Gözetmenliklerinizde değişiklik yapmak isterseniz yöneticiye gerek kalmadan sistem üzerinden (${siteUrl}) "Profilim" sekmesini kullanarak kendi aranızda değişiklik yapabilirsiniz.
 
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 GTU Matematik Bölümü - Gözetmenlik Sistemi
 ${siteUrl}`;
 
@@ -11239,7 +11192,7 @@ ${siteUrl}`;
             a.click();
             setTimeout(() => document.body.removeChild(a), 100);
 
-            logAction('admin', 'Toplu Duyuru', `${selectedKeys.length} grup sinav için ${allEmails.size} kişiye toplu duyuru hazirlandi.`);
+            logAction('admin', 'Toplu Duyuru', `${selectedKeys.length} grup sınav için ${allEmails.size} kişiye toplu duyuru hazırlandı.`);
         });
     }
 }
@@ -11268,11 +11221,11 @@ function getSelectedGroupKeys() {
 
 // 5. Individual Auto-Resolve AI Conflict Function (Called explicitly from the button)
 window.autoResolveGroupConflict = function(b64Key) {
-    if (confirm("Yapay Zeka bu çakişmayi düzeltmek için mevcut kişiyi çikarip, o an en uygun kişiyi bulacaktir. Onayliyor musunuz?")) {
+    if (confirm("Yapay Zeka bu çakışmayı düzeltmek için mevcut kişiyi çıkarıp, o an en uygun kişiyi bulacaktır. Onaylıyor musunuz?")) {
         processAutoResolve(b64Key, true);
         saveToLocalStorage();
         renderAll();
-        showToast("✨ Çakişma başariyla çözüldü ve uygun personel atandi!", "success");
+        showToast("✨ Çakışma başarıyla çözüldü ve uygun personel atandı!", "success");
     }
 }
 
@@ -11287,7 +11240,7 @@ function processAutoResolve(b64Key, saveLocally = false) {
     const capacity = matchingExams[0].capacity;
     const lecturer = matchingExams[0].lecturer;
     
-    // Gözetmenlerin görev sayisini rollback yap (nonExam/exam ayrimi)
+    // Gözetmenlerin görev sayısını rollback yap (nonExam/exam ayrımı)
     matchingExams.forEach(ex => {
         const pIds = ex.proctorIds || [ex.proctorId];
         pIds.forEach(pid => {
@@ -11305,10 +11258,10 @@ function processAutoResolve(b64Key, saveLocally = false) {
         });
     });
 
-    // DB'den asil sinavlari komple çikar
+    // DB'den asil sınavları komple çıkar
     DB.exams = DB.exams.filter(e => !matchingExams.includes(e));
     
-    // AI algoritmasindan tek tek alip yerleştir!
+    // AI algoritmasından tek tek alıp yerleştir!
     const requiredProctors = matchingExams.length; 
     let assignedCount = 0;
     
@@ -11318,8 +11271,8 @@ function processAutoResolve(b64Key, saveLocally = false) {
         if(best && best.id) {
             // Skoru hemen commitle ki bi sonrakinde tekrar önermesin
             let st = DB.staff.find(s => s.id === best.id);
-            // processAutoResolve için yeni sinav bilgisi henüz yok, bu kisim simülasyon değil gerçek atama
-            // isNonExam bilgisi matchingExams'den alinabilir
+            // processAutoResolve için yeni sınav bilgisi henüz yok, bu kısım simülasyon değil gerçek atama
+            // isNonExam bilgisi matchingExams'den alınabilir
             const refExam = matchingExams[0] || {};
             if(st) {
                  const score = calculateScore(getSafeDate(date, time), duration);
@@ -11348,8 +11301,8 @@ initBulkActions();
 /**
  * =============================================================
  * DÖNEMLİK TASLAK ÜRETİCİ
- * Geçmiş dönem sinavlarindan desen çikarir, yeni dönem başlangiç
- * tarihine göre tüm programi taslak olarak üretir.
+ * Geçmiş dönem sınavlarından desen çıkarır, yeni dönem başlangıç
+ * tarihine göre tüm programı taslak olarak üretir.
  * =============================================================
  */
 window.showDonemlikTaslakModal = function() {
@@ -11361,7 +11314,7 @@ window.showDonemlikTaslakModal = function() {
     overlay.className = 'modal';
     overlay.style.cssText = 'z-index:9000;';
 
-    // Mevcut sinavlardan benzersiz ders adlarini çek
+    // Mevcut sınavlardan benzersiz ders adlarını çek
     const courseSet = [...new Set(DB.exams.map(e => e.name).filter(Boolean))].sort();
 
     overlay.innerHTML = `
@@ -11371,7 +11324,7 @@ window.showDonemlikTaslakModal = function() {
                 <span style="font-size:2rem; filter:drop-shadow(0 0 10px #10b981);">📅</span>
                 <div>
                     <h2 style="margin:0; color:#10b981; font-size:1.1rem;">Dönemlik Taslak Üreticisi</h2>
-                    <p style="margin:0; color:var(--text-muted); font-size:0.8rem;">Geçmiş dönem deseni → Yeni dönem taslak programi</p>
+                    <p style="margin:0; color:var(--text-muted); font-size:0.8rem;">Geçmiş dönem deseni → Yeni dönem taslak programı</p>
                 </div>
             </div>
             <button onclick="document.getElementById('modal-donemlik-taslak').classList.add('hidden')"
@@ -11380,10 +11333,10 @@ window.showDonemlikTaslakModal = function() {
 
         <!-- ADIM 1: Kaynak Seçimi -->
         <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
-            <div style="font-weight:700; color:#34d399; margin-bottom:12px; font-size:0.9rem;">📊 Adim 1: Şablon Kaynaği</div>
+            <div style="font-weight:700; color:#34d399; margin-bottom:12px; font-size:0.9rem;">📊 Adım 1: Şablon Kaynağı</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div>
-                    <label style="font-size:0.8rem; color:var(--text-muted);">Yeni Dönem Başlangiç Tarihi</label>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Yeni Dönem Başlangıç Tarihi</label>
                     <input type="date" id="tpl-start-date" style="width:100%; margin-top:4px;
                         background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem;
                         border-radius:8px; color:white;">
@@ -11399,7 +11352,7 @@ window.showDonemlikTaslakModal = function() {
 
         <!-- ADIM 2: Ders Seçimi -->
         <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-radius:12px; padding:1.25rem; margin-bottom:1rem;">
-            <div style="font-weight:700; color:#a78bfa; margin-bottom:12px; font-size:0.9rem;">📚 Adim 2: Sinava Girecek Dersler</div>
+            <div style="font-weight:700; color:#a78bfa; margin-bottom:12px; font-size:0.9rem;">📚 Adım 2: Sınava Girecek Dersler</div>
             <div id="tpl-course-list" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
                 ${courseSet.slice(0,30).map(c => `
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px;
@@ -11408,7 +11361,7 @@ window.showDonemlikTaslakModal = function() {
                         style="accent-color:#6366f1; width:16px; height:16px;">
                     <span style="font-size:0.85rem;">${c}</span>
                 </label>`).join('')}
-                ${courseSet.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem;">Sistemde önceki dönem sinavi bulunamadi. Manuel ders ekleyebilirsiniz.</p>' : ''}
+                ${courseSet.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem;">Sistemde önceki dönem sınavı bulunamadı. Manuel ders ekleyebilirsiniz.</p>' : ''}
             </div>
             <div style="margin-top:10px; display:flex; gap:8px;">
                 <input type="text" id="tpl-new-course" placeholder="Yeni ders ekle..."
@@ -11417,12 +11370,12 @@ window.showDonemlikTaslakModal = function() {
             </div>
         </div>
 
-        <!-- ADIM 3: Varsayilan Ayarlar -->
+        <!-- ADIM 3: Varsayılan Ayarlar -->
         <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:12px; padding:1.25rem; margin-bottom:1.5rem;">
-            <div style="font-weight:700; color:#fcd34d; margin-bottom:12px; font-size:0.9rem;">⚙️ Adim 3: Varsayilan Değerler</div>
+            <div style="font-weight:700; color:#fcd34d; margin-bottom:12px; font-size:0.9rem;">⚙️ Adım 3: Varsayılan Değerler</div>
             <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
                 <div>
-                    <label style="font-size:0.8rem; color:var(--text-muted);">Varsayilan Saat</label>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Varsayılan Saat</label>
                     <input type="time" id="tpl-default-time" value="09:00"
                         style="width:100%; margin-top:4px; background:rgba(0,0,0,0.3);
                         border:1px solid var(--glass-border); padding:0.5rem; border-radius:8px; color:white;">
@@ -11434,7 +11387,7 @@ window.showDonemlikTaslakModal = function() {
                         border:1px solid var(--glass-border); padding:0.5rem; border-radius:8px; color:white;">
                 </div>
                 <div>
-                    <label style="font-size:0.8rem; color:var(--text-muted);">Sinav Türü</label>
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Sınav Türü</label>
                     <select id="tpl-default-type"
                         style="width:100%; margin-top:4px; background:rgba(0,0,0,0.3);
                         border:1px solid var(--glass-border); padding:0.5rem; border-radius:8px; color:white;">
@@ -11455,7 +11408,7 @@ window.showDonemlikTaslakModal = function() {
                 style="flex:2; padding:0.9rem; background:linear-gradient(135deg,#10b981,#059669);
                 border:none; border-radius:10px; color:white; font-weight:700; cursor:pointer;
                 font-size:0.95rem; box-shadow:0 0 20px rgba(16,185,129,0.3);">
-                ✨ Taslak Programi Oluştur
+                ✨ Taslak Programı Oluştur
             </button>
         </div>
     </div>`;
@@ -11483,7 +11436,7 @@ window.generateDonemlikTaslak = function() {
     const defaultDur   = parseInt(document.getElementById('tpl-default-duration').value) || 90;
     const defaultType  = document.getElementById('tpl-default-type').value || 'Vize';
 
-    if (!startDateVal) { alert('Lütfen dönem başlangiç tarihini seçin!'); return; }
+    if (!startDateVal) { alert('Lütfen dönem başlangıç tarihini seçin!'); return; }
 
     const selectedCourses = [...document.querySelectorAll('.tpl-course-check:checked')].map(c => c.value);
     if (selectedCourses.length === 0) { alert('En az bir ders seçin!'); return; }
@@ -11492,12 +11445,12 @@ window.generateDonemlikTaslak = function() {
     let addedCount = 0;
     let skippedCount = 0;
 
-    // Her ders için geçmiş döneme bakarak gün+saat deseni bul, yoksa haftalik dağit
+    // Her ders için geçmiş döneme bakarak gün+saat deseni bul, yoksa haftalık dağıt
     selectedCourses.forEach((courseName, courseIdx) => {
         const pastExams = DB.exams.filter(e => e.name === courseName).sort((a,b) => a.date.localeCompare(b.date));
 
-        // Geçmiş deseni: gün haftasi (0=Pazar .. 6=Cumartesi) ve saat
-        let prefDay  = (courseIdx % 5) + 1; // Pazartesi-Cuma arasi dağit
+        // Geçmiş deseni: gün haftası (0=Pazar .. 6=Cumartesi) ve saat
+        let prefDay  = (courseIdx % 5) + 1; // Pazartesi-Cuma arası dağıt
         let prefTime = defaultTime;
         let prefDur  = defaultDur;
         let prefLoc  = '';
@@ -11552,7 +11505,7 @@ window.generateDonemlikTaslak = function() {
     renderExams(); renderSchedule(); renderDashboard();
 
     if (typeof showToast === 'function') {
-        showToast(`✅ ${addedCount} taslak sinav oluşturuldu!${skippedCount > 0 ? ` (${skippedCount} mükerrer atlandi)` : ''} Taslak Modu'nu açip inceleyebilirsiniz.`);
+        showToast(`✅ ${addedCount} taslak sınav oluşturuldu!${skippedCount > 0 ? ` (${skippedCount} mükerrer atlandı)` : ''} Taslak Modu'nu açıp inceleyebilirsiniz.`);
     }
 };
 
@@ -11607,7 +11560,7 @@ window.renderFeedbackPage = function() {
 
 function getCategoryColor(category) {
     if (category === 'Sistemsel') return '#8b5cf6'; // Indigo/Purple
-    if (category === 'Sinav Düzeni') return '#f59e0b'; // Amber/Orange
+    if (category === 'Sınav Düzeni') return '#f59e0b'; // Amber/Orange
     if (category === 'Fiziksel Koşullar') return '#ef4444'; // Red
     return '#94a3b8'; // Grey/Diğer
 }
@@ -11638,7 +11591,7 @@ function renderFeedbackAdmin() {
     if (filtered.length === 0) {
         listEl.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                Kriterlere uygun geri bildirim bulunamadi.
+                Kriterlere uygun geri bildirim bulunamadı.
             </div>
         `;
         return;
@@ -11650,7 +11603,7 @@ function renderFeedbackAdmin() {
     listEl.innerHTML = sorted.map(f => {
         const categoryColor = getCategoryColor(f.category);
         const statusBadge = getStatusBadge(f.status);
-        const senderText = f.isAnonymous ? '🔒 Anonim Kullanici' : (f.senderName || 'Bilinmeyen Kullanici');
+        const senderText = f.isAnonymous ? '🔒 Anonim Kullanıcı' : (f.senderName || 'Bilinmeyen Kullanıcı');
         const dateStr = new Date(f.id).toLocaleString('tr-TR');
 
         return `
@@ -11675,26 +11628,26 @@ function renderFeedbackAdmin() {
 
                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem; white-space: pre-wrap; line-height: 1.5;">${f.message}</p>
 
-                <!-- Yanit Alani -->
+                <!-- Yanıt Alanı -->
                 <div id="response-container-${f.id}" style="background: rgba(99, 102, 241, 0.04); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.1); padding: 1rem; margin-top: 1rem; ${!f.response ? 'display: none;' : ''}">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.8rem; color: var(--primary); font-weight: 700;">
-                        <span>💬 Yönetici Yaniti:</span>
+                        <span>💬 Yönetici Yanıtı:</span>
                     </div>
                     <p id="response-text-${f.id}" style="color: var(--text-secondary); font-size: 0.85rem; margin: 0; white-space: pre-wrap;">${f.response || ''}</p>
                 </div>
 
-                <!-- İşlem Butonlari -->
+                <!-- İşlem Butonları -->
                 <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 8px;">
                     <button class="btn-primary" onclick="window.toggleFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); box-shadow: none;">
-                        ${f.response ? '✍️ Yaniti Düzenle' : '💬 Yanit Yaz'}
+                        ${f.response ? '✍️ Yanıtı Düzenle' : '💬 Yanıt Yaz'}
                     </button>
                 </div>
 
                 <div id="reply-form-${f.id}" class="hidden" style="margin-top: 1rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; border: 1px solid var(--glass-border);">
-                    <textarea id="reply-text-${f.id}" placeholder="Yanitinizi buraya yazin..." style="width: 100%; min-height: 80px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: white; padding: 8px; border-radius: 8px; font-size: 0.85rem; resize: vertical; outline: none; margin-bottom: 8px;"></textarea>
+                    <textarea id="reply-text-${f.id}" placeholder="Yanıtınızı buraya yazın..." style="width: 100%; min-height: 80px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: white; padding: 8px; border-radius: 8px; font-size: 0.85rem; resize: vertical; outline: none; margin-bottom: 8px;"></textarea>
                     <div style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button class="btn-secondary" onclick="window.toggleFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">İptal</button>
-                        <button class="btn-primary" onclick="window.submitFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Yaniti Kaydet</button>
+                        <button class="btn-primary" onclick="window.submitFeedbackReply(${f.id})" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Yanıtı Kaydet</button>
                     </div>
                 </div>
             </div>
@@ -11711,7 +11664,7 @@ function renderFeedbackUser(myStaff) {
     if (!myStaff) {
         listEl.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                ⚠️ Geri bildirimlerinizi görmek ve yeni bildirim iletmek için lütfen önce <b>Profilim</b> sayfasindan kimliğinizi seçin.
+                ⚠️ Geri bildirimlerinizi görmek ve yeni bildirim iletmek için lütfen önce <b>Profilim</b> sayfasından kimliğinizi seçin.
             </div>
         `;
         if (formEl) {
@@ -11732,7 +11685,7 @@ function renderFeedbackUser(myStaff) {
     if (userFeedbacks.length === 0) {
         listEl.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                Kayitli geri bildiriminiz bulunmamaktadir.
+                Kayıtlı geri bildiriminiz bulunmamaktadır.
             </div>
         `;
         return;
@@ -11763,10 +11716,10 @@ function renderFeedbackUser(myStaff) {
 
                 <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.5rem 0; white-space: pre-wrap; line-height: 1.4;">${f.message}</p>
 
-                <!-- Yanit -->
+                <!-- Yanıt -->
                 ${f.response ? `
                     <div style="background: rgba(99, 102, 241, 0.05); border-left: 3px solid var(--primary); padding: 8px 12px; border-radius: 4px 8px 8px 4px; margin-top: 0.75rem;">
-                        <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-bottom: 4px;">💬 Yönetici Yaniti:</div>
+                        <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-bottom: 4px;">💬 Yönetici Yanıtı:</div>
                         <p style="color: var(--text-primary); font-size: 0.8rem; margin: 0; white-space: pre-wrap;">${f.response}</p>
                     </div>
                 ` : ''}
@@ -11791,7 +11744,7 @@ window.submitFeedback = async function(e) {
     const isAnonymous = document.getElementById('feedback-anonymous').checked;
 
     if (!message) {
-        alert("Lütfen bir mesaj yazin!");
+        alert("Lütfen bir mesaj yazın!");
         return;
     }
 
@@ -11813,12 +11766,12 @@ window.submitFeedback = async function(e) {
     saveToLocalStorage();
     logAction('user', 'Geri Bildirim', `${isAnonymous ? 'Anonim' : myStaff.name} yeni bir öneri/şikayet iletti.`);
 
-    // Formu sifirla
+    // Formu sıfırla
     document.getElementById('feedback-message').value = '';
     document.getElementById('feedback-anonymous').checked = false;
 
     if (typeof showToast === 'function') {
-        showToast("Geri bildiriminiz başariyla iletildi. Teşekkür ederiz!", "success");
+        showToast("Geri bildiriminiz başarıyla iletildi. Teşekkür ederiz!", "success");
     }
 
     renderFeedbackPage();
@@ -11870,13 +11823,13 @@ window.submitFeedbackReply = async function(id) {
     }
 
     saveToLocalStorage();
-    logAction('admin', 'Geri Bildirim Yanitlandi', `Bildirim (ID: ${id}) yanitlandi.`);
+    logAction('admin', 'Geri Bildirim Yanıtlandı', `Bildirim (ID: ${id}) yanıtlandı.`);
 
     const replyForm = document.getElementById(`reply-form-${id}`);
     if (replyForm) replyForm.classList.add('hidden');
 
     if (typeof showToast === 'function') {
-        showToast("Yanitiniz kaydedildi.", "success");
+        showToast("Yanıtınız kaydedildi.", "success");
     }
 
     renderFeedbackPage();
@@ -11890,14 +11843,14 @@ if ('serviceWorker' in navigator) {
             .then(registration => {
                 console.log('[PWA] Service Worker registered with scope:', registration.scope);
                 
-                // Eğer yeni bir service worker yüklenirse sayfayi yenile
+                // Eğer yeni bir service worker yüklenirse sayfayı yenile
                 registration.onupdatefound = () => {
                     const installingWorker = registration.installing;
                     if (installingWorker) {
                         installingWorker.onstatechange = () => {
                             if (installingWorker.state === 'installed') {
                                 if (navigator.serviceWorker.controller) {
-                                    console.log('[PWA] Yeni güncelleme algilandi, sayfa yenileniyor...');
+                                    console.log('[PWA] Yeni güncelleme algılandı, sayfa yenileniyor...');
                                     window.location.reload();
                                 }
                             }
@@ -11909,7 +11862,7 @@ if ('serviceWorker' in navigator) {
                 console.error('[PWA] Service Worker registration failed:', error);
             });
 
-        // Service Worker değiştiğinde sayfayi otomatik yenile
+        // Service Worker değiştiğinde sayfayı otomatik yenile
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
@@ -11930,7 +11883,7 @@ window.showStaffReportModal = (id) => {
     document.getElementById('report-staff-name').textContent = staff.name + " - Puan Karnesi";
     document.getElementById('report-base-score').textContent = (staff.baseScore || 0).toFixed(1);
     
-    // Bağimsiz helper fonksiyonu: isStaffProctorById'ye erişilememesine karşi
+    // Bağımsız helper fonksiyonu: isStaffProctorById'ye erişilememesine karşı
     const sid = String(staff.id);
     const duties = DB.exams.filter(ex => {
         if (!ex || !sid) return false;
@@ -11953,7 +11906,7 @@ window.showStaffReportModal = (id) => {
                 const d = new Date(`${ex.date}T${timeStr}:00`);
                 points = calculateScore(d, parseFloat(ex.duration) || 60, ex.id);
             } catch (err) {
-                console.error('Puan hesaplama hatasi:', err);
+                console.error('Puan hesaplama hatası:', err);
                 points = 0;
             }
         }
@@ -11962,7 +11915,7 @@ window.showStaffReportModal = (id) => {
         earnedScore += points;
 
         const isNonExam = shouldCountAsNonExam(ex);
-        const typeStr = isNonExam ? `<span style="color:var(--accent-orange);">Sinav Dişi</span>` : `<span style="color:var(--primary);">Sinav</span>`;
+        const typeStr = isNonExam ? `<span style="color:var(--accent-orange);">Sınav Dışı</span>` : `<span style="color:var(--primary);">Sınav</span>`;
 
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
@@ -11988,12 +11941,12 @@ window.showStaffReportModal = (id) => {
 };
 
 /**
- * Tarihi Geçmiş Kisitlari Temizle
+ * Tarihi Geçmiş Kısıtları Temizle
  */
 window.cleanExpiredConstraints = (silent = false) => {
     if (!DB.constraints) return;
 
-    if (!silent && !confirm("Tarihi geçmiş tüm kisitlar silinecek. Emin misiniz?")) return;
+    if (!silent && !confirm("Tarihi geçmiş tüm kısıtlar silinecek. Emin misiniz?")) return;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -12005,7 +11958,7 @@ window.cleanExpiredConstraints = (silent = false) => {
         const oldLength = DB.constraints[staffName].length;
         
         DB.constraints[staffName] = DB.constraints[staffName].filter(c => {
-            // Eğer haftalik kisitsa silme (hiçbir zaman tarihi geçmez)
+            // Eğer haftalık kısıtsa silme (hiçbir zaman tarihi geçmez)
             if (c.day !== undefined) return true;
 
             if (c.endDate) {
@@ -12032,10 +11985,10 @@ window.cleanExpiredConstraints = (silent = false) => {
     if (deletedCount > 0) {
         saveToLocalStorage();
         if (typeof renderConstraintsPage === 'function') renderConstraintsPage();
-        logAction('admin', 'Kisit Temizliği', `${deletedCount} adet tarihi geçmiş kisit silindi.`);
-        if (!silent) showToast(`${deletedCount} adet tarihi geçmiş kisit başariyla temizlendi.`, "success");
+        logAction('admin', 'Kısıt Temizliği', `${deletedCount} adet tarihi geçmiş kısıt silindi.`);
+        if (!silent) showToast(`${deletedCount} adet tarihi geçmiş kısıt başarıyla temizlendi.`, "success");
     } else {
-        if (!silent) showToast("Tarihi geçmiş kisit bulunamadi.", "info");
+        if (!silent) showToast("Tarihi geçmiş kısıt bulunamadı.", "info");
     }
 };
 
@@ -12054,12 +12007,12 @@ window.renderScorecard = function() {
 
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
     if (!staff) {
-        listContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:2rem;">Personel kaydi bulunamadi. Lütfen profilinizi tekrar seçin.</div>';
+        listContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:2rem;">Personel kaydı bulunamadı. Lütfen profilinizi tekrar seçin.</div>';
         return;
     }
 
     const baseScore = parseFloat(staff.baseScore || 0);
-    const examTotal = parseFloat(staff.totalScore || 0); // Bu baseScore + gözetmenlik puanlarini içerir
+    const examTotal = parseFloat(staff.totalScore || 0); // Bu baseScore + gözetmenlik puanlarını içerir
     const examOnlyGained = parseFloat((examTotal - baseScore).toFixed(2));
     const nonExamScore = parseFloat(staff.nonExamScore || 0);
     const grandTotal = parseFloat((examTotal + nonExamScore).toFixed(2));
@@ -12069,10 +12022,10 @@ window.renderScorecard = function() {
     if (nonExamEl) nonExamEl.textContent = `+${nonExamScore.toFixed(1)}`;
     if (totalEl) totalEl.textContent = grandTotal.toFixed(1);
 
-    if (examHint) examHint.textContent = `Sinav Gözetmenliği: +${examOnlyGained.toFixed(1)} Puan`;
-    if (nonExamHint) nonExamHint.textContent = `${staff.nonExamTaskCount || 0} Adet Sinav Dişi Görev`;
+    if (examHint) examHint.textContent = `Sınav Gözetmenliği: +${examOnlyGained.toFixed(1)} Puan`;
+    if (nonExamHint) nonExamHint.textContent = `${staff.nonExamTaskCount || 0} Adet Sınav Dışı Görev`;
 
-    // Personelin görevli olduğu tüm sinav ve görevleri topla
+    // Personelin görevli olduğu tüm sınav ve görevleri topla
     const myExams = DB.exams.filter(e => {
         if (typeof isStaffProctorById === 'function') {
             return isStaffProctorById(e, myStaffId);
@@ -12080,9 +12033,9 @@ window.renderScorecard = function() {
         return (e.proctorIds || [e.proctorId]).map(String).includes(String(myStaffId));
     });
 
-    // Sinav ve görevleri ay ve yila göre grupla
+    // Sınav ve görevleri ay ve yıla göre grupla
     const monthsMap = {};
-    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasim", "Aralik"];
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
     myExams.forEach(ex => {
         if (!ex.date) return;
@@ -12114,7 +12067,7 @@ window.renderScorecard = function() {
             date: ex.date,
             time: ex.time || '-',
             location: ex.location || '-',
-            type: ex.type || (isNonExam ? 'Sinav Dişi Görev' : 'Sinav Gözetmenliği'),
+            type: ex.type || (isNonExam ? 'Sınav Dışı Görev' : 'Sınav Gözetmenliği'),
             score: scoreVal
         };
 
@@ -12131,7 +12084,7 @@ window.renderScorecard = function() {
     listContainer.innerHTML = '';
 
     if (sortedKeys.length === 0) {
-        listContainer.innerHTML = '<div style="text-align:center; padding: 2.5rem; color: #64748b; background: rgba(255,255,255,0.01); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">Dönem içinde puan kazanci sağladiğiniz kayitli bir görev bulunmamaktadir.</div>';
+        listContainer.innerHTML = '<div style="text-align:center; padding: 2.5rem; color: #64748b; background: rgba(255,255,255,0.01); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">Dönem içinde puan kazancı sağladığınız kayıtlı bir görev bulunmamaktadır.</div>';
         return;
     }
 
@@ -12150,7 +12103,7 @@ window.renderScorecard = function() {
             badgesHtml += `<span class="month-badge" style="background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); margin-right: 6px;">✍️ Gözetmenlik: +${monthItem.examTotalScore.toFixed(1)}</span>`;
         }
         if (monthItem.nonExamTotalScore > 0 || monthItem.nonExamTasks.length > 0) {
-            badgesHtml += `<span class="month-badge" style="background: rgba(249, 115, 22, 0.15); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.3); margin-right: 6px;">🏢 Sinav Dişi: +${monthItem.nonExamTotalScore.toFixed(1)}</span>`;
+            badgesHtml += `<span class="month-badge" style="background: rgba(249, 115, 22, 0.15); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.3); margin-right: 6px;">🏢 Sınav Dışı: +${monthItem.nonExamTotalScore.toFixed(1)}</span>`;
         }
         badgesHtml += `<span class="month-badge badge-plus" style="font-size: 0.9rem;">Toplam: +${totalMonthScore.toFixed(1)} Puan</span>`;
 
@@ -12170,19 +12123,19 @@ window.renderScorecard = function() {
 
         let contentHtml = `<div style="padding: 1.2rem; display: flex; flex-direction: column; gap: 1.5rem;">`;
 
-        // 1. Bölüm: Sinav Gözetmenlikleri
+        // 1. Bölüm: Sınav Gözetmenlikleri
         if (monthItem.examTasks.length > 0) {
             contentHtml += `
                 <div>
                     <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(99,102,241,0.2);">
                         <span style="font-size: 1.1rem;">✍️</span>
-                        <strong style="color: #818cf8; font-size: 0.95rem;">Sinav Gözetmenlikleri (${monthItem.examTasks.length} Görev)</strong>
+                        <strong style="color: #818cf8; font-size: 0.95rem;">Sınav Gözetmenlikleri (${monthItem.examTasks.length} Görev)</strong>
                     </div>
                     <table class="task-list-table">
                         <thead>
                             <tr>
                                 <th>Tarih & Saat</th>
-                                <th>Sinav Adi</th>
+                                <th>Sınav Adı</th>
                                 <th>Konum</th>
                                 <th style="text-align:right;">Puan</th>
                             </tr>
@@ -12202,19 +12155,19 @@ window.renderScorecard = function() {
             `;
         }
 
-        // 2. Bölüm: Sinav Dişi Görevler (Tercih Günleri vs.)
+        // 2. Bölüm: Sınav Dışı Görevler (Tercih Günleri vs.)
         if (monthItem.nonExamTasks.length > 0) {
             contentHtml += `
                 <div>
                     <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(249,115,22,0.2);">
                         <span style="font-size: 1.1rem;">🏢</span>
-                        <strong style="color: #fb923c; font-size: 0.95rem;">Sinav Dişi Görevler (${monthItem.nonExamTasks.length} Görev)</strong>
+                        <strong style="color: #fb923c; font-size: 0.95rem;">Sınav Dışı Görevler (${monthItem.nonExamTasks.length} Görev)</strong>
                     </div>
                     <table class="task-list-table">
                         <thead>
                             <tr>
                                 <th>Tarih & Saat</th>
-                                <th>Görev Adi</th>
+                                <th>Görev Adı</th>
                                 <th>Konum</th>
                                 <th>Tür</th>
                                 <th style="text-align:right;">Puan</th>
@@ -12263,7 +12216,7 @@ window.renderScorecard = function() {
         itemDiv.appendChild(bodyDiv);
         listContainer.appendChild(itemDiv);
 
-        // En güncel ayin detayini varsayilan olarak açik getir
+        // En güncel ayın detayını varsayılan olarak açık getir
         if (index === 0 && (monthItem.examTasks.length > 0 || monthItem.nonExamTasks.length > 0)) {
             setTimeout(() => {
                 headerDiv.click();
@@ -12302,30 +12255,30 @@ window.runDataHealthCheck = function() {
     const detailsContainer = document.getElementById('data-health-details');
     if (!summaryCard || !detailsContainer) return;
 
-    summaryCard.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Sistem taraniyor...</p>';
+    summaryCard.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Sistem taranıyor...</p>';
     detailsContainer.innerHTML = '';
 
     const report = (typeof validateDatabaseIntegrity === 'function')
         ? validateDatabaseIntegrity()
         : { isValid: true, healthScore: 100, doubleBookings: [], constraintClashes: [], scoreMismatches: [], unassignedExams: [], invalidProctorIds: [] };
 
-    // Sağlik rozeti rengi
+    // Sağlık rozeti rengi
     let badgeColor = '#10b981';
-    let badgeText = 'Mükemmel & Tutarli';
+    let badgeText = 'Mükemmel & Tutarlı';
     if (report.healthScore < 80) { badgeColor = '#f59e0b'; badgeText = 'İnceleme Gerekli'; }
     if (report.healthScore < 50) { badgeColor = '#ef4444'; badgeText = 'Kritik Düzeltme Gerekli'; }
 
     summaryCard.innerHTML = `
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; width: 100%;">
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Sağlik Puani</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Sağlık Puanı</div>
                 <div style="font-size: 1.8rem; font-weight: 800; color: ${badgeColor}; margin-top: 4px;">%${report.healthScore}</div>
                 <div style="font-size: 0.75rem; color: ${badgeColor}; font-weight: 600;">${badgeText}</div>
             </div>
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Kayitli Sinav</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Kayıtlı Sınav</div>
                 <div style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 4px;">${report.examCount || (DB.exams || []).length}</div>
-                <div style="font-size: 0.75rem; color: #38bdf8;">0 Mükerrer Kayit</div>
+                <div style="font-size: 0.75rem; color: #38bdf8;">0 Mükerrer Kayıt</div>
             </div>
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Aktif Personel</div>
@@ -12333,46 +12286,46 @@ window.runDataHealthCheck = function() {
                 <div style="font-size: 0.75rem; color: #a78bfa;">Puan & Görev Senkronize</div>
             </div>
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px; text-align: center;">
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Tespit Edilen Uyari</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Tespit Edilen Uyarı</div>
                 <div style="font-size: 1.8rem; font-weight: 800; color: ${report.isValid ? '#10b981' : '#f59e0b'}; margin-top: 4px;">${report.doubleBookings.length + report.scoreMismatches.length + report.constraintClashes.length}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Çakişma / İhlal</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Çakışma / İhlal</div>
             </div>
         </div>
     `;
 
     let html = '';
 
-    // 1. Çifte Görev Çakişmasi
+    // 1. Çifte Görev Çakışması
     if (report.doubleBookings.length > 0) {
         html += `<div style="margin-bottom: 14px;">
-            <div style="font-weight: 700; color: #ef4444; font-size: 0.9rem; margin-bottom: 6px;">🚫 Çifte Görev Çakişmalari (${report.doubleBookings.length})</div>
+            <div style="font-weight: 700; color: #ef4444; font-size: 0.9rem; margin-bottom: 6px;">🚫 Çifte Görev Çakışmaları (${report.doubleBookings.length})</div>
             ${report.doubleBookings.map(d => `
                 <div style="background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
-                    <strong>${d.staffName}</strong>: ${d.date} tarihinde hem <em>${d.exam1}</em> hem de <em>${d.exam2}</em> sinavinda görünüyor.
+                    <strong>${d.staffName}</strong>: ${d.date} tarihinde hem <em>${d.exam1}</em> hem de <em>${d.exam2}</em> sınavında görünüyor.
                 </div>
             `).join('')}
         </div>`;
     }
 
-    // 2. Kisit / Ders İhlali
+    // 2. Kısıt / Ders İhlali
     if (report.constraintClashes.length > 0) {
         html += `<div style="margin-bottom: 14px;">
-            <div style="font-weight: 700; color: #f59e0b; font-size: 0.9rem; margin-bottom: 6px;">⚠️ Güz Dönemi Kisit / Ders Çakişmalari (${report.constraintClashes.length})</div>
+            <div style="font-weight: 700; color: #f59e0b; font-size: 0.9rem; margin-bottom: 6px;">⚠️ Güz Dönemi Kısıt / Ders Çakışmaları (${report.constraintClashes.length})</div>
             ${report.constraintClashes.map(c => `
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
-                    <strong>${c.staffName}</strong>: <em>${c.examName}</em> (${c.date} ${c.time}) sinavina atanmiş ancak <strong>${c.constraint}</strong> kisiti var.
+                    <strong>${c.staffName}</strong>: <em>${c.examName}</em> (${c.date} ${c.time}) sınavına atanmış ancak <strong>${c.constraint}</strong> kısıtı var.
                 </div>
             `).join('')}
         </div>`;
     }
 
-    // 3. Puan Uyuşmazliklari
+    // 3. Puan Uyuşmazlıkları
     if (report.scoreMismatches.length > 0) {
         html += `<div style="margin-bottom: 14px;">
-            <div style="font-weight: 700; color: #38bdf8; font-size: 0.9rem; margin-bottom: 6px;">📊 Puan Aritmetik Uyuşmazliklari (${report.scoreMismatches.length})</div>
+            <div style="font-weight: 700; color: #38bdf8; font-size: 0.9rem; margin-bottom: 6px;">📊 Puan Aritmetik Uyuşmazlıkları (${report.scoreMismatches.length})</div>
             ${report.scoreMismatches.map(s => `
                 <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
-                    <strong>${s.staffName}</strong>: Kayitli: ${s.recorded} P, Hesaplanan: ${s.computed} P (Fark: ${s.diff} P)
+                    <strong>${s.staffName}</strong>: Kayıtlı: ${s.recorded} P, Hesaplanan: ${s.computed} P (Fark: ${s.diff} P)
                 </div>
             `).join('')}
         </div>`;
@@ -12382,9 +12335,9 @@ window.runDataHealthCheck = function() {
         html = `
             <div style="text-align: center; padding: 2rem 1rem;">
                 <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
-                <h4 style="color: #10b981; font-size: 1.1rem; margin-bottom: 0.5rem;">Veri Tabani %100 Sağlikli ve Kusursuz!</h4>
+                <h4 style="color: #10b981; font-size: 1.1rem; margin-bottom: 0.5rem;">Veri Tabanı %100 Sağlıklı ve Kusursuz!</h4>
                 <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 480px; margin: 0 auto; line-height: 1.5;">
-                    Tüm puanlar matematiksel olarak doğrulanmiş, mükerrer sinav kaydi bulunmamiş ve çakişma tespit edilmemiştir.
+                    Tüm puanlar matematiksel olarak doğrulanmış, mükerrer sınav kaydı bulunmamış ve çakışma tespit edilmemiştir.
                 </p>
             </div>
         `;
@@ -12395,7 +12348,7 @@ window.runDataHealthCheck = function() {
 
 window.handleAutoFixIntegrity = function() {
     const btn = document.getElementById('btn-fix-integrity');
-    if (btn) { btn.disabled = true; btn.textContent = 'Onariliyor...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Onarılıyor...'; }
     
     setTimeout(() => {
         if (typeof fixDatabaseIntegrity === 'function') {
@@ -12404,7 +12357,7 @@ window.handleAutoFixIntegrity = function() {
             if (typeof renderStaff === 'function') renderStaff();
             if (typeof renderSchedule === 'function') renderSchedule();
             if (typeof showToast === 'function') {
-                showToast(`✅ Sistem bütünlüğü başariyla onarildi (Sağlik: %${result.healthScore})`, 'success');
+                showToast(`✅ Sistem bütünlüğü başarıyla onarıldı (Sağlık: %${result.healthScore})`, 'success');
             }
         }
         if (btn) { btn.disabled = false; btn.textContent = '⚡ Otomatik Onar & Senkronize Et'; }
@@ -12415,7 +12368,7 @@ window.handleAutoFixIntegrity = function() {
 // 📅 GOOGLE / APPLE TAKVİM (.ICS) ENTEGRASYONU
 // ==========================================
 
-function generateICalContent(exams, calendarName = "Sinav Görevleri") {
+function generateICalContent(exams, calendarName = "Sınav Görevleri") {
     let ics = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -12453,7 +12406,7 @@ function generateICalContent(exams, calendarName = "Sinav Görevleri") {
         const emin = String(endDate.getMinutes()).padStart(2, '0');
         const endStr = `${ey}${em}${ed}T${eh}${emin}00`;
 
-        const summary = `${ex.name || 'Sinav'} Gözetmenliği`;
+        const summary = `${ex.name || 'Sınav'} Gözetmenliği`;
         const location = ex.location || 'Belirtilmedi';
         const description = `Ders: ${ex.name}\\nÖğretim Üyesi: ${ex.lecturer || '-'}\\nDerslik: ${location}\\nSüre: ${dur} dk\\nMevcut: ${ex.capacity || '-'}`;
         const uid = `gtu-exam-${ex.id || idx}-${y}${m}${d}-${sh}${sm}@gtu.edu.tr`;
@@ -12471,7 +12424,7 @@ function generateICalContent(exams, calendarName = "Sinav Görevleri") {
             "BEGIN:VALARM",
             "TRIGGER:-PT30M",
             "ACTION:DISPLAY",
-            "DESCRIPTION:Sinav görevine 30 dakika kaldi",
+            "DESCRIPTION:Sınav görevine 30 dakika kaldı",
             "END:VALARM",
             "END:VEVENT"
         );
@@ -12506,14 +12459,14 @@ window.exportMyExamsToICal = function() {
     });
 
     if (myExams.length === 0) {
-        showToast('Takvime aktarilacak aktif sinav göreviniz bulunmuyor.', 'info');
+        showToast('Takvime aktarılacak aktif sınav göreviniz bulunmuyor.', 'info');
         return;
     }
 
     const name = staff ? staff.name : 'Gozetmen';
-    const icsData = generateICalContent(myExams, `${name} Sinav Görevleri`);
+    const icsData = generateICalContent(myExams, `${name} Sınav Görevleri`);
     downloadICalFile(icsData, `${name.replace(/\s+/g,'_')}_Sinav_Gorevleri.ics`);
-    showToast(`📅 ${myExams.length} sinav görevi takvim (.ics) dosyasi olarak indirildi!`, 'success');
+    showToast(`📅 ${myExams.length} sınav görevi takvim (.ics) dosyası olarak indirildi!`, 'success');
 };
 
 window.exportStaffExamsToICal = function(staffName) {
@@ -12526,25 +12479,25 @@ window.exportStaffExamsToICal = function(staffName) {
     });
 
     if (staffExams.length === 0) {
-        showToast(`${staffName} için sinav görevi bulunamadi.`, 'info');
+        showToast(`${staffName} için sınav görevi bulunamadı.`, 'info');
         return;
     }
 
-    const icsData = generateICalContent(staffExams, `${staffName} Sinav Programi`);
+    const icsData = generateICalContent(staffExams, `${staffName} Sınav Programı`);
     downloadICalFile(icsData, `${staffName.replace(/\s+/g,'_')}_Sinavlar.ics`);
-    showToast(`📅 ${staffName} için takvim (.ics) dosyasi indirildi!`, 'success');
+    showToast(`📅 ${staffName} için takvim (.ics) dosyası indirildi!`, 'success');
 };
 
 window.exportAllExamsToICal = function() {
     const allExams = DB.exams || [];
     if (allExams.length === 0) {
-        showToast('İndirilecek sinav bulunamadi.', 'warning');
+        showToast('İndirilecek sınav bulunamadı.', 'warning');
         return;
     }
 
-    const icsData = generateICalContent(allExams, "GTÜ Bölüm Sinav Programi");
+    const icsData = generateICalContent(allExams, "GTÜ Bölüm Sınav Programı");
     downloadICalFile(icsData, `Genel_Sinav_Programi_${new Date().toISOString().split('T')[0]}.ics`);
-    showToast(`📅 Toplam ${allExams.length} sinav takvim (.ics) dosyasi olarak indirildi!`, 'success');
+    showToast(`📅 Toplam ${allExams.length} sınav takvim (.ics) dosyası olarak indirildi!`, 'success');
 };
 
 // =======================================================
@@ -12636,7 +12589,7 @@ window.renderDekanlikReportData = function() {
     if (elStaff) elStaff.textContent = totalStaffCount;
     if (elExams) elExams.textContent = totalAssignments;
     if (elHours) elHours.textContent = `${totalHours} Saat`;
-    if (elAvg) elAvg.textContent = `${avgTasks} Sinav / Kişi`;
+    if (elAvg) elAvg.textContent = `${avgTasks} Sınav / Kişi`;
 };
 
 window.exportDekanlikReportExcel = function() {
@@ -12649,13 +12602,13 @@ window.exportDekanlikReportExcel = function() {
     const staffList = (DB.staff || []).slice().sort((a,b) => a.name.localeCompare(b.name, 'tr'));
 
     const headers = [
-        "Sira No",
+        "Sıra No",
         "Personel Unvan & Ad Soyad",
         "E-posta",
-        "Sinav Görevi Sayisi",
+        "Sınav Görevi Sayısı",
         "Toplam Görev Süresi (Saat)",
         "Taban Puan",
-        "Sinav Katsayi Puani",
+        "Sınav Katsayı Puanı",
         "Genel Toplam Puan",
         "Müsaitlik Esneklik Skoru (%)"
     ];
@@ -12720,18 +12673,18 @@ window.exportDekanlikReportExcel = function() {
         { wch: 8 },  // No
         { wch: 30 }, // Ad Soyad
         { wch: 28 }, // Eposta
-        { wch: 20 }, // Sinav Sayisi
+        { wch: 20 }, // Sınav Sayısı
         { wch: 25 }, // Toplam Süre
         { wch: 14 }, // Taban Puan
-        { wch: 18 }, // Sinav Puani
+        { wch: 18 }, // Sınav Puanı
         { wch: 18 }, // Genel Toplam
         { wch: 25 }  // Esneklik
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Dekanlik İcmal Raporu');
+    XLSX.utils.book_append_sheet(wb, ws, 'Dekanlık İcmal Raporu');
     XLSX.writeFile(wb, `Dekanlik_Donem_Sonu_Icmal_Raporu_${new Date().toISOString().split('T')[0]}.xlsx`);
-    showToast('📊 Dekanlik İcmal Raporu Excel olarak indirildi!', 'success');
+    showToast('📊 Dekanlık İcmal Raporu Excel olarak indirildi!', 'success');
 };
 
 window.printDekanlikReportPDF = function() {
@@ -12787,7 +12740,7 @@ window.printDekanlikReportPDF = function() {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Dönem Sonu Sinav İcmal Raporu - GTÜ</title>
+            <title>Dönem Sonu Sınav İcmal Raporu - GTÜ</title>
             <style>
                 body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #111; }
                 .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 16px; }
@@ -12817,7 +12770,7 @@ window.printDekanlikReportPDF = function() {
                 <div><strong>Toplam Personel:</strong> ${staffList.length}</div>
                 <div><strong>Toplam Görevlendirme:</strong> ${totalAssignments} Adet</div>
                 <div><strong>Toplam Gözetmenlik Süresi:</strong> ${totalHours} Saat</div>
-                <div><strong>Ortalama Görev / Asistan:</strong> ${avgTasks} Sinav</div>
+                <div><strong>Ortalama Görev / Asistan:</strong> ${avgTasks} Sınav</div>
             </div>
 
             <table>
@@ -12826,10 +12779,10 @@ window.printDekanlikReportPDF = function() {
                         <th style="width:30px;">No</th>
                         <th style="text-align:left;">Personel Unvan & Ad Soyad</th>
                         <th>E-posta</th>
-                        <th>Sinav Sayisi</th>
+                        <th>Sınav Sayısı</th>
                         <th>Toplam Süre</th>
                         <th>Taban Puan</th>
-                        <th>Sinav Puani</th>
+                        <th>Sınav Puanı</th>
                         <th>Genel Toplam</th>
                         <th>Esneklik</th>
                     </tr>
@@ -12841,17 +12794,17 @@ window.printDekanlikReportPDF = function() {
 
             <div class="signatures">
                 <div class="sig-box">
-                    <div style="font-weight:700;">Hazirlayan / Koordinatör</div>
+                    <div style="font-weight:700;">Hazırlayan / Koordinatör</div>
                     <div class="sig-line"></div>
                     <div style="font-size:12px; color:#555;">İmza / Tarih</div>
                 </div>
                 <div class="sig-box">
-                    <div style="font-weight:700;">Bölüm Başkani Onayi</div>
+                    <div style="font-weight:700;">Bölüm Başkanı Onayı</div>
                     <div class="sig-line"></div>
                     <div style="font-size:12px; color:#555;">İmza / Mühür</div>
                 </div>
                 <div class="sig-box">
-                    <div style="font-weight:700;">Dekanlik Tasdiki</div>
+                    <div style="font-weight:700;">Dekanlık Tasdiki</div>
                     <div class="sig-line"></div>
                     <div style="font-size:12px; color:#555;">İmza / Mühür</div>
                 </div>
@@ -12883,7 +12836,7 @@ window.openTomorrowReminderModal = function() {
     const modal = document.getElementById('modal-reminder-tomorrow');
     if (!modal) return;
     
-    // Varsayilan: Yarinin tarihi
+    // Varsayılan: Yarının tarihi
     const tomorrow = new Date(Date.now() + 86400000);
     const dateStr = tomorrow.toISOString().split('T')[0];
     const dateInput = document.getElementById('reminder-target-date');
@@ -12914,10 +12867,10 @@ window.renderTomorrowReminderData = function() {
     
     if (!targetDate || !tbody) return;
 
-    // Seçilen tarihteki sinavlar
+    // Seçilen tarihteki sınavlar
     const examsOnDate = (DB.exams || []).filter(e => e.date === targetDate);
     
-    // Görevli bazli gruplama
+    // Görevli bazlı gruplama
     const staffDutyMap = new Map(); // staffId -> { staff, exams: [] }
     examsOnDate.forEach(exam => {
         const pIds = (exam.proctorIds && exam.proctorIds.length > 0) ? exam.proctorIds : (exam.proctorId ? [exam.proctorId] : []);
@@ -12934,14 +12887,14 @@ window.renderTomorrowReminderData = function() {
 
     const totalStaffCount = staffDutyMap.size;
     if (badge) {
-        badge.innerHTML = `📋 <strong>${examsOnDate.length}</strong> Sinav &nbsp;|&nbsp; 👥 <strong>${totalStaffCount}</strong> Görevli Personel`;
+        badge.innerHTML = `📋 <strong>${examsOnDate.length}</strong> Sınav &nbsp;|&nbsp; 👥 <strong>${totalStaffCount}</strong> Görevli Personel`;
     }
 
     if (totalStaffCount === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="4" style="text-align: center; color: #94a3b8; padding: 30px;">
-                    📅 <strong>${targetDate}</strong> tarihinde planlanmiş herhangi bir gözetmenlik görevi bulunamadi.
+                    📅 <strong>${targetDate}</strong> tarihinde planlanmış herhangi bir gözetmenlik görevi bulunamadı.
                 </td>
             </tr>
         `;
@@ -12980,7 +12933,7 @@ window.renderTomorrowReminderData = function() {
                     </div>
                     <div style="margin-top: 4px; text-align: right;">
                         <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 2px 8px; background: rgba(2,132,199,0.15); color: #38bdf8; border-color: rgba(2,132,199,0.3);" onclick="window.sendSingleStaffReminderOutlook(${s.id}, '${targetDate}')">
-                            ✉️ Bireysel Outlook Taslaği Aç
+                            ✉️ Bireysel Outlook Taslağı Aç
                         </button>
                     </div>
                 </td>
@@ -13020,7 +12973,7 @@ window.sendSingleStaffReminderOutlook = function(staffId, targetDate) {
     });
 
     if (examsOnDate.length === 0) {
-        alert("Bu personele ait seçilen tarihte görev bulunamadi.");
+        alert("Bu personele ait seçilen tarihte görev bulunamadı.");
         return;
     }
 
@@ -13032,22 +12985,22 @@ window.sendSingleStaffReminderOutlook = function(staffId, targetDate) {
         dutiesText += `${idx + 1}. Saat: ${e.time} | Ders: ${e.name} | Derslik: ${e.location || 'Derslik Belirtilmedi'} | Süre: ${e.duration || 60} dk\n`;
     });
 
-    const subject = encodeURIComponent(`⏰ Sinav Görevi Hatirlatmasi (${formattedDate}) - Gebze Teknik Üniversitesi`);
+    const subject = encodeURIComponent(`⏰ Sınav Görevi Hatırlatması (${formattedDate}) - Gebze Teknik Üniversitesi`);
     const body = encodeURIComponent(
-`Sayin ${staff.name},
+`Sayın ${staff.name},
 
-${formattedDate} tarihinde Üniversitemizde görevli olduğunuz sinav(lar) aşağida bilgilerinize sunulmuştur:
+${formattedDate} tarihinde Üniversitemizde görevli olduğunuz sınav(lar) aşağıda bilgilerinize sunulmuştur:
 
 ${dutiesText}
 ⚠️ ÖNEMLİ NOTLAR:
-1. Sinav salonunda sinav başlama saatinden en az 15 dakika önce hazir bulunmaniz ve sinav tutanaklarini teslim almaniz rica olunur.
-2. Kişisel sinav takviminize, mazeret bildirimlerinize ve gözetmenlik portalina aşağidaki bağlantidan doğrudan erişebilirsiniz:
-👉 Sinav Sistemi: ${siteUrl}
+1. Sınav salonunda sınav başlama saatinden en az 15 dakika önce hazır bulunmanız ve sınav tutanaklarını teslim almanız rica olunur.
+2. Kişisel sınav takviminize, mazeret bildirimlerinize ve gözetmenlik portalına aşağıdaki bağlantıdan doğrudan erişebilirsiniz:
+👉 Sınav Sistemi: ${siteUrl}
 
-İyi çalişmalar ve başarilar dileriz.
+İyi çalışmalar ve başarılar dileriz.
 
 Gebze Teknik Üniversitesi
-Sinav ve Gözetmenlik Koordinatörlüğü`
+Sınav ve Gözetmenlik Koordinatörlüğü`
     );
 
     const mailtoUrl = `mailto:${staff.email || ''}?subject=${subject}&body=${body}`;
@@ -13060,7 +13013,7 @@ window.sendTomorrowRemindersViaOutlook = function() {
 
     const checkedBoxes = Array.from(document.querySelectorAll('.reminder-staff-check:checked'));
     if (checkedBoxes.length === 0) {
-        alert("Lütfen hatirlatma göndermek istediğiniz en az bir personeli seçin.");
+        alert("Lütfen hatırlatma göndermek istediğiniz en az bir personeli seçin.");
         return;
     }
 
@@ -13076,21 +13029,21 @@ window.sendTomorrowRemindersViaOutlook = function() {
     const siteUrl = getSystemUrl();
     const formattedDate = new Date(targetDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    const subject = encodeURIComponent(`⏰ Sinav Görevi Hatirlatmasi (${formattedDate}) - GTÜ`);
+    const subject = encodeURIComponent(`⏰ Sınav Görevi Hatırlatması (${formattedDate}) - GTÜ`);
     const bodyText = 
-`Sayin Hocalarimiz ve Araştirma Görevlilerimiz,
+`Sayın Hocalarımız ve Araştırma Görevlilerimiz,
 
-${formattedDate} tarihinde gerçekleştirilecek sinavlarda gözetmenlik göreviniz bulunmaktadir.
+${formattedDate} tarihinde gerçekleştirilecek sınavlarda gözetmenlik göreviniz bulunmaktadır.
 
-Lütfen sinav başlama saatinden en az 15 dakika önce ilgili sinav salonunda hazir bulunarak sinav tutanaklarini teslim aliniz.
+Lütfen sınav başlama saatinden en az 15 dakika önce ilgili sınav salonunda hazır bulunarak sınav tutanaklarını teslim alınız.
 
-Detayli kişisel sinav takviminize, görevli olduğunuz salonlara ve takas taleplerine aşağidaki bağlanti üzerinden erişebilirsiniz:
-👉 Sinav Portali: ${siteUrl}
+Detaylı kişisel sınav takviminize, görevli olduğunuz salonlara ve takas taleplerine aşağıdaki bağlantı üzerinden erişebilirsiniz:
+👉 Sınav Portalı: ${siteUrl}
 
-İyi çalişmalar dileriz.
+İyi çalışmalar dileriz.
 
 Gebze Teknik Üniversitesi
-Sinav Koordinatörlüğü`;
+Sınav Koordinatörlüğü`;
 
     if (navigator.clipboard) {
         navigator.clipboard.writeText(bodyText).catch(() => {});
@@ -13101,7 +13054,7 @@ Sinav Koordinatörlüğü`;
     const mailtoUrl = `mailto:?bcc=${bccList}&subject=${subject}&body=${body}`;
 
     if (typeof showToast === 'function') {
-        showToast(`📬 ${emails.length} personel için Outlook taslaği açiliyor... Metin panoya kopyalandi.`, 'success');
+        showToast(`📬 ${emails.length} personel için Outlook taslağı açılıyor... Metin panoya kopyalandı.`, 'success');
     }
 
     window.location.href = mailtoUrl;
@@ -13113,13 +13066,13 @@ window.sendTomorrowRemindersViaEmail = async function() {
 
     const checkedBoxes = Array.from(document.querySelectorAll('.reminder-staff-check:checked'));
     if (checkedBoxes.length === 0) {
-        alert("Lütfen hatirlatma göndermek istediğiniz en az bir personeli seçin.");
+        alert("Lütfen hatırlatma göndermek istediğiniz en az bir personeli seçin.");
         return;
     }
 
     const emailSettings = DB.emailSettings || {};
     if (!emailSettings.enabled) {
-        if (confirm("⚠️ Otomatik E-posta Servisi (EmailJS/SMTP) henüz aktif edilmemiş.\n\nOutlook üzerinden toplu mail taslaği açmak ister misiniz?")) {
+        if (confirm("⚠️ Otomatik E-posta Servisi (EmailJS/SMTP) henüz aktif edilmemiş.\n\nOutlook üzerinden toplu mail taslağı açmak ister misiniz?")) {
             window.sendTomorrowRemindersViaOutlook();
         }
         return;
@@ -13148,18 +13101,18 @@ window.sendTomorrowRemindersViaEmail = async function() {
         let dutyLines = exams.map(e => `• ${e.time} - ${e.name} (${e.location || 'Derslik Belirtilmedi'})`).join('\n');
 
         const message = 
-`Sayin ${staff.name},
+`Sayın ${staff.name},
 
-${formattedDate} tarihindeki sinav görevi hatirlatmaniz:
+${formattedDate} tarihindeki sınav görevi hatırlatmanız:
 ${dutyLines}
 
-Sinav portalina erişmek ve takviminizi incelemek için: ${siteUrl}`;
+Sınav portalına erişmek ve takviminizi incelemek için: ${siteUrl}`;
 
         if (typeof sendSwapNotificationEmail === 'function') {
             const res = await sendSwapNotificationEmail({
                 toStaffId: staff.id,
                 toEmail: staff.email,
-                subject: `⏰ Sinav Görevi Hatirlatmasi (${formattedDate})`,
+                subject: `⏰ Sınav Görevi Hatırlatması (${formattedDate})`,
                 body: message,
                 templateParams: {
                     to_name: staff.name,
@@ -13172,9 +13125,9 @@ Sinav portalina erişmek ve takviminizi incelemek için: ${siteUrl}`;
     }
 
     if (typeof showToast === 'function') {
-        showToast(`✅ ${successCount} personele hatirlatma gönderildi.${failCount > 0 ? ` (${failCount} e-posta iletilemedi)` : ''}`, 'success');
+        showToast(`✅ ${successCount} personele hatırlatma gönderildi.${failCount > 0 ? ` (${failCount} e-posta iletilemedi)` : ''}`, 'success');
     } else {
-        alert(`✅ ${successCount} personele hatirlatma e-postasi başariyla gönderildi.`);
+        alert(`✅ ${successCount} personele hatırlatma e-postası başarıyla gönderildi.`);
     }
 };
 
@@ -13184,7 +13137,7 @@ window.sendTomorrowRemindersViaWebhook = async function() {
 
     const examsOnDate = (DB.exams || []).filter(e => e.date === targetDate);
     if (examsOnDate.length === 0) {
-        alert("Seçilen tarihte duyurulacak herhangi bir sinav bulunamadi.");
+        alert("Seçilen tarihte duyurulacak herhangi bir sınav bulunamadı.");
         return;
     }
 
@@ -13197,7 +13150,7 @@ window.sendTomorrowRemindersViaWebhook = async function() {
                 const st = (DB.staff || []).find(s => String(s.id) === String(id));
                 return st ? st.name : 'Bilinmeyen';
             }).join(', ')
-            : (e.proctorName || 'Atanmadi');
+            : (e.proctorName || 'Atanmadı');
 
         return {
             name: `📚 ${e.time} | ${e.name}`,
@@ -13208,8 +13161,8 @@ window.sendTomorrowRemindersViaWebhook = async function() {
 
     if (typeof sendWebhookNotification === 'function') {
         const res = await sendWebhookNotification({
-            title: `⏰ Sinav Hatirlatmasi: ${formattedDate}`,
-            description: `Yarin gerçekleşecek olan toplam **${examsOnDate.length}** sinavin gözetmenlik ve salon görev dağilimi:`,
+            title: `⏰ Sınav Hatırlatması: ${formattedDate}`,
+            description: `Yarın gerçekleşecek olan toplam **${examsOnDate.length}** sınavın gözetmenlik ve salon görev dağılımı:`,
             fields: fields,
             color: 0xf59e0b,
             eventType: 'exam_reminder'
@@ -13217,15 +13170,15 @@ window.sendTomorrowRemindersViaWebhook = async function() {
 
         if (res.success) {
             if (typeof showToast === 'function') {
-                showToast("📢 Webhook sinav hatirlatmasi başariyla paylaşildi!", "success");
+                showToast("📢 Webhook sınav hatırlatması başarıyla paylaşıldı!", "success");
             } else {
-                alert("✓ Webhook bildirimi başariyla gönderildi!");
+                alert("✓ Webhook bildirimi başarıyla gönderildi!");
             }
         } else {
-            alert("⚠️ Webhook gönderilemedi: " + (res.reason || res.error || 'Ayarlari kontrol edin'));
+            alert("⚠️ Webhook gönderilemedi: " + (res.reason || res.error || 'Ayarları kontrol edin'));
         }
     } else {
-        alert("Webhook modülü bulunamadi.");
+        alert("Webhook modülü bulunamadı.");
     }
 };
 
@@ -13240,7 +13193,7 @@ window.openFairnessSimulatorModal = function() {
     
     window.renderFairnessMetricsUI();
     
-    // Simülasyon sonuç kutularini sifirla
+    // Simülasyon sonuç kutularını sıfırla
     const resBox = document.getElementById('fairness-sim-results-box');
     const applyBtn = document.getElementById('btn-apply-fairness-sim');
     const applyNote = document.getElementById('sim-apply-note');
@@ -13252,7 +13205,7 @@ window.openFairnessSimulatorModal = function() {
     if (swapsCont) {
         swapsCont.innerHTML = `
             <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 30px 10px;">
-                ⚡ <strong>"Simülasyon Çaliştir"</strong> butonuna basarak kisit, çakişma ve cuma kurallarini bozmadan adaleti en üst seviyeye çikaracak akilli görev transfer önerilerini görebilirsiniz.
+                ⚡ <strong>"Simülasyon Çalıştır"</strong> butonuna basarak kısıt, çakışma ve cuma kurallarını bozmadan adaleti en üst seviyeye çıkaracak akıllı görev transfer önerilerini görebilirsiniz.
             </div>
         `;
     }
@@ -13265,18 +13218,18 @@ window.renderFairnessMetricsUI = function() {
     
     const stats = calculateFairnessMetrics(DB.staff || []);
     
-    // Gini Karti
+    // Gini Kartı
     const giniEl = document.getElementById('fairness-stat-gini');
     const giniLabel = document.getElementById('fairness-stat-gini-label');
     if (giniEl) giniEl.textContent = stats.gini.toFixed(4);
     if (giniLabel) {
-        if (stats.gini < 0.15) giniLabel.textContent = "🌟 Mükemmele Yakin Eşit Dağilim";
-        else if (stats.gini < 0.25) giniLabel.textContent = "👍 Çok İyi ve Dengeli Dağilim";
-        else if (stats.gini < 0.35) giniLabel.textContent = "⚖️ Kabul Edilebilir Dağilim";
+        if (stats.gini < 0.15) giniLabel.textContent = "🌟 Mükemmele Yakın Eşit Dağılım";
+        else if (stats.gini < 0.25) giniLabel.textContent = "👍 Çok İyi ve Dengeli Dağılım";
+        else if (stats.gini < 0.35) giniLabel.textContent = "⚖️ Kabul Edilebilir Dağılım";
         else giniLabel.textContent = "⚠️ Eşitsizlik Var (Dengeleme Önerilir)";
     }
 
-    // Skor Karti
+    // Skor Kartı
     const scoreEl = document.getElementById('fairness-stat-score');
     if (scoreEl) {
         scoreEl.textContent = `%${stats.fairnessScore}`;
@@ -13285,13 +13238,13 @@ window.renderFairnessMetricsUI = function() {
         else scoreEl.style.color = '#ef4444';
     }
 
-    // Standart Sapma Karti
+    // Standart Sapma Kartı
     const stdEl = document.getElementById('fairness-stat-stddev');
     const avgEl = document.getElementById('fairness-stat-avg');
     if (stdEl) stdEl.textContent = `${stats.stdDev} P.`;
     if (avgEl) avgEl.textContent = `Ortalama: ${stats.avg} Puan`;
 
-    // Makas Karti
+    // Makas Kartı
     const rangeEl = document.getElementById('fairness-stat-range');
     const minmaxEl = document.getElementById('fairness-stat-minmax');
     if (rangeEl) rangeEl.textContent = `${stats.scoreRange} P.`;
@@ -13301,7 +13254,7 @@ window.renderFairnessMetricsUI = function() {
     const benchAvg = document.getElementById('fairness-benchmark-avg');
     if (benchAvg) benchAvg.textContent = `Hedef Ortalama: ${stats.avg} P.`;
 
-    // Dağilim Çubuk Grafiği
+    // Dağılım Çubuk Grafiği
     const barsContainer = document.getElementById('fairness-bars-container');
     if (!barsContainer) return;
 
@@ -13372,7 +13325,7 @@ window.runFairnessRebalanceSimulation = function() {
         swapsCont.innerHTML = `
             <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 18px; text-align: center; color: #6ee7b7; font-size: 0.85rem;">
                 🎉 <strong>Tebrikler!</strong><br>
-                Mevcut kisit ve çakişma kurallari dahilinde sistem şu anda en adil ve optimal seviyededir. İlave transfer gerekmemektedir.
+                Mevcut kısıt ve çakışma kuralları dahilinde sistem şu anda en adil ve optimal seviyededir. İlave transfer gerekmemektedir.
             </div>
         `;
         if (applyBtn) applyBtn.classList.add('hidden');
@@ -13380,7 +13333,7 @@ window.runFairnessRebalanceSimulation = function() {
         return;
     }
 
-    let swapsHtml = `<div style="font-size: 0.8rem; color: #a5b4fc; font-weight: 600; margin-bottom: 8px;">💡 Yapay Zeka Tarafindan Önerilen ${simResult.proposedSwaps.length} Görev Transferi:</div>`;
+    let swapsHtml = `<div style="font-size: 0.8rem; color: #a5b4fc; font-weight: 600; margin-bottom: 8px;">💡 Yapay Zeka Tarafından Önerilen ${simResult.proposedSwaps.length} Görev Transferi:</div>`;
     
     simResult.proposedSwaps.forEach((swap, idx) => {
         swapsHtml += `
@@ -13421,7 +13374,7 @@ window.applyFairnessSimulationResults = async function() {
         return;
     }
 
-    if (!confirm(`⚠️ Önerilen ${simResult.proposedSwaps.length} adet görev transferi onaylanarak sinav programina işlenecek ve sistem adalet skoru yükseltilecektir.\n\nOnayliyor musunuz?`)) {
+    if (!confirm(`⚠️ Önerilen ${simResult.proposedSwaps.length} adet görev transferi onaylanarak sınav programına işlenecek ve sistem adalet skoru yükseltilecektir.\n\nOnaylıyor musunuz?`)) {
         return;
     }
 
@@ -13440,7 +13393,7 @@ window.applyFairnessSimulationResults = async function() {
         }
     });
 
-    // 3. Personel puanlarini yeniden hesapla
+    // 3. Personel puanlarını yeniden hesapla
     if (typeof calculateAllStaffScores === 'function') {
         calculateAllStaffScores();
     } else {
@@ -13462,7 +13415,7 @@ window.applyFairnessSimulationResults = async function() {
         try { await saveToBackend(); } catch(e) {}
     }
 
-    // 5. Ekranlari tazele
+    // 5. Ekranları tazele
     if (typeof renderExams === 'function') renderExams();
     if (typeof renderStaff === 'function') renderStaff();
     if (typeof renderSchedule === 'function') renderSchedule();
@@ -13475,7 +13428,7 @@ window.applyFairnessSimulationResults = async function() {
     if (swapsCont) {
         swapsCont.innerHTML = `
             <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 18px; text-align: center; color: #6ee7b7; font-size: 0.85rem;">
-                ✅ <strong>Başarili!</strong><br>
+                ✅ <strong>Başarılı!</strong><br>
                 ${simResult.proposedSwaps.length} adet görev transferi programa işlendi. Adalet skoru <strong>%${simResult.after.fairnessScore}</strong> seviyesine yükseltildi.
             </div>
         `;
@@ -13487,15 +13440,15 @@ window.applyFairnessSimulationResults = async function() {
     if (applyNote) applyNote.classList.add('hidden');
 
     if (typeof showToast === 'function') {
-        showToast(`🌟 ${simResult.proposedSwaps.length} görev transferiyle adalet puani %${simResult.after.fairnessScore}'a çikarildi!`, 'success');
+        showToast(`🌟 ${simResult.proposedSwaps.length} görev transferiyle adalet puanı %${simResult.after.fairnessScore}'a çıkarıldı!`, 'success');
     } else {
-        alert(`✓ ${simResult.proposedSwaps.length} görev transferi başariyla uygulandi!`);
+        alert(`✓ ${simResult.proposedSwaps.length} görev transferi başarıyla uygulandı!`);
     }
 };
 
 // =============================================================
-//  ⚡ VİZE / FİNAL SİHİRBAZI — Toplu Sinav Dönemi Planlayici
-//  Katalogdaki 127 dersi filtreleyip toplu sinav oluşturur.
+//  ⚡ VİZE / FİNAL SİHİRBAZI — Toplu Sınav Dönemi Planlayıcı
+//  Katalogdaki 127 dersi filtreleyip toplu sınav oluşturur.
 // =============================================================
 
 window._batchPlannerFilter = 'all';
@@ -13503,7 +13456,7 @@ window._batchPlannerSearch = '';
 window._batchPlannerData = []; // filtrelenmiş katalog
 
 /**
- * Sihirbaz modalini açar ve listeyi başlangiç durumuna getirir.
+ * Sihirbaz modalını açar ve listeyi başlangıç durumuna getirir.
  */
 window.openBatchExamPlanner = function() {
     const modal = document.getElementById('modal-batch-exam-planner');
@@ -13512,7 +13465,7 @@ window.openBatchExamPlanner = function() {
     window._batchPlannerFilter = 'all';
     window._batchPlannerSearch = '';
 
-    // Filtre sekmelerini sifirla
+    // Filtre sekmelerini sıfırla
     const tabs = document.querySelectorAll('#batch-planner-year-tabs .tab-btn');
     tabs.forEach((btn, i) => { btn.classList.toggle('active', i === 0); });
 
@@ -13520,7 +13473,7 @@ window.openBatchExamPlanner = function() {
     const searchEl = document.getElementById('batch-planner-search');
     if (searchEl) searchEl.value = '';
 
-    // Varsayilan sinav türünü katalog tipinden belirle (DB.examTypes varsa ilk siradaki)
+    // Varsayılan sınav türünü katalog tipinden belirle (DB.examTypes varsa ilk sıradaki)
     const typeSelect = document.getElementById('batch-default-type');
     if (typeSelect && DB.examTypes && DB.examTypes.length) {
         typeSelect.innerHTML = DB.examTypes.map(t => `<option>${t}</option>`).join('');
@@ -13532,7 +13485,7 @@ window.openBatchExamPlanner = function() {
 };
 
 /**
- * Sihirbaz modalini kapatir.
+ * Sihirbaz modalını kapatır.
  */
 window.closeBatchExamPlanner = function() {
     const modal = document.getElementById('modal-batch-exam-planner');
@@ -13541,7 +13494,7 @@ window.closeBatchExamPlanner = function() {
 };
 
 /**
- * Yil / Düzey filtresi ve arama sorgusuna göre ders listesini render eder.
+ * Yıl / Düzey filtresi ve arama sorgusuna göre ders listesini render eder.
  */
 window.renderBatchPlannerList = function(yearFilter, searchQuery) {
     const container = document.getElementById('batch-planner-list');
@@ -13575,11 +13528,11 @@ window.renderBatchPlannerList = function(yearFilter, searchQuery) {
     window._batchPlannerData = filtered;
     if (countEl) countEl.textContent = filtered.length;
 
-    // Mevcut sinavlari referans al (mükerrerlik uyarisi için)
+    // Mevcut sınavları referans al (mükerrerlik uyarısı için)
     const existingExamNames = new Set((DB.exams || []).map(e => (e.name || '').toLowerCase()));
 
     if (filtered.length === 0) {
-        container.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text-muted);">Filtreyle eşleşen ders bulunamadi.</div>`;
+        container.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text-muted);">Filtreyle eşleşen ders bulunamadı.</div>`;
         if (selectedCountEl) selectedCountEl.textContent = '0';
         return;
     }
@@ -13589,13 +13542,13 @@ window.renderBatchPlannerList = function(yearFilter, searchQuery) {
         const isDuplicate = [...existingExamNames].some(en => en.includes(c.code.toLowerCase()) || en.includes(c.name.toLowerCase()));
         const yearBadgeMap = { 1: '#3b82f6', 2: '#8b5cf6', 3: '#10b981', 4: '#f59e0b', 'Lisansüstü': '#ec4899', 'Servis': '#06b6d4' };
         const yearBadgeColor = yearBadgeMap[c.year] || '#94a3b8';
-        const yearLabel = c.year === 'Lisansüstü' ? 'Lisansüstü' : c.year === 'Servis' ? 'Servis' : `${c.year}. Sinif`;
+        const yearLabel = c.year === 'Lisansüstü' ? 'Lisansüstü' : c.year === 'Servis' ? 'Servis' : `${c.year}. Sınıf`;
 
         return `<div class="batch-course-row" data-idx="${idx}" style="display:grid;grid-template-columns:auto 1fr auto auto auto auto auto auto;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:${idx % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent'};min-height:44px;transition:background 0.15s;" onmouseover="this.style.background='rgba(99,102,241,0.07)'" onmouseout="this.style.background='${idx % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent'}'">
             <input type="checkbox" class="batch-course-check" data-idx="${idx}" onchange="updateBatchSelectedCount()"
                 style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0;">
             <div style="min-width:0;">
-                ${isDuplicate ? '<span title="Bu ders için sistemde zaten sinav mevcut" style="color:#f59e0b;margin-right:4px;font-size:0.9rem;">⚠️</span>' : ''}
+                ${isDuplicate ? '<span title="Bu ders için sistemde zaten sınav mevcut" style="color:#f59e0b;margin-right:4px;font-size:0.9rem;">⚠️</span>' : ''}
                 <span style="font-weight:600;font-size:0.85rem;color:white;">${c.code}</span>
                 <span style="color:var(--text-muted);font-size:0.8rem;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;display:inline-block;vertical-align:middle;">${c.name}</span>
                 <span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:4px;font-size:0.7rem;font-weight:700;background:${yearBadgeColor}22;color:${yearBadgeColor};border:1px solid ${yearBadgeColor}44;">${yearLabel}</span>
@@ -13618,7 +13571,7 @@ window.renderBatchPlannerList = function(yearFilter, searchQuery) {
 };
 
 /**
- * Filtre sekmesi değiştirildiğinde çağrilir.
+ * Filtre sekmesi değiştirildiğinde çağrılır.
  */
 window.filterBatchPlanner = function(yearFilter, btnEl, searchOverride) {
     window._batchPlannerFilter = yearFilter;
@@ -13635,7 +13588,7 @@ window.filterBatchPlanner = function(yearFilter, btnEl, searchOverride) {
 };
 
 /**
- * Tüm satirlarin checkbox durumunu değiştirir.
+ * Tüm satırların checkbox durumunu değiştirir.
  */
 window.selectAllBatchCourses = function(checked) {
     document.querySelectorAll('.batch-course-check').forEach(cb => { cb.checked = checked; });
@@ -13643,7 +13596,7 @@ window.selectAllBatchCourses = function(checked) {
 };
 
 /**
- * Seçili ders sayisini footer'da günceller.
+ * Seçili ders sayısını footer'da günceller.
  */
 window.updateBatchSelectedCount = function() {
     const count = document.querySelectorAll('.batch-course-check:checked').length;
@@ -13652,7 +13605,7 @@ window.updateBatchSelectedCount = function() {
 };
 
 /**
- * Global varsayilan değerleri seçili satirlara toplu olarak uygular.
+ * Global varsayılan değerleri seçili satırlara toplu olarak uygular.
  */
 window.applyBatchPlannerDefaults = function() {
     const type = document.getElementById('batch-default-type')?.value || 'Vize';
@@ -13686,11 +13639,11 @@ window.applyBatchPlannerDefaults = function() {
     });
 
     if (typeof showToast === 'function')
-        showToast(`✅ ${checkedBoxes.length} derse varsayilan değerler uygulandi.`, 'success');
+        showToast(`✅ ${checkedBoxes.length} derse varsayılan değerler uygulandı.`, 'success');
 };
 
 /**
- * Seçili dersler için DB.exams'a toplu sinav ekler.
+ * Seçili dersler için DB.exams'a toplu sınav ekler.
  */
 window.createBatchExams = async function() {
     const type = document.getElementById('batch-default-type')?.value || 'Vize';
@@ -13725,7 +13678,7 @@ window.createBatchExams = async function() {
             return;
         }
 
-        // Bitiş saatini hesapla (HH:MM-HH:MM formati)
+        // Bitiş saatini hesapla (HH:MM-HH:MM formatı)
         let timeRange = time;
         try {
             const [h, m] = time.split(':').map(Number);
@@ -13735,7 +13688,7 @@ window.createBatchExams = async function() {
             timeRange = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}-${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
         } catch(e) { timeRange = time; }
 
-        // Katsayi hesapla
+        // Katsayı hesapla
         const katsayi = (typeof calculateKatsayi === 'function')
             ? calculateKatsayi({ duration, location, requiredProctors, type })
             : parseFloat(((duration / 60) * 1.0).toFixed(2));
@@ -13763,11 +13716,11 @@ window.createBatchExams = async function() {
     });
 
     if (created.length === 0 && errors.length > 0) {
-        alert('Hiç sinav oluşturulamadi:\n' + errors.join('\n'));
+        alert('Hiç sınav oluşturulamadı:\n' + errors.join('\n'));
         return;
     }
 
-    // Kaydet ve UI'i güncelle
+    // Kaydet ve UI'ı güncelle
     if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
     if (typeof saveToBackend === 'function') await saveToBackend();
     if (typeof renderExams === 'function') renderExams();
@@ -13776,14 +13729,14 @@ window.createBatchExams = async function() {
 
     closeBatchExamPlanner();
 
-    const msg = `✅ ${created.length} sinav başariyla sisteme eklendi!${errors.length ? `\n⚠️ ${errors.length} ders atlandi (tarih girilmemiş).` : ''}`;
+    const msg = `✅ ${created.length} sınav başarıyla sisteme eklendi!${errors.length ? `\n⚠️ ${errors.length} ders atlandı (tarih girilmemiş).` : ''}`;
     if (typeof showToast === 'function') showToast(msg, 'success');
     else alert(msg);
 
-    // Yapay zeka atamasi kisayolu
+    // Yapay zeka ataması kısayolu
     if (created.length > 0 && typeof openAIAssignModal === 'function') {
         setTimeout(() => {
-            if (confirm(`${created.length} yeni sinav eklendi.\nHemen yapay zeka ile gözetmen atamasi yapmak ister misiniz?`)) {
+            if (confirm(`${created.length} yeni sınav eklendi.\nHemen yapay zeka ile gözetmen ataması yapmak ister misiniz?`)) {
                 openAIAssignModal();
             }
         }, 500);
@@ -13795,7 +13748,7 @@ window.createBatchExams = async function() {
 // ==========================================
 window.exportScheduleToExcel = function() {
     if (!DB || !DB.exams || DB.exams.length === 0) {
-        alert("Dişa aktarilacak sinav bulunamadi.");
+        alert("Dışa aktarılacak sınav bulunamadı.");
         return;
     }
 
@@ -13824,7 +13777,7 @@ window.exportScheduleToExcel = function() {
         }).filter(n => n).join(' & ');
         
         if (!proctors && ex.proctorName) proctors = ex.proctorName;
-        proctors = proctors.replace(/,/g, ' '); // Virgülleri temizle ki sütunlar kaymasin
+        proctors = proctors.replace(/,/g, ' '); // Virgülleri temizle ki sütunlar kaymasın
 
         const row = `${type},${name},${lecturer},${location},${date},${time},${duration},${proctors}`;
         csvContent += row + "\n";
@@ -13845,9 +13798,6 @@ window.exportScheduleToExcel = function() {
     document.body.removeChild(link);
     
     if (typeof window.showToast === 'function') {
-        window.showToast("Sinav programi başariyla Excel (CSV) formatinda indirildi.", "success");
+        window.showToast("Sınav programı başarıyla Excel (CSV) formatında indirildi.", "success");
     }
 };
-
-
-
