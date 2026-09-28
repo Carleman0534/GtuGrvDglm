@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('login-error');
 
     // Şifreler (frontend yerel kontrolü)
-    const ADMIN_PASSWORD = 'Gtuturan123';
+    const ADMIN_PASSWORD = 'GtuAdmin123';
     const GOZETMEN_PASSWORD = 'Gtu2026';
 
     const finishLogin = async (isAdmin, isLecturer = false) => {
@@ -8104,7 +8104,7 @@ window.saveProfilePassword = function(staffId) {
     if (newPass.length < 4) { alert('Şifre en az 4 karakter olmalidir!'); return; }
 
     // Ayni şifre başka birinde var mi?
-    const ADMIN_PASSWORD = 'Gtuturan123';
+    const ADMIN_PASSWORD = 'GtuAdmin123';
     const GOZETMEN_PASSWORD = 'Gtu2026';
     if (newPass === ADMIN_PASSWORD || newPass === GOZETMEN_PASSWORD) {
         alert('Bu şifre sisteme ayrilmiş, lütfen farkli bir şifre seçin.'); return;
