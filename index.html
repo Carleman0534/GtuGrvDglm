@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e1b4b">
     <link rel="apple-touch-icon" href="icon-192.png">
     
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -282,7 +282,8 @@
                             <div class="profile-pill-tabs">
                                 <button class="tab-btn active" data-tab="active">📋 Aktif Görevler</button>
                                 <button class="tab-btn" data-tab="marketplace">🛒 Pazar Yeri</button>
-                                <button class="tab-btn" data-tab="archive">📦 Arşiv</button>
+                                <button class="tab-btn" data-tab="swap-history">🔄 Takas Geçmişi</button>
+                                    <button class="tab-btn" data-tab="archive">📦 Arşiv</button>
                                 <button class="tab-btn" data-tab="my-timeline">📅 Sınav Takvimim</button>
                                 <button class="tab-btn" data-tab="scorecard">🏆 Puan Karnem</button>
                                 <button class="tab-btn user-only" data-tab="availability">🚫 Kısıtlarım</button>
@@ -303,13 +304,14 @@
                                             <table id="profile-table-active">
                                                 <thead>
                                                     <tr>
-                                                        <th>Sınav</th>
+                                                         <th>Sınav</th>
                                                         <th>Derslik</th>
                                                         <th>Hoca</th>
                                                         <th>Tarih</th>
                                                         <th>Saat</th>
                                                         <th>Süre</th>
                                                         <th>Puan</th>
+                                                        <th>Durum</th>
                                                         <th style="text-align:right;">İşlemler</th>
                                                     </tr>
                                                 </thead>
@@ -344,6 +346,33 @@
                                     </div>
                                 </div>
 
+
+                                <!-- 3b. Takas Geçmişi -->
+                                <div id="tab-swap-history" class="tab-pane hidden">
+                                    <div class="card card-table" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 18px; padding: 1.25rem;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem;">
+                                            <h4 style="margin:0; font-size:0.95rem; color:#f1f5f9; display:flex; align-items:center; gap:6px;">
+                                                <span>🔄</span> Takas & Devir Geçmişim
+                                            </h4>
+                                            <div style="display:flex; gap:8px; align-items:center;">
+                                                <select id="swap-history-filter" onchange="renderSwapHistory()" style="background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);padding:5px 10px;border-radius:8px;color:white;font-size:0.78rem;">
+                                                    <option value="all">Tümü</option>
+                                                    <option value="direct_swap">Birebir Takas</option>
+                                                    <option value="marketplace">Pazar / Devir</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div id="swap-history-list" style="display:flex; flex-direction:column; gap:.6rem;">
+                                            <!-- JS ile doldurulacak -->
+                                        </div>
+                                        <div id="swap-history-empty" class="hidden" style="text-align:center; color:var(--text-muted); padding:2rem; font-size:.85rem;">
+                                            📭 Henüz tamamlanmış bir takas veya devir işlemi bulunmuyor.
+                                        </div>
+                                        <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--glass-border);">
+                                            <div id="swap-history-stats" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.75rem;"></div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <!-- 3. Arşiv -->
                                 <div id="tab-archive" class="tab-pane hidden">
                                     <div class="card card-table" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 18px; padding: 1.25rem;">
@@ -673,6 +702,8 @@
                                 <button id="btn-resolve-conflicts" class="dropdown-item" style="color:var(--accent-red);">⚠️ Çakışmaları Otomatik Çöz</button>
                                 <button id="btn-email-settings" class="dropdown-item" style="color:var(--primary);">📧 E-posta Ayarları</button>
                                 <button id="btn-email-templates" class="dropdown-item" style="color:#a78bfa;">📝 E-posta Şablonları</button>
+                                <button class="dropdown-item" style="color:#fbbf24;" onclick="typeof showSwapTemplateEditorModal==='function'&&showSwapTemplateEditorModal()">✏️ Takas Mail Şablonları</button>
+                                <button class="dropdown-item" style="color:#34d399;" onclick="typeof showStaffEmailManagerModal==='function'&&showStaffEmailManagerModal()">📧 Personel E-posta Adresleri</button>
                             </div>
                         </div>
                         <div class="dropdown">
@@ -704,6 +735,8 @@
                 </div>
 
                 <div id="dashboard-export-container" style="background: var(--bg-main); padding: 1rem; border-radius: 12px;">
+                    <!-- Görev Takası / Devir Yönetici Onayları (swap_market.js) -->
+                    <div id="card-swap-admin" class="card card-large admin-only hidden" style="margin-bottom: 2rem; border-color: rgba(139, 92, 246, 0.5);"></div>
                     <!-- Pazar Yeri (Açık Görevler) Hızlı Görünüm - TÜM KULLANICILAR İÇİN -->
                     <div id="card-marketplace-dashboard" class="card card-table card-large hidden" style="margin-bottom: 2rem; border-color: var(--accent-green);">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
@@ -2089,9 +2122,6 @@
         </div>
     </div>
 
-    <script src="logic.js?v=3"></script>
-    <script src="app.js?v=3"></script>
-
     <!-- Hoca Mesaj Gönderme Modalı -->
     <div id="modal-lecturer-message" class="modal hidden">
         <div class="modal-content" style="max-width: 500px;">
@@ -2580,8 +2610,50 @@
         </div>
     </div>
 
-    <script src="logic.js?v=4"></script>
-    <script src="app.js?v=4"></script>
+    <script src="logic.js"></script>
+    <script src="app.js"></script>
+    <script src="swap_email.js"></script>
+    <script src="swap_market.js"></script>
+
+    <!-- E-posta Taslağı / İstemci Seçimi Modalı (swap_market.js) -->
+    <div id="modal-mail-draft" class="modal hidden">
+        <div class="modal-content card-large swap-modal">
+            <div class="modal-header">
+                <h2 id="mail-draft-title">✉️ E-posta Taslağı</h2>
+                <button class="close-modal" onclick="SwapMarket.closeModal('modal-mail-draft')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="mail-draft-info" class="swap-hint hidden"></div>
+                <div id="mail-draft-recipients" class="mail-draft-recipients"></div>
+                <div class="form-group">
+                    <label for="mail-draft-subject">Konu</label>
+                    <input type="text" id="mail-draft-subject" style="width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label for="mail-draft-body">Mesaj (göndermeden önce düzenleyebilirsiniz)</label>
+                    <textarea id="mail-draft-body" class="swap-textarea mail-draft-body" rows="12"></textarea>
+                </div>
+                <div class="swap-step-label">E-postayı şununla aç:</div>
+                <div class="mail-client-grid">
+                    <button type="button" class="btn-primary mail-client-btn" data-mail-client="mailto" onclick="SwapMarket.mail.openWith('mailto')">📧 Varsayılan Uygulama<br><small>Outlook · Apple Mail</small></button>
+                    <button type="button" class="btn-secondary mail-client-btn" data-mail-client="gmail" onclick="SwapMarket.mail.openWith('gmail')">✉️ Gmail<br><small>web</small></button>
+                    <button type="button" class="btn-secondary mail-client-btn" data-mail-client="outlook" onclick="SwapMarket.mail.openWith('outlook')">📨 Outlook<br><small>web / Office 365</small></button>
+                    <button type="button" class="btn-secondary mail-client-btn" onclick="SwapMarket.mail.copy()">📋 Metni Kopyala</button>
+                </div>
+                <div id="mail-draft-providers" class="mail-client-grid" style="margin-top: 0.5rem;"></div>
+                <div id="mail-draft-batches" class="mail-draft-batches"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="SwapMarket.closeModal('modal-mail-draft')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+
 </body>
 </html>
+
+
+
+
 
