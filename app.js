@@ -2660,6 +2660,11 @@ window.showExamDetail = function(examName, date, time, location) {
         });
     }
 
+    // Geçmiş sınav ve asistan arşivini doldur
+    if (typeof renderExamDetailHistory === 'function') {
+        renderExamDetailHistory(examName, date, time);
+    }
+
     modal.classList.remove('hidden');
 };
 
@@ -8502,20 +8507,36 @@ window.openUpdateDurationModal = function(examId) {
 
         // Geçmiş Sınav Süreleri ve Öneri
         if (historyCard) {
-            const stats = getExamHistoricalDurationStats(ex.name, ex.id);
-            if (stats && stats.count > 0) {
-                const durList = stats.history.map(h => `${h.duration} dk (${h.date.slice(5)})`).join(', ');
+            const { sessions: histSessions, stats } = (typeof getCourseFullExamHistory === 'function')
+                ? getCourseFullExamHistory(ex.name)
+                : { sessions: [], stats: getExamHistoricalDurationStats(ex.name, ex.id) };
+
+            const pastSessions = histSessions.filter(s => String(s.date + s.time) !== String(ex.date + ex.time));
+            const lastSession = pastSessions[0];
+            const cleanName = (ex.name || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim();
+
+            if (stats && (stats.totalSessions > 0 || stats.count > 0)) {
+                const recDur = stats.recommendedDuration || stats.latestDuration;
+                const lastProctors = (lastSession && lastSession.proctors && lastSession.proctors.length > 0)
+                    ? lastSession.proctors.join(', ')
+                    : 'Kayıt yok';
+
                 historyCard.innerHTML = `
                     <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 0.75rem 0.85rem; font-size: 0.82rem;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; flex-wrap:wrap; gap:6px;">
-                            <span style="font-weight:600; color:#38bdf8;">🧠 Geçmiş Sınav Süreleri ve Akıllı Öneri:</span>
-                            <button type="button" class="btn-secondary" style="border-color:#38bdf8; color:#38bdf8; font-size:0.75rem; padding:2px 8px; border-radius:6px; cursor:pointer; background: rgba(56,189,248,0.15);" onclick="setDurationPreset(${stats.recommendedDuration})">
-                                💡 Önerilen: ${stats.recommendedDuration} dk (Tıkla Seç)
-                            </button>
+                            <span style="font-weight:600; color:#38bdf8;">🧠 Geçmiş Sınav Süreleri & Asistan Bilgisi:</span>
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                <button type="button" class="btn-secondary" style="border-color:#38bdf8; color:#38bdf8; font-size:0.75rem; padding:2px 8px; border-radius:6px; cursor:pointer; background: rgba(56,189,248,0.15);" onclick="setDurationPreset(${recDur})">
+                                    💡 Önerilen: ${recDur} dk (Seç)
+                                </button>
+                                <button type="button" class="btn-secondary" style="border-color:#0ea5e9; color:#38bdf8; font-size:0.75rem; padding:2px 8px; border-radius:6px; cursor:pointer; background: rgba(14,165,233,0.15);" onclick="openCourseHistoryArchiveModal('${cleanName.replace(/'/g, "\\'")}')">
+                                    📚 Tüm Arşivi Gör
+                                </button>
+                            </div>
                         </div>
-                        <div style="color:var(--text-secondary); font-size:0.78rem; line-height:1.4;">
-                            Bu dersin önceki sınavları: <strong>${durList}</strong><br>
-                            Ortalama süre: <strong>${stats.averageDuration} dk</strong> &nbsp;|&nbsp; Son sınav: <strong>${stats.latestDuration} dk</strong>
+                        <div style="color:var(--text-secondary); font-size:0.78rem; line-height:1.45;">
+                            <div>Ortalama Süre: <strong>${stats.averageDuration} dk</strong> &nbsp;|&nbsp; Son Sınav: <strong>${stats.latestDuration} dk</strong></div>
+                            ${lastSession ? `<div style="color:#c7d2fe; margin-top:2px;">👥 <strong>Önceki Sınavda Görevli Asistanlar:</strong> <em>${lastProctors}</em> (${lastSession.date})</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -8735,6 +8756,366 @@ window.saveExamDurationFromModal = function() {
 window.updateExamDurationFromProfile = function(id) {
     openUpdateDurationModal(id);
 };
+
+/**
+ * =========================================================================
+ * DERS SINAV VE SÜRE ARŞİVİ SİSTEMİ (GEÇMİŞ SÜRELER & GÖREVLİ ASİSTANLAR)
+ * =========================================================================
+ */
+
+/**
+ * Bir dersin bugüne kadarki tüm sınav oturumlarını ve salon bazlı gözetmenlerini derler
+ */
+function getCourseFullExamHistory(courseName) {
+    if (!DB || !DB.exams || !courseName) return { sessions: [], stats: null };
+
+    const cleanCourseName = (name) => {
+        return (name || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim().toLowerCase();
+    };
+
+    const targetClean = cleanCourseName(courseName);
+    if (!targetClean) return { sessions: [], stats: null };
+
+    const matchedExams = DB.exams.filter(e => cleanCourseName(e.name) === targetClean);
+    if (matchedExams.length === 0) return { sessions: [], stats: null };
+
+    const sessionMap = new Map();
+
+    matchedExams.forEach(e => {
+        const slotKey = `${e.name}_${e.date}_${e.time}_${(e.location || '-').trim().toLowerCase()}`;
+        if (!sessionMap.has(slotKey)) {
+            sessionMap.set(slotKey, {
+                id: e.id,
+                name: e.name,
+                date: e.date,
+                time: e.time,
+                location: e.location || '-',
+                duration: parseFloat(e.actualDuration || e.duration) || 60,
+                scheduledDuration: parseFloat(e.scheduledDuration || e.duration) || 60,
+                actualDuration: e.actualDuration ? parseFloat(e.actualDuration) : null,
+                durationNote: e.durationNote || '',
+                durationConfirmed: !!e.durationConfirmed,
+                durationConfirmedBy: e.durationConfirmedBy || '',
+                lecturer: e.lecturer || '-',
+                type: e.type || 'Sınav',
+                proctorNames: new Set()
+            });
+        }
+
+        const session = sessionMap.get(slotKey);
+        
+        const pIds = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
+        pIds.forEach(pid => {
+            const staff = DB.staff ? DB.staff.find(s => String(s.id) === String(pid)) : null;
+            if (staff && staff.name) session.proctorNames.add(staff.name);
+        });
+        if (e.proctorName && e.proctorName !== 'Atanmadı') {
+            e.proctorName.split(',').forEach(n => {
+                const tr = n.trim();
+                if (tr) session.proctorNames.add(tr);
+            });
+        }
+    });
+
+    const sessions = Array.from(sessionMap.values()).map(s => ({
+        ...s,
+        proctors: Array.from(s.proctorNames)
+    }));
+
+    sessions.sort((a, b) => (b.date + 'T' + b.time).localeCompare(a.date + 'T' + a.time));
+
+    const durations = sessions.map(s => s.duration);
+    const avg = Math.round(durations.reduce((acc, d) => acc + d, 0) / durations.length);
+    const roundedAvg = Math.round(avg / 5) * 5;
+
+    const counts = {};
+    let modeDur = durations[0];
+    let maxCount = 0;
+    durations.forEach(d => {
+        counts[d] = (counts[d] || 0) + 1;
+        if (counts[d] > maxCount) {
+            maxCount = counts[d];
+            modeDur = d;
+        }
+    });
+
+    const allProctors = new Set();
+    sessions.forEach(s => s.proctors.forEach(p => allProctors.add(p)));
+
+    const stats = {
+        totalSessions: sessions.length,
+        averageDuration: avg,
+        recommendedDuration: (maxCount > 1) ? modeDur : roundedAvg,
+        latestDuration: sessions[0]?.duration || 60,
+        latestExam: sessions[0],
+        uniqueProctorsCount: allProctors.size,
+        allProctorsList: Array.from(allProctors)
+    };
+
+    return { sessions, stats };
+}
+
+/**
+ * Sınav Detay Modalında (modal-exam-detail) geçmiş sınav & gözetmen dökümünü gösterir
+ */
+function renderExamDetailHistory(examName, currentDate, currentTime) {
+    const container = document.getElementById('exam-detail-history-section');
+    if (!container) return;
+
+    const { sessions, stats } = getCourseFullExamHistory(examName);
+    const pastSessions = sessions.filter(s => !(s.date === currentDate && s.time === currentTime));
+
+    if (pastSessions.length === 0) {
+        container.innerHTML = `
+            <div style="background: rgba(255,255,255,0.03); border: 1px dashed var(--glass-border); border-radius: 10px; padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                📚 Bu ders için sistemde henüz önceki bir sınav kaydı bulunmuyor.
+            </div>
+        `;
+        return;
+    }
+
+    const cleanName = (examName || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim();
+
+    let rowsHtml = '';
+    pastSessions.slice(0, 6).forEach(s => {
+        const isExtended = s.actualDuration && s.actualDuration > s.scheduledDuration;
+        const isShortened = s.actualDuration && s.actualDuration < s.scheduledDuration;
+
+        let durBadge = `<span style="font-weight:700;">${s.duration} dk</span>`;
+        if (isExtended) {
+            durBadge += ` <span style="font-size:0.7rem; color:#f87171; background:rgba(239,68,68,0.15); padding:1px 5px; border-radius:4px;" title="Planlanan: ${s.scheduledDuration} dk">+${s.actualDuration - s.scheduledDuration} dk uzadı</span>`;
+        } else if (isShortened) {
+            durBadge += ` <span style="font-size:0.7rem; color:#38bdf8; background:rgba(56,189,248,0.15); padding:1px 5px; border-radius:4px;" title="Planlanan: ${s.scheduledDuration} dk">-${s.scheduledDuration - s.actualDuration} dk</span>`;
+        }
+
+        const proctorStr = s.proctors.length > 0 
+            ? s.proctors.map(p => `<span style="background:rgba(99,102,241,0.12); color:#c7d2fe; padding:2px 6px; border-radius:4px; font-size:0.75rem; display:inline-block; margin:1px;">${p}</span>`).join(' ')
+            : '<span style="color:var(--text-muted); font-size:0.75rem;">Atanmadı</span>';
+
+        rowsHtml += `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 0.55rem 0.5rem; font-size:0.83rem;">
+                    <strong>${s.date}</strong> <span style="color:var(--text-muted); font-size:0.75rem;">(${s.time})</span>
+                    <div style="font-size:0.72rem; color:var(--text-muted);">${s.type}</div>
+                </td>
+                <td style="padding: 0.55rem 0.5rem; font-size:0.83rem;">
+                    <span class="badge-location" style="font-size:0.75rem;">${s.location}</span>
+                </td>
+                <td style="padding: 0.55rem 0.5rem; font-size:0.83rem;">
+                    ${durBadge}
+                    ${s.durationNote ? `<div style="font-size:0.7rem; color:#fbbf24; margin-top:2px;" title="${s.durationNote.replace(/"/g, '&quot;')}">📝 ${s.durationNote}</div>` : ''}
+                </td>
+                <td style="padding: 0.55rem 0.5rem;">
+                    ${proctorStr}
+                </td>
+            </tr>
+        `;
+    });
+
+    container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+            <div style="font-weight:700; font-size:0.92rem; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                <span>📚</span> Bu Dersin Geçmiş Sınavları & Süre Arşivi
+            </div>
+            <button type="button" class="btn-secondary" style="font-size:0.75rem; padding: 0.25rem 0.65rem; border-color:#0ea5e9; color:#38bdf8; cursor:pointer;" onclick="openCourseHistoryArchiveModal('${cleanName.replace(/'/g, "\\'")}')">
+                🔍 Tüm Arşivi Aç
+            </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:12px; font-size:0.78rem;">
+            <div style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:8px; padding:6px 10px; text-align:center;">
+                <div style="color:var(--text-muted); font-size:0.7rem;">Ortalama Süre</div>
+                <div style="font-weight:700; color:#38bdf8; font-size:0.95rem;">${stats.averageDuration} dk</div>
+            </div>
+            <div style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:8px; padding:6px 10px; text-align:center;">
+                <div style="color:var(--text-muted); font-size:0.7rem;">En Sık Süre</div>
+                <div style="font-weight:700; color:#34d399; font-size:0.95rem;">${stats.recommendedDuration} dk</div>
+            </div>
+            <div style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:8px; padding:6px 10px; text-align:center;">
+                <div style="color:var(--text-muted); font-size:0.7rem;">Önceki Sınav Sayısı</div>
+                <div style="font-weight:700; color:#f8fafc; font-size:0.95rem;">${pastSessions.length} oturum</div>
+            </div>
+        </div>
+
+        <div class="table-container" style="max-height: 220px; overflow-y:auto;">
+            <table style="width:100%; border-collapse: collapse; font-size:0.8rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); text-align:left; color:var(--text-muted); font-size:0.72rem; text-transform:uppercase;">
+                        <th style="padding: 0.4rem 0.5rem;">Tarih / Saat</th>
+                        <th style="padding: 0.4rem 0.5rem;">Derslik</th>
+                        <th style="padding: 0.4rem 0.5rem;">Süre</th>
+                        <th style="padding: 0.4rem 0.5rem;">Görevli Asistanlar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * Bağımsız "Ders Sınav & Süre Arşivi" Modalı Fonksiyonları
+ */
+window.openCourseHistoryArchiveModal = function(initialCourseName = null) {
+    const modal = document.getElementById('modal-course-history-archive');
+    const select = document.getElementById('course-archive-select');
+    if (!modal || !select || !DB || !DB.exams) return;
+
+    const cleanCourseName = (name) => {
+        return (name || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim();
+    };
+
+    const courseMap = new Map();
+    DB.exams.forEach(e => {
+        const c = cleanCourseName(e.name);
+        if (c) {
+            courseMap.set(c.toLowerCase(), c);
+        }
+    });
+
+    const sortedCourses = Array.from(courseMap.values()).sort((a, b) => a.localeCompare(b, 'tr-TR'));
+
+    select.innerHTML = '<option value="">-- Lütfen bir ders seçin --</option>';
+    sortedCourses.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        select.appendChild(opt);
+    });
+
+    let targetSelect = null;
+    if (initialCourseName) {
+        const targetClean = cleanCourseName(initialCourseName).toLowerCase();
+        for (let opt of select.options) {
+            if (opt.value.toLowerCase() === targetClean) {
+                targetSelect = opt.value;
+                break;
+            }
+        }
+    }
+
+    if (targetSelect) {
+        select.value = targetSelect;
+        onCourseArchiveSelectChange(targetSelect);
+    } else if (sortedCourses.length > 0) {
+        select.value = sortedCourses[0];
+        onCourseArchiveSelectChange(sortedCourses[0]);
+    }
+
+    modal.classList.remove('hidden');
+};
+
+window.closeCourseHistoryArchiveModal = function() {
+    const modal = document.getElementById('modal-course-history-archive');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.onCourseArchiveSelectChange = function(courseName) {
+    const summaryCard = document.getElementById('course-archive-summary');
+    const resultsContainer = document.getElementById('course-archive-results');
+    if (!summaryCard || !resultsContainer) return;
+
+    if (!courseName) {
+        summaryCard.style.display = 'none';
+        resultsContainer.innerHTML = `
+            <div style="text-align:center; color:var(--text-muted); padding:2.5rem 1rem;">
+                <span style="font-size:2.5rem; display:block; margin-bottom:0.8rem;">🔍</span>
+                Yukarıdan bir ders seçerek geçmiş sınav sürelerini ve görevli asistanları görüntüleyebilirsiniz.
+            </div>
+        `;
+        return;
+    }
+
+    const { sessions, stats } = getCourseFullExamHistory(courseName);
+
+    if (sessions.length === 0) {
+        summaryCard.style.display = 'none';
+        resultsContainer.innerHTML = `
+            <div style="text-align:center; color:var(--text-muted); padding:2rem 1rem;">
+                Bu ders için kayıtlı bir sınav oturumu bulunamadı.
+            </div>
+        `;
+        return;
+    }
+
+    summaryCard.style.display = 'grid';
+    summaryCard.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    summaryCard.style.gap = '10px';
+    summaryCard.innerHTML = `
+        <div style="background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); border-radius:10px; padding:0.75rem; text-align:center;">
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase;">Ortalama Süre</div>
+            <div style="font-weight:700; color:#38bdf8; font-size:1.15rem; margin-top:2px;">${stats.averageDuration} dk</div>
+        </div>
+        <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); border-radius:10px; padding:0.75rem; text-align:center;">
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase;">En Sık Süre</div>
+            <div style="font-weight:700; color:#34d399; font-size:1.15rem; margin-top:2px;">${stats.recommendedDuration} dk</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:10px; padding:0.75rem; text-align:center;">
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase;">Toplam Oturum</div>
+            <div style="font-weight:700; color:#fbbf24; font-size:1.15rem; margin-top:2px;">${stats.totalSessions} salon</div>
+        </div>
+        <div style="background:rgba(167,139,250,0.1); border:1px solid rgba(167,139,250,0.25); border-radius:10px; padding:0.75rem; text-align:center;">
+            <div style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase;">Farklı Gözetmen</div>
+            <div style="font-weight:700; color:#c4b5fd; font-size:1.15rem; margin-top:2px;">${stats.uniqueProctorsCount} hoca</div>
+        </div>
+    `;
+
+    let cardsHtml = '';
+    sessions.forEach(s => {
+        const isExtended = s.actualDuration && s.actualDuration > s.scheduledDuration;
+        const isShortened = s.actualDuration && s.actualDuration < s.scheduledDuration;
+
+        let durTag = `<span class="score-tag" style="background:rgba(255,255,255,0.08); font-size:0.85rem;">⏱️ ${s.duration} dk</span>`;
+        if (isExtended) {
+            durTag = `<span class="score-tag" style="background:rgba(239,68,68,0.2); color:#f87171; font-size:0.85rem;" title="Planlanan: ${s.scheduledDuration} dk">⏱️ ${s.duration} dk (+${s.actualDuration - s.scheduledDuration} dk uzadı)</span>`;
+        } else if (isShortened) {
+            durTag = `<span class="score-tag" style="background:rgba(56,189,248,0.2); color:#38bdf8; font-size:0.85rem;" title="Planlanan: ${s.scheduledDuration} dk">⏱️ ${s.duration} dk (-${s.scheduledDuration - s.actualDuration} dk)</span>`;
+        }
+
+        const proctorBadges = s.proctors.length > 0
+            ? s.proctors.map(p => `<span style="background:rgba(99,102,241,0.18); color:#e0e7ff; border:1px solid rgba(99,102,241,0.35); padding:3px 8px; border-radius:6px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:4px;">👤 ${p}</span>`).join(' ')
+            : '<span style="color:var(--text-muted); font-size:0.8rem;">Gözetmen atanmamış</span>';
+
+        cardsHtml += `
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; padding: 1rem; margin-bottom: 0.85rem;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <div style="font-weight:700; font-size:0.95rem; color:#f8fafc;">${s.name}</div>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
+                            📅 <strong>${s.date}</strong> &nbsp;•&nbsp; ⏰ <strong>${s.time}</strong> &nbsp;•&nbsp; 📍 Salon: <strong>${s.location}</strong>
+                        </div>
+                    </div>
+                    <div>
+                        ${durTag}
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px; font-weight:600;">GÖREVLİ ASİSTANLAR / GÖZETMENLER:</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            ${proctorBadges}
+                        </div>
+                    </div>
+                    <div style="text-align:right; font-size:0.78rem; color:var(--text-muted);">
+                        👨‍🏫 Ders Hocası: <strong style="color:#e2e8f0;">${s.lecturer}</strong>
+                    </div>
+                </div>
+
+                ${s.durationNote ? `
+                    <div style="margin-top:0.5rem; background:rgba(245,158,11,0.08); border:1px dashed rgba(245,158,11,0.3); border-radius:6px; padding:6px 10px; font-size:0.78rem; color:#fde68a;">
+                        📝 <strong>Not / Açıklama:</strong> ${s.durationNote}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    resultsContainer.innerHTML = cardsHtml;
+};
+
 
 function renderPasswordSection(staff) {
     let container = document.getElementById('profile-password-section');
@@ -15006,3 +15387,10 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+    const archiveModal = document.getElementById('modal-course-history-archive');
+    if (archiveModal) {
+        archiveModal.addEventListener('click', (e) => {
+            if (e.target === archiveModal) closeCourseHistoryArchiveModal();
+        });
+    }

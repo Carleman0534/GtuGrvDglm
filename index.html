@@ -222,7 +222,10 @@
                             </button>
                             <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="exportMyExamsToICal()">
                                 <span>📅</span> Takvimime Ekle (.ics)
-                            </button>
+                            </button>                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="openCourseHistoryArchiveModal()">
+                                <span>📚</span> Sınav Süre Arşivi
+                            </button>
+
                             <button id="btn-change-identity" class="btn-identity-switch">
                                 <span>🔄 Kimliği Değiştir</span>
                             </button>
@@ -1686,7 +1689,11 @@
                         </thead>
                         <tbody></tbody>
                     </table>
-                </div>
+                </div>                <!-- Bu Dersin Geçmiş Sınavları & Süre Arşivi -->
+                <div id="exam-detail-history-section" style="margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 18px;">
+                    <!-- JS ile doldurulacak -->
+                </div>
+
             </div>
         </div>
         <!-- Duyuru Düzenleme Modalı -->
@@ -2284,6 +2291,53 @@
                     <button type="button" class="btn-secondary" onclick="closeUpdateDurationModal()">Vazgeç</button>
                     <button type="button" id="btn-save-duration" class="btn-primary" style="background: linear-gradient(135deg, #f97316, #ea580c);" onclick="saveExamDurationFromModal()">💾 Kaydet & Puanı Güncelle</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ders Sınav & Süre Arşivi Modalı -->
+    <div id="modal-course-history-archive" class="modal hidden">
+        <div class="modal-content card-large swap-modal" style="max-width: 760px; max-height: 88vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:1.8rem; background:rgba(56,189,248,0.2); width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center;">📚</span>
+                    <div>
+                        <h2 style="margin:0; font-size:1.25rem;">Ders Sınav & Süre Arşivi</h2>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                            Geçmiş sınav süreleri, salon dağılımları ve görevli asistanlar
+                        </div>
+                    </div>
+                </div>
+                <button class="close-modal" onclick="closeCourseHistoryArchiveModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="flex:1; overflow-y:auto; padding: 1rem 0;">
+                <!-- Ders Seçimi & Arama -->
+                <div style="display:flex; gap:10px; margin-bottom:1.2rem; flex-wrap:wrap; align-items:center;">
+                    <div style="flex:1; min-width:250px;">
+                        <label style="font-size:0.8rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:600;">
+                            📖 Ders Seçin:
+                        </label>
+                        <select id="course-archive-select" style="width:100%; padding:0.65rem 0.8rem; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:8px; color:#fff; font-size:0.95rem;" onchange="onCourseArchiveSelectChange(this.value)">
+                            <option value="">-- Bir ders seçin --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Ders İstatistik & Özet Kartı -->
+                <div id="course-archive-summary" style="margin-bottom:1.2rem; display:none;">
+                    <!-- JS ile doldurulacak -->
+                </div>
+
+                <!-- Geçmiş Sınavlar Listesi -->
+                <div id="course-archive-results">
+                    <div style="text-align:center; color:var(--text-muted); padding:2.5rem 1rem;">
+                        <span style="font-size:2.5rem; display:block; margin-bottom:0.8rem;">🔍</span>
+                        Yukarıdan bir ders seçerek geçmiş sınav sürelerini ve görevli asistanları görüntüleyebilirsiniz.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; display:flex; justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeCourseHistoryArchiveModal()">Kapat</button>
             </div>
         </div>
     </div>
