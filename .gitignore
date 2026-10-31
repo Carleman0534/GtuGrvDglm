@@ -1,0 +1,25 @@
+# Güvenlik ve Kimlik Bilgileri
+sifreler.txt
+set_passwords.js
+firebase_backup_recovery.json
+*.key
+*.env
+
+# Yerel Yedekler ve Arşivler
+Yedekler/
+*.bak
+*.tmp
+*.log
+
+# Windows ve IDE Dosyaları
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Eski Test ve Geliştirici Scriptleri
+index_test.html
+app_test.js
+fix_bugs.js
+add_new_exams.py

@@ -788,11 +788,12 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * YEREL ANLIK GÖRÜNTÜ KASASI (SNAPSHOT VAULT - SON 30 YEDEK)
+ * YEREL ANLIK GÖRÜNTÜ KASASI (SNAPSHOT VAULT - SON 8 YEDEK)
  * Site her açıldığında ve her işlemde tarayıcıda otomatik versiyon geçmişi tutar.
+ * Tarayıcı depolama alanını (5 MB sınırı) taşmaması için en fazla 8 yedek tutar ve FIFO tahliye uygular.
  */
 const SNAPSHOT_VAULT_KEY = 'gozetmenlik_snapshot_vault_v1';
-const MAX_SNAPSHOTS = 30;
+const MAX_SNAPSHOTS = 8;
 
 function saveAutoSnapshot(dbData, sourceLabel = 'Otomatik Kayıt') {
     if (!dbData || !Array.isArray(dbData.staff) || !Array.isArray(dbData.exams)) return;
@@ -833,8 +834,22 @@ function saveAutoSnapshot(dbData, sourceLabel = 'Otomatik Kayıt') {
             vault = vault.slice(0, MAX_SNAPSHOTS);
         }
         
-        localStorage.setItem(SNAPSHOT_VAULT_KEY, JSON.stringify(vault));
-        console.log(`🛡️ Anlık Görüntü Kasasına kaydedildi (${displayDate}) - Toplam Yedek: ${vault.length}`);
+        // Kotaya sığdırmak için kademeli kayıt (QuotaExceededError koruması - LRU/FIFO)
+        while (vault.length > 0) {
+            try {
+                localStorage.setItem(SNAPSHOT_VAULT_KEY, JSON.stringify(vault));
+                console.log(`🛡️ Anlık Görüntü Kasasına kaydedildi (${displayDate}) - Toplam Yedek: ${vault.length}`);
+                break;
+            } catch (quotaErr) {
+                if (vault.length > 2) {
+                    console.warn(`LocalStorage doldu, en eski anlık yedek siliniyor (${vault.length} -> ${vault.length - 1})...`);
+                    vault.pop(); // En eski yedeği çıkarıp tekrar dene
+                } else {
+                    console.warn("LocalStorage tamamen dolu, snapshot kaydedilemedi.");
+                    break;
+                }
+            }
+        }
     } catch(err) {
         console.warn("Snapshot Vault kaydı sırasında hata:", err);
     }
