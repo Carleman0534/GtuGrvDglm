@@ -23,11 +23,15 @@
     window.ENABLE_GOOGLE_AUTH = true;
 
     // Firebase Auth Konfigürasyonu
-    // Not: Web API Anahtarı gizli değildir (istemciye açıktır).
+    // Web API Anahtarı istemci tarafında (web uygulamasında) çalışması için gereklidir ve gizli değildir.
     const FIREBASE_AUTH_CONFIG = {
-        apiKey: window.FIREBASE_WEB_API_KEY || localStorage.getItem('gtu_firebase_api_key') || "",
-        authDomain: "gtumath-db.firebaseapp.com",
-        projectId: "gtumath-db",
+        apiKey: "AIzaSyD1D_oYBEBnEyGk0y6tKYeEcrN7u_xcLCY",
+        authDomain: "gtugztmnlk.firebaseapp.com",
+        projectId: "gtugztmnlk",
+        storageBucket: "gtugztmnlk.firebasestorage.app",
+        messagingSenderId: "789056586509",
+        appId: "1:789056586509:web:1a28be40505d32ec1d2644",
+        measurementId: "G-T2604KJ1TY",
         databaseURL: "https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app"
     };
 
@@ -105,6 +109,11 @@
             if (ADMIN_EMAILS.includes(email)) {
                 sessionStorage.setItem('userEmail', email);
                 sessionStorage.setItem('googleUser', JSON.stringify({ name: user.displayName, email: user.email }));
+                if (matchedStaff) {
+                    localStorage.setItem('myStaffId', String(matchedStaff.id));
+                }
+                const loginError = document.getElementById('login-error');
+                if (loginError) loginError.classList.add('hidden');
                 if (typeof logAction === 'function') {
                     logAction('system', 'Google Girişi', `Yönetici (${email}) kurumsal Google hesabıyla giriş yaptı.`);
                 }
@@ -122,6 +131,8 @@
                 localStorage.setItem('myStaffId', String(matchedStaff.id));
                 sessionStorage.setItem('userEmail', email);
                 sessionStorage.setItem('googleUser', JSON.stringify({ name: user.displayName, email: user.email }));
+                const loginError = document.getElementById('login-error');
+                if (loginError) loginError.classList.add('hidden');
                 if (typeof logAction === 'function') {
                     logAction('system', 'Google Girişi', `${matchedStaff.name} (${email}) kurumsal Google hesabıyla profiline bağlandı.`);
                 }
@@ -179,6 +190,28 @@
     } else {
         setupGoogleButton();
     }
+
+    // Oturum Kapatıldığında Firebase Auth Oturumunu da Sıfırla
+    const originalLogout = window.logoutUser;
+    window.logoutUser = function () {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.auth && firebase.apps && firebase.apps.length) {
+                firebase.auth().signOut().catch(() => {});
+            }
+        } catch (_) {}
+        sessionStorage.removeItem('userEmail');
+        sessionStorage.removeItem('googleUser');
+        if (typeof originalLogout === 'function') {
+            originalLogout();
+        } else {
+            sessionStorage.removeItem('isLoggedIn');
+            sessionStorage.removeItem('isAdmin');
+            sessionStorage.removeItem('isLecturer');
+            sessionStorage.removeItem('userPassword');
+            localStorage.removeItem('myStaffId');
+            window.location.reload();
+        }
+    };
 
     window.handleGoogleLoginClick = handleGoogleLoginClick;
     window.setFirebaseApiKey = function (key) {
