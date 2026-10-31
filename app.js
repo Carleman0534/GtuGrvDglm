@@ -7110,7 +7110,12 @@ window.renderProfile = function() {
             avatarLetters.textContent = initials;
         }
 
-        // Sıfır Sürtünmeli UX: Süre teyidi bekleyen sınavlar banner'ı
+        // Geçmiş sınavları peşinen kabul et (31 Ekim 2026 öncesi)
+        if (typeof autoAcceptPastExamDurations === 'function') {
+            autoAcceptPastExamDurations();
+        }
+
+        // Sıfır Sürtünmeli UX: Süre teyidi bekleyen sınavlar banner'ı (Sadece 31 Ekim 2026 sonrakiler)
         if (typeof renderProfileDurationAlerts === 'function') {
             renderProfileDurationAlerts(myStaffId, staff);
         }
@@ -8253,6 +8258,31 @@ function getExamHistoricalDurationStats(examName, currentExamId = null) {
 /**
  * Girişte Sıfır Sürtünmeli "Tek Tıkla Onay" Banner'ı
  */
+/**
+ * 31 Ekim 2026 öncesindeki tüm geçmiş sınav sürelerini peşinen kabul eder ve kilitler.
+ */
+function autoAcceptPastExamDurations() {
+    if (!DB || !DB.exams) return;
+    const CUTOFF_DATE = new Date('2026-10-31T21:48:45+03:00');
+    let hasChanges = false;
+
+    DB.exams.forEach(e => {
+        const examDate = getSafeDate(e.date, e.time);
+        if (examDate < CUTOFF_DATE && !e.durationConfirmed) {
+            e.durationConfirmed = true;
+            if (!e.actualDuration) e.actualDuration = e.duration || 60;
+            if (!e.scheduledDuration) e.scheduledDuration = e.duration || 60;
+            if (!e.durationConfirmedBy) e.durationConfirmedBy = 'Kabul Edildi';
+            if (!e.durationConfirmedAt) e.durationConfirmedAt = '2026-10-31T21:48:45.000Z';
+            hasChanges = true;
+        }
+    });
+
+    if (hasChanges && typeof saveToLocalStorage === 'function') {
+        saveToLocalStorage();
+    }
+}
+
 function renderProfileDurationAlerts(myStaffId, staff) {
     const container = document.getElementById('profile-duration-alert-container');
     if (!container || !DB || !DB.exams) return;
@@ -8260,10 +8290,13 @@ function renderProfileDurationAlerts(myStaffId, staff) {
     const myExams = DB.exams.filter(e => isStaffProctorById(e, myStaffId));
     const now = new Date();
 
-    // Sınav saati gelmiş veya geçmiş ve henüz süre teyit edilmemiş olanlar
+    // 31 Ekim 2026 21:48 öncesindeki tüm geçmiş sınavlar peşinen kabul edildi.
+    // Artık yalnızca bu tarihten sonra gerçekleşecek yeni sınavlar için süre teyidi sorulur.
+    const CUTOFF_DATE = new Date('2026-10-31T21:48:45+03:00');
+
     const pendingExams = myExams.filter(e => {
         const examDate = getSafeDate(e.date, e.time);
-        return now >= examDate && !e.durationConfirmed && !e.actualDuration;
+        return examDate >= CUTOFF_DATE && now >= examDate && !e.durationConfirmed && !e.actualDuration;
     }).sort((a, b) => (b.date + 'T' + b.time).localeCompare(a.date + 'T' + a.time));
 
     if (pendingExams.length === 0) {
