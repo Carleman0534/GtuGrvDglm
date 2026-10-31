@@ -5,6 +5,9 @@ firebase_backup_recovery.json
 *.key
 *.env
 
+# Dağıtım ve Yerel Scriptler
+GitHuba_Yukle.bat
+
 # Yerel Yedekler ve Arşivler
 Yedekler/
 *.bak

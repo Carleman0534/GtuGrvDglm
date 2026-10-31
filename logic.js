@@ -1135,14 +1135,21 @@ async function hashSHA256(text) {
 }
 window.hashSHA256 = hashSHA256;
 
-// Yetkili SHA-256 Hash Değerleri (Plaintext şifreler kodda saklanmaz)
+// Yetkili SHA-256 Kriptografik Hash Değerleri (Açık şifreler kodda tutulmaz)
 const AUTH_HASHES = {
     ADMIN_HASHES: [
-        '2c5d6078956f040e48eeb3e68e24deaeae547eff39fa8bc358d7ae02dbc8ab65', // Gtuturan123
-        'f01067db8f520b1b1f84e73c23d298c2de9f541ec78d852eb2fa7128d0956c5e', // GtuAdmin123
-        'b8e411d15dd5e2034aa6cce8319d2acb48da5a601081e3cef6207f9cb5cbcf68'  // GtuAdmın123
+        '2c5d6078956f040e48eeb3e68e24deaeae547eff39fa8bc358d7ae02dbc8ab65',
+        '59caf0c6e12e7ca1b7524a8c3d76fb326a77e1a0a6e9f2a0b50c5053232885a3',
+        'f01067db8f520b1b1f84e73c23d298c2de9f541ec78d852eb2fa7128d0956c5e',
+        '034dd20743d3d63b36752ae302c295ef95a778e22626b00c18bd388151d26bc6',
+        'b8e411d15dd5e2034aa6cce8319d2acb48da5a601081e3cef6207f9cb5cbcf68',
+        '03ebcf04e0f3585edf3ea149adc12c5181b9b8a1ca7a37f51e735792c6c02c0d'
     ],
-    PROCTOR_HASH: '529c6b49c165be870c4fc86cc679928cc32565286a8aa07b31e87bb298cbe408' // Gtu2026
+    PROCTOR_HASH: '529c6b49c165be870c4fc86cc679928cc32565286a8aa07b31e87bb298cbe408',
+    PROCTOR_HASHES: [
+        '529c6b49c165be870c4fc86cc679928cc32565286a8aa07b31e87bb298cbe408',
+        '221f8b67369a26ea9c9efbf108a4b5022695f90f90f6cec854d128330f51e8bf'
+    ]
 };
 window.AUTH_HASHES = AUTH_HASHES;
 
