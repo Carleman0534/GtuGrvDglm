@@ -2218,6 +2218,70 @@
     </div>
 
 
+    <!-- Gerçekleşen Sınav Süresi Güncelleme Modalı -->
+    <div id="modal-update-duration" class="modal hidden">
+        <div class="modal-content card-large swap-modal" style="max-width: 540px;">
+            <div class="modal-header">
+                <h2>⏱️ Gerçekleşen Sınav Süresini Güncelle</h2>
+                <button class="close-modal" onclick="closeUpdateDurationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="duration-modal-exam-id" value="">
+                
+                <!-- Sınav Bilgi Kartı -->
+                <div id="duration-modal-exam-card" style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
+                    <!-- JS ile doldurulacak -->
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">
+                        ⏱️ Gerçekleşen Süre (Dakika):
+                    </label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="duration-modal-input" min="15" max="360" step="5" style="flex: 1; padding: 0.65rem 0.8rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; font-size: 1.1rem; font-weight: 700;" oninput="updateDurationModalScorePreview(this.value)">
+                        <span style="color: var(--text-secondary); font-weight: 600;">dakika</span>
+                    </div>
+                </div>
+
+                <!-- Hızlı Seçim Butonları -->
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display:block; margin-bottom: 0.35rem;">
+                        ⚡ Hızlı Seç:
+                    </label>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(30)">30 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(45)">45 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(60)">60 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(75)">75 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(90)">90 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(105)">105 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(120)">120 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(150)">150 dk</button>
+                        <button type="button" class="btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" onclick="setDurationPreset(180)">180 dk</button>
+                    </div>
+                </div>
+
+                <!-- Puan Değişimi Önizleme Kartı -->
+                <div id="duration-modal-preview" style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem; font-size: 0.85rem;">
+                    <!-- JS ile doldurulacak -->
+                </div>
+
+                <!-- Açıklama Notu -->
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.85rem; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">
+                        📝 Not / Açıklama (İsteğe Bağlı):
+                    </label>
+                    <input type="text" id="duration-modal-note" placeholder="Örn: Sınav hocası 15 dk ek süre verdi" style="width: 100%; padding: 0.6rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                </div>
+
+                <div class="modal-footer" style="padding: 0; margin-top: 1rem; display: flex; justify-content: flex-end; gap: 8px;">
+                    <button type="button" class="btn-secondary" onclick="closeUpdateDurationModal()">Vazgeç</button>
+                    <button type="button" id="btn-save-duration" class="btn-primary" style="background: linear-gradient(135deg, #f97316, #ea580c);" onclick="saveExamDurationFromModal()">💾 Kaydet & Puanı Güncelle</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Takas Şifre Onay Modalı -->
     <div id="modal-swap-confirm-password" class="modal hidden">
         <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">

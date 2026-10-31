@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v19';
+const CACHE_NAME = 'gozetmenlik-ai-v20';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -7,6 +7,8 @@ const ASSETS_TO_CACHE = [
     './logic.js',
     './auth_google.js',
     './veri_koruma.js',
+    './swap_email.js',
+    './swap_market.js',
     './ai_features.js',
     './icon-192.png',
     './icon-512.png',

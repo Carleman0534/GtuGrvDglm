@@ -7131,11 +7131,16 @@ window.renderProfile = function() {
                         <td>${ex.lecturer || '-'}</td>
                         <td>${ex.date}</td>
                         <td>${ex.time}</td>
-                        <td>${ex.duration} dk</td>
+                        <td>
+                            <strong>${ex.duration} dk</strong>
+                            ${ex.actualDuration && ex.actualDuration !== ex.scheduledDuration ? `<div style="font-size: 0.68rem; color: #38bdf8; font-weight: 600;" title="Planlanan: ${ex.scheduledDuration} dk${ex.durationNote ? ' - ' + ex.durationNote.replace(/"/g, '&quot;') : ''}">⚡ Planlanan: ${ex.scheduledDuration} dk</div>` : ''}
+                            ${ex.durationNote ? `<div style="font-size: 0.65rem; color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${ex.durationNote.replace(/"/g, '&quot;')}">📝 ${ex.durationNote}</div>` : ''}
+                        </td>
                         <td><span class="score-tag">+${ex.score}</span></td>
                         <td>${statusBadge || '<span style="color:var(--text-muted);font-size:0.7rem;">Normal</span>'}</td>
                         <td style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
                             <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sinavi Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
+                            <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Gerçekleşen Sınav Süresini Gir / Güncelle" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.35); color: #fb923c; cursor:pointer; font-size:0.72rem; font-weight:600;">⏱️ Süre Gir</button>
                             ${(() => {
                                 const hasRequest = (DB.requests || []).find(r => 
                                     (String(r.examId) === String(ex.id) || String(r.initiatorExamId) === String(ex.id)) && 
@@ -7167,10 +7172,14 @@ window.renderProfile = function() {
                     <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
                     <td>${ex.time}</td>
-                    <td>${ex.duration || '-'} dk</td>
+                    <td>
+                        <strong>${ex.duration || '-'} dk</strong>
+                        ${ex.actualDuration && ex.actualDuration !== ex.scheduledDuration ? `<div style="font-size: 0.68rem; color: #38bdf8; font-weight: 600;" title="Planlanan: ${ex.scheduledDuration} dk${ex.durationNote ? ' - ' + ex.durationNote.replace(/"/g, '&quot;') : ''}">⚡ Planlanan: ${ex.scheduledDuration} dk</div>` : ''}
+                        ${ex.durationNote ? `<div style="font-size: 0.65rem; color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${ex.durationNote.replace(/"/g, '&quot;')}">📝 ${ex.durationNote}</div>` : ''}
+                    </td>
                     <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
                     <td style="text-align:right;">
-                        <button class="btn-secondary" onclick="updateExamDurationFromProfile('${ex.id}')" title="Süreyi Güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange);">⏱️ Süre Gir</button>
+                        <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Gerçekleşen Sınav Süresini Güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange); cursor:pointer;">⏱️ Süre Gir</button>
                     </td>
                 </tr>
             `;
@@ -8125,47 +8134,253 @@ window.saveLecturerPortalNote = async function() {
 /**
  * Gözetmenin Kendi Sinav Süresini Düzenlemesi
  */
-window.updateExamDurationFromProfile = function(id) {
+/**
+ * Gerçekleşen Sınav Süresi Modalı Fonksiyonları
+ */
+window.openUpdateDurationModal = function(examId) {
     try {
-        const ex = DB.exams.find(e => String(e.id) === String(id));
+        if (!DB || !DB.exams) return;
+        const ex = DB.exams.find(e => String(e.id) === String(examId));
         if (!ex) {
-            console.error('Sinav bulunamadi:', id);
+            console.error('Sınav bulunamadı:', examId);
+            if (typeof showToast === 'function') showToast('Sınav bulunamadı!', 'error');
             return;
         }
 
-        const newDur = prompt(`${ex.name} sinavi için yeni süreyi (dakika) girin:`, ex.duration || 60);
-        if (newDur !== null) {
-            const val = parseInt(newDur);
-            if (!isNaN(val) && val > 0) {
-                // Centralized update function (it handles score, proctor totals, and storage)
-                updateExam(id, { duration: val });
-                
-                // Kayit ve UI Yenileme
-                if (typeof saveToBackend === 'function') saveToBackend();
-                
-                if (typeof showToast === 'function') showToast('Sinav süresi güncellendi.');
-                else alert('Sinav süresi güncellendi.');
+        const modal = document.getElementById('modal-update-duration');
+        const idInput = document.getElementById('duration-modal-exam-id');
+        const durInput = document.getElementById('duration-modal-input');
+        const noteInput = document.getElementById('duration-modal-note');
+        const card = document.getElementById('duration-modal-exam-card');
 
-                renderProfile(); // Görüntüyü yenile
-                
-                // Eğer "Sorumlu Olduğum" sekmesi açiksa orayi da yenile
-                const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
-                if (activeTab === 'responsible') {
-                    const myStaffId = localStorage.getItem('myStaffId');
-                    const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
-                    if (staff && typeof renderResponsibleExamsTab === 'function') {
-                        renderResponsibleExamsTab(myStaffId, staff);
-                    }
-                }
-            } else {
-                if (typeof showToast === 'function') showToast('Geçersiz süre!', 'error');
-                else alert('Geçersiz süre!');
+        if (!modal || !idInput || !durInput || !card) return;
+
+        idInput.value = ex.id;
+        durInput.value = ex.duration || 60;
+        if (noteInput) noteInput.value = ex.durationNote || '';
+
+        const scheduled = ex.scheduledDuration || ex.duration || 60;
+        const currentScore = parseFloat(ex.score) || 0;
+        const proctors = (ex.proctorIds && ex.proctorIds.length > 0)
+            ? DB.staff.filter(s => ex.proctorIds.map(String).includes(String(s.id))).map(s => s.name).join(', ')
+            : (ex.proctorName || 'Atanmadı');
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                <div>
+                    <h3 style="margin:0; font-size:1.05rem; color:#fff;">${ex.name}</h3>
+                    <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
+                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; 📍 ${ex.location || '-'}
+                    </div>
+                </div>
+                <span class="score-tag" style="font-size:0.85rem; padding: 0.25rem 0.55rem;">+${currentScore} puan</span>
+            </div>
+            <div style="display:flex; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap; padding-top:0.4rem; border-top:1px solid rgba(255,255,255,0.06);">
+                <div>👨‍🏫 <strong>Ders Hocası:</strong> ${ex.lecturer || '-'}</div>
+                <div>🛡️ <strong>Gözetmen:</strong> ${proctors}</div>
+                <div>⏱️ <strong>Planlanan Süre:</strong> ${scheduled} dk</div>
+            </div>
+        `;
+
+        updateDurationModalScorePreview(ex.duration || 60);
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            durInput.focus();
+            durInput.select();
+        }, 100);
+    } catch (err) {
+        console.error('openUpdateDurationModal error:', err);
+    }
+};
+
+window.closeUpdateDurationModal = function() {
+    const modal = document.getElementById('modal-update-duration');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.setDurationPreset = function(mins) {
+    const durInput = document.getElementById('duration-modal-input');
+    if (durInput) {
+        durInput.value = mins;
+        updateDurationModalScorePreview(mins);
+    }
+};
+
+window.updateDurationModalScorePreview = function(val) {
+    const preview = document.getElementById('duration-modal-preview');
+    const examId = document.getElementById('duration-modal-exam-id')?.value;
+    if (!preview || !examId) return;
+
+    const ex = DB.exams.find(e => String(e.id) === String(examId));
+    if (!ex) return;
+
+    const numVal = parseInt(val, 10);
+    if (isNaN(numVal) || numVal <= 0) {
+        preview.innerHTML = `
+            <div style="color:#ef4444; font-weight:600;">
+                ⚠️ Lütfen geçerli bir sınav süresi girin (en az 15 dakika).
+            </div>
+        `;
+        return;
+    }
+
+    const testDate = getSafeDate(ex.date, ex.time);
+    const oldScore = parseFloat(ex.score) || 0;
+    const newScore = calculateScore(testDate, numVal, ex.id);
+    const diff = parseFloat((newScore - oldScore).toFixed(2));
+    const plannedDur = ex.scheduledDuration || ex.duration || 60;
+
+    let diffBadge = '';
+    if (diff > 0) {
+        diffBadge = `<span style="background:rgba(16,185,129,0.2); color:#34d399; font-weight:700; padding:2px 8px; border-radius:6px;">+${diff} puan artış 📈</span>`;
+    } else if (diff < 0) {
+        diffBadge = `<span style="background:rgba(239,68,68,0.2); color:#f87171; font-weight:700; padding:2px 8px; border-radius:6px;">${diff} puan azalış 📉</span>`;
+    } else {
+        diffBadge = `<span style="background:rgba(255,255,255,0.1); color:var(--text-muted); font-weight:600; padding:2px 8px; border-radius:6px;">Puan değişimi yok (0.0)</span>`;
+    }
+
+    const isDifferentFromPlanned = numVal !== plannedDur;
+
+    preview.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+            <span style="font-weight:600; color:#fff;">📊 Puan Etkisi Önizlemesi:</span>
+            ${diffBadge}
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.8rem;">
+            <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
+                <div style="color:var(--text-muted); font-size:0.72rem;">Mevcut Kayıt:</div>
+                <div><strong>${ex.duration || 60} dk</strong> &nbsp;→&nbsp; <span style="color:#38bdf8;">+${oldScore} puan</span></div>
+            </div>
+            <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
+                <div style="color:var(--text-muted); font-size:0.72rem;">Yeni Gerçekleşen:</div>
+                <div><strong>${numVal} dk</strong> &nbsp;→&nbsp; <span style="color:#34d399; font-weight:700;">+${newScore} puan</span></div>
+            </div>
+        </div>
+        ${isDifferentFromPlanned ? `
+            <div style="margin-top:0.4rem; font-size:0.75rem; color:#f59e0b;">
+                ℹ️ Planlanan süre (${plannedDur} dk) ile gerçekleşen (${numVal} dk) arasında fark var. Sistem yeni süreyi ve puanı anında kaydedecektir.
+            </div>
+        ` : `
+            <div style="margin-top:0.4rem; font-size:0.75rem; color:var(--text-muted);">
+                ✓ Süre planlanan ile aynı (${plannedDur} dk).
+            </div>
+        `}
+    `;
+};
+
+window.saveExamDurationFromModal = function() {
+    try {
+        const examId = document.getElementById('duration-modal-exam-id')?.value;
+        const durInput = document.getElementById('duration-modal-input');
+        const noteInput = document.getElementById('duration-modal-note');
+
+        if (!examId || !durInput) return;
+
+        const val = parseInt(durInput.value, 10);
+        if (isNaN(val) || val < 15 || val > 480) {
+            if (typeof showToast === 'function') showToast('Lütfen 15 ile 480 dakika arasında geçerli bir süre girin!', 'error');
+            else alert('Lütfen 15 ile 480 dakika arasında geçerli bir süre girin!');
+            durInput.focus();
+            return;
+        }
+
+        const ex = DB.exams.find(e => String(e.id) === String(examId));
+        if (!ex) {
+            if (typeof showToast === 'function') showToast('Sınav bulunamadı!', 'error');
+            return;
+        }
+
+        const note = noteInput ? noteInput.value.trim() : '';
+        const scheduledDur = ex.scheduledDuration || ex.duration || 60;
+
+        // Kullanıcı kimliği
+        let actor = 'Gözetmen';
+        const myStaffId = localStorage.getItem('myStaffId');
+        if (myStaffId && DB.staff) {
+            const currentStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
+            if (currentStaff) actor = currentStaff.name;
+        } else if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
+            actor = 'Yönetici';
+        }
+
+        const saveBtn = document.getElementById('btn-save-duration');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Kaydediliyor...';
+        }
+
+        // Merkezi güncelleme fonksiyonu (puanları, gözetmen toplamlarını ve anlık snapshot'ı yönetir)
+        updateExam(examId, {
+            duration: val,
+            actualDuration: val,
+            scheduledDuration: scheduledDur,
+            durationNote: note,
+            durationUpdatedBy: actor,
+            durationUpdatedAt: new Date().toISOString()
+        });
+
+        // Tüm puanları tam tutarlılıkla yeniden hesapla
+        if (typeof recalculateAllScores === 'function') {
+            recalculateAllScores();
+        }
+
+        // Değişikliği audit log'a kaydet
+        if (typeof logAction === 'function') {
+            logAction(
+                'user',
+                'Sınav Süresi Güncelleme',
+                `${actor} tarafından "${ex.name}" (${ex.date} ${ex.time}) sınav süresi ${ex.duration} dk -> ${val} dk yapıldı.${note ? ' Not: ' + note : ''}`
+            );
+        }
+
+        // Backend (Firebase RTDB) ve LocalStorage senkronizasyonu
+        if (typeof saveToBackend === 'function') {
+            saveToBackend();
+        } else if (typeof saveToLocalStorage === 'function') {
+            saveToLocalStorage();
+        }
+
+        // Modalı kapat
+        closeUpdateDurationModal();
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Kaydet & Puanı Güncelle';
+        }
+
+        // Bildirim
+        const msg = `${ex.name} süresi ${val} dk olarak güncellendi ve puanlar yeniden hesaplandı.`;
+        if (typeof showToast === 'function') showToast(msg, 'success');
+        else alert(msg);
+
+        // UI Yenile
+        if (typeof renderProfile === 'function') renderProfile();
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof renderStaffTable === 'function') renderStaffTable();
+
+        // Eğer Sorumlu Olduğum sekmesi açıksa
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+        if (activeTab === 'responsible' && myStaffId) {
+            const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+            if (staff && typeof renderResponsibleExamsTab === 'function') {
+                renderResponsibleExamsTab(myStaffId, staff);
             }
         }
     } catch (err) {
-        console.error('Süre güncelleme hatasi:', err);
-        alert('Bir hata oluştu: ' + err.message);
+        console.error('saveExamDurationFromModal error:', err);
+        if (typeof showToast === 'function') showToast('Kayıt sırasında hata oluştu: ' + err.message, 'error');
+        else alert('Hata: ' + err.message);
+        const saveBtn = document.getElementById('btn-save-duration');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Kaydet & Puanı Güncelle';
+        }
     }
+};
+
+window.updateExamDurationFromProfile = function(id) {
+    openUpdateDurationModal(id);
 };
 
 function renderPasswordSection(staff) {
@@ -14428,3 +14643,13 @@ window.exportScheduleToExcel = function() {
 
 
 
+
+// Modal dışına tıklandığında süre güncelleme modalını kapat
+window.addEventListener('DOMContentLoaded', () => {
+    const durModal = document.getElementById('modal-update-duration');
+    if (durModal) {
+        durModal.addEventListener('click', (e) => {
+            if (e.target === durModal) closeUpdateDurationModal();
+        });
+    }
+});
