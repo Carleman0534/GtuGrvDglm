@@ -1808,8 +1808,8 @@ function publishDraft() {
 
 
 
-function addExam(examData) {
-    takeSnapshot("Sınav Ekleme");
+function addExam(examData, skipSave = false, skipSnapshot = false) {
+    if (!skipSnapshot) takeSnapshot("Sınav Ekleme");
     let proctors = [];
     
     if (examData.proctorIds && examData.proctorIds.length > 0) {
@@ -1819,38 +1819,41 @@ function addExam(examData) {
         if (p) proctors = [p];
     }
     
-    if (proctors.length === 0) {
+    if (proctors.length === 0 && !examData.allowUnassigned) {
         const best = findBestProctor(examData.date, examData.time, examData.duration);
         if (best) proctors = [best];
     }
 
-    if (proctors.length === 0) {
+    if (proctors.length === 0 && !examData.allowUnassigned) {
         alert("Bu tarih ve saatte müsait bir gözetmen bulunamadı!");
-        return;
+        return null;
     }
 
     const score = calculateScore(getSafeDate(examData.date, examData.time), examData.duration);
     
-    const examId = Date.now();
+    // Benzersiz sınav ID garantisi (Mükerrer ve çakışan ID'leri önler)
+    const maxCurrentId = (DB.exams || []).reduce((max, e) => Math.max(max, Number(e.id) || 0), Date.now());
+    const examId = examData.id || (maxCurrentId + 1 + Math.floor(Math.random() * 1000));
+
     const newExam = {
         ...examData,
         id: examId,
-        isDraft: DB.isDraftMode, // EĞER TASLAK MODU AÇIKSA TASLAK OLARAK KAYDET
+        isDraft: (examData.isDraft !== undefined) ? examData.isDraft : DB.isDraftMode,
         type: examData.type || "Vize",
         name: examData.name || "İsimsiz Sınav",
         lecturer: examData.lecturer || "-",
         capacity: examData.capacity || "-",
         location: examData.location || "Belirtilmedi",
         proctorIds: proctors.map(p => p.id),
-        proctorId: proctors[0].id,
-        proctorName: proctors.map(p => p.name).join(', '),
+        proctorId: proctors.length > 0 ? proctors[0].id : null,
+        proctorName: proctors.length > 0 ? proctors.map(p => p.name).join(', ') : "Atanmadı",
         score: score,
         katsayi: getKatsayi(getSafeDate(examData.date, examData.time), examData.duration, examId)
     };
 
     DB.exams.push(newExam);
     
-    // Personel puanlarını güncelle
+    // Personel puanlarını güncelle (yalnızca gözetmen atanmışsa)
     proctors.forEach(p => {
         if (shouldCountAsNonExam(examData)) {
             p.nonExamScore = parseFloat(((p.nonExamScore || 0) + score).toFixed(2));
@@ -1862,27 +1865,30 @@ function addExam(examData) {
     });
 
     // GÖZETMENLERE BİLDİRİM GÖNDER (Yeni Görev)
-    if (!DB.notifications) DB.notifications = {};
-    const nowNotif = new Date().toISOString();
-    proctors.forEach(p => {
+    if (proctors.length > 0) {
         if (!DB.notifications) DB.notifications = {};
-        if (!Array.isArray(DB.notifications[p.id])) DB.notifications[p.id] = [];
-        DB.notifications[p.id].unshift({
-            id: Date.now() + p.id,
-            message: `📅 Yeni Görev: "${newExam.name}" (${newExam.date} - ${newExam.time}) sınavına gözetmen olarak atandınız.`,
-            type: 'new_assignment',
-            createdAt: nowNotif,
-            isRead: false
+        const nowNotif = new Date().toISOString();
+        proctors.forEach(p => {
+            if (!Array.isArray(DB.notifications[p.id])) DB.notifications[p.id] = [];
+            DB.notifications[p.id].unshift({
+                id: Date.now() + p.id + Math.floor(Math.random() * 1000),
+                message: `📅 Yeni Görev: "${newExam.name}" (${newExam.date} - ${newExam.time}) sınavına gözetmen olarak atandınız.`,
+                type: 'new_assignment',
+                createdAt: nowNotif,
+                isRead: false
+            });
+
+            // E-posta Gönder (Taslak modunda değilsek)
+            if (!newExam.isDraft) {
+                sendAssignmentEmail(p.id, newExam, 'new');
+            }
         });
+    }
 
-        // E-posta Gönder (Taslak modunda değilsek)
-        if (!newExam.isDraft) {
-            sendAssignmentEmail(p.id, newExam, 'new');
-        }
-    });
-
-    saveToLocalStorage();
-    logAction('admin', 'Sınav Ekleme', `${newExam.name} (${newExam.date}) sınavı sisteme eklendi.`);
+    if (!skipSave) {
+        saveToLocalStorage();
+        logAction('admin', 'Sınav Ekleme', `${newExam.name} (${newExam.date}) sınavı sisteme eklendi.`);
+    }
     return newExam;
 }
 
