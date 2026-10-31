@@ -2112,6 +2112,18 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group" style="margin-top: 1.25rem;">
+                    <label style="font-size: 0.85rem; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">💬 Açıklama / Not (İsteğe Bağlı):</label>
+                    <textarea id="direct-swap-note" placeholder="Örn: İzinli olduğum için bu takası rica ediyorum..." style="width: 100%; min-height: 60px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem; color: white;"></textarea>
+                </div>
+
+                <div style="margin-top: 0.75rem;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text-secondary);">
+                        <input type="checkbox" id="direct-swap-create-mail" checked style="accent-color: var(--primary);">
+                        <span>Karşı hocaya otomatik bilgilendirme e-postası taslağı oluştur</span>
+                    </label>
+                </div>
+
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="document.getElementById('modal-direct-swap').classList.add('hidden')">İptal</button>
@@ -2159,6 +2171,53 @@
         </div>
     </div>
 
+    <!-- Görev Pazara Çıkarma Modalı -->
+    <div id="modal-market-drop" class="modal hidden">
+        <div class="modal-content card-large swap-modal" style="max-width: 620px;">
+            <div class="modal-header">
+                <h2 id="market-drop-title">📤 Görevi Pazara Çıkar</h2>
+                <button class="close-modal" onclick="SwapMarket.closeModal('modal-market-drop')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Adım 1: Pazara Bırakma Formu -->
+                <div id="market-drop-step1">
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">
+                        Bu görevi Görev Pazarı'na bıraktığınızda diğer tüm hocalar görevi devralmak için talep gönderebilir.
+                    </p>
+                    <div id="market-drop-exam-card" style="margin-bottom: 1rem;"></div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.85rem; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">💬 Açıklama / Not (İsteğe Bağlı):</label>
+                        <textarea id="market-drop-note" placeholder="Örn: İzinli olduğum için bu görevi devretmek istiyorum..." style="width: 100%; min-height: 70px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem; color: white;"></textarea>
+                    </div>
+                    <div class="modal-footer" style="padding: 0; margin-top: 1rem; display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="btn-secondary" onclick="SwapMarket.closeModal('modal-market-drop')">Vazgeç</button>
+                        <button type="button" id="btn-confirm-market-drop" class="btn-primary" style="background: var(--accent-orange);" onclick="SwapMarket.confirmMarketDrop()">📤 Pazara Çıkar</button>
+                    </div>
+                </div>
+
+                <!-- Adım 2: Hocalara E-posta Gönderme Seçenekleri -->
+                <div id="market-drop-step2" class="hidden">
+                    <div id="market-drop-exam-card-2" style="margin-bottom: 1rem;"></div>
+                    <div id="market-drop-counts" class="market-drop-counts" style="margin-bottom: 0.8rem;"></div>
+                    <div id="market-drop-excluded" class="market-drop-excluded" style="margin-bottom: 1rem;"></div>
+                    <p style="font-size: 0.85rem; color: #fbbf24; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;">
+                        ℹ️ Görevinizin hızlı devralınabilmesi için hocalara otomatik bilgilendirme e-postası (Gizli/BCC) gönderebilirsiniz:
+                    </p>
+                    <div class="market-drop-actions" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                        <button type="button" class="btn-secondary" onclick="SwapMarket.closeModal('modal-market-drop')">E-posta Göndermeden Kapat</button>
+                        <button type="button" id="btn-market-mail-eligible" class="btn-secondary" style="background: rgba(16,185,129,0.15); border-color: #10b981; color: #34d399;" onclick="SwapMarket.sendMarketMail('eligible')">
+                            📧 Uygun Hocalara Gönder
+                        </button>
+                        <button type="button" id="btn-market-mail-all" class="btn-primary" style="background: linear-gradient(135deg, #0ea5e9, #0284c7);" onclick="SwapMarket.sendMarketMail('all')">
+                            📢 Tüm Hocalara Gönder
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Takas Şifre Onay Modalı -->
     <div id="modal-swap-confirm-password" class="modal hidden">
         <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">

@@ -903,8 +903,10 @@ ${signature(claimer)}`
         const v = validateSwap(eA, myStaff.id, eB, B.id);
         if (v.errors.length) return showResultError(v, '⛔ Bu takas mevcut kurallara uymuyor:');
 
-        const note = document.getElementById('direct-swap-note').value.trim();
-        const wantMail = document.getElementById('direct-swap-create-mail').checked;
+        const noteEl = document.getElementById('direct-swap-note');
+        const note = noteEl ? noteEl.value.trim() : '';
+        const mailEl = document.getElementById('direct-swap-create-mail');
+        const wantMail = mailEl ? mailEl.checked : true;
 
         const req = {
             id: Date.now(),
@@ -1536,6 +1538,8 @@ ${signature(claimer)}`
     window.rejectDirectSwap = rejectSwap;
     window.acceptSmartSwap = acceptSwap;
     window.rejectSmartSwap = rejectSwap;
+    window.confirmMarketDrop = confirmMarketDrop;
+    window.sendMarketMail = sendMarketMail;
     window.initiateOpenSwap = initiateOpenSwap;
     window.renderMarketplace = renderMarketplace;
     window.acceptOpenRequest = claimMarketTask;
