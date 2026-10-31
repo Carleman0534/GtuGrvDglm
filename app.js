@@ -8198,7 +8198,12 @@ function getExamHistoricalDurationStats(examName, currentExamId = null) {
     if (!DB || !DB.exams || !examName) return null;
 
     const cleanCourseName = (name) => {
-        return (name || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim().toLowerCase();
+        return (name || '')
+            .replace(/[\u2010-\u2015\u2212]/g, '-')
+            .replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
     };
 
     const targetClean = cleanCourseName(examName);
@@ -8230,6 +8235,41 @@ function getExamHistoricalDurationStats(examName, currentExamId = null) {
         }
     });
 
+    // Birebir eşleşen oturum yoksa aynı ders ön ekine (örn. ENG 111 -> ENG 112, INF 100 -> INF 101) sahip kardeş derslerin geçmişine bak
+    let isSisterMatch = false;
+    let sisterCourseName = '';
+    if (pastRecords.length === 0) {
+        const prefixMatch = examName.match(/^([A-Za-zÇĞİÖŞÜçğıöşü]{3,5})/i);
+        if (prefixMatch) {
+            const prefix = prefixMatch[1].toLowerCase();
+            DB.exams.forEach(e => {
+                if (currentExamId && String(e.id) === String(currentExamId)) return;
+                const ePrefixMatch = (e.name || '').match(/^([A-Za-zÇĞİÖŞÜçğıöşü]{3,5})/i);
+                if (ePrefixMatch && ePrefixMatch[1].toLowerCase() === prefix) {
+                    const dur = parseFloat(e.actualDuration || e.duration) || 0;
+                    if (dur > 0) {
+                        const slotKey = `${e.name}_${e.date}_${e.time}`;
+                        if (!seenSlots.has(slotKey)) {
+                            seenSlots.add(slotKey);
+                            sisterCourseName = cleanCourseName(e.name);
+                            pastRecords.push({
+                                id: e.id,
+                                name: e.name,
+                                date: e.date,
+                                time: e.time,
+                                duration: dur,
+                                actualDuration: e.actualDuration,
+                                durationNote: e.durationNote || '',
+                                isSisterCourse: true
+                            });
+                        }
+                    }
+                }
+            });
+            if (pastRecords.length > 0) isSisterMatch = true;
+        }
+    }
+
     if (pastRecords.length === 0) return null;
 
     pastRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -8257,7 +8297,9 @@ function getExamHistoricalDurationStats(examName, currentExamId = null) {
         averageDuration: avg,
         latestDuration: pastRecords[0].duration,
         latestExam: pastRecords[0],
-        history: pastRecords.slice(0, 5)
+        history: pastRecords.slice(0, 5),
+        isSisterMatch,
+        sisterCourseName
     };
 }
 
@@ -8330,9 +8372,10 @@ function renderProfileDurationAlerts(myStaffId, staff) {
 
         let historyHtml = '';
         if (stats && stats.count > 0) {
+            const refText = stats.isSisterMatch ? `Arşivdeki ${stats.sisterCourseName.toUpperCase()} referansı:` : 'Bu dersin önceki sınavları';
             historyHtml = `
                 <div style="font-size: 0.78rem; color: #38bdf8; margin-top: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span>💡 <strong>Geçmiş Sınav Verisi:</strong> Bu dersin önceki sınavları ortalama <strong>${stats.averageDuration} dk</strong> sürmüş (Son sınav: ${stats.latestDuration} dk).</span>
+                    <span>💡 <strong>Geçmiş Sınav Verisi:</strong> ${refText} ortalama <strong>${stats.averageDuration} dk</strong> sürmüş (Son sınav: ${stats.latestDuration} dk).</span>
                     ${stats.recommendedDuration !== scheduled ? `
                         <button type="button" class="btn-secondary" style="padding: 0.15rem 0.55rem; font-size: 0.72rem; border-color: #38bdf8; color: #38bdf8; border-radius: 6px; cursor: pointer; background: rgba(56,189,248,0.1);" onclick="confirmScheduledDuration('${ex.id}', ${stats.recommendedDuration})">
                             ⚡ Önerilen Süreyi Onayla (${stats.recommendedDuration} dk)
@@ -8809,13 +8852,27 @@ function getCourseFullExamHistory(courseName) {
     if (!DB || !DB.exams || !courseName) return { sessions: [], stats: null };
 
     const cleanCourseName = (name) => {
-        return (name || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim().toLowerCase();
+        return (name || '')
+            .replace(/[\u2010-\u2015\u2212]/g, '-')
+            .replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
     };
 
     const targetClean = cleanCourseName(courseName);
     if (!targetClean) return { sessions: [], stats: null };
 
-    const matchedExams = DB.exams.filter(e => cleanCourseName(e.name) === targetClean);
+    let matchedExams = DB.exams.filter(e => cleanCourseName(e.name) === targetClean);
+    if (matchedExams.length === 0) {
+        const prefix = targetClean.split(/[\s-]+/)[0];
+        if (prefix && prefix.length >= 3) {
+            matchedExams = DB.exams.filter(e => {
+                const ec = cleanCourseName(e.name);
+                return ec.startsWith(prefix) || (e.courseCode && e.courseCode.toLowerCase().startsWith(prefix));
+            });
+        }
+    }
     if (matchedExams.length === 0) return { sessions: [], stats: null };
 
     const sessionMap = new Map();
@@ -9003,7 +9060,11 @@ window.openCourseHistoryArchiveModal = function(initialCourseName = null) {
     if (!modal || !select || !DB || !DB.exams) return;
 
     const cleanCourseName = (name) => {
-        return (name || '').replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '').trim();
+        return (name || '')
+            .replace(/[\u2010-\u2015\u2212]/g, '-')
+            .replace(/\s*\([^)]*(?:vize|final|büt|but|telafi|sınav)[^)]*\)/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
     };
 
     const courseMap = new Map();
