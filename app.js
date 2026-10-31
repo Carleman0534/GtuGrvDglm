@@ -120,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('isLoggedIn', 'true');
         sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
         sessionStorage.setItem('isLecturer', isLecturer ? 'true' : 'false');
+        window.finishLogin = finishLogin;
         
         if (Object.keys(navButtons).length === 0) initNavigation();
 
