@@ -2312,13 +2312,36 @@ async function saveToBackend(attempt = 1) {
     const MAX_ATTEMPTS = 4;
     const RETRY_DELAYS = [0, 4000, 12000, 36000]; // ms: anında, 4sn, 12sn, 36sn
 
-    // Güvenlik koruması
-    if (!DB || !Array.isArray(DB.staff) || DB.staff.length === 0) {
-        console.error('🚨 [Güvenlik] Personel boş — Firebase kayıt iptal.');
+    // 1. GÜVENLİK ENGELİ: Çevrimdışı Önbellek Koruması (Fallback Guard)
+    // Eğer sayfa sunucudan canlı veriyi çekemeyip eski localStorage önbelleğiyle açıldıysa,
+    // sunucudaki canlı veritabanını eski verilerle ezmesine ASLA izin verilmez!
+    if (window.isFallbackOfflineMode) {
+        console.warn('🛡️ [GÜVENLİK ENGELİ] Sistem çevrimdışı önbellek modunda! Canlı sunucudaki güncel verilerin ezilmemesi için sunucuya kayıt durduruldu.');
+        if (typeof _setCloudStatus === 'function') {
+            _setCloudStatus('offline', '🛡️ Yerel Önbellek Modu (Sunucu Korundu)');
+        }
         return;
     }
 
-    // Çevrimdışıysa kuyruğa al ve dur
+    // 2. Güvenlik koruması: Personel veya veritabanı boş ise kayıt yapma
+    if (!DB || !Array.isArray(DB.staff) || DB.staff.length === 0) {
+        console.error('🚨 [Güvenlik] Personel listesi boş — Firebase kayıt iptal edildi.');
+        return;
+    }
+
+    // 3. Gerileme Koruması (Anti-Regression Guard)
+    // Eğer sunucudan en son yüklenen sınav sayısına göre yereldeki sınav sayısı şüpheli şekilde azaldıysa
+    // (ve bu kasıtlı bir admin toplu silme işlemi değilse), kazara silinmeyi engelle.
+    const currentExamCount = (DB.exams || []).length;
+    if (window._lastLoadedExamCount && window._lastLoadedExamCount > 10 && currentExamCount < (window._lastLoadedExamCount * 0.6)) {
+        console.error(`🚨 [GÜVENLİK ENGELİ] Kritik sınav kaybı riski algılandı! Yüklenen: ${window._lastLoadedExamCount}, Mevcut: ${currentExamCount}. Kayıt durduruldu.`);
+        if (typeof window.showToast === 'function') {
+            window.showToast('🚨 Kritik veri gerilemesi engellendi! Canlı sınav sayısı korunuyor.', 'error');
+        }
+        return;
+    }
+
+    // 4. Çevrimdışıysa kuyruğa al ve dur
     if (!navigator.onLine) {
         _markPendingSync();
         _setCloudStatus('offline', '🔴 Çevrimdışı — Yerel kayıt aktif');
@@ -2341,15 +2364,65 @@ async function saveToBackend(attempt = 1) {
         await new Promise(resolve => setTimeout(resolve, delay));
     }
 
+    // 5. STALE OVERWRITE KORUMASI (Sunucu Son Güncelleme Kontrolü)
+    // Sunucuya yazmadan önce Firebase'deki lastUpdated değerini hızlıca (birkaç byte) sorgula
     try {
+        const checkController = new AbortController();
+        const checkTimeout = setTimeout(() => checkController.abort(), 4000);
+        const checkRes = await fetch(API_BASE_URL + "/gizli_yol_gtu_admin_data/lastUpdated.json?t=" + Date.now(), {
+            signal: checkController.signal
+        });
+        clearTimeout(checkTimeout);
+
+        if (checkRes.ok) {
+            const remoteLastUpdated = await checkRes.json();
+            if (remoteLastUpdated && window._lastLoadedServerTime) {
+                const remoteTime = new Date(remoteLastUpdated).getTime();
+                const localBaseTime = new Date(window._lastLoadedServerTime).getTime();
+
+                // Eğer sunucudaki veri bizim son çektiğimizden daha yeniyse (1.5 sn tolerans)
+                if (remoteTime > (localBaseTime + 1500)) {
+                    console.warn('⚠️ [ÇAKIŞMA KORUMASI] Sunucuya bizden sonra başka bir kullanıcı yazmış!', {
+                        remote: remoteLastUpdated,
+                        localBase: window._lastLoadedServerTime
+                    });
+
+                    _isSyncing = false;
+                    _clearPendingSync();
+                    if (typeof _setCloudStatus === 'function') {
+                        _setCloudStatus('syncing', '🔄 Çakışma önlendi! Canlı veriler çekiliyor...');
+                    }
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('⚠️ Sunucuda başka biri değişiklik yaptı! Veri kaybını önlemek için sayfa güncelleniyor...', 'warning');
+                    }
+
+                    // Sunucudaki taze veriyi çek ve ekranı yenile
+                    await loadFromDataJSON();
+                    if (typeof renderAll === 'function') renderAll();
+                    return;
+                }
+            }
+        }
+    } catch (checkErr) {
+        console.warn("lastUpdated ön kontrolü ağ nedeniyle atlandı:", checkErr.message);
+    }
+
+    try {
+        // Yeni zaman damgası ve versiyon bas
+        const nowIso = new Date().toISOString();
+        DB.lastUpdated = nowIso;
+        DB.version = (DB.version || 1) + 1;
+
         const payload = JSON.stringify(DB);
         await _doFetch(payload);
 
-        // Başarı
+        // Başarı - yerel referansları güncelle
+        window._lastLoadedServerTime = nowIso;
+        window._lastLoadedExamCount = (DB.exams || []).length;
         _isSyncing = false;
         _clearPendingSync();
         _setCloudStatus('ok', '✅ Bulutla Eşitlendi');
-        console.log(`✅ Firebase kayıt başarılı (deneme ${attempt}). Sınav: ${(DB.exams||[]).length}, Talep: ${(DB.requests||[]).length}`);
+        console.log(`✅ Firebase kayıt başarılı (deneme ${attempt}). Sınav: ${(DB.exams||[]).length}, Talep: ${(DB.requests||[]).length}, Zaman: ${nowIso}`);
 
     } catch (e) {
         console.warn(`⚠️ Firebase kayıt denemesi ${attempt} başarısız:`, e.message);
@@ -2413,50 +2486,6 @@ function initOfflineSyncListener() {
 if (typeof window !== 'undefined') {
     window.saveToBackend = saveToBackend;
     window.initOfflineSyncListener = initOfflineSyncListener;
-}
-
-function saveToLocalStorage() {
-    // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için
-    const dbStr = JSON.stringify(DB);
-    
-    // Yaklaşık boyut kontrolü (Karakter sayısı x 2 byte = byte cinsinden boyut)
-    const sizeInMB = (dbStr.length * 2) / (1024 * 1024);
-    
-    if (sizeInMB > 4.0) {
-        console.warn(`Local Storage dolmak üzere! Mevcut Boyut: ${sizeInMB.toFixed(2)} MB`);
-        // Eğer yer kritik seviyeye geldiyse işlem geçmişini (auditLogs) temizleyelim
-        if (DB.auditLogs && DB.auditLogs.length > 50) {
-            DB.auditLogs = DB.auditLogs.slice(-50); // Sadece son 50 kaydı tut
-            console.log("Limit kontrolü: İşlem geçmişi yer açmak için son 50 kayda düşürüldü.");
-        }
-    }
-
-    try {
-        localStorage.setItem(DB_KEY, JSON.stringify(DB));
-        // Anlık görüntü kasasına otomatik kaydet (Snapshot Vault)
-        saveAutoSnapshot(DB, 'Yerel Değişiklik');
-    } catch (e) {
-        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-            console.error("LocalStorage doldu! Temizleme deneniyor...");
-            alert("⚠️ Tarayıcı depolama alanı doldu! Yer açmak için işlem geçmişi siliniyor...");
-            
-            // Radikal çözüm: İşlem geçmişini tamamen sıfırla
-            if (DB.auditLogs) DB.auditLogs = [];
-            
-            try {
-                localStorage.setItem(DB_KEY, JSON.stringify(DB));
-                saveAutoSnapshot(DB, 'Depolama Temizliği Sonrası');
-                alert("✓ İşlem geçmişi temizlenerek yer açıldı ve veriler kaydedildi.");
-            } catch (e2) {
-                alert("❌ Hata: Yer açılamadı! Lütfen tarayıcı ayarlarından site verilerini temizleyin veya eski sınavları silin.");
-            }
-        } else {
-            console.error("LocalStorage kayıt hatası:", e);
-        }
-    }
-    
-    // Sunucuya asenkron olarak yaz (tüm kullanıcılar için)
-    saveToBackend();
 }
 
 function saveToLocalStorage() {
@@ -2591,6 +2620,12 @@ async function loadFromDataJSON() {
             if (!DB.constraints) DB.constraints = {};
             if (!DB.requests) DB.requests = []; // Eksikse başlat
             cleanExpiredConstraints(true);
+
+            // CANLI SENKRONİZASYON BİLGİLERİ GÜNCELLE
+            window.isFallbackOfflineMode = false;
+            window._lastLoadedServerTime = data.lastUpdated || new Date().toISOString();
+            window._lastLoadedExamCount = Array.isArray(data.exams) ? data.exams.length : 0;
+
             // Veriyi lokal hafızaya (cache) alalım
             localStorage.setItem(DB_KEY, JSON.stringify(DB));
             // Snapshot Kasasına otomatik anlık görüntü kaydet
@@ -2606,6 +2641,14 @@ async function loadFromDataJSON() {
         }
     } catch (e) {
         console.warn("API başarıyla okunamadı, localStorage veya Snapshot Kasası kullanılarak deneniyor...", e);
+        
+        // GÜVENLİK ENGELİ: Çevrimdışı fallback modu aktif
+        window.isFallbackOfflineMode = true;
+        if (typeof _setCloudStatus === 'function') {
+            _setCloudStatus('offline', '🔴 Çevrimdışı Önbellek — Sunucu Korumalı');
+        }
+        console.warn('🛡️ [KORUMA] Sunucudan güncel veri çekilemedi. Canlı veritabanının eski önbellekle ezilmesini önlemek için sunucuya kayıt durduruldu.');
+
         const saved = localStorage.getItem(DB_KEY);
         let loaded = false;
         if (saved) {

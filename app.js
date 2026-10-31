@@ -721,6 +721,16 @@ function startPeriodicSync() {
             });
 
             // Yerel lecturers ve courseLecturers korunarak uzak veriyi birleştir
+            // Uzak verinin eskilik kontrolü (Stale remote protection)
+            if (remoteData.lastUpdated && DB.lastUpdated) {
+                const remoteTime = new Date(remoteData.lastUpdated).getTime();
+                const localTime = new Date(DB.lastUpdated).getTime();
+                if (remoteTime < (localTime - 2000)) {
+                    console.warn('Periyodik senkronizasyon: Sunucudaki veri yereldekinden eski görünüyor, yerel veri korunuyor.');
+                    return;
+                }
+            }
+
             if (!remoteData.lecturers || remoteData.lecturers.length === 0) {
                 remoteData.lecturers = DB.lecturers;
             }
@@ -731,6 +741,11 @@ function startPeriodicSync() {
             DB = remoteData;
             if (!DB.constraints) DB.constraints = {};
             if (!DB.requests) DB.requests = [];
+
+            // Senkronizasyon zaman damgalarını güncelle
+            window._lastLoadedServerTime = remoteData.lastUpdated || new Date().toISOString();
+            window._lastLoadedExamCount = (remoteData.exams || []).length;
+            window.isFallbackOfflineMode = false;
 
             // localStorage güncelle + snapshot kaydet
             try { localStorage.setItem(typeof DB_KEY !== 'undefined' ? DB_KEY : 'gozetmenlik_db_v25', JSON.stringify(DB)); } catch(e) {}

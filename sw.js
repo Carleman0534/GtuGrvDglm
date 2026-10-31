@@ -1,10 +1,11 @@
-﻿const CACHE_NAME = 'gozetmenlik-ai-v12';
+const CACHE_NAME = 'gozetmenlik-ai-v13';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './style.css',
     './app.js',
     './logic.js',
+    './veri_koruma.js',
     './ai_features.js',
     './icon-192.png',
     './icon-512.png',
