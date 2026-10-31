@@ -2840,7 +2840,10 @@ function renderExams() {
         if (!searchTerm) return true;
         
         const name = (ex.name || "").toLowerCase();
+        const courseCode = (ex.courseCode || "").toLowerCase();
         const lecturer = (ex.lecturer || "").toLowerCase();
+        const location = (ex.location || "").toLowerCase();
+        const type = (ex.type || "").toLowerCase();
         
         const pNames = (ex.proctorIds || [ex.proctorId]).map(pid => {
             if (!pid) return '';
@@ -2849,7 +2852,10 @@ function renderExams() {
         }).join(' ');
 
         return name.includes(searchTerm) || 
+               courseCode.includes(searchTerm) ||
                lecturer.includes(searchTerm) || 
+               location.includes(searchTerm) ||
+               type.includes(searchTerm) ||
                pNames.includes(searchTerm);
     });
 
@@ -2881,7 +2887,7 @@ function renderExams() {
         tr.innerHTML = `
             <td><span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(139, 92, 246, 0.3);">${ex.type || 'Vize'}</span></td>
             <td>
-                <span class="clickable-name" onclick="showExamDetail('${ex.name}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span>
+                <span class="clickable-name" onclick="showExamDetail('${(ex.name || '').replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${(ex.location || '').replace(/'/g, "\\'")}')"><strong>${ex.name}</strong></span>
                 ${conflicts.has(ex.id) ? '<span class="conflict-warning">⚠️ Zaman Çakişmasi!</span>' : ''}
             </td>
             <td>${ex.lecturer || '-'}</td>
