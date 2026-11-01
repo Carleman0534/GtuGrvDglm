@@ -353,7 +353,31 @@
                     <div class="profile-bento-grid">
                         <!-- SOL KOLON: Ana Görev Hub'ı (%65) -->
                         <div class="profile-main-column">
-                            <!-- Modern Pill Sekme Başlıkları -->
+                            <!-- Mobilde 7 Sekmeli Yatay Bar Yerine Akıllı Seçmeli Menü (Dropdown Tab Picker) -->
+                            <div class="profile-mobile-tab-picker">
+                                <div class="profile-picker-container">
+                                    <div class="profile-picker-icon-box">
+                                        <span id="profile-picker-active-icon">📋</span>
+                                    </div>
+                                    <div class="profile-picker-content">
+                                        <label for="profile-tab-mobile-select" class="profile-picker-label">Görünüm Sekmesi</label>
+                                        <div class="profile-picker-select-box">
+                                            <select id="profile-tab-mobile-select" onchange="switchProfileTab(this.value)">
+                                                <option value="active" selected>📋 Aktif Görevlerim</option>
+                                                <option value="marketplace">🛒 Pazar Yeri (Açık Görevler)</option>
+                                                <option value="swap-history">🔄 Takas & Devir Geçmişim</option>
+                                                <option value="archive">📦 Tamamlanan Görevler Arşivi</option>
+                                                <option value="my-timeline">📅 Kişisel Sınav Takvimim</option>
+                                                <option value="scorecard">🏆 Puan Karnesi & Dönem Dökümü</option>
+                                                <option value="availability">🚫 Müsait Olmadığım Saatler (Kısıtlar)</option>
+                                            </select>
+                                            <span class="profile-picker-arrow">▼</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Modern Pill Sekme Başlıkları (Masaüstü) -->
                             <div class="profile-pill-tabs">
                                 <button class="tab-btn active" data-tab="active">📋 Aktif Görevler</button>
                                 <button class="tab-btn" data-tab="marketplace">🛒 Pazar Yeri</button>

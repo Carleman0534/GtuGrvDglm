@@ -4232,20 +4232,93 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
         line-height: 1.25 !important;
     }
 
-    /* 4. Profil Alt Sekmeleri (Pill Tabs) */
+
+    /* 4. Profil Alt Sekmeleri: Mobilde Yatay Pill Bar Yerine Akıllı Seçici */
     .profile-pill-tabs {
-        padding-bottom: 0.4rem !important;
-        margin-bottom: 0.85rem !important;
-        gap: 0.4rem !important;
+        display: none !important;
     }
 
-    .profile-pill-tabs .tab-btn {
-        padding: 0.45rem 0.85rem !important;
-        font-size: 0.78rem !important;
-        border-radius: 12px !important;
-        font-weight: 700 !important;
-        min-height: 38px !important;
+    .profile-mobile-tab-picker {
+        display: block !important;
+        margin-bottom: 1.15rem !important;
     }
+
+    .profile-picker-container {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.85)) !important;
+        border: 1.5px solid rgba(99, 102, 241, 0.45) !important;
+        border-radius: 18px !important;
+        padding: 0.65rem 0.95rem !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(99, 102, 241, 0.2) !important;
+    }
+
+    .profile-picker-icon-box {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        border-radius: 14px !important;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.25)) !important;
+        border: 1px solid rgba(99, 102, 241, 0.45) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 1.35rem !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    .profile-picker-content {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+
+    .profile-picker-label {
+        display: block !important;
+        font-size: 0.68rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        color: #a5b4fc !important;
+        margin-bottom: 2px !important;
+    }
+
+    .profile-picker-select-box {
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .profile-picker-select-box select {
+        width: 100% !important;
+        background: transparent !important;
+        border: none !important;
+        color: #ffffff !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        font-family: inherit !important;
+        padding: 3px 26px 3px 0 !important;
+        cursor: pointer !important;
+        outline: none !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+    }
+
+    .profile-picker-select-box select option {
+        background: #0f172a !important;
+        color: #ffffff !important;
+        font-size: 0.95rem !important;
+        padding: 10px !important;
+    }
+
+    .profile-picker-arrow {
+        position: absolute !important;
+        right: 2px !important;
+        pointer-events: none !important;
+        color: #818cf8 !important;
+        font-size: 0.75rem !important;
+    }
+
 
     /* 5. AKTİF GÖREVLER MOBİL KART DÖNÜŞÜMÜ (TABLE -> DOKUNMATİK KARTLAR) */
     #profile-table-active,
@@ -4504,4 +4577,9 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
         border: none !important;
         padding: 3px 0 !important;
     }
+}
+
+/* Mobil Profil Sekme Seçici - Varsayılan Masaüstünde Gizli */
+.profile-mobile-tab-picker {
+    display: none;
 }

@@ -1313,34 +1313,63 @@ function initUI() {
         updateNotificationBadge();
     });
 
-    // Profile Tab Listeners
+    // =========================================================================
+    // 👤 GLOBAL PROFİL SEKME DEĞİŞTİRİCİSİ (Masaüstü Butonları + Mobil Dropdown)
+    // =========================================================================
+    window.switchProfileTab = function (tabId) {
+        if (!tabId) return;
+
+        // 1. Masaüstü Pill Butonlarını Senkronize Et
+        document.querySelectorAll('#section-profile .tab-btn').forEach(b => {
+            if (b.getAttribute('data-tab') === tabId) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+
+        // 2. Mobil Dropdown Seçicisini Senkronize Et
+        const mobileSelect = document.getElementById('profile-tab-mobile-select');
+        if (mobileSelect && mobileSelect.value !== tabId) {
+            mobileSelect.value = tabId;
+        }
+
+        // 3. Mobil İkon Kutusunu Güncelle
+        const iconSpan = document.getElementById('profile-picker-active-icon');
+        if (iconSpan) {
+            const iconMap = {
+                'active': '📋',
+                'marketplace': '🛒',
+                'swap-history': '🔄',
+                'archive': '📦',
+                'my-timeline': '📅',
+                'scorecard': '🏆',
+                'availability': '🚫',
+                'notifications': '🔔',
+                'responsible': '✉️'
+            };
+            iconSpan.textContent = iconMap[tabId] || '📑';
+        }
+
+        // 4. İlgili Sekme Panosunu Göster, Diğerlerini Gizle
+        document.querySelectorAll('#section-profile .tab-pane').forEach(p => p.classList.add('hidden'));
+        const pane = document.getElementById(`tab-${tabId}`);
+        if (pane) pane.classList.remove('hidden');
+
+        // 5. Sekmeye Özel Render Fonksiyonlarını Çalıştır
+        if (tabId === 'marketplace' && typeof renderMarketplace === 'function') renderMarketplace();
+        if (tabId === 'notifications') {
+            if (typeof renderNotifications === 'function') renderNotifications();
+            if (typeof markNotificationsAsRead === 'function') markNotificationsAsRead();
+        }
+        if (tabId === 'my-timeline' && typeof renderMyTimeline === 'function') renderMyTimeline();
+        if (tabId === 'swap-history' && typeof renderSwapHistory === 'function') renderSwapHistory();
+        if (tabId === 'responsible' && typeof clearMessageBadge === 'function') clearMessageBadge();
+        if (tabId === 'scorecard' && typeof renderScorecard === 'function') renderScorecard();
+    };
+
+    // Profile Tab Listeners (Masaüstü Pill Butonları)
     document.querySelectorAll('#section-profile .tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.getAttribute('data-tab');
-            document.querySelectorAll('#section-profile .tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            document.querySelectorAll('#section-profile .tab-pane').forEach(p => p.classList.add('hidden'));
-            const pane = document.getElementById(`tab-${tabId}`);
-            if (pane) pane.classList.remove('hidden');
-
-            if (tabId === 'marketplace') renderMarketplace();
-            if (tabId === 'notifications') {
-                renderNotifications();
-                markNotificationsAsRead();
-            }
-            if (tabId === 'my-timeline') {
-                renderMyTimeline();
-            }
-            if (tabId === 'swap-history') {
-                if (typeof renderSwapHistory === 'function') renderSwapHistory();
-            }
-            if (tabId === 'responsible') {
-                clearMessageBadge();
-            }
-            if (tabId === 'scorecard') {
-                if (typeof renderScorecard === 'function') renderScorecard();
-            }
+            window.switchProfileTab(tabId);
         });
     });
 
