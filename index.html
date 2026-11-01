@@ -52,92 +52,68 @@
 </head><body>
     <!-- Giriş Ekranı (Login Overlay) -->
     <div id="login-overlay" class="login-overlay">
-        <div class="login-container" style="max-width: 420px; width: 90%;">
-            <!-- Tek Kart Giriş -->
-            <div class="login-card" style="border-top: 4px solid var(--primary); padding: 2.5rem 2rem;">
-                <div class="login-header" style="margin-bottom: 2rem;">
-                    <span class="login-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-size: 1.75rem; width: 72px; height: 72px; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">🔒</span>
-                    <h2 style="font-size: 1.4rem; text-align: center; margin-bottom: 0.5rem;">Gözetmenlik Sistemi</h2>
-                    <p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">Lütfen devam etmek için şifreyi girin</p>
+        <div class="login-container">
+            <!-- Tek Kart Giriş & Entegre Bildirim Alanı -->
+            <div class="login-card">
+                <div class="login-header">
+                    <span class="login-icon">🔒</span>
+                    <h2>Gözetmenlik Sistemi</h2>
+                    <p>Devam etmek için şifreyi girin veya Google ile bağlanın</p>
                 </div>
                 <div class="login-form">
                     <!-- Google ile Kurumsal Giriş (@gtu.edu.tr) -->
-                    <button id="btn-google-login" type="button" class="btn-google-login" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0.85rem; font-size: 0.95rem; font-weight: 600; background: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 0.5rem;">
+                    <button id="btn-google-login" type="button" class="btn-google-login">
                         <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
                         <span>Google ile Giriş Yap (@gtu.edu.tr)</span>
                     </button>
                     
-                    <div style="display: flex; align-items: center; margin: 1.1rem 0; color: var(--text-muted); font-size: 0.8rem;">
-                        <span style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></span>
-                        <span style="padding: 0 10px; letter-spacing: 0.05em;">veya Şifre ile Devam Et</span>
-                        <span style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></span>
+                    <div class="login-divider">
+                        <span></span>
+                        <span>veya Şifre ile Devam Et</span>
+                        <span></span>
                     </div>
 
-                    <input type="password" id="login-password" placeholder="Şifre" autofocus style="margin-bottom: 1rem; width: 100%; text-align: center; letter-spacing: 0.1em;">
-                    <button id="btn-login" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem;">Giriş Yap</button>
-                    <button id="btn-login-lecturer" class="btn-secondary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--glass-border);">Hoca Girişi (Şifresiz Sadece Program)</button>
-                    <p id="login-error" class="login-error hidden" style="text-align: center; margin-top: 0.75rem;">Hatalı şifre, lütfen tekrar deneyin.</p>
+                    <input type="password" id="login-password" placeholder="Şifre" autofocus>
+                    <button id="btn-login" class="btn-primary">Giriş Yap</button>
+                    <button id="btn-login-lecturer" class="btn-secondary">Hoca Girişi (Şifresiz Sadece Program)</button>
+                    <p id="login-error" class="login-error hidden">Hatalı şifre, lütfen tekrar deneyin.</p>
+                </div>
+
+                <!-- 🚀 Akıllı Telefona Yükle & Bildirim Açma Teşvik Alanı (Kartın Altına Entegre) -->
+                <div id="login-guest-notification-card" class="login-incentive-card">
+                    <div class="incentive-header">
+                        <div class="incentive-title-row">
+                            <span class="incentive-icon">📲</span>
+                            <span class="incentive-title">Sınavları Kaçırmayın!</span>
+                        </div>
+                        <span class="incentive-badge">Şifresiz 1-Tık</span>
+                    </div>
+                    <p class="incentive-desc">Kilit ekranı sınav hatırlatmaları ve tek tıkla erişim için:</p>
+
+                    <!-- 2 Büyük Adım Butonu -->
+                    <div class="incentive-buttons">
+                        <!-- 1. Adım: Telefona Yükle -->
+                        <button type="button" id="btn-login-pwa-install" onclick="triggerPwaInstall()">
+                            <div class="btn-inner">
+                                <span class="btn-icon">📲</span>
+                                <span id="btn-login-pwa-text">1. Adım: Telefona Uygulama Olarak Yükle</span>
+                            </div>
+                            <span id="btn-login-pwa-chip">Hızlı</span>
+                        </button>
+
+                        <!-- 2. Adım: Kilit Ekranı Bildirimlerini Aç -->
+                        <button type="button" id="btn-quick-notif-perm" onclick="quickEnableNotificationWithFeedback()">
+                            <div class="btn-inner">
+                                <span class="btn-icon">🔔</span>
+                                <span id="btn-login-notif-text">2. Adım: Kilit Ekranı Bildirimlerini Aç</span>
+                            </div>
+                            <span id="btn-login-notif-chip">İzin Ver</span>
+                        </button>
+                    </div>
                 </div>
             </div>
-                    <!-- 🚀 Akıllı Telefona Yükle & Bildirim Açma Teşvik Kartı -->
-                    <div id="login-guest-notification-card" class="login-incentive-card" style="margin-top: 1.25rem; padding: 1.35rem 1.4rem; border-top: 3px solid #38bdf8; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.85)); border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(56, 189, 248, 0.15); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
-                        
-                        <!-- Header & Vurgu -->
-                        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 0.9rem;">
-                            <div style="width: 44px; height: 44px; min-width: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4); flex-shrink: 0;">
-                                📲
-                            </div>
-                            <div style="text-align: left; flex: 1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
-                                    <h3 style="font-size: 1.05rem; margin: 0; color: #fff; font-weight: 800; letter-spacing: -0.01em;">Sınavları Kaçırmayın!</h3>
-                                    <span style="font-size: 0.65rem; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 2px 7px; border-radius: 6px; font-weight: 700; text-transform: uppercase;">Şifresiz 1-Tık</span>
-                                </div>
-                                <span style="font-size: 0.76rem; color: #94a3b8; display: block; margin-top: 3px; line-height: 1.35;">Telefon kapalıyken sınav ve acil duyuru bildirimlerini almak için 2 adımı tamamlayın:</span>
-                            </div>
-                        </div>
-
-                        <!-- 4'lü Avantaj Hapları (Benefits Pills) -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 1rem;">
-                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
-                                <span style="font-size: 0.95rem;">⏰</span>
-                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">24s-3s Hatırlatma</span>
-                            </div>
-                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
-                                <span style="font-size: 0.95rem;">📍</span>
-                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">Salon Değişiklikleri</span>
-                            </div>
-                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
-                                <span style="font-size: 0.95rem;">🔕</span>
-                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">Kilit Ekranı & Titreşim</span>
-                            </div>
-                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
-                                <span style="font-size: 0.95rem;">⚡</span>
-                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">Şifre Gerekmez</span>
-                            </div>
-                        </div>
-
-                        <!-- 2 Büyük Adım Butonu -->
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <!-- 1. Adım: Telefona Yükle -->
-                            <button type="button" id="btn-login-pwa-install" onclick="triggerPwaInstall()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left;">
-                                    <span style="font-size: 1.15rem; flex-shrink: 0;">📲</span>
-                                    <span id="btn-login-pwa-text" style="line-height: 1.25;">1. Adım: Telefona Uygulama Olarak Yükle</span>
-                                </div>
-                                <span id="btn-login-pwa-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700; flex-shrink: 0; margin-left: 6px;">Hızlı</span>
-                            </button>
-
-                            <!-- 2. Adım: Kilit Ekranı Bildirimlerini Aç -->
-                            <button type="button" id="btn-quick-notif-perm" onclick="quickEnableNotificationWithFeedback()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left;">
-                                    <span style="font-size: 1.15rem; flex-shrink: 0;">🔔</span>
-                                    <span id="btn-login-notif-text" style="line-height: 1.25;">2. Adım: Kilit Ekranı Bildirimlerini Aç</span>
-                                </div>
-                                <span id="btn-login-notif-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700; flex-shrink: 0; margin-left: 6px;">İzin Ver</span>
-                            </button>
-                        </div>
-                    </div>
         </div>
+    </div>
     </div>
 
     <div class="app-container" id="app-wrapper" style="display: none;">
