@@ -5129,3 +5129,328 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
         padding: 1px 5px !important;
     }
 }
+
+/* ========================================================================= */
+/* 📱 EVRENSEL MOBİL ŞABLON VE BOYUT KÜÇÜLTME MOTORU (TÜM İÇERİKLER)         */
+/* ========================================================================= */
+
+@media (max-width: 768px) {
+    /* 1. Sayfa Çerçevesi ve Genel Alan (2rem desktop kenar boşlukları küçültüldü) */
+    body {
+        padding: 0.5rem 0.55rem calc(60px + env(safe-area-inset-bottom, 0px)) 0.55rem !important;
+    }
+    .app-container, main, .main-content, .container {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .content-section {
+        margin-bottom: 0.75rem !important;
+    }
+
+    /* 2. Şablonlar, Kartlar ve Konteynerler (PC'deki 2.5rem padding yerine kompakt boyutlar) */
+    .card,
+    .card-large,
+    .card-table,
+    .card-glass,
+    .glass-panel,
+    .dashboard-card,
+    .bento-card {
+        padding: 0.8rem 0.85rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.75rem !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+    }
+    .card-large h3, .card h3, .card-table h3 {
+        margin-bottom: 0.45rem !important;
+        font-size: 0.98rem !important;
+    }
+    .card-large p, .card p, .card-table p {
+        font-size: 0.76rem !important;
+        line-height: 1.35 !important;
+    }
+
+    /* 3. Tüm Sekmelerdeki Başlıklar ve Tipografi */
+    .section-header {
+        margin-bottom: 0.7rem !important;
+        gap: 0.45rem !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .section-header h1, h1 {
+        font-size: 1.2rem !important;
+        margin-bottom: 2px !important;
+        line-height: 1.25 !important;
+    }
+    .section-header h2, h2 {
+        font-size: 1.08rem !important;
+        margin-bottom: 2px !important;
+        line-height: 1.25 !important;
+    }
+    .section-header h3, h3 {
+        font-size: 0.95rem !important;
+        margin-bottom: 2px !important;
+    }
+    h4 {
+        font-size: 0.86rem !important;
+        margin-bottom: 2px !important;
+    }
+    .section-header p,
+    .section-subtitle,
+    .text-muted {
+        font-size: 0.72rem !important;
+        line-height: 1.35 !important;
+    }
+
+    /* 4. İstatistik ve KPI Kartları Boyut Küçültmesi */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.5rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+    .stat-card {
+        padding: 0.65rem 0.75rem !important;
+        border-radius: 12px !important;
+        min-height: auto !important;
+    }
+    .stat-card h3 {
+        font-size: 0.68rem !important;
+        margin-bottom: 2px !important;
+    }
+    .stat-card p {
+        font-size: 1.3rem !important;
+        margin: 0 !important;
+        line-height: 1.15 !important;
+    }
+    .stat-card .icon,
+    .stat-card i {
+        font-size: 1.2rem !important;
+        width: 30px !important;
+        height: 30px !important;
+    }
+
+    /* 5. Profil Bento KPI Kartları */
+    .profile-bento-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.45rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+    .bento-kpi-card {
+        padding: 0.65rem 0.75rem !important;
+        border-radius: 12px !important;
+    }
+    .bento-kpi-card .kpi-value {
+        font-size: 1.15rem !important;
+        margin-bottom: 1px !important;
+    }
+    .bento-kpi-card .kpi-title {
+        font-size: 0.62rem !important;
+    }
+    .bento-kpi-card .kpi-subtitle {
+        font-size: 0.62rem !important;
+        line-height: 1.2 !important;
+    }
+
+    /* 6. Üst Başlık & Hızlı Araçlar Grubu */
+    .header-top-row, header {
+        padding: 0.35rem 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+        gap: 6px !important;
+    }
+    .app-branding h1, .header-title {
+        font-size: 0.92rem !important;
+        font-weight: 800 !important;
+    }
+    .app-logo, .brand-icon {
+        font-size: 1.15rem !important;
+    }
+    .btn-utility {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        font-size: 0.95rem !important;
+        padding: 0 !important;
+        border-radius: 8px !important;
+    }
+    .admin-tools-group {
+        gap: 4px !important;
+        padding: 4px 6px !important;
+        border-radius: 10px !important;
+        margin-bottom: 0.55rem !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .admin-tool-pill {
+        padding: 0.3rem 0.5rem !important;
+        font-size: 0.7rem !important;
+        border-radius: 7px !important;
+        white-space: nowrap !important;
+    }
+
+    /* 7. Genel Buton Boyutları (Ele rahat oturan kompakt yapı) */
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .btn-success,
+    .btn-warning,
+    .btn-info {
+        padding: 0.42rem 0.8rem !important;
+        font-size: 0.78rem !important;
+        border-radius: 8px !important;
+        min-height: 34px !important;
+        gap: 5px !important;
+    }
+
+    /* 8. Form Girişleri, Seçim Kutuları ve Etiketler */
+    input, select, textarea {
+        padding: 0.42rem 0.6rem !important;
+        font-size: 0.82rem !important;
+        border-radius: 8px !important;
+        min-height: 34px !important;
+    }
+    label {
+        font-size: 0.72rem !important;
+        margin-bottom: 2px !important;
+        font-weight: 600 !important;
+    }
+    .form-group {
+        margin-bottom: 0.55rem !important;
+    }
+    .filter-bar {
+        padding: 0.45rem 0.65rem !important;
+        gap: 6px !important;
+        margin-bottom: 0.65rem !important;
+        border-radius: 10px !important;
+    }
+
+    /* 9. Tüm Modalların Mobilde Kompakt Alt Çekmece Olarak Ölçeklendirilmesi */
+    .modal {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+    .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 88vh !important;
+        border-radius: 20px 20px 0 0 !important;
+        margin: 0 !important;
+        padding: 1rem 0.9rem 1.4rem 0.9rem !important;
+    }
+    .modal-content::before {
+        content: '' !important;
+        display: block !important;
+        width: 36px !important;
+        height: 4px !important;
+        border-radius: 4px !important;
+        background: rgba(255, 255, 255, 0.25) !important;
+        margin: 0 auto 10px auto !important;
+    }
+    .modal-content h3 {
+        font-size: 1.05rem !important;
+        margin-bottom: 0.4rem !important;
+    }
+    .modal-content p {
+        font-size: 0.76rem !important;
+        line-height: 1.35 !important;
+    }
+
+    /* 10. Tablo Konteynerleri ve Hücre Dolguları */
+    .table-container {
+        border-radius: 10px !important;
+        margin-bottom: 0.65rem !important;
+    }
+    table th {
+        padding: 0.45rem 0.6rem !important;
+        font-size: 0.68rem !important;
+    }
+    table td {
+        padding: 0.45rem 0.6rem !important;
+        font-size: 0.76rem !important;
+    }
+
+    /* 11. Alt Gezinme Çubuğu Yüksekliği */
+    .mobile-bottom-nav {
+        height: 54px !important;
+    }
+    .mobile-nav-icon {
+        font-size: 1.15rem !important;
+    }
+    .mobile-nav-label {
+        font-size: 0.62rem !important;
+    }
+
+    /* 12. Profil Hero & Kurulum Kartı */
+    .profile-hero {
+        padding: 0.75rem 0.85rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.75rem !important;
+    }
+    .profile-main-avatar {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        font-size: 1.1rem !important;
+        border-radius: 12px !important;
+    }
+    .profile-hero-actions {
+        gap: 0.4rem !important;
+        margin-top: 0.55rem !important;
+    }
+    .profile-hero-actions button,
+    .btn-identity-switch {
+        padding: 0.42rem 0.55rem !important;
+        font-size: 0.74rem !important;
+        min-height: 34px !important;
+        border-radius: 8px !important;
+    }
+    #profile-identity-setup {
+        padding: 1rem 0.85rem !important;
+        border-radius: 14px !important;
+        margin: 0.75rem auto !important;
+    }
+    .profile-mobile-tab-picker {
+        margin-bottom: 0.75rem !important;
+    }
+    .profile-picker-btn {
+        padding: 0.45rem 0.65rem !important;
+        font-size: 0.78rem !important;
+        border-radius: 8px !important;
+        min-height: 34px !important;
+    }
+}
+
+/* 480px ve Daha Küçük Telefonlar İçin İnce Ayar */
+@media (max-width: 480px) {
+    body {
+        padding: 0.35rem 0.4rem calc(56px + env(safe-area-inset-bottom, 0px)) 0.4rem !important;
+    }
+    .card,
+    .card-large,
+    .card-table,
+    .card-glass,
+    .glass-panel {
+        padding: 0.7rem 0.75rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 0.65rem !important;
+    }
+    .section-header h2, h2 {
+        font-size: 1rem !important;
+    }
+    .stat-card p {
+        font-size: 1.2rem !important;
+    }
+    .profile-hero {
+        padding: 0.7rem 0.75rem !important;
+    }
+    .profile-main-avatar {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        font-size: 1rem !important;
+    }
+    .modal-content {
+        padding: 0.85rem 0.8rem 1.2rem 0.8rem !important;
+    }
+}
