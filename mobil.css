@@ -1,0 +1,190 @@
+/* =====================================================================
+   📱 MOBİL TAŞMA DÜZELTMELERİ (mobil.css)
+   style.css'ten SONRA yüklenir; yalnızca 768px ve daha dar ekranlarda etkilidir.
+
+   Amaç: Hiçbir görünüm telefon ekranının genişliğini aşmasın.
+   - Geniş içerik (sekme şeritleri, tablolar) sayfayı değil, kendi kutusunu kaydırır.
+   - Genel kurallar :where() ile sıfır öncelikli yazıldı; style.css'teki bilinçli
+     ayarları (ör. kaydırma alanındaki takvimin min-width'i) ezmez.
+   ===================================================================== */
+
+@media (max-width: 768px) {
+
+    /* ---------- 1. Genel: kutular içeriklerinden dolayı genişlemesin ---------- */
+
+    /* Flex/grid öğelerinin varsayılan min-width:auto değeri, uzun içerikte kutuyu
+       ekran dışına iter. Sıfır öncelikli olduğu için açıkça verilmiş değerleri ezmez. */
+    /* Tablo hücreleri (td/th) bilerek dışarıda: tablolar kendi kutularında yatay kayar,
+       hücreleri sıkıştırmak metni harf harf kırar. */
+    :where(div, section, article, aside, form, fieldset, label, li, p, h1, h2, h3, h4, h5, h6) {
+        min-width: 0;
+    }
+    :where(div, section, article, aside, form, fieldset, label, p, h1, h2, h3, h4, h5, h6) {
+        max-width: 100%;
+    }
+
+    /* Uzun kelimeler, e-posta adresleri ve bağlantılar satır içinde kırılsın */
+    body {
+        overflow-wrap: break-word;
+    }
+    :where(h1, h2, h3, h4, h5, h6, p, li, label, small) {
+        overflow-wrap: anywhere;
+    }
+    /* Tablo hücreleri kelime ortasından değil, sadece gerektiğinde kırılsın */
+    td,
+    th {
+        overflow-wrap: normal;
+        word-break: normal;
+    }
+
+    /* Görseller ve form öğeleri kutularına sığsın */
+    :where(img, video, iframe) {
+        max-width: 100%;
+        height: auto;
+    }
+    canvas {
+        max-width: 100%;
+    }
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    /* Son güvenlik ağı: gözden kaçan bir öğe olsa bile sayfa yatay kaymasın.
+       clip, overflow:hidden'dan farklı olarak yapışkan (sticky) başlıkları bozmaz. */
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    @supports (overflow: clip) {
+        html,
+        body {
+            overflow-x: clip;
+        }
+    }
+
+    /* ---------- 2. Satır kırmayan düğmeler ---------- */
+
+    /* Bazı düğmelerde satır içi "white-space: nowrap" var; dar ekranda metin alt satıra geçsin */
+    button,
+    .btn-primary,
+    .btn-secondary,
+    a[class*="btn"] {
+        white-space: normal !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Satır içi stille yazılmış yatay sıralar (başlık + filtre + arama satırları) sarılsın */
+    #app-wrapper [style*="display: flex"],
+    #app-wrapper [style*="display:flex"],
+    #app-wrapper [style*="display: inline-flex"],
+    #app-wrapper [style*="display:inline-flex"],
+    .modal-content [style*="display: flex"],
+    .modal-content [style*="display:flex"],
+    .modal-card [style*="display: flex"],
+    .modal-card [style*="display:flex"] {
+        flex-wrap: wrap !important;
+    }
+
+    /* Bölüm başlıkları ve üst araç çubuğu */
+    .section-header,
+    .header-utilities,
+    .profile-hero-actions {
+        flex-wrap: wrap !important;
+        row-gap: 8px;
+    }
+    .header-utilities {
+        justify-content: flex-end;
+        max-width: 100%;
+    }
+
+    /* ---------- 3. Sekme şeritleri: sarılmak yerine kendi içinde kaysın ---------- */
+
+    .profile-tabs,
+    .view-toggle {
+        display: flex;
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        max-width: 100%;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+    .profile-tabs > *,
+    .view-toggle > * {
+        flex: 0 0 auto;
+        white-space: nowrap !important;
+    }
+
+    /* ---------- 4. Izgara (grid) düzenleri ---------- */
+
+    /* Izgara öğeleri en uzun içerikleri kadar genişlemesin */
+    [style*="display: grid"] > *,
+    [style*="display:grid"] > *,
+    .profile-main-column,
+    .profile-sidebar-column {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    /* "minmax(300px, 1fr)" gibi geniş minimumlu ızgaralar küçük telefonda (320–360px)
+       tek sütuna bile sığmıyordu: telefonda tek sütun olsunlar. */
+    [style*="minmax(260px"],
+    [style*="minmax(280px"],
+    [style*="minmax(300px"],
+    [style*="minmax(320px"],
+    [style*="minmax(330px"],
+    [style*="minmax(350px"],
+    [style*="minmax(400px"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Profil kartı: avatar ve düğmeler yan yana sığmıyor, düğmeler sağdan kesiliyordu.
+       Telefonda düğmeler avatarın altına, iki eşit sütun halinde gelir. */
+    .profile-hero {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px;
+    }
+    .profile-hero-content {
+        width: 100%;
+    }
+    .profile-hero-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        width: 100%;
+        gap: 8px;
+    }
+    .profile-hero-actions > * {
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ---------- 5. Açılır pencereler ---------- */
+
+    .modal-content,
+    .modal-card {
+        max-width: calc(100vw - 16px) !important;
+        box-sizing: border-box;
+    }
+
+    /* ---------- 6. Bildirim kutuları (toast) ---------- */
+
+    /* Masaüstünde sağ altta 300px genişliğinde; telefonda ekranın dışına taşıyordu
+       ve alt menünün üstüne biniyordu. */
+    .toast-container {
+        left: 8px !important;
+        right: 8px !important;
+        bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+        align-items: stretch;
+    }
+    .toast {
+        min-width: 0 !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
