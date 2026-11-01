@@ -297,16 +297,104 @@
         if (modal) modal.classList.add('hidden');
     };
 
+    // --- 📢 Yönetici Tarafından Manuel Yayınlanan Bildirimleri Denetle ---
+    window.checkIncomingBroadcastNotifications = function () {
+        if (!window.DB || !Array.isArray(DB.adminBroadcasts) || DB.adminBroadcasts.length === 0) return;
+
+        const myStaffId = localStorage.getItem('myStaffId');
+        const now = Date.now();
+
+        // Yarın sınavı olanların kimliklerini hesapla (tomorrow_only hedefi için)
+        let tomorrowStaffIds = null;
+        function getTomorrowProctorIds() {
+            if (tomorrowStaffIds !== null) return tomorrowStaffIds;
+            tomorrowStaffIds = new Set();
+            if (Array.isArray(DB.exams)) {
+                const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                DB.exams.forEach(ex => {
+                    if (ex.date === tomorrowStr) {
+                        const ids = (ex.proctorIds || [ex.proctorId]).map(String);
+                        ids.forEach(id => tomorrowStaffIds.add(id));
+                    }
+                });
+            }
+            return tomorrowStaffIds;
+        }
+
+        DB.adminBroadcasts.forEach(bc => {
+            if (!bc || !bc.id || !bc.message) return;
+
+            // 1. Hedef Kontrolü
+            let isTarget = false;
+            if (!bc.target || bc.target === 'all') {
+                isTarget = true;
+            } else if (bc.target === 'tomorrow_only') {
+                if (myStaffId && getTomorrowProctorIds().has(String(myStaffId))) {
+                    isTarget = true;
+                }
+            } else if (typeof bc.target === 'string' && myStaffId && String(bc.target) === String(myStaffId)) {
+                isTarget = true;
+            } else if (Array.isArray(bc.target) && myStaffId && bc.target.map(String).includes(String(myStaffId))) {
+                isTarget = true;
+            }
+
+            if (!isTarget) return;
+
+            // 2. Bu cihaza daha önce teslim edildi mi?
+            const deliveryKey = `gtu_bc_delivered_${bc.id}`;
+            const alreadyDelivered = localStorage.getItem(deliveryKey);
+            if (alreadyDelivered) return;
+
+            // İlk kez karşılaşıyoruz! Hemen teslim edildi olarak mühürle
+            localStorage.setItem(deliveryKey, now.toString());
+
+            // 3. Cihaz / Push Bildirimi Gönder (İzin verilmişse ve bildirimde push açıksa)
+            const title = bc.title || '📢 GTÜ Gözetmenlik Yönetici Bildirimi';
+            const message = bc.message;
+            const priority = bc.priority || 'normal';
+
+            if (bc.pushToDevice !== false && getPermissionState() === 'granted') {
+                if (priority === 'urgent' && 'vibrate' in navigator) {
+                    try { navigator.vibrate([300, 100, 300, 100, 300]); } catch (e) {}
+                }
+                window.dispatchLocalNotification(
+                    title,
+                    message,
+                    `bc_${bc.id}`,
+                    { broadcastId: bc.id, priority: priority, url: './index.html' }
+                );
+            }
+
+            // 4. Ekranda açıksa Toast Gösterimi
+            if (typeof showToast === 'function') {
+                const icon = priority === 'urgent' ? '🚨' : (priority === 'info' ? 'ℹ️' : '📢');
+                showToast(`${icon} ${title}: ${message}`, priority === 'urgent' ? 'error' : (priority === 'info' ? 'info' : 'warning'));
+            }
+
+            // 5. Rozeti ve Bildirim Paneli Listesini Güncelle
+            if (typeof updateNotifBadge === 'function') updateNotifBadge();
+            if (typeof renderNotifications === 'function') renderNotifications();
+        });
+    };
+
     // --- Başlatıcı (Timer & Focus Listeners) ---
     function initNotificationEngine() {
         // Sayfa açıldığında ve her 60 saniyede bir kontrol et
         setTimeout(checkAllExamNotifications, 3000);
+        setTimeout(window.checkIncomingBroadcastNotifications, 3500);
         setInterval(checkAllExamNotifications, 60000);
+        setInterval(window.checkIncomingBroadcastNotifications, 30000);
 
         // Kullanıcı sekmeye veya uygulamaya geri döndüğünde anında kontrol et
-        window.addEventListener('focus', checkAllExamNotifications);
+        window.addEventListener('focus', () => {
+            checkAllExamNotifications();
+            window.checkIncomingBroadcastNotifications();
+        });
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) checkAllExamNotifications();
+            if (!document.hidden) {
+                checkAllExamNotifications();
+                window.checkIncomingBroadcastNotifications();
+            }
         });
 
         // UI durumunu güncelle

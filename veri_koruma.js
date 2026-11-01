@@ -55,7 +55,8 @@
 
     function refreshUI() {
         ['renderExams', 'renderStaff', 'renderSchedule', 'renderDashboard',
-         'renderSwapRequests', 'updateRequestBadge', 'updateMarketplaceBadge'].forEach(fn => {
+         'renderSwapRequests', 'updateRequestBadge', 'updateMarketplaceBadge',
+         'checkIncomingBroadcastNotifications', 'updateNotifBadge'].forEach(fn => {
             try { if (typeof window[fn] === 'function') window[fn](); } catch (e) { console.warn(fn, e); }
         });
     }
@@ -349,6 +350,7 @@
         if (!next.courseLecturers || Object.keys(next.courseLecturers).length === 0) next.courseLecturers = DB.courseLecturers;
         if (!next.constraints) next.constraints = {};
         if (!next.requests) next.requests = [];
+        if (!next.adminBroadcasts) next.adminBroadcasts = DB.adminBroadcasts || [];
         _base = clone(remoteData);
         _serverLoaded = true;
         DB = next;

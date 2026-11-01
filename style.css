@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     /* Color Palette - Academic (Oxford Blue & Burgundy) */
     --primary: hsl(212, 85%, 22%);       /* Balanced Oxford Blue */
     --primary-hover: hsl(212, 80%, 30%);
@@ -363,6 +363,17 @@ body.dark-theme .header-admin-tools-row {
 .admin-tool-pill.tool-reminder:hover {
     background: rgba(245, 158, 11, 0.22);
     border-color: #f59e0b;
+}
+
+.admin-tool-pill.tool-broadcast {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+}
+.admin-tool-pill.tool-broadcast:hover {
+    background: rgba(239, 68, 68, 0.28) !important;
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.35) !important;
 }
 
 .admin-tool-pill.tool-fairness {

@@ -11467,6 +11467,60 @@ function getNotifications() {
     const myStaffId = localStorage.getItem('myStaffId');
     const notifs = [];
 
+    // 0. Yönetici Tarafından Manuel Yayınlanan Bildirimler (Admin Broadcasts)
+    if (window.DB && Array.isArray(DB.adminBroadcasts)) {
+        let tomorrowStaffIds = null;
+        function getTomorrowProctorIds() {
+            if (tomorrowStaffIds !== null) return tomorrowStaffIds;
+            tomorrowStaffIds = new Set();
+            if (Array.isArray(DB.exams)) {
+                const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                DB.exams.forEach(ex => {
+                    if (ex.date === tomorrowStr) {
+                        const ids = (ex.proctorIds || [ex.proctorId]).map(String);
+                        ids.forEach(id => tomorrowStaffIds.add(id));
+                    }
+                });
+            }
+            return tomorrowStaffIds;
+        }
+
+        DB.adminBroadcasts.forEach(bc => {
+            if (!bc || !bc.id || !bc.message) return;
+
+            let isTarget = false;
+            if (!bc.target || bc.target === 'all') {
+                isTarget = true;
+            } else if (bc.target === 'tomorrow_only') {
+                if (myStaffId && getTomorrowProctorIds().has(String(myStaffId))) {
+                    isTarget = true;
+                }
+            } else if (typeof bc.target === 'string' && myStaffId && String(bc.target) === String(myStaffId)) {
+                isTarget = true;
+            } else if (Array.isArray(bc.target) && myStaffId && bc.target.map(String).includes(String(myStaffId))) {
+                isTarget = true;
+            }
+
+            if (isTarget) {
+                let icon = '📢';
+                if (bc.priority === 'urgent') icon = '🚨';
+                else if (bc.priority === 'info') icon = 'ℹ️';
+
+                notifs.push({
+                    type: 'admin_broadcast',
+                    title: bc.title || 'Yönetici Duyurusu',
+                    message: bc.message,
+                    time: bc.timestamp || (bc.createdAt ? new Date(bc.createdAt).getTime() : Date.now()),
+                    icon: icon,
+                    priority: bc.priority || 'normal',
+                    broadcastId: bc.id,
+                    senderName: bc.senderName || 'Yönetici',
+                    pushToDevice: bc.pushToDevice !== false
+                });
+            }
+        });
+    }
+
     // 1. Duyurular ÇIKARTILDI (User isteği)
     
     // 2. Takas Talepleri ve Pazar Yeri (Marketplace) Güncellemeleri
@@ -11553,16 +11607,25 @@ function renderNotifications() {
         return;
     }
 
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+
     list.innerHTML = notifs.map(n => {
         const isNew = n.time > lastCheck;
         const timeStr = formatRelativeTime(n.time);
+        const isAdminBroadcast = n.type === 'admin_broadcast';
+        const badge = isAdminBroadcast ? `<span style="font-size:0.68rem; background:rgba(239,68,68,0.25); color:#fca5a5; padding:1px 6px; border-radius:4px; font-weight:700; margin-left:4px;">YÖNETİCİ</span>` : '';
+        const deleteBtn = (isAdminBroadcast && isAdmin && n.broadcastId) ? 
+            `<button onclick="deleteAdminBroadcast('${n.broadcastId}')" title="Bu bildirimi yayından kaldır" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:0.8rem; margin-left:auto; padding:2px 6px;">🗑️</button>` : '';
         
         return `
-            <div class="notif-item ${isNew ? 'unread' : ''}">
+            <div class="notif-item ${isNew ? 'unread' : ''}" style="${isAdminBroadcast ? 'border-left: 3px solid #ef4444; background: rgba(239, 68, 68, 0.05);' : ''}">
                 <div class="notif-icon">${n.icon}</div>
-                <div class="notif-content">
-                    <div class="notif-message"><strong>${n.title}</strong>: ${n.message}</div>
-                    <div class="notif-time">${timeStr}</div>
+                <div class="notif-content" style="flex:1;">
+                    <div class="notif-message"><strong>${n.title}</strong>${badge}: ${n.message}</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:3px;">
+                        <span class="notif-time">${timeStr}</span>
+                        ${deleteBtn}
+                    </div>
                 </div>
             </div>
         `;
@@ -14670,6 +14733,332 @@ function getSystemUrl() {
 window.getSystemUrl = getSystemUrl;
 
 // ==========================================
+
+// =========================================================================
+// 📢 YÖNETİCİ MANUEL BİLDİRİM YAYINLAMA MOTORU (BROADCAST ENGINE)
+// =========================================================================
+
+window.openAdminBroadcastModal = function () {
+    const modal = document.getElementById('modal-admin-broadcast-notification');
+    if (!modal) return;
+
+    // Personel listesi dropdown'ını doldur
+    const select = document.getElementById('broadcast-staff-select');
+    if (select && DB && Array.isArray(DB.staff)) {
+        const sortedStaff = DB.staff.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+        select.innerHTML = sortedStaff.map(s => 
+            `<option value="${s.id}">${s.name} (${s.title || 'Arş. Gör.'})</option>`
+        ).join('');
+    }
+
+    // İlk açılışta canlı önizlemeyi güncelle
+    window.updateBroadcastPreview();
+    window.renderAdminBroadcastHistory();
+
+    modal.classList.remove('hidden');
+};
+
+window.closeAdminBroadcastModal = function () {
+    const modal = document.getElementById('modal-admin-broadcast-notification');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.handleBroadcastTargetChange = function () {
+    const val = document.getElementById('broadcast-target-select')?.value;
+    const group = document.getElementById('broadcast-single-staff-group');
+    if (group) {
+        if (val === 'single') {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    }
+    window.updateBroadcastPreview();
+};
+
+window.applyBroadcastPreset = function (presetKey) {
+    const presets = {
+        urgent_exam: {
+            title: '🚨 [Acil] Sınav Görevi Duyurusu',
+            message: 'Değerli hocalarımız, lütfen sınav görev yerlerinizi ve saatlerinizi acilen kontrol ediniz. Mazereti olanların ivedilikle bildirmesi rica olunur.',
+            priority: 'urgent'
+        },
+        room_change: {
+            title: '📍 [Duyuru] Sınav Salon Değişikliği',
+            message: 'Bazı sınavların dersliklerinde güncelleme yapılmıştır. Lütfen profilinizdeki güncel salon numaralarını kontrol ediniz.',
+            priority: 'normal'
+        },
+        time_change: {
+            title: '⏰ [Önemli] Sınav Saati Güncellemesi',
+            message: 'Sınav takvimindeki bazı saatlerde değişiklik olmuştur. Güncel sınav başlama saatleri sisteme işlenmiştir.',
+            priority: 'urgent'
+        },
+        schedule_ready: {
+            title: '✅ Sınav Görev Dağılımı İlan Edildi',
+            message: 'Dönem sınav gözetmenlik görev dağılımı tamamlanmış ve yayına alınmıştır. Profilinizden görevlerinizi inceleyebilirsiniz.',
+            priority: 'normal'
+        },
+        general_reminder: {
+            title: '📢 Genel Hatırlatma & Duyuru',
+            message: 'Sınavlara katılım esnasında tutanak ve evrak teslimine özen gösterilmesi rica olunur. Başarılar dileriz.',
+            priority: 'normal'
+        }
+    };
+
+    const p = presets[presetKey];
+    if (!p) return;
+
+    const titleInput = document.getElementById('broadcast-title-input');
+    const msgInput = document.getElementById('broadcast-message-input');
+    const prioritySelect = document.getElementById('broadcast-priority-select');
+
+    if (titleInput) titleInput.value = p.title;
+    if (msgInput) msgInput.value = p.message;
+    if (prioritySelect) prioritySelect.value = p.priority;
+
+    window.updateBroadcastPreview();
+    if (typeof showToast === 'function') {
+        showToast('⚡ Şablon uygulandı, göndermeden önce düzenleyebilirsiniz.', 'info');
+    }
+};
+
+window.updateBroadcastPreview = function () {
+    const titleVal = document.getElementById('broadcast-title-input')?.value || '';
+    const msgVal = document.getElementById('broadcast-message-input')?.value || '';
+    const priority = document.getElementById('broadcast-priority-select')?.value || 'normal';
+
+    const pTitle = document.getElementById('preview-notif-title');
+    const pMsg = document.getElementById('preview-notif-message');
+    const pBadge = document.getElementById('preview-priority-badge');
+    const charCount = document.getElementById('broadcast-char-count');
+
+    if (charCount) charCount.textContent = `${msgVal.length} / 300`;
+
+    if (pTitle) {
+        pTitle.textContent = titleVal.trim() ? titleVal : '📢 [Duyuru Başlığı]';
+    }
+
+    if (pMsg) {
+        pMsg.textContent = msgVal.trim() ? msgVal : 'Mesajınızı yazdıkça burada canlı olarak nasıl görüneceğini inceleyebilirsiniz.';
+    }
+
+    if (pBadge) {
+        if (priority === 'urgent') {
+            pBadge.textContent = '🚨 Acil';
+            pBadge.style.background = 'rgba(239, 68, 68, 0.25)';
+            pBadge.style.color = '#f87171';
+        } else if (priority === 'info') {
+            pBadge.textContent = 'ℹ️ Bilgi';
+            pBadge.style.background = 'rgba(148, 163, 184, 0.25)';
+            pBadge.style.color = '#cbd5e1';
+        } else {
+            pBadge.textContent = '📢 Normal';
+            pBadge.style.background = 'rgba(56, 189, 248, 0.25)';
+            pBadge.style.color = '#38bdf8';
+        }
+    }
+};
+
+window.testAdminBroadcastOnSelf = function () {
+    const title = document.getElementById('broadcast-title-input')?.value?.trim();
+    const msg = document.getElementById('broadcast-message-input')?.value?.trim();
+    const priority = document.getElementById('broadcast-priority-select')?.value || 'normal';
+
+    if (!title || !msg) {
+        alert('Lütfen test etmeden önce başlık ve mesaj alanını doldurunuz.');
+        return;
+    }
+
+    if (typeof window.dispatchLocalNotification === 'function') {
+        if (priority === 'urgent' && 'vibrate' in navigator) {
+            try { navigator.vibrate([200, 100, 200]); } catch (e) {}
+        }
+        window.dispatchLocalNotification(
+            `[🧪 KENDİ TESTİNİZ] ${title}`,
+            msg,
+            `test_self_${Date.now()}`,
+            { priority: priority }
+        );
+    }
+
+    if (typeof showToast === 'function') {
+        showToast('🧪 Test bildirimi başarıyla cihazınıza gönderildi! Kilit ekranınızı veya bildirim çubuğunu kontrol edebilirsiniz.', 'success');
+    }
+};
+
+window.sendAdminBroadcastNotification = async function () {
+    const title = document.getElementById('broadcast-title-input')?.value?.trim();
+    const msg = document.getElementById('broadcast-message-input')?.value?.trim();
+    const priority = document.getElementById('broadcast-priority-select')?.value || 'normal';
+    const targetType = document.getElementById('broadcast-target-select')?.value || 'all';
+    const pushEnabled = document.getElementById('broadcast-push-enabled')?.checked !== false;
+
+    if (!title || title.length < 3) {
+        alert('Lütfen en az 3 karakterden oluşan bir bildirim başlığı giriniz.');
+        return;
+    }
+
+    if (!msg || msg.length < 5) {
+        alert('Lütfen en az 5 karakterden oluşan bir bildirim mesajı giriniz.');
+        return;
+    }
+
+    let targetValue = 'all';
+    let targetLabel = 'Tüm Personel';
+
+    if (targetType === 'tomorrow_only') {
+        targetValue = 'tomorrow_only';
+        targetLabel = 'Sadece Yarın Sınavı Olanlar';
+    } else if (targetType === 'single') {
+        const staffId = document.getElementById('broadcast-staff-select')?.value;
+        if (!staffId) {
+            alert('Lütfen bir personel seçiniz.');
+            return;
+        }
+        targetValue = staffId;
+        const staffObj = (DB.staff || []).find(s => String(s.id) === String(staffId));
+        targetLabel = staffObj ? staffObj.name : 'Seçilen Personel';
+    }
+
+    const confirmMsg = `📢 BİLDİRİM GÖNDERİM ONAYI
+
+Başlık: "${title}"
+Hedef: ${targetLabel}
+Öncelik: ${priority.toUpperCase()}
+Cihaz Bildirimi: ${pushEnabled ? 'Açık' : 'Kapalı'}
+
+Bu bildirim tüm hedeflenen kişilerin telefonlarına ve sistem panellerine canlı olarak iletilecektir. Devam etmek istiyor musunuz?`;
+    if (!confirm(confirmMsg)) return;
+
+    // Yeni broadcast nesnesi oluştur
+    const newBroadcast = {
+        id: 'bc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        title: title,
+        message: msg,
+        priority: priority,
+        target: targetValue,
+        pushToDevice: pushEnabled,
+        senderName: 'Yönetici',
+        senderRole: 'admin',
+        createdAt: new Date().toISOString(),
+        timestamp: Date.now()
+    };
+
+    if (!DB.adminBroadcasts) DB.adminBroadcasts = [];
+    DB.adminBroadcasts.unshift(newBroadcast);
+
+    // Kendi cihazında mükerrer tetiklenmemesi için teslim edildi mühürü vur
+    localStorage.setItem(`gtu_bc_delivered_${newBroadcast.id}`, Date.now().toString());
+
+    // Cihaz bildirimi gönder (Kendi telefonunda da anında görsün)
+    if (pushEnabled && typeof window.dispatchLocalNotification === 'function') {
+        window.dispatchLocalNotification(
+            title,
+            msg,
+            `bc_${newBroadcast.id}`,
+            { broadcastId: newBroadcast.id, priority: priority }
+        );
+    }
+
+    // Buluta (Firebase RTDB) ve Yerel Önbelleğe Kaydet
+    try {
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof window.saveToBackend === 'function') {
+            await window.saveToBackend();
+        }
+    } catch (err) {
+        console.error('Broadcast kayıt hatası:', err);
+    }
+
+    // UI'ları güncelle
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    if (typeof renderNotifications === 'function') renderNotifications();
+    window.renderAdminBroadcastHistory();
+
+    if (typeof showToast === 'function') {
+        showToast('🚀 Bildirim başarıyla sisteme ve tüm cihazlara yayınlandı!', 'success');
+    }
+
+    // Inputları sıfırla ve modalı kapat
+    const titleInput = document.getElementById('broadcast-title-input');
+    const msgInput = document.getElementById('broadcast-message-input');
+    if (titleInput) titleInput.value = '';
+    if (msgInput) msgInput.value = '';
+    window.updateBroadcastPreview();
+
+    window.closeAdminBroadcastModal();
+};
+
+window.deleteAdminBroadcast = async function (broadcastId) {
+    if (!broadcastId) return;
+    if (!confirm('Bu bildirimi yayından kaldırmak istediğinize emin misiniz?')) return;
+
+    if (!DB.adminBroadcasts) return;
+    DB.adminBroadcasts = DB.adminBroadcasts.filter(b => b.id !== broadcastId);
+
+    try {
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof window.saveToBackend === 'function') {
+            await window.saveToBackend();
+        }
+    } catch (err) {
+        console.error('Broadcast silme hatası:', err);
+    }
+
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    if (typeof renderNotifications === 'function') renderNotifications();
+    window.renderAdminBroadcastHistory();
+
+    if (typeof showToast === 'function') {
+        showToast('🗑️ Bildirim yayından kaldırıldı.', 'info');
+    }
+};
+
+window.renderAdminBroadcastHistory = function () {
+    const list = document.getElementById('broadcast-history-list');
+    const countSpan = document.getElementById('broadcast-history-count');
+    if (!list) return;
+
+    const broadcasts = (DB && Array.isArray(DB.adminBroadcasts)) ? DB.adminBroadcasts : [];
+    if (countSpan) countSpan.textContent = broadcasts.length;
+
+    if (broadcasts.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:1rem; color:var(--text-muted); font-size:0.8rem;">Henüz gönderilmiş manuel bir bildirim bulunmuyor.</div>`;
+        return;
+    }
+
+    list.innerHTML = broadcasts.map(bc => {
+        const timeStr = new Date(bc.createdAt || bc.timestamp).toLocaleString('tr-TR');
+        let targetText = '👥 Herkes';
+        if (bc.target === 'tomorrow_only') targetText = '📅 Sadece Yarın Sınavı Olanlar';
+        else if (bc.target && bc.target !== 'all') {
+            const staff = (DB.staff || []).find(s => String(s.id) === String(bc.target));
+            targetText = `🎯 ${staff ? staff.name : 'Belirli Kişi'}`;
+        }
+
+        const prioBadge = bc.priority === 'urgent' ? 
+            `<span style="background:rgba(239,68,68,0.25); color:#f87171; font-size:0.68rem; padding:1px 6px; border-radius:4px; font-weight:700;">🚨 ACİL</span>` : 
+            `<span style="background:rgba(56,189,248,0.2); color:#38bdf8; font-size:0.68rem; padding:1px 6px; border-radius:4px; font-weight:700;">📢 NORMAL</span>`;
+
+        return `
+            <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:0.75rem 0.9rem; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap;">
+                        <span style="font-weight:800; font-size:0.86rem; color:#fff;">${bc.title}</span>
+                        ${prioBadge}
+                        <span style="font-size:0.72rem; color:#94a3b8;">${targetText}</span>
+                    </div>
+                    <div style="font-size:0.8rem; color:#cbd5e1; line-height:1.35; margin-bottom:4px;">${bc.message}</div>
+                    <div style="font-size:0.68rem; color:var(--text-muted);">🕒 Gönderilme: ${timeStr}</div>
+                </div>
+                <button type="button" onclick="deleteAdminBroadcast('${bc.id}')" title="Bu bildirimi sil / yayından kaldır" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#f87171; border-radius:8px; padding:4px 8px; font-size:0.78rem; cursor:pointer;">
+                    🗑️ Sil
+                </button>
+            </div>
+        `;
+    }).join('');
+};
+
 // 2. 24 SAAT ÖNCESİ SINAV HATIRLATICI (MODEL 2)
 // ==========================================
 window.openTomorrowReminderModal = function() {
