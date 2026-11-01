@@ -1107,7 +1107,10 @@ window.applyMarketTemplate = function(exam, myStaff) {
 
 window.openBulkConstraintEmailModal = function() {
     const modal = document.getElementById('modal-bulk-constraint-email');
-    if (!modal) return;
+    if (!modal) {
+        console.error('modal-bulk-constraint-email elementi bulunamadı');
+        return;
+    }
     
     window.renderBulkConstraintEmailContent();
     modal.classList.remove('hidden');
@@ -1119,7 +1122,17 @@ window.closeBulkConstraintEmailModal = function() {
 };
 
 window.renderBulkConstraintEmailContent = function() {
-    const staffList = (typeof DB !== 'undefined' && Array.isArray(DB.staff)) ? DB.staff : [];
+    let staffList = (typeof DB !== 'undefined' && Array.isArray(DB.staff) && DB.staff.length > 0) ? DB.staff : [];
+    if (staffList.length === 0) {
+        try {
+            const cached = localStorage.getItem('gozetmenlik_db');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed.staff)) staffList = parsed.staff;
+            }
+        } catch (e) {}
+    }
+
     const container = document.getElementById('bulk-email-recipient-list');
     
     const systemUrl = (typeof DB !== 'undefined' && DB.emailSettings && DB.emailSettings.systemUrl) 
@@ -1153,23 +1166,33 @@ Gebze Teknik Üniversitesi`;
 
     if (container) {
         if (staffList.length === 0) {
-            container.innerHTML = `<p style="color:#94a3b8;font-size:0.8rem;text-align:center;padding:1rem;">Personel listesi bulunamadı.</p>`;
+            container.innerHTML = `<p style="color:#94a3b8;font-size:0.8rem;text-align:center;padding:1rem;grid-column:span 2;">Henüz kayıtlı personel listesi bulunamadı.</p>`;
+            window.updateBulkEmailSelectedCount();
             return;
         }
 
         container.innerHTML = staffList.map(s => {
-            const email = (s.email && s.email.includes('@')) ? s.email.trim() : (window.guessStaffEmail ? window.guessStaffEmail(s) : '');
-            const constraints = (typeof DB !== 'undefined' && DB.constraints && DB.constraints[s.name]) ? DB.constraints[s.name] : [];
+            const email = (s.email && s.email.includes('@')) 
+                ? s.email.trim() 
+                : (typeof window.guessStaffEmail === 'function' ? window.guessStaffEmail(s) : '');
+            
+            const constraints = (typeof getConstraintsForStaff === 'function')
+                ? getConstraintsForStaff(s.name)
+                : ((typeof DB !== 'undefined' && DB.constraints && DB.constraints[s.name]) ? DB.constraints[s.name] : []);
+            
             const constraintCount = constraints.length;
             const hasConstraint = constraintCount > 0;
+
+            const safeName = (s.name || '').replace(/"/g, '&quot;');
+            const safeEmail = (email || '').replace(/"/g, '&quot;');
 
             return `
                 <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;cursor:pointer;transition:all 0.15s ease;">
                     <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
-                        <input type="checkbox" class="bulk-email-recipient-cb" data-id="${s.id}" data-name="${s.name}" data-email="${email}" checked onchange="window.updateBulkEmailSelectedCount()" style="cursor:pointer;width:15px;height:15px;accent-color:#0284c7;">
+                        <input type="checkbox" class="bulk-email-recipient-cb" data-id="${s.id}" data-name="${safeName}" data-email="${safeEmail}" data-has-constraint="${hasConstraint ? '1' : '0'}" checked onchange="window.updateBulkEmailSelectedCount()" style="cursor:pointer;width:15px;height:15px;accent-color:#0284c7;">
                         <div style="min-width:0;flex:1;">
-                            <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}</div>
-                            <div style="font-size:0.72rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${email || 'E-posta yok'}</div>
+                            <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeName}</div>
+                            <div style="font-size:0.72rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeEmail || 'E-posta yok'}</div>
                         </div>
                     </div>
                     <span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap;${hasConstraint ? 'background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);' : 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25);'}">
@@ -1198,6 +1221,62 @@ window.toggleAllBulkEmailRecipients = function(selectAll = true) {
     window.updateBulkEmailSelectedCount();
 };
 
+window.filterBulkEmailRecipients = function(type) {
+    const cbs = document.querySelectorAll('.bulk-email-recipient-cb');
+    cbs.forEach(cb => {
+        if (type === 'all') cb.checked = true;
+        else if (type === 'no_constraint') cb.checked = (cb.dataset.hasConstraint === '0');
+        else if (type === 'has_constraint') cb.checked = (cb.dataset.hasConstraint === '1');
+    });
+    window.updateBulkEmailSelectedCount();
+};
+
+window.sendAdminBroadcastNotificationDirect = async function(title, msg) {
+    const newBroadcast = {
+        id: 'bc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        title: title || '🚫 Sınav Öncesi Kısıt Kontrolü',
+        message: msg || 'Lütfen sınav görev dağıtımı öncesinde müsait olmadığınız saatleri profilinizden kontrol edip güncelleyin.',
+        priority: 'high',
+        target: 'all',
+        pushToDevice: true,
+        senderName: 'Sınav Koordinatörlüğü',
+        senderRole: 'admin',
+        createdAt: new Date().toISOString(),
+        timestamp: Date.now()
+    };
+
+    if (typeof DB !== 'undefined') {
+        if (!DB.adminBroadcasts) DB.adminBroadcasts = [];
+        DB.adminBroadcasts.unshift(newBroadcast);
+    }
+
+    if (typeof window.dispatchLocalNotification === 'function') {
+        window.dispatchLocalNotification(
+            newBroadcast.title,
+            newBroadcast.message,
+            `bc_${newBroadcast.id}`,
+            { broadcastId: newBroadcast.id, priority: 'high' }
+        );
+    }
+
+    try {
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        if (typeof window.saveToBackend === 'function') await window.saveToBackend();
+    } catch (err) {
+        console.error('Broadcast kayıt hatası:', err);
+    }
+
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    if (typeof renderNotifications === 'function') renderNotifications();
+    if (typeof window.renderAdminBroadcastHistory === 'function') window.renderAdminBroadcastHistory();
+
+    if (typeof showToast === 'function') {
+        showToast('📲 Kısıt kontrol bildirimi yayınlandı ve cihazlara iletildi!', 'success');
+    } else {
+        alert('Kısıt kontrol bildirimi yayınlandı ve cihazlara iletildi.');
+    }
+};
+
 window.sendBulkConstraintEmail = async function(type = 'mailto') {
     const cbs = Array.from(document.querySelectorAll('.bulk-email-recipient-cb:checked'));
     if (cbs.length === 0) {
@@ -1219,15 +1298,39 @@ window.sendBulkConstraintEmail = async function(type = 'mailto') {
 
     if (type === 'copy') {
         const fullContent = `KİME (BCC):\n${bccList}\n\nKONU:\n${subject}\n\nMESAJ:\n${body}`;
-        try {
-            await navigator.clipboard.writeText(fullContent);
+        let copied = false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(fullContent);
+                copied = true;
+            } catch (err) {
+                console.warn('Clipboard writeText failed, trying fallback:', err);
+            }
+        }
+        if (!copied) {
+            const ta = document.createElement('textarea');
+            ta.value = fullContent;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '-9999px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                copied = document.execCommand('copy');
+            } catch (e) {
+                console.warn('execCommand copy failed:', e);
+            }
+            ta.remove();
+        }
+        if (copied) {
             if (typeof showToast === 'function') {
                 showToast(`📋 E-posta taslağı ve ${emails.length} alıcı panoya kopyalandı!`, 'success');
             } else {
                 alert(`E-posta taslağı ve ${emails.length} alıcı panoya kopyalandı.`);
             }
-        } catch (err) {
-            console.warn('Clipboard kopyalama hatası:', err);
+        } else {
             prompt('Panoya kopyalamak için Ctrl+C tuşlarına basın:', fullContent);
         }
         return;
@@ -1235,7 +1338,10 @@ window.sendBulkConstraintEmail = async function(type = 'mailto') {
 
     if (type === 'gmail') {
         const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.open(gmailUrl, '_blank');
+        const win = window.open(gmailUrl, '_blank');
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+            window.location.href = gmailUrl;
+        }
         if (typeof showToast === 'function') {
             showToast(`🚀 Gmail Web yeni sekmede açıldı (${emails.length} alıcı BCC'ye eklendi).`, 'success');
         }
@@ -1243,11 +1349,10 @@ window.sendBulkConstraintEmail = async function(type = 'mailto') {
     }
 
     if (type === 'push') {
-        if (typeof window.sendAdminBroadcastNotificationDirect === 'function') {
-            window.sendAdminBroadcastNotificationDirect('🚫 Sınav Öncesi Kısıt Kontrolü', 'Lütfen sınav görev dağıtımı öncesinde müsait olmadığınız saatleri profilinizden kontrol edip güncelleyin.');
-        } else if (typeof showToast === 'function') {
-            showToast('📲 Sistem bildirim kuyruğuna iletildi.', 'info');
-        }
+        await window.sendAdminBroadcastNotificationDirect(
+            '🚫 Sınav Öncesi Kısıt Kontrolü',
+            'Lütfen sınav görev dağıtımı öncesinde müsait olmadığınız saatleri profilinizden kontrol edip güncelleyin.'
+        );
         return;
     }
 
@@ -1262,7 +1367,16 @@ window.sendBulkConstraintEmail = async function(type = 'mailto') {
         return;
     }
 
-    window.location.href = mailtoUrl;
+    try {
+        const a = document.createElement('a');
+        a.href = mailtoUrl;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 250);
+    } catch(err) {
+        window.location.href = mailtoUrl;
+    }
+
     if (typeof showToast === 'function') {
         showToast(`✉️ E-posta istemciniz açılıyor (${emails.length} alıcı BCC'ye eklendi).`, 'success');
     }
