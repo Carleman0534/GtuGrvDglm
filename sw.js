@@ -1,9 +1,10 @@
-const CACHE_NAME = 'gozetmenlik-ai-v44';
+const CACHE_NAME = 'gozetmenlik-ai-v45';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './style.css',
     './mobil.css',
+    './mobil_tablo.js',
     './app.js',
     './logic.js',
     './auth_google.js',
