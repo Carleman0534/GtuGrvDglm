@@ -4745,3 +4745,14 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
     border-top: none !important;
     margin-top: 0 !important;
 }
+
+/* Header Doğrudan Bildirim Gönder Butonu Mobil Uyumluluk */
+@media (max-width: 768px) {
+    #btn-header-admin-broadcast .btn-broadcast-label {
+        display: none !important;
+    }
+    #btn-header-admin-broadcast {
+        padding: 0.4rem 0.55rem !important;
+        font-size: 1.05rem !important;
+    }
+}

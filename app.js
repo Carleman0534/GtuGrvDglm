@@ -14773,16 +14773,32 @@ window.openAdminBroadcastModal = function () {
     const modal = document.getElementById('modal-admin-broadcast-notification');
     if (!modal) return;
 
-    // Personel listesi dropdown'ını doldur
+    // Personel listesi dropdown ve çoklu checkbox alanını doldur
     const select = document.getElementById('broadcast-staff-select');
-    if (select && DB && Array.isArray(DB.staff)) {
+    const checkList = document.getElementById('broadcast-staff-checkbox-list');
+
+    if (DB && Array.isArray(DB.staff)) {
         const sortedStaff = DB.staff.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-        select.innerHTML = sortedStaff.map(s => 
-            `<option value="${s.id}">${s.name} (${s.title || 'Arş. Gör.'})</option>`
-        ).join('');
+        
+        if (select) {
+            select.innerHTML = sortedStaff.map(s => 
+                `<option value="${s.id}">${s.name} (${s.title || 'Arş. Gör.'})</option>`
+            ).join('');
+        }
+
+        if (checkList) {
+            checkList.innerHTML = sortedStaff.map(s => `
+                <label class="broadcast-staff-checkbox-item" data-name="${(s.name || '').toLowerCase()}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; cursor: pointer; font-size: 0.78rem; color: #e2e8f0;">
+                    <input type="checkbox" class="broadcast-staff-cb" value="${s.id}" onchange="updateBroadcastMultiCount()" style="width: 16px; height: 16px; accent-color: #38bdf8; cursor: pointer;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</span>
+                </label>
+            `).join('');
+            if (typeof updateBroadcastMultiCount === 'function') updateBroadcastMultiCount();
+        }
     }
 
-    // İlk açılışta canlı önizlemeyi güncelle
+    // İlk açılışta hedef durumunu ve canlı önizlemeyi güncelle
+    window.handleBroadcastTargetChange();
     window.updateBroadcastPreview();
     window.renderAdminBroadcastHistory();
 
@@ -14796,15 +14812,56 @@ window.closeAdminBroadcastModal = function () {
 
 window.handleBroadcastTargetChange = function () {
     const val = document.getElementById('broadcast-target-select')?.value;
-    const group = document.getElementById('broadcast-single-staff-group');
-    if (group) {
-        if (val === 'single') {
-            group.classList.remove('hidden');
-        } else {
-            group.classList.add('hidden');
-        }
+    const singleGroup = document.getElementById('broadcast-single-staff-group');
+    const multiGroup = document.getElementById('broadcast-multi-staff-group');
+    const hintAll = document.getElementById('broadcast-hint-all');
+
+    if (singleGroup) {
+        if (val === 'single') singleGroup.classList.remove('hidden');
+        else singleGroup.classList.add('hidden');
     }
+
+    if (multiGroup) {
+        if (val === 'manual_multi') multiGroup.classList.remove('hidden');
+        else multiGroup.classList.add('hidden');
+    }
+
+    if (hintAll) {
+        if (val === 'all') hintAll.classList.remove('hidden');
+        else hintAll.classList.add('hidden');
+    }
+
     window.updateBroadcastPreview();
+};
+
+window.selectAllBroadcastStaff = function (select) {
+    const cbs = document.querySelectorAll('.broadcast-staff-cb');
+    cbs.forEach(cb => {
+        const item = cb.closest('.broadcast-staff-checkbox-item');
+        if (!item || item.style.display !== 'none') {
+            cb.checked = select;
+        }
+    });
+    window.updateBroadcastMultiCount();
+};
+
+window.updateBroadcastMultiCount = function () {
+    const countSpan = document.getElementById('broadcast-multi-count');
+    const checked = document.querySelectorAll('.broadcast-staff-cb:checked').length;
+    if (countSpan) countSpan.textContent = checked.toString();
+};
+
+window.filterBroadcastStaffList = function (query) {
+    const q = (query || '').toLowerCase().trim();
+    const items = document.querySelectorAll('.broadcast-staff-checkbox-item');
+    items.forEach(it => {
+        const name = it.getAttribute('data-name') || '';
+        if (!q || name.includes(q)) {
+            it.style.display = 'flex';
+        } else {
+            it.style.display = 'none';
+        }
+    });
 };
 
 window.applyBroadcastPreset = function (presetKey) {
@@ -14935,7 +14992,7 @@ window.sendAdminBroadcastNotification = async function () {
     }
 
     let targetValue = 'all';
-    let targetLabel = 'Tüm Personel';
+    let targetLabel = 'Uygulamayı İndiren & Açan Herkes (Profil & Giriş Şartı Yok)';
 
     if (targetType === 'tomorrow_only') {
         targetValue = 'tomorrow_only';
@@ -14949,6 +15006,15 @@ window.sendAdminBroadcastNotification = async function () {
         targetValue = staffId;
         const staffObj = (DB.staff || []).find(s => String(s.id) === String(staffId));
         targetLabel = staffObj ? staffObj.name : 'Seçilen Personel';
+    } else if (targetType === 'manual_multi') {
+        const checkedCbs = document.querySelectorAll('.broadcast-staff-cb:checked');
+        const selectedIds = Array.from(checkedCbs).map(cb => cb.value);
+        if (selectedIds.length === 0) {
+            alert('Lütfen listeden en az bir personel seçiniz.');
+            return;
+        }
+        targetValue = selectedIds;
+        targetLabel = `Manuel Seçilen ${selectedIds.length} Personel`;
     }
 
     const confirmMsg = `📢 BİLDİRİM GÖNDERİM ONAYI
