@@ -1249,6 +1249,8 @@ table {
     align-items: center;
     justify-content: center;
     z-index: 9999;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .login-container {
@@ -1382,12 +1384,21 @@ table {
 }
 
 @media (max-width: 768px) {
+    .login-overlay {
+        align-items: flex-start !important;
+        padding: 1.25rem 0.75rem 2.5rem 0.75rem !important;
+    }
     .login-container {
         flex-direction: column;
-        padding-top: 2rem;
+        margin: auto 0 !important;
+        width: 100% !important;
+        max-width: 440px !important;
+        padding-top: 0 !important;
+        gap: 1.15rem !important;
     }
     .login-card {
-        padding: 2rem;
+        padding: 2rem 1.4rem !important;
+        border-radius: 26px !important;
     }
 }
 /* Profile Marketplace Announcement Banner */
@@ -4193,6 +4204,15 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
         min-height: 40px !important;
     }
 
+    /* 5. Buton (Tablo/Kart Görünümü Değiştirici) Mobilde 2 Kolon Birden Kaplanır */
+    #btn-profile-view-toggle {
+        grid-column: span 2 !important;
+        background: rgba(14, 165, 233, 0.15) !important;
+        border: 1px solid rgba(56, 189, 248, 0.45) !important;
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+
     /* 2. Kişisel Şifre Duyuru Kartı Mobilde Sadeleştirme */
     #profile-password-announcement-banner {
         padding: 0.85rem 1rem !important;
@@ -4766,9 +4786,33 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
     box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 25px rgba(56, 189, 248, 0.25) !important;
 }
 @media (max-width: 480px) {
+    .login-card {
+        padding: 1.6rem 1.15rem !important;
+        border-radius: 22px !important;
+    }
+    .login-card .login-icon {
+        width: 58px !important;
+        height: 58px !important;
+        font-size: 1.5rem !important;
+        margin-bottom: 0.85rem !important;
+    }
+    .login-card .login-header {
+        margin-bottom: 1.25rem !important;
+    }
+    .login-card h2 {
+        font-size: 1.25rem !important;
+    }
     .login-incentive-card {
         padding: 1.15rem 1rem !important;
-        margin-top: 1rem !important;
-        border-radius: 16px !important;
+        margin-top: 0.85rem !important;
+        border-radius: 18px !important;
+    }
+    #btn-login-pwa-install, #btn-quick-notif-perm {
+        padding: 0.72rem 0.85rem !important;
+        min-height: 48px !important;
+    }
+    #btn-login-pwa-text, #btn-login-notif-text {
+        font-size: 0.82rem !important;
+        line-height: 1.25 !important;
     }
 }

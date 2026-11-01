@@ -120,20 +120,20 @@
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <!-- 1. Adım: Telefona Yükle -->
                             <button type="button" id="btn-login-pwa-install" onclick="triggerPwaInstall()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 1.15rem;">📲</span>
-                                    <span id="btn-login-pwa-text">1. Adım: Telefona Uygulama Olarak Yükle</span>
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left;">
+                                    <span style="font-size: 1.15rem; flex-shrink: 0;">📲</span>
+                                    <span id="btn-login-pwa-text" style="line-height: 1.25;">1. Adım: Telefona Uygulama Olarak Yükle</span>
                                 </div>
-                                <span id="btn-login-pwa-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700;">Hızlı</span>
+                                <span id="btn-login-pwa-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700; flex-shrink: 0; margin-left: 6px;">Hızlı</span>
                             </button>
 
                             <!-- 2. Adım: Kilit Ekranı Bildirimlerini Aç -->
                             <button type="button" id="btn-quick-notif-perm" onclick="quickEnableNotificationWithFeedback()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 1.15rem;">🔔</span>
-                                    <span id="btn-login-notif-text">2. Adım: Kilit Ekranı Bildirimlerini Aç</span>
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left;">
+                                    <span style="font-size: 1.15rem; flex-shrink: 0;">🔔</span>
+                                    <span id="btn-login-notif-text" style="line-height: 1.25;">2. Adım: Kilit Ekranı Bildirimlerini Aç</span>
                                 </div>
-                                <span id="btn-login-notif-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700;">İzin Ver</span>
+                                <span id="btn-login-notif-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700; flex-shrink: 0; margin-left: 6px;">İzin Ver</span>
                             </button>
                         </div>
                     </div>
