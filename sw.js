@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v36';
+const CACHE_NAME = 'gozetmenlik-ai-v37';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

@@ -12,46 +12,98 @@
 (function () {
     'use strict';
 
-    let deferredInstallPrompt = null;
+    // Global yakalanan eventi senkronize et
+    window.deferredInstallPrompt = window.deferredInstallPrompt || null;
 
-    // --- PWA Kurulum Olayı (Android / Chrome / Edge) ---
-    window.addEventListener('beforeinstallprompt', (e) => {
-        // Tarayıcının varsayılan minik çubuğunu engelle
-        e.preventDefault();
-        deferredInstallPrompt = e;
-
-        // Kurulum banner'ını veya butonunu göster
+    // Head'deki erken yakalayıcıdan gelen eventi işle
+    window.onBeforeInstallPromptReady = function (e) {
+        window.deferredInstallPrompt = e;
         const banner = document.getElementById('pwa-install-banner');
         if (banner && !sessionStorage.getItem('pwa_banner_dismissed')) {
             banner.classList.remove('hidden');
         }
-
         const installBtn = document.getElementById('btn-header-pwa-install');
         if (installBtn) installBtn.classList.remove('hidden');
+    };
+
+    // Eğer sonradan tetiklenirse de yakala
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredInstallPrompt = e;
+        if (typeof window.onBeforeInstallPromptReady === 'function') {
+            window.onBeforeInstallPromptReady(e);
+        }
     });
 
-    // Kullanıcı Yükle Butonuna Bastığında
+    // Kullanıcı "Telefona Yükle" Butonuna Bastığında DOĞRUDAN YÜKLE
     window.triggerPwaInstall = async function () {
-        if (deferredInstallPrompt) {
-            deferredInstallPrompt.prompt();
-            const { outcome } = await deferredInstallPrompt.userChoice;
-            if (outcome === 'accepted') {
-                console.log('Kullanıcı PWA kurulumunu kabul etti');
+        console.log('[PWA] triggerPwaInstall tetiklendi. Hazır prompt:', !!window.deferredInstallPrompt);
+
+        // 1. Zaten yüklü modda (PWA standalone) çalışıyorsa
+        if (isRunningStandalone()) {
+            if (typeof showToast === 'function') {
+                showToast('✓ Uygulama zaten telefonunuzda yüklü! Ana ekranınızdan doğrudan açabilirsiniz.', 'info');
+            } else {
+                alert('✓ Uygulama zaten telefonunuzda yüklü! Ana ekranınızdan açabilirsiniz.');
             }
-            deferredInstallPrompt = null;
-            dismissPwaBanner();
-        } else if (isIosSafari()) {
-            // iOS Safari için görsel rehberi aç
+            return;
+        }
+
+        // 2. iOS Safari ise Apple kuralları gereği görsel Safari rehberini aç
+        if (isIosSafari()) {
             const iosModal = document.getElementById('modal-ios-pwa-guide');
             if (iosModal) iosModal.classList.remove('hidden');
-        } else {
-            // Android Chrome / Samsung Internet / Masaüstü için şık kurulum rehberi
-            const generalModal = document.getElementById('modal-pwa-general-guide');
-            if (generalModal) {
-                generalModal.classList.remove('hidden');
-            } else {
-                alert('Tarayıcınızın sağ üst köşesindeki menüden (⋮) "Uygulamayı Yükle / Ana Ekrana Ekle" seçeneğine dokunabilirsiniz.');
+            return;
+        }
+
+        // 3. Android / Chrome: Eğer prompt hazırsa DOĞRUDAN NATIVE YÜKLEME PENCERESİNİ AÇ
+        let promptEvent = window.deferredInstallPrompt;
+
+        if (!promptEvent) {
+            // Eğer henüz event düşmediyse (kullanıcı sayfayı açar açmaz bastıysa) 1.5 saniye bekle
+            const pwaText = document.getElementById('btn-login-pwa-text');
+            const oldText = pwaText ? pwaText.textContent : '';
+            if (pwaText) pwaText.textContent = '⏳ Kurulum Başlatılıyor...';
+
+            const waitPromise = new Promise((resolve) => {
+                const handler = (e) => {
+                    e.preventDefault();
+                    window.deferredInstallPrompt = e;
+                    window.removeEventListener('beforeinstallprompt', handler);
+                    resolve(e);
+                };
+                window.addEventListener('beforeinstallprompt', handler);
+                setTimeout(() => resolve(window.deferredInstallPrompt), 1800);
+            });
+
+            promptEvent = await waitPromise;
+            if (pwaText && oldText) pwaText.textContent = oldText;
+        }
+
+        if (promptEvent) {
+            try {
+                await promptEvent.prompt();
+                const { outcome } = await promptEvent.userChoice;
+                console.log('[PWA] Kullanıcı kurulum tercihi:', outcome);
+                if (outcome === 'accepted') {
+                    if (typeof showToast === 'function') {
+                        showToast('🎉 Harika! Uygulama telefonunuza yükleniyor...', 'success');
+                    }
+                }
+                window.deferredInstallPrompt = null;
+                dismissPwaBanner();
+                return;
+            } catch (err) {
+                console.warn('[PWA] prompt() çağrısı sırasında hata:', err);
             }
+        }
+
+        // 4. Tarayıcı prompt vermediyse (örneğin engellenmiş veya doğrudan desteklenmeyen tarayıcı):
+        const generalModal = document.getElementById('modal-pwa-general-guide');
+        if (generalModal) {
+            generalModal.classList.remove('hidden');
+        } else {
+            alert('Tarayıcınızın sağ üst köşesindeki menüden (⋮) "Uygulamayı Yükle / Ana Ekrana Ekle" seçeneğine dokunarak yükleyebilirsiniz.');
         }
     };
 
