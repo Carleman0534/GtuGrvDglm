@@ -56,37 +56,78 @@
                     <p id="login-error" class="login-error hidden" style="text-align: center; margin-top: 0.75rem;">Hatalı şifre, lütfen tekrar deneyin.</p>
                 </div>
             </div>
-                    <!-- Şifresiz / Giriş Şartı Olmadan Bildirim & Cihaz Eşleme Kartı -->
-                    <div id="login-guest-notification-card" style="margin-top: 1.25rem; padding: 1.25rem 1.4rem; border-top: 3px solid #38bdf8; background: rgba(15, 23, 42, 0.75); border-radius: 16px; border: 1px solid rgba(56, 189, 248, 0.35); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.85rem;">
-                            <span style="font-size: 1.6rem; filter: drop-shadow(0 0 8px #38bdf8);">📲</span>
-                            <div style="text-align: left;">
-                                <h3 style="font-size: 0.95rem; margin: 0; color: #f8fafc; font-weight: 700;">Giriş Yapmadan Bildirim Al</h3>
-                                <span style="font-size: 0.74rem; color: var(--text-muted); display: block; margin-top: 2px;">Uygulamayı yüklediyseniz veya açtıysanız kilit ekranına bildirim gelir</span>
+                    <!-- 🚀 Akıllı Telefona Yükle & Bildirim Açma Teşvik Kartı -->
+                    <div id="login-guest-notification-card" class="login-incentive-card" style="margin-top: 1.25rem; padding: 1.35rem 1.4rem; border-top: 3px solid #38bdf8; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.85)); border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.35); box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(56, 189, 248, 0.15); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+                        
+                        <!-- Header & Vurgu -->
+                        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 0.9rem;">
+                            <div style="width: 44px; height: 44px; min-width: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4); flex-shrink: 0;">
+                                📲
+                            </div>
+                            <div style="text-align: left; flex: 1;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                                    <h3 style="font-size: 1.05rem; margin: 0; color: #fff; font-weight: 800; letter-spacing: -0.01em;">Sınavları Kaçırmayın!</h3>
+                                    <span style="font-size: 0.65rem; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 2px 7px; border-radius: 6px; font-weight: 700; text-transform: uppercase;">Şifresiz 1-Tık</span>
+                                </div>
+                                <span style="font-size: 0.76rem; color: #94a3b8; display: block; margin-top: 3px; line-height: 1.35;">Telefon kapalıyken sınav ve acil duyuru bildirimlerini almak için 2 adımı tamamlayın:</span>
                             </div>
                         </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <!-- 1 Tıkla Kilit Ekranı Bildirimini Aç -->
-                            <button type="button" id="btn-quick-notif-perm" class="btn-primary" onclick="quickEnableNotificationWithFeedback()" style="width: 100%; justify-content: center; padding: 0.7rem; font-size: 0.85rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.4);">
-                                🔔 Kilit Ekranı Bildirimlerini Aç
+                        <!-- 4'lü Avantaj Hapları (Benefits Pills) -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 1rem;">
+                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 0.95rem;">⏰</span>
+                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">24s-3s Hatırlatma</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 0.95rem;">📍</span>
+                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">Salon Değişiklikleri</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 0.95rem;">🔕</span>
+                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">Kilit Ekranı & Titreşim</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 0.95rem;">⚡</span>
+                                <span style="font-size: 0.72rem; color: #e2e8f0; font-weight: 600;">Şifre Gerekmez</span>
+                            </div>
+                        </div>
+
+                        <!-- 2 Büyük Adım Butonu -->
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 0.85rem;">
+                            <!-- 1. Adım: Telefona Yükle -->
+                            <button type="button" id="btn-login-pwa-install" onclick="triggerPwaInstall()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 1.15rem;">📲</span>
+                                    <span id="btn-login-pwa-text">1. Adım: Telefona Uygulama Olarak Yükle</span>
+                                </div>
+                                <span id="btn-login-pwa-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700;">Hızlı</span>
                             </button>
 
-                            <!-- Şifresiz İsim Seçme (Kişisel Görevler İçin) -->
-                            <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 0.65rem 0.8rem; margin-top: 2px;">
-                                <label style="font-size: 0.76rem; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 5px; text-align: left;">
-                                    👤 Görevli Misiniz? (Şifresiz 1-Tıkla İsim Bağla):
-                                </label>
-                                <div style="display: flex; gap: 6px;">
-                                    <select id="quick-staff-select" onchange="bindStaffIdentityWithoutPassword(this.value)" style="flex: 1; min-width: 0; padding: 0.55rem 0.7rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; color: white; font-size: 0.82rem;">
-                                        <option value="">İsminizi Seçin (Otomatik Hatırlatıcı)...</option>
-                                    </select>
-                                    <button type="button" onclick="enterAsGuestWithSelectedStaff()" class="btn-secondary" title="Şifresiz Programa Gözat" style="padding: 0.55rem 0.85rem; font-size: 0.8rem; border-radius: 8px; white-space: nowrap; font-weight: 600;">
-                                        Gözat 👁️
-                                    </button>
+                            <!-- 2. Adım: Kilit Ekranı Bildirimlerini Aç -->
+                            <button type="button" id="btn-quick-notif-perm" onclick="quickEnableNotificationWithFeedback()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 1.15rem;">🔔</span>
+                                    <span id="btn-login-notif-text">2. Adım: Kilit Ekranı Bildirimlerini Aç</span>
                                 </div>
-                                <div id="quick-staff-status-badge" style="font-size: 0.72rem; color: #34d399; margin-top: 5px; text-align: left; display: none;"></div>
+                                <span id="btn-login-notif-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700;">İzin Ver</span>
+                            </button>
+                        </div>
+
+                        <!-- 3. Adım: Şifresiz İsim Bağlama (Sınav Görevlileri İçin) -->
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.75rem 0.85rem;">
+                            <label style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; text-align: left;">
+                                <span>👤</span> Görevli Misiniz? (Şifresiz 1-Tıkla İsim Bağla):
+                            </label>
+                            <div style="display: flex; gap: 6px;">
+                                <select id="quick-staff-select" onchange="bindStaffIdentityWithoutPassword(this.value)" style="flex: 1; min-width: 0; padding: 0.6rem 0.75rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 9px; color: white; font-size: 0.82rem;">
+                                    <option value="">İsminizi Seçin (Otomatik Hatırlatıcı)...</option>
+                                </select>
+                                <button type="button" onclick="enterAsGuestWithSelectedStaff()" class="btn-secondary" title="Şifresiz Programa Gözat" style="padding: 0.6rem 0.9rem; font-size: 0.8rem; border-radius: 9px; white-space: nowrap; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); color: #fff;">
+                                    Gözat 👁️
+                                </button>
                             </div>
+                            <div id="quick-staff-status-badge" style="font-size: 0.74rem; color: #34d399; margin-top: 5px; text-align: left; display: none;"></div>
                         </div>
                     </div>
         </div>
@@ -3478,6 +3519,24 @@
     </div>
 
     <!-- iOS Safari PWA Kurulum Rehberi Modalı -->
+        <!-- Genel / Android PWA Kurulum Rehberi Modalı -->
+    <div id="modal-pwa-general-guide" class="modal hidden">
+        <div class="modal-content" style="max-width: 400px; text-align: center; border-radius: 24px; padding: 2rem 1.5rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
+            <span style="font-size: 3.5rem; filter: drop-shadow(0 0 12px #38bdf8);">📲</span>
+            <h3 style="margin-top: 12px; font-size: 1.25rem; color: #f8fafc; font-weight: 800;">Telefona Uygulama Olarak Yükleyin</h3>
+            <p style="font-size: 0.82rem; color: #94a3b8; margin: 6px 0 1rem 0;">Google Play veya App Store'a gerek kalmadan doğrudan ana ekranınıza ekleyin:</p>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: left; font-size: 0.88rem; line-height: 1.6; color: #cbd5e1;">
+                <p style="margin: 0 0 10px 0;"><b>1.</b> Tarayıcınızın sağ üstündeki menüye ( <b>⋮</b> veya <b>⋯</b> ) dokunun.</p>
+                <p style="margin: 0 0 10px 0;"><b>2.</b> Menüden <b>"Uygulamayı Yükle"</b> veya <b>"Ana Ekrana Ekle"</b> seçeneğini seçin.</p>
+                <p style="margin: 0;"><b>3.</b> Çıkan kutuda <b>"Yükle"</b> butonuna dokunun.</p>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 8px 12px; margin-bottom: 1.25rem; font-size: 0.78rem; color: #6ee7b7; text-align: left;">
+                ✓ Telefonunuzda yer kaplamaz, tam ekran ve anlık kilit ekranı bildirimleriyle çalışır.
+            </div>
+            <button type="button" class="btn-primary" onclick="document.getElementById('modal-pwa-general-guide').classList.add('hidden')" style="width: 100%; padding: 0.8rem; border-radius: 12px; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1);">Harika, Anladım 👍</button>
+        </div>
+    </div>
+
     <div id="modal-ios-pwa-guide" class="modal hidden">
         <div class="modal-content" style="max-width: 380px; text-align: center; border-radius: 24px; padding: 2rem 1.5rem;">
             <span style="font-size: 3.5rem; filter: drop-shadow(0 0 12px #38bdf8);">📲</span>

@@ -410,21 +410,49 @@
             }
         }
 
-        // 2. Giriş ekranındaki hızlı buton
+        // 2. Giriş ekranındaki teşvik butonları (Yükle & Bildirim Aç)
         const btnQuick = document.getElementById('btn-quick-notif-perm');
+        const notifText = document.getElementById('btn-login-notif-text');
+        const notifChip = document.getElementById('btn-login-notif-chip');
+
         if (btnQuick) {
             if (state === 'granted') {
-                btnQuick.textContent = '✓ Kilit Ekranı Bildirimleri Açık';
                 btnQuick.style.background = 'linear-gradient(135deg, #10b981, #059669)';
                 btnQuick.style.borderColor = '#34d399';
+                if (notifText) notifText.textContent = '✓ 2. Adım: Kilit Ekranı Bildirimleri Açık';
+                if (notifChip) { notifChip.textContent = 'Aktif ✓'; notifChip.style.background = 'rgba(255,255,255,0.3)'; }
             } else if (state === 'denied') {
-                btnQuick.textContent = '❌ Bildirimler Tarayıcıda Engelli';
-                btnQuick.style.background = 'rgba(239, 68, 68, 0.2)';
+                btnQuick.style.background = 'rgba(239, 68, 68, 0.25)';
                 btnQuick.style.borderColor = '#f87171';
+                if (notifText) notifText.textContent = '❌ 2. Adım: Bildirimler Engellendi';
+                if (notifChip) { notifChip.textContent = 'Ayarlardan Aç'; notifChip.style.background = 'rgba(239,68,68,0.4)'; }
             } else {
-                btnQuick.textContent = '🔔 Kilit Ekranı Bildirimlerini Aç';
                 btnQuick.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
                 btnQuick.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                if (notifText) notifText.textContent = '2. Adım: Kilit Ekranı Bildirimlerini Aç';
+                if (notifChip) { notifChip.textContent = 'İzin Ver'; notifChip.style.background = 'rgba(255,255,255,0.22)'; }
+            }
+        }
+
+        // PWA Kurulum Durumu Kontrolü
+        const btnPwa = document.getElementById('btn-login-pwa-install');
+        const pwaText = document.getElementById('btn-login-pwa-text');
+        const pwaChip = document.getElementById('btn-login-pwa-chip');
+        const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator && window.navigator.standalone === true);
+
+        if (btnPwa) {
+            if (isStandalone) {
+                btnPwa.style.background = 'rgba(16, 185, 129, 0.2)';
+                btnPwa.style.border = '1px solid #34d399';
+                btnPwa.style.color = '#34d399';
+                if (pwaText) pwaText.textContent = '✓ 1. Adım: Uygulama Telefonda Kurulu';
+                if (pwaChip) { pwaChip.textContent = 'Kurulu ✓'; pwaChip.style.background = 'rgba(16, 185, 129, 0.3)'; }
+            } else {
+                btnPwa.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5)';
+                btnPwa.style.border = 'none';
+                btnPwa.style.color = '#ffffff';
+                if (pwaText) pwaText.textContent = '1. Adım: Telefona Uygulama Olarak Yükle';
+                if (pwaChip) { pwaChip.textContent = 'Hızlı'; pwaChip.style.background = 'rgba(255,255,255,0.22)'; }
             }
         }
 

@@ -45,8 +45,13 @@
             const iosModal = document.getElementById('modal-ios-pwa-guide');
             if (iosModal) iosModal.classList.remove('hidden');
         } else {
-            // Zaten kurulu veya doğrudan desteklenmiyor
-            alert('Uygulama zaten yüklü veya tarayıcınızın menüsünden (⋮) "Uygulamayı Yükle / Ana Ekrana Ekle" seçeneğini kullanabilirsiniz.');
+            // Android Chrome / Samsung Internet / Masaüstü için şık kurulum rehberi
+            const generalModal = document.getElementById('modal-pwa-general-guide');
+            if (generalModal) {
+                generalModal.classList.remove('hidden');
+            } else {
+                alert('Tarayıcınızın sağ üst köşesindeki menüden (⋮) "Uygulamayı Yükle / Ana Ekrana Ekle" seçeneğine dokunabilirsiniz.');
+            }
         }
     };
 
