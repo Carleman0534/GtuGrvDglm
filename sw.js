@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v25';
+const CACHE_NAME = 'gozetmenlik-ai-v26';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -9,12 +9,14 @@ const ASSETS_TO_CACHE = [
     './veri_koruma.js',
     './swap_email.js',
     './swap_market.js',
+    './smart_doc_parser.js',
     './ai_features.js',
     './icon-192.png',
     './icon-512.png',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
     'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
