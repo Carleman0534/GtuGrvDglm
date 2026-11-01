@@ -94,7 +94,7 @@
                         </div>
 
                         <!-- 2 Büyük Adım Butonu -->
-                        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 0.85rem;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
                             <!-- 1. Adım: Telefona Yükle -->
                             <button type="button" id="btn-login-pwa-install" onclick="triggerPwaInstall()" style="width: 100%; padding: 0.75rem 1rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -112,22 +112,6 @@
                                 </div>
                                 <span id="btn-login-notif-chip" style="font-size: 0.72rem; background: rgba(255,255,255,0.22); padding: 2px 7px; border-radius: 6px; font-weight: 700;">İzin Ver</span>
                             </button>
-                        </div>
-
-                        <!-- 3. Adım: Şifresiz İsim Bağlama (Sınav Görevlileri İçin) -->
-                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.75rem 0.85rem;">
-                            <label style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; text-align: left;">
-                                <span>👤</span> Görevli Misiniz? (Şifresiz 1-Tıkla İsim Bağla):
-                            </label>
-                            <div style="display: flex; gap: 6px;">
-                                <select id="quick-staff-select" onchange="bindStaffIdentityWithoutPassword(this.value)" style="flex: 1; min-width: 0; padding: 0.6rem 0.75rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 9px; color: white; font-size: 0.82rem;">
-                                    <option value="">İsminizi Seçin (Otomatik Hatırlatıcı)...</option>
-                                </select>
-                                <button type="button" onclick="enterAsGuestWithSelectedStaff()" class="btn-secondary" title="Şifresiz Programa Gözat" style="padding: 0.6rem 0.9rem; font-size: 0.8rem; border-radius: 9px; white-space: nowrap; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); color: #fff;">
-                                    Gözat 👁️
-                                </button>
-                            </div>
-                            <div id="quick-staff-status-badge" style="font-size: 0.74rem; color: #34d399; margin-top: 5px; text-align: left; display: none;"></div>
                         </div>
                     </div>
         </div>
