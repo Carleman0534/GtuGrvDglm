@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v43';
+const CACHE_NAME = 'gozetmenlik-ai-v44';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -64,17 +64,32 @@ self.addEventListener('fetch', event => {
 // Push & Notification Click Event (PWA Bildirimine Dokunulduğunda Uygulamayı Açar)
 self.addEventListener('notificationclick', event => {
     event.notification.close();
+    const data = event.notification.data || {};
+    const examId = data.examId;
+    const step = data.step || (data.action === 'input_duration' ? 'input' : 'question');
+
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-            // Açık sekme varsa odaklan
+            // Açık sekme varsa odaklan ve mesaj ilet
             for (let client of windowClients) {
                 if (client.url.includes('index.html') && 'focus' in client) {
+                    if (examId && 'postMessage' in client) {
+                        client.postMessage({
+                            type: 'NOTIFICATION_ACTION',
+                            action: data.action || 'verify_duration',
+                            examId: examId,
+                            step: step
+                        });
+                    }
                     return client.focus();
                 }
             }
-            // Açık sekme yoksa yeni pencerede aç
+            // Açık sekme yoksa hedef url ile aç
+            const targetUrl = examId
+                ? `./index.html?verifyDurationExamId=${encodeURIComponent(examId)}&step=${encodeURIComponent(step)}`
+                : (data.url || './index.html');
             if (clients.openWindow) {
-                return clients.openWindow('./index.html');
+                return clients.openWindow(targetUrl);
             }
         })
     );

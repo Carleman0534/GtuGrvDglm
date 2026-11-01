@@ -1541,6 +1541,9 @@
                                 </div>
                             </div>
                             
+                            <!-- Hoca Portalı Sınav Bitimi Süre Onay / Düzenleme Alanı -->
+                            <div id="lecturer-portal-duration-container" style="margin-bottom: 1.25rem;"></div>
+
                             <div class="form-group">
                                 <label style="display: block; margin-bottom: 8px; font-weight: 500;">Gözetmenlere Not / Talimat</label>
                                 <textarea id="lecturer-portal-note" rows="5" placeholder="Örn: Sınav kağıtlarını bölüm sekreterliğinden almayı unutmayınız. Öğrenci listesi kürsüdedir." style="width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 1rem; border-radius: 10px; color: white; resize: vertical; line-height: 1.5;"></textarea>
@@ -3607,6 +3610,102 @@
                     <button type="button" class="btn-secondary" onclick="sendBulkConstraintEmail('push')" style="padding: 0.65rem 0.85rem; font-size: 0.82rem; font-weight: 600; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.12); color: #38bdf8; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
                         <span>📲</span> Kilit Ekranına Bildirim Gönder
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hoca Sınav Bitimi Süre Onayı ve Gerçekleşen Süre Girişi Modalı -->
+    <div id="modal-lecturer-duration-prompt" class="modal hidden" style="z-index: 10050;">
+        <div class="modal-content card-large swap-modal" style="max-width: 520px; border-radius: 20px; border: 1px solid rgba(245, 158, 11, 0.4); box-shadow: 0 16px 48px rgba(0,0,0,0.7); background: rgba(15, 23, 42, 0.98);">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.85rem;">
+                <h2 style="font-size: 1.15rem; display: flex; align-items: center; gap: 8px; color: #f8fafc; margin: 0;">
+                    <span style="font-size: 1.35rem;">⏱️</span> Sınav Süresi Teyidi
+                </h2>
+                <button class="close-modal" onclick="closeLecturerDurationPromptModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 1rem;">
+                <input type="hidden" id="ldp-exam-id" value="">
+                
+                <!-- Sınav Bilgi Kartı -->
+                <div id="ldp-exam-card" style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                    <!-- JS ile doldurulacak -->
+                </div>
+
+                <!-- ADIM 1: Soru ve Onay / Ret Butonları -->
+                <div id="ldp-step-question">
+                    <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(217, 119, 6, 0.05)); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 14px; padding: 1.25rem; text-align: center; margin-bottom: 1.25rem;">
+                        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">❓</div>
+                        <div id="ldp-question-text" style="font-size: 1.15rem; font-weight: 700; color: #fef3c7; line-height: 1.5;">
+                            Sınav süreniz <span id="ldp-current-duration-text" style="color: #fbbf24; text-decoration: underline; text-underline-offset: 3px;">--</span> dakika sürdü, onaylıyor musunuz?
+                        </div>
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0.5rem 0 0 0;">
+                            Sınavınız tamamlandı. Onaylarsanız süre kesinleşecek, onaylamazsanız gerçek süreyi girmeniz istenecektir.
+                        </p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 1rem;">
+                        <button type="button" class="btn-primary" id="btn-ldp-confirm" onclick="confirmLecturerExamDuration()" style="padding: 0.85rem 1rem; font-size: 0.95rem; font-weight: 800; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <span>✅</span> Onaylıyorum
+                        </button>
+                        <button type="button" class="btn-secondary" id="btn-ldp-reject" onclick="rejectLecturerExamDuration()" style="padding: 0.85rem 1rem; font-size: 0.95rem; font-weight: 800; border-radius: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <span>❌</span> Onaylamıyorum
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ADIM 2: Gerçekleşen Süre Girişi (Onaylamıyorum dendiğinde veya bildirimden gelindiğinde açılır) -->
+                <div id="ldp-step-input" class="hidden">
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #fca5a5; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.3rem;">ℹ️</span>
+                        <div>Sınav süresini onaylamadınız. Lütfen sınavın <strong>gerçekte kaç dakika sürdüğünü</strong> belirtiniz.</div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #e2e8f0; display:block; margin-bottom: 0.4rem;">
+                            ⏱️ Gerçekleşen Net Sınav Süresi (Dakika):
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="ldp-input-minutes" min="15" max="360" step="5" style="flex: 1; padding: 0.75rem 0.9rem; background: rgba(0,0,0,0.4); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; color: #38bdf8; font-size: 1.25rem; font-weight: 800; text-align: center;" oninput="updateLdpScorePreview(this.value)">
+                            <span style="color: var(--text-secondary); font-weight: 700;">dakika</span>
+                        </div>
+                    </div>
+
+                    <!-- Hızlı Seçim Butonları -->
+                    <div style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); display:block; margin-bottom: 0.35rem;">
+                            ⚡ Hızlı Seç:
+                        </label>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(30)">30 dk</button>
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(45)">45 dk</button>
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(60)">60 dk</button>
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(75)">75 dk</button>
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(90)">90 dk</button>
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(105)">105 dk</button>
+                            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" onclick="setLdpPreset(120)">120 dk</button>
+                        </div>
+                    </div>
+
+                    <!-- Puan Önizleme -->
+                    <div id="ldp-preview" style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 10px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.82rem;">
+                        <!-- JS ile doldurulacak -->
+                    </div>
+
+                    <!-- İsteğe Bağlı Not -->
+                    <div class="form-group" style="margin-bottom: 1.25rem;">
+                        <label style="font-size: 0.8rem; color: var(--text-secondary); display:block; margin-bottom: 0.35rem;">
+                            📝 Açıklama / Ek Süre Sebebi (İsteğe Bağlı):
+                        </label>
+                        <input type="text" id="ldp-input-note" placeholder="Örn: Sınav hocası 15 dk ek süre verdi" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px; color: white; font-size: 0.85rem; box-sizing: border-box;">
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="btn-secondary" onclick="showLdpQuestionStep()" style="padding: 0.65rem 1rem; font-size: 0.85rem;">⬅️ Geri</button>
+                        <button type="button" id="btn-ldp-submit" class="btn-primary" onclick="submitLecturerActualDuration()" style="padding: 0.65rem 1.2rem; font-size: 0.88rem; font-weight: 800; background: linear-gradient(135deg, #0284c7, #0369a1); border: none; border-radius: 10px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);">
+                            💾 Süreyi Sisteme İşle
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

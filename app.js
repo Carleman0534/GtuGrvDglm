@@ -8205,6 +8205,9 @@ window.onLecturerPortalCourseChange = function(examId) {
 
     if (!examId) {
         if (editor) editor.classList.add('hidden');
+        if (typeof window.renderLecturerPortalDurationBox === 'function') {
+            window.renderLecturerPortalDurationBox(null);
+        }
         return;
     }
 
@@ -8267,6 +8270,10 @@ window.onLecturerPortalCourseChange = function(examId) {
 
         textarea.value = exam.lecturerNote || '';
         textarea.placeholder = "Sinav gözetmenlerine iletmek istediğiniz notu buraya yazin...";
+    }
+
+    if (typeof window.renderLecturerPortalDurationBox === 'function') {
+        window.renderLecturerPortalDurationBox(examId);
     }
 };
 
@@ -9017,6 +9024,509 @@ window.saveExamDurationFromModal = function() {
 window.updateExamDurationFromProfile = function(id) {
     openUpdateDurationModal(id);
 };
+
+/**
+ * =========================================================================
+ * HOCA SINAV BİTİMİ SÜRE ONAY VE GERÇEKLEŞEN SÜRE İŞLEME SİSTEMİ
+ * =========================================================================
+ */
+
+function getLecturerActorName() {
+    const portalSelect = document.getElementById('lecturer-portal-staff-select');
+    if (portalSelect && portalSelect.value) return portalSelect.value;
+    const myStaffId = localStorage.getItem('myStaffId');
+    if (myStaffId && window.DB && DB.staff) {
+        const current = DB.staff.find(s => String(s.id) === String(myStaffId));
+        if (current) return current.name;
+    }
+    if (sessionStorage.getItem('isLecturer') === 'true') {
+        return localStorage.getItem('myLecturerName') || 'Ders Sorumlusu (Öğretim Üyesi)';
+    }
+    if (sessionStorage.getItem('isAdmin') === 'true') {
+        return 'Yönetici';
+    }
+    return 'Ders Sorumlusu';
+}
+
+window.openLecturerDurationPromptModal = function(examId, step = 'question') {
+    try {
+        if (!DB || !DB.exams) return;
+        const ex = DB.exams.find(e => String(e.id) === String(examId));
+        if (!ex) {
+            if (typeof showToast === 'function') showToast('Sınav bulunamadı!', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('modal-lecturer-duration-prompt');
+        const idInput = document.getElementById('ldp-exam-id');
+        const durText = document.getElementById('ldp-current-duration-text');
+        const durInput = document.getElementById('ldp-input-minutes');
+        const noteInput = document.getElementById('ldp-input-note');
+        const card = document.getElementById('ldp-exam-card');
+        const stepQ = document.getElementById('ldp-step-question');
+        const stepI = document.getElementById('ldp-step-input');
+
+        if (!modal || !idInput || !card) return;
+
+        idInput.value = ex.id;
+        const currentDur = parseInt(ex.duration, 10) || 60;
+        if (durText) durText.textContent = currentDur;
+        if (durInput) durInput.value = currentDur;
+        if (noteInput) noteInput.value = ex.durationNote || '';
+
+        const proctors = (ex.proctorIds && ex.proctorIds.length > 0)
+            ? DB.staff.filter(s => ex.proctorIds.map(String).includes(String(s.id))).map(s => s.name).join(', ')
+            : (ex.proctorName || 'Atanmadı');
+
+        const sameRoomExams = typeof getSameClassroomRelatedExams === 'function' ? getSameClassroomRelatedExams(ex) : [];
+        const partnerNames = Array.from(new Set(
+            sameRoomExams.filter(e => String(e.id) !== String(ex.id)).map(e => e.proctorName).filter(Boolean)
+        ));
+
+        let partnerBadge = '';
+        if (partnerNames.length > 0) {
+            partnerBadge = `
+                <div style="background: rgba(167, 139, 250, 0.12); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 0.78rem; color: #c4b5fd;">
+                    👥 <strong>Salon Ortaklığı (${ex.location || '-'}):</strong> <em>${partnerNames.join(', ')}</em> ile aynı dersliktesiniz. Kaydettiğinizde onların süresi ve puanı da otomatik güncellenecektir.
+                </div>
+            `;
+        }
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                <div>
+                    <h3 style="margin:0; font-size:1.05rem; color:#fff; font-weight:700;">${ex.name}</h3>
+                    <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:3px;">
+                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; 📍 ${ex.location || '-'}
+                    </div>
+                </div>
+                <span class="score-tag" style="font-size:0.82rem; padding: 0.25rem 0.55rem; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">⏱️ ${currentDur} dk</span>
+            </div>
+            <div style="display:flex; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap; padding-top:0.4rem; border-top:1px solid rgba(255,255,255,0.06);">
+                <div>👨‍🏫 <strong>Ders Hocası:</strong> ${ex.lecturer || '-'}</div>
+                <div>🛡️ <strong>Gözetmen:</strong> ${proctors}</div>
+            </div>
+            ${partnerBadge}
+        `;
+
+        if (step === 'input') {
+            if (stepQ) stepQ.classList.add('hidden');
+            if (stepI) stepI.classList.remove('hidden');
+            window.updateLdpScorePreview(currentDur);
+            setTimeout(() => {
+                if (durInput) { durInput.focus(); durInput.select(); }
+            }, 100);
+        } else {
+            if (stepQ) stepQ.classList.remove('hidden');
+            if (stepI) stepI.classList.add('hidden');
+        }
+
+        modal.classList.remove('hidden');
+    } catch (err) {
+        console.error('openLecturerDurationPromptModal error:', err);
+    }
+};
+
+window.closeLecturerDurationPromptModal = function() {
+    const modal = document.getElementById('modal-lecturer-duration-prompt');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.showLdpQuestionStep = function() {
+    const stepQ = document.getElementById('ldp-step-question');
+    const stepI = document.getElementById('ldp-step-input');
+    if (stepQ) stepQ.classList.remove('hidden');
+    if (stepI) stepI.classList.add('hidden');
+};
+
+window.showLdpInputStep = function() {
+    const stepQ = document.getElementById('ldp-step-question');
+    const stepI = document.getElementById('ldp-step-input');
+    const durInput = document.getElementById('ldp-input-minutes');
+    if (stepQ) stepQ.classList.add('hidden');
+    if (stepI) stepI.classList.remove('hidden');
+    if (durInput) {
+        window.updateLdpScorePreview(durInput.value);
+        setTimeout(() => { durInput.focus(); durInput.select(); }, 100);
+    }
+};
+
+window.setLdpPreset = function(mins) {
+    const durInput = document.getElementById('ldp-input-minutes');
+    if (durInput) {
+        durInput.value = mins;
+        window.updateLdpScorePreview(mins);
+    }
+};
+
+window.updateLdpScorePreview = function(val) {
+    const preview = document.getElementById('ldp-preview');
+    const examId = document.getElementById('ldp-exam-id')?.value;
+    if (!preview || !examId) return;
+
+    const ex = DB.exams.find(e => String(e.id) === String(examId));
+    if (!ex) return;
+
+    const numVal = parseInt(val, 10);
+    if (isNaN(numVal) || numVal <= 0) {
+        preview.innerHTML = `<div style="color:#ef4444; font-weight:600;">⚠️ Lütfen geçerli bir sınav süresi girin (en az 15 dakika).</div>`;
+        return;
+    }
+
+    const testDate = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}`);
+    const oldScore = parseFloat(ex.score) || 0;
+    const newScore = typeof calculateScore === 'function' ? calculateScore(testDate, numVal, ex.id) : oldScore;
+    const diff = parseFloat((newScore - oldScore).toFixed(2));
+
+    let diffBadge = '';
+    if (diff > 0) {
+        diffBadge = `<span style="background:rgba(16,185,129,0.2); color:#34d399; font-weight:700; padding:2px 8px; border-radius:6px;">+${diff} puan artış 📈</span>`;
+    } else if (diff < 0) {
+        diffBadge = `<span style="background:rgba(239,68,68,0.2); color:#f87171; font-weight:700; padding:2px 8px; border-radius:6px;">${diff} puan azalış 📉</span>`;
+    } else {
+        diffBadge = `<span style="background:rgba(255,255,255,0.1); color:var(--text-muted); font-weight:600; padding:2px 8px; border-radius:6px;">Puan değişimi yok (0.0)</span>`;
+    }
+
+    preview.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+            <span style="font-weight:600; color:#fff;">📊 Gözetmen Puanı Etkisi:</span>
+            ${diffBadge}
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.8rem;">
+            <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
+                <div style="color:var(--text-muted); font-size:0.72rem;">Önceki Süre:</div>
+                <div><strong>${ex.duration || 60} dk</strong> &nbsp;→&nbsp; <span style="color:#38bdf8;">+${oldScore} puan</span></div>
+            </div>
+            <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
+                <div style="color:var(--text-muted); font-size:0.72rem;">Yeni Gerçekleşen:</div>
+                <div><strong>${numVal} dk</strong> &nbsp;→&nbsp; <span style="color:#34d399; font-weight:700;">+${newScore} puan</span></div>
+            </div>
+        </div>
+    `;
+};
+
+window.confirmLecturerExamDuration = function(examId = null) {
+    try {
+        if (!examId) examId = document.getElementById('ldp-exam-id')?.value;
+        if (!examId || !DB || !DB.exams) return;
+
+        const baseExam = DB.exams.find(e => String(e.id) === String(examId));
+        if (!baseExam) {
+            if (typeof showToast === 'function') showToast('Sınav bulunamadı!', 'error');
+            return;
+        }
+
+        const dur = parseInt(baseExam.duration, 10) || 60;
+        const actor = getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu';
+        const nowIso = new Date().toISOString();
+
+        const sameRoomExams = typeof getSameClassroomRelatedExams === 'function' ? getSameClassroomRelatedExams(baseExam) : [baseExam];
+        const partnerNames = Array.from(new Set(
+            sameRoomExams.filter(e => String(e.id) !== String(baseExam.id)).map(e => e.proctorName).filter(Boolean)
+        ));
+
+        sameRoomExams.forEach(ex => {
+            updateExam(ex.id, {
+                duration: dur,
+                actualDuration: dur,
+                scheduledDuration: ex.scheduledDuration || ex.duration || dur,
+                durationConfirmed: true,
+                durationApproved: true,
+                lecturerVerified: true,
+                durationConfirmedBy: actor,
+                durationConfirmedAt: nowIso,
+                durationUpdatedBy: actor,
+                durationUpdatedAt: nowIso
+            });
+        });
+
+        if (typeof recalculateAllScores === 'function') recalculateAllScores();
+        if (typeof logAction === 'function') {
+            const partnerInfo = partnerNames.length > 0 ? ` [Aynı derslikteki ortaklar: ${partnerNames.join(', ')}]` : '';
+            logAction('user', 'Hoca Sınav Süresi Onayı', `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}) süresi ${dur} dk olarak onaylandı.${partnerInfo}`);
+        }
+
+        if (typeof saveToBackend === 'function') saveToBackend();
+        else if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+
+        window.closeLecturerDurationPromptModal();
+
+        const msg = `✅ "${baseExam.name}" sınav süreniz ${dur} dk olarak onaylandı ve sisteme işlendi.`;
+        if (typeof showToast === 'function') showToast(msg, 'success');
+        else alert(msg);
+
+        // UI Yenilemeleri
+        if (typeof renderLecturerPortalDurationBox === 'function') renderLecturerPortalDurationBox(baseExam.id);
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof renderProfile === 'function') renderProfile();
+        if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    } catch (err) {
+        console.error('confirmLecturerExamDuration error:', err);
+    }
+};
+
+window.rejectLecturerExamDuration = function(examId = null) {
+    try {
+        if (!examId) examId = document.getElementById('ldp-exam-id')?.value;
+        if (!examId || !DB || !DB.exams) return;
+
+        const baseExam = DB.exams.find(e => String(e.id) === String(examId));
+        if (!baseExam) return;
+
+        // 1. Kullanıcının telefonuna / bildirim merkezine "Gerçekleşen Süreyi Gir" bildirimi gönder
+        const title = `⏱️ [Süre Girişi Gerekli] ${baseExam.name}`;
+        const message = `Sınav süresini onaylamadınız. Gerçekleşen süreyi sisteme işlemek için buraya dokunun.`;
+
+        if (typeof window.dispatchLocalNotification === 'function') {
+            window.dispatchLocalNotification(
+                title,
+                message,
+                `dur_input_${baseExam.id}`,
+                { action: 'input_duration', examId: baseExam.id, step: 'input', url: `./index.html?verifyDurationExamId=${encodeURIComponent(baseExam.id)}&step=input` }
+            );
+        }
+
+        // 2. Uygulama içi Bildirim Kutusuna ekle
+        const myStaffId = localStorage.getItem('myStaffId') || 'lecturer';
+        if (!DB.notifications) DB.notifications = {};
+        if (!Array.isArray(DB.notifications[myStaffId])) DB.notifications[myStaffId] = [];
+        DB.notifications[myStaffId].unshift({
+            id: Date.now(),
+            title: title,
+            message: message,
+            date: new Date().toISOString(),
+            isRead: false,
+            type: 'exam_duration_input',
+            examId: baseExam.id,
+            step: 'input'
+        });
+
+        if (typeof updateNotifBadge === 'function') updateNotifBadge();
+        if (typeof renderNotifications === 'function') renderNotifications();
+        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+
+        // 3. Ekranda açıksa doğrudan Süre Girişi Adımına (Adım 2) geç
+        window.showLdpInputStep();
+
+        if (typeof showToast === 'function') {
+            showToast('⏱️ Süre onaylanmadı. Gerçekleşen süreyi girmeniz için bildirim oluşturuldu. Lütfen yeni süreyi giriniz.', 'warning');
+        }
+    } catch (err) {
+        console.error('rejectLecturerExamDuration error:', err);
+    }
+};
+
+window.submitLecturerActualDuration = function(examId = null, customMins = null, customNote = null) {
+    try {
+        if (!examId) examId = document.getElementById('ldp-exam-id')?.value;
+        if (!examId || !DB || !DB.exams) return;
+
+        const baseExam = DB.exams.find(e => String(e.id) === String(examId));
+        if (!baseExam) {
+            if (typeof showToast === 'function') showToast('Sınav bulunamadı!', 'error');
+            return;
+        }
+
+        let val = customMins !== null ? parseInt(customMins, 10) : parseInt(document.getElementById('ldp-input-minutes')?.value, 10);
+        if (isNaN(val) || val < 15 || val > 480) {
+            if (typeof showToast === 'function') showToast('Lütfen 15 ile 480 dakika arasında geçerli bir süre girin!', 'error');
+            else alert('Lütfen 15 ile 480 dakika arasında geçerli bir süre girin!');
+            document.getElementById('ldp-input-minutes')?.focus();
+            return;
+        }
+
+        const note = customNote !== null ? customNote : (document.getElementById('ldp-input-note')?.value.trim() || '');
+        const scheduledDur = baseExam.scheduledDuration || baseExam.duration || 60;
+        const actor = getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu';
+        const nowIso = new Date().toISOString();
+
+        const btnSubmit = document.getElementById('btn-ldp-submit');
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'İşleniyor...';
+        }
+
+        // Salon Ortaklığı: Aynı derslikteki tüm sınav kayıtlarını bul
+        const sameRoomExams = typeof getSameClassroomRelatedExams === 'function' ? getSameClassroomRelatedExams(baseExam) : [baseExam];
+        const partnerNames = Array.from(new Set(
+            sameRoomExams.filter(e => String(e.id) !== String(baseExam.id)).map(e => e.proctorName).filter(Boolean)
+        ));
+
+        sameRoomExams.forEach(item => {
+            updateExam(item.id, {
+                duration: val,
+                actualDuration: val,
+                scheduledDuration: item.scheduledDuration || item.duration || scheduledDur,
+                durationNote: note || 'Ders hocası tarafından sınav bitiminde girilen gerçek süre',
+                durationConfirmed: true,
+                durationApproved: true,
+                lecturerVerified: true,
+                durationConfirmedBy: actor,
+                durationConfirmedAt: nowIso,
+                durationUpdatedBy: actor,
+                durationUpdatedAt: nowIso
+            });
+        });
+
+        if (typeof recalculateAllScores === 'function') {
+            recalculateAllScores();
+        }
+
+        if (typeof logAction === 'function') {
+            const partnerInfo = partnerNames.length > 0 ? ` [Aynı derslikteki ortaklar: ${partnerNames.join(', ')}]` : '';
+            logAction(
+                'user',
+                'Hoca Gerçekleşen Sınav Süresi Girişi',
+                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${baseExam.duration} dk -> ${val} dk olarak sisteme işlendi.${note ? ' Not: ' + note : ''}${partnerInfo}`
+            );
+        }
+
+        if (typeof saveToBackend === 'function') {
+            saveToBackend();
+        } else if (typeof saveToLocalStorage === 'function') {
+            saveToLocalStorage();
+        }
+
+        window.closeLecturerDurationPromptModal();
+
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = '💾 Süreyi Sisteme İşle';
+        }
+
+        // Başarılı işlem bildirimi
+        if (typeof window.dispatchLocalNotification === 'function') {
+            window.dispatchLocalNotification(
+                `✅ [Süre Kaydedildi] ${baseExam.name}`,
+                `Sınav süreniz ${val} dk olarak sisteme işlendi ve gözetmen puanları güncellendi.`,
+                `saved_dur_${baseExam.id}`
+            );
+        }
+
+        let msg = `💾 Gerçekleşen sınav süresi (${val} dk) sisteme işlendi ve gözetmen puanları güncellendi!`;
+        if (partnerNames.length > 0) {
+            msg += ` Aynı derslikteki (${baseExam.location || '-'}) ortak gözetmenler (${partnerNames.join(', ')}) için de süre eşitlendi.`;
+        }
+        if (typeof showToast === 'function') showToast(msg, 'success');
+        else alert(msg);
+
+        // UI Yenilemeleri
+        if (typeof renderLecturerPortalDurationBox === 'function') renderLecturerPortalDurationBox(baseExam.id);
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof renderProfile === 'function') renderProfile();
+        if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    } catch (err) {
+        console.error('submitLecturerActualDuration error:', err);
+        const btnSubmit = document.getElementById('btn-ldp-submit');
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = '💾 Süreyi Sisteme İşle';
+        }
+    }
+};
+
+window.renderLecturerPortalDurationBox = function(examId) {
+    const container = document.getElementById('lecturer-portal-duration-container');
+    if (!container) return;
+    if (!examId || examId === 'all-exams' || !DB || !DB.exams) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    const ex = DB.exams.find(e => String(e.id) === String(examId));
+    if (!ex) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    // Sınav bitmiş mi?
+    const startTime = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}`);
+    const durMins = parseInt(ex.duration, 10) || 60;
+    const endTime = startTime ? new Date(startTime.getTime() + durMins * 60000) : null;
+    const now = new Date();
+    const isFinished = endTime && now.getTime() >= endTime.getTime();
+
+    if (!isFinished) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+
+    const isConfirmed = ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved;
+    if (isConfirmed) {
+        container.innerHTML = `
+            <div style="background: rgba(16, 185, 129, 0.12); border: 1.5px solid rgba(16, 185, 129, 0.4); border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.6rem;">✅</span>
+                    <div>
+                        <div style="color: #6ee7b7; font-weight: 800; font-size: 0.95rem;">Sınav Süresi Onaylandı: ${ex.duration} Dakika</div>
+                        <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">
+                            ${ex.durationConfirmedBy ? 'Onaylayan: ' + ex.durationConfirmedBy + ' • ' : ''}Gözetmen puanları bu süre üzerinden hesaplanmıştır.
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; background: rgba(56, 189, 248, 0.1);" onclick="openLecturerDurationPromptModal('${ex.id}', 'input')">
+                    ✏️ Süreyi Değiştir
+                </button>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.1)); border: 1.5px solid rgba(245, 158, 11, 0.5); border-radius: 12px; padding: 14px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <span style="font-size: 1.8rem; line-height: 1;">⏱️</span>
+                        <div>
+                            <div style="color: #fbbf24; font-weight: 800; font-size: 0.98rem;">Sınavınız Sona Erdi - Süre Teyidi Bekleniyor</div>
+                            <div style="font-size: 0.86rem; color: #fef3c7; margin-top: 3px;">
+                                Sınav süreniz <strong>${ex.duration || 60} dakika</strong> sürdü, onaylıyor musunuz?
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-size: 0.85rem; padding: 8px 14px; font-weight: 800; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 10px rgba(16,185,129,0.35);" onclick="confirmLecturerExamDuration('${ex.id}')">
+                            <span>✅</span> Onaylıyorum
+                        </button>
+                        <button type="button" class="btn-secondary" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; font-size: 0.85rem; padding: 8px 14px; font-weight: 800; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="rejectLecturerExamDuration('${ex.id}')">
+                            <span>❌</span> Onaylamıyorum
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};
+
+// URL parametresi ile gelen bildirim aksiyonu kontrolü
+function handleUrlVerifyDurationParam() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const verifyExamId = params.get('verifyDurationExamId');
+        const verifyStep = params.get('step') || 'question';
+        if (verifyExamId) {
+            setTimeout(() => {
+                if (typeof window.openLecturerDurationPromptModal === 'function') {
+                    window.openLecturerDurationPromptModal(verifyExamId, verifyStep);
+                }
+                try {
+                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+                } catch (e) {}
+            }, 800);
+        }
+    } catch (e) {
+        console.warn('handleUrlVerifyDurationParam error:', e);
+    }
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', handleUrlVerifyDurationParam);
+} else {
+    handleUrlVerifyDurationParam();
+}
 
 /**
  * =========================================================================
@@ -11620,6 +12130,45 @@ function getNotifications() {
                 });
             }
         });
+
+        // 4. Biten ve Süre Onayı Bekleyen Sınavlar (Hoca & Gözetmen Bildirimleri)
+        if (DB.exams && Array.isArray(DB.exams)) {
+            const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
+            const portalSelect = document.getElementById('lecturer-portal-staff-select');
+            const portalLecturer = portalSelect ? (portalSelect.value || '').trim().toLowerCase() : '';
+            const myLecturer = (localStorage.getItem('myLecturerName') || '').trim().toLowerCase();
+
+            DB.exams.forEach(ex => {
+                if (!ex.date || !ex.time) return;
+                if (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved) return;
+
+                let start = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}`);
+                if (!start || isNaN(start.getTime())) return;
+                const dur = parseInt(ex.duration, 10) || 60;
+                const end = new Date(start.getTime() + dur * 60000);
+
+                if (now >= end.getTime()) {
+                    const exLecturer = (ex.lecturer || '').toLowerCase();
+                    const isMyExam = (myStaffId && typeof isStaffProctorById === 'function' && isStaffProctorById(ex, myStaffId)) ||
+                                     isLecturerMode ||
+                                     (portalLecturer && exLecturer.includes(portalLecturer)) ||
+                                     (myLecturer && exLecturer.includes(myLecturer)) ||
+                                     sessionStorage.getItem('isAdmin') === 'true';
+
+                    if (isMyExam) {
+                        notifs.push({
+                            type: 'exam_duration_prompt',
+                            examId: ex.id,
+                            step: 'question',
+                            title: `⏱️ [Süre Teyidi] ${ex.name}`,
+                            message: `Sınavınız tamamlandı. Sınav süreniz ${dur} dakika sürdü, onaylıyor musunuz?`,
+                            time: end.getTime(),
+                            icon: '⏱️'
+                        });
+                    }
+                }
+            });
+        }
     }
 
     // Tarihe göre yeniden eskiye sirala
@@ -11648,11 +12197,16 @@ function renderNotifications() {
         const deleteBtn = (isAdminBroadcast && isAdmin && n.broadcastId) ? 
             `<button onclick="deleteAdminBroadcast('${n.broadcastId}')" title="Bu bildirimi yayından kaldır" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:0.8rem; margin-left:auto; padding:2px 6px;">🗑️</button>` : '';
         
+        const durBtn = (n.examId && (n.type === 'exam_duration_prompt' || n.type === 'exam_duration_input'))
+            ? `<div style="margin-top:6px;"><button type="button" class="btn-primary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; cursor:pointer; font-weight:700;" onclick="openLecturerDurationPromptModal('${n.examId}', '${n.step || 'question'}')">⏱️ Süreyi ${n.step === 'input' ? 'Gir' : 'Onayla / Gir'}</button></div>`
+            : '';
+
         return `
             <div class="notif-item ${isNew ? 'unread' : ''}" style="${isAdminBroadcast ? 'border-left: 3px solid #ef4444; background: rgba(239, 68, 68, 0.05);' : ''}">
                 <div class="notif-icon">${n.icon}</div>
                 <div class="notif-content" style="flex:1;">
                     <div class="notif-message"><strong>${n.title}</strong>${badge}: ${n.message}</div>
+                    ${durBtn}
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:3px;">
                         <span class="notif-time">${timeStr}</span>
                         ${deleteBtn}

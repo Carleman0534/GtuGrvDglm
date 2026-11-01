@@ -355,6 +355,111 @@
         });
     }
 
+    // --- Sınav Bitimi Hoca Süre Onayı Kontrol Motoru ---
+    window.checkPostExamDurationVerifications = function () {
+        if (!window.DB || !DB.exams || !Array.isArray(DB.exams)) return;
+
+        const now = new Date();
+        const myStaffId = localStorage.getItem('myStaffId');
+        const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
+        const portalSelect = document.getElementById('lecturer-portal-staff-select');
+        const portalSelectVal = (portalSelect && portalSelect.value) ? portalSelect.value.trim().toLowerCase() : '';
+        const storedLecturer = (localStorage.getItem('myLecturerName') || '').trim().toLowerCase();
+
+        // Biten ve henüz süresi onaylanmamış sınavları kontrol et
+        DB.exams.forEach(ex => {
+            if (!ex.date || !ex.time) return;
+            // Zaten onaylanmış veya hoca tarafından teyit edilmişse atla
+            if (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved) return;
+
+            let safeStart = null;
+            if (typeof getSafeDate === 'function') {
+                safeStart = getSafeDate(ex.date, ex.time);
+            } else {
+                const tClean = ex.time.length === 5 ? ex.time : ex.time.padStart(5, '0');
+                safeStart = new Date(`${ex.date}T${tClean}:00`);
+            }
+            if (!safeStart || isNaN(safeStart.getTime())) return;
+
+            const durMins = parseInt(ex.duration, 10) || 60;
+            const examEnd = new Date(safeStart.getTime() + durMins * 60000);
+
+            // Sınav henüz bitmediyse atla
+            if (now.getTime() < examEnd.getTime()) return;
+
+            // Bu sınavın bitiş bildirimi bu cihazda daha önce gönderildi mi?
+            const storageKey = `gtu_post_exam_dur_notif_${ex.id}`;
+            const alreadySent = localStorage.getItem(storageKey);
+
+            if (!alreadySent) {
+                localStorage.setItem(storageKey, new Date().toISOString());
+
+                const title = `⏱️ [Sınav Sona Erdi] ${ex.name}`;
+                const message = `Sınav süreniz ${durMins} dakika sürdü, onaylıyor musunuz?`;
+
+                // 1. Cihaz / Push Bildirimi Gönder (Kilit ekranı / PWA)
+                if (getPermissionState() === 'granted') {
+                    window.dispatchLocalNotification(
+                        title,
+                        message,
+                        `post_exam_${ex.id}`,
+                        {
+                            action: 'verify_duration',
+                            examId: ex.id,
+                            step: 'question',
+                            url: `./index.html?verifyDurationExamId=${encodeURIComponent(ex.id)}&step=question`
+                        }
+                    );
+                }
+
+                // 2. Uygulama İçi Bildirim Kutusuna (DB.notifications) Ekle
+                const notifStaffKey = myStaffId || 'lecturer';
+                if (window.DB) {
+                    if (!DB.notifications) DB.notifications = {};
+                    if (!Array.isArray(DB.notifications[notifStaffKey])) DB.notifications[notifStaffKey] = [];
+
+                    DB.notifications[notifStaffKey].unshift({
+                        id: Date.now(),
+                        title: title,
+                        message: message,
+                        date: new Date().toISOString(),
+                        isRead: false,
+                        type: 'exam_duration_prompt',
+                        examId: ex.id,
+                        duration: durMins,
+                        step: 'question'
+                    });
+
+                    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+                    if (typeof renderNotifications === 'function') renderNotifications();
+                    if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+                }
+
+                // 3. Ekranda açıksa Toast Bildirimi
+                if (typeof showToast === 'function') {
+                    showToast(`⏱️ ${ex.name} sınavı bitti. Süre teyidi bekleniyor (${durMins} dk).`, 'info');
+                }
+
+                // 4. Eğer kullanıcı Hoca Modunda ise veya portalda bu dersin hocası seçiliyse otomatik modal aç
+                const exLecturerClean = (ex.lecturer || '').toLowerCase();
+                const isMatchingLecturer = isLecturerMode || 
+                    (portalSelectVal && exLecturerClean.includes(portalSelectVal)) ||
+                    (storedLecturer && exLecturerClean.includes(storedLecturer));
+
+                if (isMatchingLecturer) {
+                    const promptModal = document.getElementById('modal-lecturer-duration-prompt');
+                    if (promptModal && promptModal.classList.contains('hidden')) {
+                        setTimeout(() => {
+                            if (typeof window.openLecturerDurationPromptModal === 'function') {
+                                window.openLecturerDurationPromptModal(ex.id, 'question');
+                            }
+                        }, 1000);
+                    }
+                }
+            }
+        });
+    };
+
     // Anlık Test Bildirimi
     window.testExamNotification = function () {
         const state = getPermissionState();
@@ -575,20 +680,38 @@
         // Sayfa açıldığında ve periyodik kontrol et
         setTimeout(checkAllExamNotifications, 3000);
         setTimeout(window.checkIncomingBroadcastNotifications, 3500);
+        setTimeout(window.checkPostExamDurationVerifications, 4000);
+
         setInterval(checkAllExamNotifications, 60000);
         setInterval(window.checkIncomingBroadcastNotifications, 30000);
+        setInterval(window.checkPostExamDurationVerifications, 60000);
 
         // Kullanıcı sekmeye veya uygulamaya geri döndüğünde anında kontrol et
         window.addEventListener('focus', () => {
             checkAllExamNotifications();
             window.checkIncomingBroadcastNotifications();
+            if (typeof window.checkPostExamDurationVerifications === 'function') window.checkPostExamDurationVerifications();
         });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 checkAllExamNotifications();
                 window.checkIncomingBroadcastNotifications();
+                if (typeof window.checkPostExamDurationVerifications === 'function') window.checkPostExamDurationVerifications();
             }
         });
+
+        // Service Worker Bildirim Tıklama Dinleyicisi
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data && (event.data.type === 'NOTIFICATION_ACTION' || event.data.action === 'verify_duration' || event.data.action === 'input_duration')) {
+                    const examId = event.data.examId;
+                    const step = event.data.step || (event.data.action === 'input_duration' ? 'input' : 'question');
+                    if (examId && typeof window.openLecturerDurationPromptModal === 'function') {
+                        window.openLecturerDurationPromptModal(examId, step);
+                    }
+                }
+            });
+        }
 
         // UI durumunu güncelle
         setTimeout(window.updateAllNotificationUI, 800);
