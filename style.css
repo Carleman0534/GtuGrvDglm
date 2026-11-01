@@ -4583,3 +4583,164 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
 .profile-mobile-tab-picker {
     display: none;
 }
+
+/* ========================================================================= */
+/* 📋 / 🗂️ AKILLI TABLO & KART GÖRÜNÜMÜ MOTORU (BİLGİSAYAR VE MOBİL)       */
+/* ========================================================================= */
+
+/* 1. MASAÜSTÜ KART GÖRÜNÜMÜ (Bilgisayarda Kart Modu Seçildiğinde) */
+#table-exams.exam-card-mode,
+#profile-table-active.exam-card-mode,
+#profile-table-marketplace.exam-card-mode,
+#profile-table-archive.exam-card-mode {
+    display: block !important;
+    min-width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+#table-exams.exam-card-mode thead,
+#profile-table-active.exam-card-mode thead,
+#profile-table-marketplace.exam-card-mode thead,
+#profile-table-archive.exam-card-mode thead {
+    display: none !important;
+}
+
+#table-exams.exam-card-mode tbody,
+#profile-table-active.exam-card-mode tbody,
+#profile-table-marketplace.exam-card-mode tbody,
+#profile-table-archive.exam-card-mode tbody {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)) !important;
+    gap: 1rem !important;
+    width: 100% !important;
+}
+
+#table-exams.exam-card-mode tbody tr,
+#profile-table-active.exam-card-mode tbody tr,
+#profile-table-marketplace.exam-card-mode tbody tr,
+#profile-table-archive.exam-card-mode tbody tr {
+    display: flex !important;
+    flex-direction: column !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 18px !important;
+    padding: 1.15rem 1.1rem !important;
+    margin-bottom: 0 !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+    position: relative !important;
+    transition: transform 0.2s ease, border-color 0.2s ease !important;
+}
+
+#table-exams.exam-card-mode tbody tr:hover,
+#profile-table-active.exam-card-mode tbody tr:hover {
+    border-color: rgba(99, 102, 241, 0.45) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* 2. KESİN TABLO GÖRÜNÜMÜ (Bilgisayarda Tablo Modu Seçildiğinde) */
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode),
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode),
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode),
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) {
+    display: table !important;
+    width: 100% !important;
+    min-width: 720px !important;
+    border-collapse: collapse !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) thead,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) thead,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) thead,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) thead {
+    display: table-header-group !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) thead tr,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) thead tr,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) thead tr,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) thead tr {
+    display: table-row !important;
+    background: var(--primary) !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) thead th,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) thead th,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) thead th,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) thead th {
+    display: table-cell !important;
+    padding: 0.8rem 1rem !important;
+    color: white !important;
+    text-align: left !important;
+    font-weight: 700 !important;
+    font-size: 0.82rem !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) tbody,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) tbody,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) tbody {
+    display: table-row-group !important;
+    width: auto !important;
+    flex-direction: unset !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody tr,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) tbody tr,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) tbody tr,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) tbody tr {
+    display: table-row !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    flex-direction: unset !important;
+    transform: none !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody tr:hover,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03) !important;
+    transform: none !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td {
+    display: table-cell !important;
+    padding: 0.75rem 1rem !important;
+    order: unset !important;
+    width: auto !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    font-size: 0.85rem !important;
+    color: inherit !important;
+}
+
+/* Tablo modundayken kart emoji öneklerini kaldır */
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td::before,
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td::before,
+#profile-table-marketplace:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td::before,
+#profile-table-archive:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td::before {
+    display: none !important;
+    content: '' !important;
+}
+
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td:nth-child(8),
+#table-exams:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td:nth-child(9),
+#profile-table-active:not(.exam-card-mode):not(.mobile-card-mode) tbody tr td:nth-child(9) {
+    border-top: none !important;
+    margin-top: 0 !important;
+}

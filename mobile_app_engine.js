@@ -159,38 +159,67 @@
         }
     }
 
-    // --- Mobil Kart / Tablo Görünümü Yöneticisi ---
+    // --- 🗂️ / 📋 Kart ve Tablo Görünümü Yöneticisi (Masaüstü ve Mobil Tam Uyumlu) ---
     window.toggleMobileExamViewMode = function () {
-        const table = document.getElementById('table-exams');
-        const btn = document.getElementById('btn-mobile-view-toggle');
-        if (!table) return;
+        const isMobile = window.innerWidth <= 768;
+        const currentMode = localStorage.getItem('gtu_exam_view_mode') || (isMobile ? 'card' : 'table');
+        const newMode = (currentMode === 'table') ? 'card' : 'table';
+        localStorage.setItem('gtu_exam_view_mode', newMode);
 
-        const isCardMode = table.classList.toggle('mobile-card-mode');
-        localStorage.setItem('gtu_exam_view_mode', isCardMode ? 'card' : 'table');
-
-        if (btn) {
-            btn.innerHTML = isCardMode ? '📋 Tablo Görünümü' : '📱 Kart Görünümü';
-            btn.title = isCardMode ? 'Klasik geniş tabloya geç' : 'Mobil dokunmatik kartlara geç';
-        }
+        window.applyExamViewMode(newMode);
 
         if (typeof showToast === 'function') {
-            showToast(isCardMode ? '📱 Mobil Kart Görünümüne geçildi.' : '📋 Klasik Tablo Görünümüne geçildi.', 'info');
+            showToast(newMode === 'table' ? '📋 Klasik Tablo Görünümüne geçildi.' : '🗂️ Kart Görünümüne geçildi.', 'info');
         }
     };
 
-    function initMobileCardView() {
-        const table = document.getElementById('table-exams');
-        if (!table) return;
-
-        const savedMode = localStorage.getItem('gtu_exam_view_mode');
-        // Mobilde varsayılan kart modu olsun
-        if (savedMode === 'table') {
-            table.classList.remove('mobile-card-mode');
-        } else {
-            table.classList.add('mobile-card-mode');
+    window.applyExamViewMode = function (mode) {
+        if (!mode) {
+            const isMobile = window.innerWidth <= 768;
+            const saved = localStorage.getItem('gtu_exam_view_mode');
+            mode = saved || (isMobile ? 'card' : 'table');
         }
 
-        // Toggle butonunu toolbar'a ekle (eğer yoksa)
+        const tables = [
+            document.getElementById('table-exams'),
+            document.getElementById('profile-table-active'),
+            document.getElementById('profile-table-marketplace'),
+            document.getElementById('profile-table-archive')
+        ];
+
+        tables.forEach(t => {
+            if (!t) return;
+            if (mode === 'card') {
+                t.classList.add('exam-card-mode');
+                t.classList.add('mobile-card-mode');
+            } else {
+                t.classList.remove('exam-card-mode');
+                t.classList.remove('mobile-card-mode');
+            }
+        });
+
+        // Butonların metinlerini güncelle
+        const toggleButtons = document.querySelectorAll('.mobile-view-toggle-btn');
+        toggleButtons.forEach(btn => {
+            if (mode === 'table') {
+                btn.innerHTML = '🗂️ Kart Görünümü';
+                btn.title = 'Kart görünümüne geç';
+                btn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            } else {
+                btn.innerHTML = '📋 Tablo Görünümü';
+                btn.title = 'Klasik tablo görünümüne geç';
+                btn.style.borderColor = 'rgba(56, 189, 248, 0.6)';
+            }
+        });
+    };
+
+    function initMobileCardView() {
+        const isMobile = window.innerWidth <= 768;
+        const savedMode = localStorage.getItem('gtu_exam_view_mode');
+        // Bilgisayarda varsayılan kesinlikle 'table', mobilde 'card'
+        const initialMode = savedMode || (isMobile ? 'card' : 'table');
+
+        // Toggle butonunu Sınavlar sekmesi toolbar'ına ekle (eğer yoksa)
         if (!document.getElementById('btn-mobile-view-toggle')) {
             const container = document.querySelector('#section-exams .section-header > div');
             if (container) {
@@ -198,13 +227,31 @@
                 btn.id = 'btn-mobile-view-toggle';
                 btn.type = 'button';
                 btn.className = 'btn-secondary mobile-view-toggle-btn';
-                const isCard = table.classList.contains('mobile-card-mode');
-                btn.innerHTML = isCard ? '📋 Tablo' : '📱 Kart';
-                btn.title = 'Görünüm Değiştir (Kart / Tablo)';
+                btn.style.whiteSpace = 'nowrap';
+                btn.style.display = 'inline-flex';
+                btn.style.alignItems = 'center';
+                btn.style.gap = '6px';
                 btn.onclick = window.toggleMobileExamViewMode;
                 container.insertBefore(btn, container.firstChild);
             }
         }
+
+        // Profil sekmesine de görünüm değiştirici buton ekle (eğer yoksa)
+        const profileActions = document.querySelector('.profile-hero-actions');
+        if (profileActions && !document.getElementById('btn-profile-view-toggle')) {
+            const pBtn = document.createElement('button');
+            pBtn.id = 'btn-profile-view-toggle';
+            pBtn.type = 'button';
+            pBtn.className = 'btn-secondary mobile-view-toggle-btn';
+            pBtn.style.whiteSpace = 'nowrap';
+            pBtn.style.display = 'inline-flex';
+            pBtn.style.alignItems = 'center';
+            pBtn.style.gap = '6px';
+            pBtn.onclick = window.toggleMobileExamViewMode;
+            profileActions.appendChild(pBtn);
+        }
+
+        window.applyExamViewMode(initialMode);
     }
 
     // Başlatıcı

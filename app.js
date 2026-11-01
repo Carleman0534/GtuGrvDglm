@@ -2534,6 +2534,7 @@ function renderConstraintsList(staffName) {
         `;
         tbody.appendChild(tr);
     });
+    if (typeof window.applyExamViewMode === 'function') window.applyExamViewMode();
 }
 
 function addConstraint() {
@@ -7388,6 +7389,7 @@ window.renderProfile = function() {
         // Takvim ve diğer verileri güncelle
         renderProfileConstraints();
         renderMarketplace();
+        if (typeof window.applyExamViewMode === 'function') window.applyExamViewMode();
         updateMarketplaceBadge();
         updateProfileMarketplaceAnnouncement();
 
