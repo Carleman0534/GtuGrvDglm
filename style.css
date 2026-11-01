@@ -3807,7 +3807,8 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
     }
 
     /* PWA Banner Mobilde Dikey Küçülme */
-    .pwa-install-banner {
+    .pwa-install-banner,
+    .proactive-notif-banner {
         flex-direction: column;
         align-items: flex-start;
         padding: 1rem;

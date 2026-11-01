@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v32';
+const CACHE_NAME = 'gozetmenlik-ai-v33';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -77,4 +77,29 @@ self.addEventListener('notificationclick', event => {
             }
         })
     );
+});
+
+// Web Push Event (Arka Planda veya Telefon Kapalıyken Gelen Bildirimler)
+self.addEventListener('push', event => {
+    let payload = {
+        title: '📢 GTÜ Gözetmenlik Bildirimi',
+        body: 'Yeni bir duyuru veya sınav görevi güncellemesi yayınlandı.'
+    };
+    if (event.data) {
+        try {
+            payload = event.data.json();
+        } catch (e) {
+            payload.body = event.data.text();
+        }
+    }
+    const options = {
+        body: payload.body || payload.message,
+        icon: './icon-192.png',
+        badge: './icon-192.png',
+        vibrate: [200, 100, 200],
+        tag: payload.tag || 'gtu_broadcast',
+        renotify: true,
+        data: Object.assign({ url: './index.html' }, payload.data || {})
+    };
+    event.waitUntil(self.registration.showNotification(payload.title, options));
 });

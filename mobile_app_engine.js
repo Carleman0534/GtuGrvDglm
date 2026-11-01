@@ -61,7 +61,13 @@
         console.log('GTÜ Gözetmenlik PWA başarıyla kuruldu.');
         dismissPwaBanner();
         if (typeof showToast === 'function') {
-            showToast('🎉 Uygulama telefonunuza yüklendi! Ana ekranınızdan açabilirsiniz.', 'success');
+            showToast('🎉 Uygulama telefonunuza yüklendi! Bildirimleri açmayı unutmayın.', 'success');
+        }
+        if ('Notification' in window && Notification.permission === 'default') {
+            setTimeout(() => {
+                const pBanner = document.getElementById('proactive-notif-banner');
+                if (pBanner) pBanner.classList.remove('hidden');
+            }, 1000);
         }
     });
 

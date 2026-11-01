@@ -1,12 +1,15 @@
 /**
- * 🔔 GTÜ Gözetmenlik Sistemi - Kademeli Bildirim Motoru (24s, 18s, 12s, 6s, 3s)
+ * 🔔 GTÜ Gözetmenlik Sistemi - Kademeli & Şifresiz Bildirim Motoru (v33)
  * 
  * Özellikler:
- * 1. Sınav saatine göre 5 kritik eşikte (24s, 18s, 12s, 6s, 3s önce) otomatik bildirim üretir.
- * 2. Web Notifications API ve Service Worker entegrasyonu ile telefon kilit ekranında gösterir.
- * 3. Her bildirim eşiği için tekil hafıza (deduplication) tutarak mükerrer bildirimleri önler.
- * 4. Sistem içi bildirim kutusunu (DB.notifications) ve okunmamış rozetini günceller.
- * 5. Kullanıcıya bildirim tercihlerini açma/kapama ve anlık test bildirimi gönderme imkanı sunar.
+ * 1. Şifresiz / Giriş Şartı Olmadan Bildirim:
+ *    - Kullanıcı uygulamayı yüklediğinde veya webde açtığında 1 tıkla bildirim izni verir.
+ *    - Yönetici "Herkese Bildirim Gönder" dediğinde kimliği olmasa bile kilit ekranına bildirim gider.
+ * 2. Şifresiz 1-Tıkla İsim Bağlama (Passwordless Identity Binding):
+ *    - Görevli asistan veya hoca şifre girmeden listeden kendi adını seçerek cihazını eşleştirir.
+ * 3. 5 Kademeli Otomatik Sınav Hatırlatıcısı (24s, 18s, 12s, 6s, 3s önce).
+ * 4. Web Notifications API ve Service Worker entegrasyonu (Titreşim, rozet, kilit ekranı).
+ * 5. Mükerrer bildirim önleme (Deduplication hafızası).
  */
 
 (function () {
@@ -20,6 +23,34 @@
         { hours: 6,  label: '6 Saat Önce',  icon: '⏰', tagPrefix: '6h' },
         { hours: 3,  label: '3 Saat Önce (Son Hatırlatma)', icon: '🚨', tagPrefix: '3h' }
     ];
+
+    // Erken Önbellek Senkronizasyonu (Giriş yapılmasa bile veritabanını ve yayınları hazırla)
+    function syncCachedDBEarly() {
+        if (!window.DB || !Array.isArray(window.DB.staff) || window.DB.staff.length <= 2) {
+            try {
+                const saved = localStorage.getItem('gozetmenlik_db_v25');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && Array.isArray(parsed.staff) && parsed.staff.length > 0) {
+                        window.DB = parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn('[NotifEngine] Early DB cache parse error:', e);
+            }
+        }
+        // Eğer Firebase'den canlı veri çekilebiliyorsa arka planda güncelle
+        if (typeof window.loadFromDataJSON === 'function' && !sessionStorage.getItem('isLoggedIn')) {
+            window.loadFromDataJSON().then(() => {
+                if (typeof window.populateQuickStaffDropdown === 'function') {
+                    window.populateQuickStaffDropdown();
+                }
+                if (typeof window.checkIncomingBroadcastNotifications === 'function') {
+                    window.checkIncomingBroadcastNotifications();
+                }
+            }).catch(() => {});
+        }
+    }
 
     // Bildirim İzni Durumu
     function getPermissionState() {
@@ -36,20 +67,21 @@
 
         try {
             const permission = await Notification.requestPermission();
-            updateNotificationPermissionUI();
+            window.updateAllNotificationUI();
 
             if (permission === 'granted') {
                 if (typeof showToast === 'function') {
-                    showToast('🔔 Bildirim izinleri başarıyla aktifleştirildi! Sınavlardan 24s, 18s, 12s, 6s ve 3s önce uyarı alacaksınız.', 'success');
+                    showToast('🔔 Bildirim izinleri başarıyla aktifleştirildi! Kilit ekranı bildirimleriniz hazır.', 'success');
                 }
                 // Başarı bildirimi gönder
                 window.dispatchLocalNotification(
                     '🔔 GTÜ Gözetmenlik Bildirimleri Aktif!',
-                    'Sınav görevlerinizden 24, 18, 12, 6 ve 3 saat önce telefonunuza otomatik hatırlatma iletilecektir.',
+                    'Sınav duyuruları ve yönetici mesajları telefon kilit ekranınıza otomatik iletilecektir.',
                     'perm_granted'
                 );
-                // Hemen kontrol çalıştır
+                // Hemen kontrolleri çalıştır
                 checkAllExamNotifications();
+                window.checkIncomingBroadcastNotifications();
                 return true;
             } else if (permission === 'denied') {
                 alert('Bildirim izni reddedildi. Telefon ayarlarından tarayıcınız için bildirimlere izin vermeniz gerekebilir.');
@@ -61,6 +93,113 @@
         return false;
     };
 
+    // 1 Tıkla Kilit Ekranı Bildirimini Aç ve Geri Bildirim Ver
+    window.quickEnableNotificationWithFeedback = async function () {
+        const granted = await window.requestExamNotificationPermission();
+        window.updateAllNotificationUI();
+        if (granted) {
+            window.dismissProactiveNotifBanner();
+        }
+    };
+
+    // Proaktif Banner'ı Kapat
+    window.dismissProactiveNotifBanner = function () {
+        const b = document.getElementById('proactive-notif-banner');
+        if (b) b.classList.add('hidden');
+        sessionStorage.setItem('proactive_notif_banner_dismissed', '1');
+    };
+
+    // Şifresiz 1 Tıkla İsim Seçme ve Cihazı Bağlama
+    window.bindStaffIdentityWithoutPassword = async function (staffId) {
+        if (!staffId) {
+            localStorage.removeItem('myStaffId');
+            const badge = document.getElementById('quick-staff-status-badge');
+            if (badge) badge.style.display = 'none';
+            return;
+        }
+
+        localStorage.setItem('myStaffId', String(staffId));
+        const staff = (window.DB && Array.isArray(window.DB.staff)) ? window.DB.staff.find(s => String(s.id) === String(staffId)) : null;
+        const staffName = staff ? staff.name : 'Gözetmen';
+
+        const badge = document.getElementById('quick-staff-status-badge');
+        if (badge) {
+            badge.style.display = 'block';
+            badge.innerHTML = `✓ <b>${staffName}</b> olarak bağlandı! Sınav hatırlatıcıları aktif.`;
+        }
+
+        // Bildirim izni açık değilse talep et
+        if (getPermissionState() !== 'granted') {
+            await window.requestExamNotificationPermission();
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(`✓ ${staffName} cihazı eşleştirildi. Görev bildirimleri hazır!`, 'success');
+            }
+            window.dispatchLocalNotification(
+                `🎓 Sayın ${staffName},`,
+                'Cihazınız başarıyla bağlandı. Sınav görevlerinizden 24, 18, 12, 6 ve 3 saat önce telefonunuza otomatik hatırlatma iletilecektir.',
+                'identity_linked'
+            );
+        }
+
+        // Hemen sınav bildirimlerini denetle
+        checkAllExamNotifications();
+    };
+
+    // Şifresiz Hızlı Gözat / Misafir Modunda Programa Gir
+    window.enterAsGuestWithSelectedStaff = function () {
+        const selectEl = document.getElementById('quick-staff-select');
+        if (selectEl && selectEl.value) {
+            localStorage.setItem('myStaffId', String(selectEl.value));
+        }
+        if (typeof window.finishLogin === 'function') {
+            window.finishLogin(false, false);
+            if (typeof showToast === 'function') {
+                showToast('Şifresiz hızlı görünüm açıldı.', 'info');
+            }
+        } else {
+            const loginOverlay = document.getElementById('login-overlay');
+            const appWrapper = document.getElementById('app-wrapper');
+            if (loginOverlay) loginOverlay.classList.add('hidden');
+            if (appWrapper) appWrapper.style.display = 'block';
+            if (typeof initApp === 'function') initApp();
+        }
+    };
+
+    // Hızlı Asistan İsim Listesini Doldur
+    window.populateQuickStaffDropdown = function () {
+        syncCachedDBEarly();
+        const selectEl = document.getElementById('quick-staff-select');
+        if (!selectEl) return;
+
+        const staffList = (window.DB && Array.isArray(window.DB.staff)) ? window.DB.staff : [];
+        if (staffList.length === 0) return;
+
+        const currentStaffId = localStorage.getItem('myStaffId');
+
+        // Mevcut seçenekleri kontrol et, boşsa doldur
+        const existingOptions = selectEl.querySelectorAll('option:not([value=""])');
+        if (existingOptions.length === 0) {
+            const sorted = [...staffList].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+            sorted.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = String(s.id);
+                opt.textContent = s.name;
+                selectEl.appendChild(opt);
+            });
+        }
+
+        if (currentStaffId) {
+            selectEl.value = String(currentStaffId);
+            const matched = staffList.find(s => String(s.id) === String(currentStaffId));
+            const badge = document.getElementById('quick-staff-status-badge');
+            if (badge && matched) {
+                badge.style.display = 'block';
+                badge.innerHTML = `✓ <b>${matched.name}</b> olarak bağlı. Görev hatırlatıcıları aktif.`;
+            }
+        }
+    };
+
     // Bildirim Gönder (Cihaz / PWA Düzeyinde)
     window.dispatchLocalNotification = function (title, body, tag = 'general', extraData = {}) {
         // Titreşim deseni (200ms titre, 100ms dur, 200ms titre)
@@ -68,8 +207,8 @@
             try { navigator.vibrate([200, 100, 200]); } catch (e) {}
         }
 
-        // 1. Service Worker ile Bildirim Gönder (PWA arka plandayken de çalışır)
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // 1. Service Worker ile Bildirim Gönder (PWA arka plandayken veya telefon kilitliyken çalışır)
+        if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then(reg => {
                 reg.showNotification(title, {
                     body: body,
@@ -78,7 +217,7 @@
                     vibrate: [200, 100, 200],
                     tag: `gtu_exam_${tag}`,
                     renotify: true,
-                    requireInteraction: (tag.includes('3h') || tag.includes('6h')), // Son saatlerde ekranda kalsın
+                    requireInteraction: (tag.includes('3h') || tag.includes('6h') || tag.includes('bc_')),
                     data: Object.assign({ url: './index.html' }, extraData)
                 });
             }).catch(err => {
@@ -122,29 +261,28 @@
         if (!window.DB || !DB.exams || !Array.isArray(DB.exams)) return;
 
         const myStaffId = localStorage.getItem('myStaffId');
+        // Eğer kullanıcı henüz kimlik seçmemişse (anonim):
+        // Kişisel sınav görevleri eşleşemeyeceği için yüzlerce sınavın bildirimini telefona yığmıyoruz.
+        // Anonim kullanıcılar checkIncomingBroadcastNotifications() ile tüm yönetici genel duyurularını alır.
+        if (!myStaffId) return;
+
         const now = new Date();
 
         // Asistanın veya yöneticinin sınavlarını belirle
         const targetExams = DB.exams.filter(ex => {
             if (!ex.date || !ex.time) return false;
-            if (myStaffId) {
-                if (typeof isStaffProctorById === 'function') {
-                    return isStaffProctorById(ex, myStaffId);
-                }
-                const ids = (ex.proctorIds || [ex.proctorId]).map(String);
-                return ids.includes(String(myStaffId));
+            if (typeof isStaffProctorById === 'function') {
+                return isStaffProctorById(ex, myStaffId);
             }
-            // Kimlik seçilmemişse bile genel sınavları denetle
-            return true;
+            const ids = (ex.proctorIds || [ex.proctorId]).map(String);
+            return ids.includes(String(myStaffId));
         });
 
         targetExams.forEach(ex => {
-            // Sınavın tam başlama tarihi
             const examDateTimeStr = `${ex.date}T${ex.time.length === 5 ? ex.time : ex.time.padStart(5, '0')}:00`;
             const examDate = new Date(examDateTimeStr);
             if (isNaN(examDate.getTime())) return;
 
-            // Kalan saat (ondalıklı)
             const diffMs = examDate.getTime() - now.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
 
@@ -152,19 +290,14 @@
             if (diffHours < 0) return;
 
             MILESTONES.forEach(m => {
-                // Bu eşik kullanıcı tarafından kapatılmış mı?
                 if (!isMilestoneEnabled(m.hours)) return;
 
-                // Eşik penceresi: Örneğin 24 saat eşiği için diffHours <= 24 && diffHours >= 22.5
-                // Veya bildirim hiç atılmamış ve kalan süre o eşikten az ise (kaçırılmış bildirim yakalama)
                 const storageKey = `gtu_notif_fired_${ex.id}_${m.hours}h`;
                 const alreadySent = localStorage.getItem(storageKey);
 
                 if (!alreadySent && diffHours <= m.hours && diffHours > (m.hours - 2.5)) {
-                    // Bildirimi işaretle (asla mükerrer gitmez)
                     localStorage.setItem(storageKey, new Date().toISOString());
 
-                    // Mesaj Metni Oluştur
                     let title = '';
                     let message = '';
                     const loc = ex.location ? `Salon: ${ex.location}` : 'Derslik henüz belirtilmedi';
@@ -208,7 +341,6 @@
                             hoursBefore: m.hours
                         });
 
-                        // Rozeti güncelle
                         if (typeof updateNotificationBadge === 'function') updateNotificationBadge();
                         if (typeof renderNotifications === 'function') renderNotifications();
                         if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
@@ -233,7 +365,7 @@
 
         window.dispatchLocalNotification(
             '🚨 [Test Bildirimi] 3 Saat Kaldı: MAT 101 Sınavı',
-            'Sınavınız saat 10:00\'da Amfi 1 salonunda başlayacaktır. Kademeli bildirim sistemi sorunsuz çalışıyor!',
+            "Sınavınız saat 10:00'da Amfi 1 salonunda başlayacaktır. Kademeli bildirim sistemi sorunsuz çalışıyor!",
             'test_3h'
         );
 
@@ -242,48 +374,77 @@
         }
     };
 
-    // Bildirim İzin Durumunu UI'da Güncelle
-    function updateNotificationPermissionUI() {
-        const btn = document.getElementById('btn-enable-notifications');
-        const statusText = document.getElementById('notif-perm-status-text');
+    // Tüm Bildirim İzin Durumlarını UI'da Senkronize Et
+    window.updateAllNotificationUI = function () {
         const state = getPermissionState();
 
-        if (btn) {
+        // 1. Modal içindeki buton & durum
+        const btnModal = document.getElementById('btn-enable-notifications');
+        const statusText = document.getElementById('notif-perm-status-text');
+
+        if (btnModal) {
             if (state === 'granted') {
-                btn.textContent = '✓ Bildirimler Aktif';
-                btn.style.background = 'rgba(16, 185, 129, 0.2)';
-                btn.style.borderColor = '#34d399';
-                btn.style.color = '#34d399';
+                btnModal.textContent = '✓ Bildirimler Aktif';
+                btnModal.style.background = 'rgba(16, 185, 129, 0.2)';
+                btnModal.style.borderColor = '#34d399';
+                btnModal.style.color = '#34d399';
             } else if (state === 'denied') {
-                btn.textContent = '❌ Bildirimler Engelli';
-                btn.style.background = 'rgba(239, 68, 68, 0.2)';
-                btn.style.borderColor = '#f87171';
-                btn.style.color = '#f87171';
+                btnModal.textContent = '❌ Bildirimler Engelli';
+                btnModal.style.background = 'rgba(239, 68, 68, 0.2)';
+                btnModal.style.borderColor = '#f87171';
+                btnModal.style.color = '#f87171';
             } else {
-                btn.textContent = '🔔 Bildirimleri Aç';
-                btn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
-                btn.style.color = '#fff';
+                btnModal.textContent = '🔔 Bildirimleri Aç';
+                btnModal.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
+                btnModal.style.color = '#fff';
             }
         }
 
         if (statusText) {
             if (state === 'granted') {
-                statusText.innerHTML = '<span style="color:#34d399;">✓ Aktif</span> (Sınavlardan 24s, 18s, 12s, 6s ve 3s önce bildirim alıyorsunuz)';
+                statusText.innerHTML = '<span style="color:#34d399;">✓ Aktif</span> (Sınav görevleri ve yönetici duyuruları kilit ekranında gösterilir)';
             } else if (state === 'denied') {
-                statusText.innerHTML = '<span style="color:#f87171;">Tarayıcıda Engellendi</span> (Telefon izinlerinden açınız)';
+                statusText.innerHTML = '<span style="color:#f87171;">Tarayıcıda Engellendi</span> (Telefon ayarlarından açınız)';
             } else {
                 statusText.innerHTML = '<span style="color:#fbbf24;">Henüz İzin Verilmedi</span> (Tıklayarak aktifleştirin)';
             }
         }
-    }
+
+        // 2. Giriş ekranındaki hızlı buton
+        const btnQuick = document.getElementById('btn-quick-notif-perm');
+        if (btnQuick) {
+            if (state === 'granted') {
+                btnQuick.textContent = '✓ Kilit Ekranı Bildirimleri Açık';
+                btnQuick.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                btnQuick.style.borderColor = '#34d399';
+            } else if (state === 'denied') {
+                btnQuick.textContent = '❌ Bildirimler Tarayıcıda Engelli';
+                btnQuick.style.background = 'rgba(239, 68, 68, 0.2)';
+                btnQuick.style.borderColor = '#f87171';
+            } else {
+                btnQuick.textContent = '🔔 Kilit Ekranı Bildirimlerini Aç';
+                btnQuick.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
+                btnQuick.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+            }
+        }
+
+        // 3. Uygulama içi proaktif banner
+        const proactiveBanner = document.getElementById('proactive-notif-banner');
+        if (proactiveBanner) {
+            if (state === 'granted' || sessionStorage.getItem('proactive_notif_banner_dismissed') === '1') {
+                proactiveBanner.classList.add('hidden');
+            } else {
+                proactiveBanner.classList.remove('hidden');
+            }
+        }
+    };
 
     // Modal Açma: Bildirim Ayarları
     window.openNotificationSettingsModal = function () {
         const modal = document.getElementById('modal-notification-settings');
         if (!modal) return;
-        updateNotificationPermissionUI();
+        window.updateAllNotificationUI();
 
-        // Tercih onay kutularını doldur
         MILESTONES.forEach(m => {
             const chk = document.getElementById(`notif-chk-${m.hours}h`);
             if (chk) chk.checked = isMilestoneEnabled(m.hours);
@@ -327,6 +488,7 @@
             // 1. Hedef Kontrolü
             let isTarget = false;
             if (!bc.target || bc.target === 'all') {
+                // GENEL DUYURU: Kullanıcı sisteme hiç giriş yapmamış veya isim seçmemiş olsa bile alır!
                 isTarget = true;
             } else if (bc.target === 'tomorrow_only') {
                 if (myStaffId && getTomorrowProctorIds().has(String(myStaffId))) {
@@ -379,7 +541,10 @@
 
     // --- Başlatıcı (Timer & Focus Listeners) ---
     function initNotificationEngine() {
-        // Sayfa açıldığında ve her 60 saniyede bir kontrol et
+        syncCachedDBEarly();
+        window.populateQuickStaffDropdown();
+
+        // Sayfa açıldığında ve periyodik kontrol et
         setTimeout(checkAllExamNotifications, 3000);
         setTimeout(window.checkIncomingBroadcastNotifications, 3500);
         setInterval(checkAllExamNotifications, 60000);
@@ -398,7 +563,8 @@
         });
 
         // UI durumunu güncelle
-        setTimeout(updateNotificationPermissionUI, 1000);
+        setTimeout(window.updateAllNotificationUI, 800);
+        setTimeout(window.populateQuickStaffDropdown, 1200);
     }
 
     if (document.readyState === 'loading') {

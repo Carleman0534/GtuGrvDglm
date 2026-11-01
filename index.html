@@ -56,10 +56,73 @@
                     <p id="login-error" class="login-error hidden" style="text-align: center; margin-top: 0.75rem;">Hatalı şifre, lütfen tekrar deneyin.</p>
                 </div>
             </div>
+                    <!-- Şifresiz / Giriş Şartı Olmadan Bildirim & Cihaz Eşleme Kartı -->
+                    <div id="login-guest-notification-card" style="margin-top: 1.25rem; padding: 1.25rem 1.4rem; border-top: 3px solid #38bdf8; background: rgba(15, 23, 42, 0.75); border-radius: 16px; border: 1px solid rgba(56, 189, 248, 0.35); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.85rem;">
+                            <span style="font-size: 1.6rem; filter: drop-shadow(0 0 8px #38bdf8);">📲</span>
+                            <div style="text-align: left;">
+                                <h3 style="font-size: 0.95rem; margin: 0; color: #f8fafc; font-weight: 700;">Giriş Yapmadan Bildirim Al</h3>
+                                <span style="font-size: 0.74rem; color: var(--text-muted); display: block; margin-top: 2px;">Uygulamayı yüklediyseniz veya açtıysanız kilit ekranına bildirim gelir</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- 1 Tıkla Kilit Ekranı Bildirimini Aç -->
+                            <button type="button" id="btn-quick-notif-perm" class="btn-primary" onclick="quickEnableNotificationWithFeedback()" style="width: 100%; justify-content: center; padding: 0.7rem; font-size: 0.85rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.4);">
+                                🔔 Kilit Ekranı Bildirimlerini Aç
+                            </button>
+
+                            <!-- Şifresiz İsim Seçme (Kişisel Görevler İçin) -->
+                            <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 0.65rem 0.8rem; margin-top: 2px;">
+                                <label style="font-size: 0.76rem; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 5px; text-align: left;">
+                                    👤 Görevli Misiniz? (Şifresiz 1-Tıkla İsim Bağla):
+                                </label>
+                                <div style="display: flex; gap: 6px;">
+                                    <select id="quick-staff-select" onchange="bindStaffIdentityWithoutPassword(this.value)" style="flex: 1; min-width: 0; padding: 0.55rem 0.7rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; color: white; font-size: 0.82rem;">
+                                        <option value="">İsminizi Seçin (Otomatik Hatırlatıcı)...</option>
+                                    </select>
+                                    <button type="button" onclick="enterAsGuestWithSelectedStaff()" class="btn-secondary" title="Şifresiz Programa Gözat" style="padding: 0.55rem 0.85rem; font-size: 0.8rem; border-radius: 8px; white-space: nowrap; font-weight: 600;">
+                                        Gözat 👁️
+                                    </button>
+                                </div>
+                                <div id="quick-staff-status-badge" style="font-size: 0.72rem; color: #34d399; margin-top: 5px; text-align: left; display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
         </div>
     </div>
 
     <div class="app-container" id="app-wrapper" style="display: none;">
+        <!-- PWA Kurulum Banner'ı (Android / Chrome & Masaüstü) -->
+        <div id="pwa-install-banner" class="pwa-install-banner hidden" style="margin: 0.75rem 1rem 0 1rem;">
+            <div class="pwa-install-content">
+                <span class="pwa-install-icon">📲</span>
+                <div class="pwa-install-text">
+                    <strong>GTÜ Gözetmenlik Uygulaması</strong>
+                    <span>Hızlı erişim ve kilit ekranı bildirimleri için telefonunuza yükleyin</span>
+                </div>
+            </div>
+            <div class="pwa-install-actions">
+                <button type="button" class="btn-primary" onclick="triggerPwaInstall()" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px;">Yükle</button>
+                <button type="button" class="pwa-close-btn" onclick="dismissPwaBanner()" style="cursor: pointer;">&times;</button>
+            </div>
+        </div>
+
+        <!-- Yüzer Bildirim İzni Karşılama Çubuğu (Proaktif İzin & Hızlı İsim Eşleme) -->
+        <div id="proactive-notif-banner" class="proactive-notif-banner hidden" style="margin: 0.75rem 1rem 0 1rem; padding: 0.85rem 1.25rem; background: linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px;">
+                <span style="font-size: 1.8rem; filter: drop-shadow(0 0 8px #38bdf8);">🔔</span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">Sınav ve Duyuru Bildirimlerini Kaçırmayın</div>
+                    <div style="font-size: 0.78rem; color: #94a3b8;">Telefonunuz kapalıyken bile sınav görevleriniz ve duyurular kilit ekranınıza gelsin.</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn-primary" onclick="quickEnableNotificationWithFeedback()" style="padding: 0.5rem 1rem; font-size: 0.82rem; border-radius: 8px; font-weight: 700; white-space: nowrap;">🔔 Bildirimleri Aç</button>
+                <button type="button" onclick="dismissProactiveNotifBanner()" style="background: none; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer; padding: 0 4px;">&times;</button>
+            </div>
+        </div>
+
         <header class="app-header">
             <!-- Row 1: Logo & Sistem Durum / Kontrol Araçları -->
             <div class="header-top-row">
