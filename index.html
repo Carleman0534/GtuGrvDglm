@@ -172,6 +172,10 @@
                         <span style="font-size: 1rem;">📢</span>
                         <span class="btn-broadcast-label">Bildirim Gönder</span>
                     </button>
+                    <button id="btn-header-bulk-email" type="button" class="admin-only" onclick="openBulkConstraintEmailModal()" title="Görevlilere Toplu Kısıt Kontrol E-postası Gönder" style="padding: 0.42rem 0.85rem; font-size: 0.82rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: none; border-radius: 10px; box-shadow: 0 2px 10px rgba(2, 132, 199, 0.35); display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span style="font-size: 1rem;">✉️</span>
+                        <span class="btn-email-label">Kısıt Maili</span>
+                    </button>
                     <button id="btn-header-pwa-install" class="btn-utility" title="Telefona Uygulama Olarak Yükle (PWA)" onclick="triggerPwaInstall()">📲</button>
                     <button id="btn-theme-toggle" class="btn-utility" title="Temayı Değiştir">🌓</button>
                     <button id="btn-logout" class="btn-utility" title="Oturumu Kapat / Giriş Ekranına Dön" style="color: #ef4444; font-size: 1.1rem;" onclick="logoutUser()">🚪</button>
@@ -228,6 +232,9 @@
                 <div class="admin-tools-group">
                     <button id="btn-nav-constraints" class="admin-tool-pill tool-constraints" onclick="document.getElementById('btn-staff').click(); switchStaffTab('constraints');" title="Personel Kısıt Matrisi">
                         <span class="icon" style="margin:0; margin-right:4px;">🚫</span>Kısıt Matrisi
+                    </button>
+                    <button id="btn-nav-bulk-constraint-email" class="admin-tool-pill tool-email" onclick="openBulkConstraintEmailModal()" title="Görevlilere Toplu Kısıt Kontrol E-postası Gönder" style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(14, 165, 233, 0.2)); border-color: rgba(56, 189, 248, 0.45); color: #7dd3fc;">
+                        <span class="icon" style="margin:0; margin-right:4px;">✉️</span>Kısıt Kontrol Maili
                     </button>
                     <button id="btn-nav-dekanlik-report" class="admin-tool-pill tool-report" onclick="openDekanlikReportModal()" title="Dönem Sonu Dekanlık İcmal Raporu">
                         <span class="icon" style="margin:0; margin-right:4px;">🏛️</span>Dekanlık İcmali
@@ -649,7 +656,7 @@
                                         <!-- Özel Tarih Kısıtı -->
                                         <div class="card-large" style="margin-top:1.5rem; padding:1.2rem;">
                                             <h4 style="margin-bottom:1rem; font-size:0.95rem;">📆 Belirli Tarih / Tarih Aralığı Kısıtı</h4>
-                                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:10px; align-items:end; flex-wrap:wrap;">
+                                            <div class="constraint-form-grid" style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:10px; align-items:end; flex-wrap:wrap;">
                                                 <div>
                                                     <label style="font-size:0.75rem; color:var(--text-muted);">Tip</label>
                                                     <select id="profile-constraint-type" onchange="toggleDateConstraintFields()" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:0.6rem; border-radius:8px; color:white; font-size:0.8rem;">
@@ -1079,6 +1086,17 @@
                 </div>
 
                 <div id="staff-tab-constraints-container" class="hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.05rem; color: #f8fafc; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                                <span>🚫</span> Personel Kısıt Zamanları Matrisi
+                            </h3>
+                            <span style="font-size: 0.78rem; color: var(--text-muted);">Sınav görev dağıtımı öncesinde asistanların ders ve müsaitlik durumları</span>
+                        </div>
+                        <button type="button" class="btn-primary" onclick="openBulkConstraintEmailModal()" style="padding: 0.45rem 0.9rem; font-size: 0.8rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <span>✉️</span> Görevlilere Kısıt Kontrol Maili Gönder
+                        </button>
+                    </div>
                     <div class="table-container">
                         <table id="table-staff-constraints">
                             <thead>
@@ -3498,6 +3516,89 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- ✉️ Toplu Kısıt Kontrolü & Hatırlatma E-posta Modalı -->
+    <div id="modal-bulk-constraint-email" class="modal hidden">
+        <div class="modal-content card-large" style="max-width: 620px; padding: 1.6rem 1.75rem; border-radius: 24px; max-height: 90vh; overflow-y: auto;">
+            <!-- Modal Header -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);">
+                        ✉️
+                    </div>
+                    <div>
+                        <h2 style="font-size: 1.15rem; margin: 0; color: #f8fafc; font-weight: 800;">Toplu Kısıt Kontrolü & Hatırlatma</h2>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">Sınav dağıtımı öncesinde gözetmenlere kısıt kontrol e-postası</span>
+                    </div>
+                </div>
+                <button type="button" class="close-modal" onclick="closeBulkConstraintEmailModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.6rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <!-- Bilgilendirme Notu -->
+            <div style="background: rgba(2, 132, 199, 0.12); border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.78rem; color: #bae6fd; line-height: 1.45;">
+                ℹ️ <b>KVKK ve Gizlilik Koruması:</b> Tüm alıcı e-postaları <u>Gizli Kopya (BCC)</u> alanına eklenir. Böylece görevliler birbirlerinin e-posta adreslerini toplu halde göremez.
+            </div>
+
+            <!-- Alıcı Seçim Grubu -->
+            <div style="margin-bottom: 1.25rem; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 0.85rem 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">
+                        👥 E-posta Gönderilecek Görevliler (<span id="bulk-email-selected-count">0 Kişi</span>):
+                    </label>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" onclick="toggleAllBulkEmailRecipients(true)" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.15); color: #38bdf8; cursor: pointer; font-weight: 600;">Tümünü Seç</button>
+                        <button type="button" onclick="toggleAllBulkEmailRecipients(false)" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(148, 163, 184, 0.15); color: #94a3b8; cursor: pointer; font-weight: 600;">Temizle</button>
+                    </div>
+                </div>
+                <div id="bulk-email-recipient-list" style="max-height: 140px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-right: 4px;">
+                    <!-- JS ile dinamik doldurulacak -->
+                </div>
+            </div>
+
+            <!-- E-posta Konusu -->
+            <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 5px;">
+                    📌 E-posta Konusu:
+                </label>
+                <input type="text" id="bulk-email-subject" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 10px; color: white; font-size: 0.85rem; font-weight: 600; box-sizing: border-box;">
+            </div>
+
+            <!-- E-posta Gövdesi -->
+            <div style="margin-bottom: 1.25rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 5px;">
+                    📝 E-posta İçeriği (Düzenlenebilir Şablon):
+                </label>
+                <textarea id="bulk-email-body" rows="9" style="width: 100%; padding: 0.75rem 0.9rem; background: rgba(0,0,0,0.35); border: 1px solid var(--glass-border); border-radius: 12px; color: #f8fafc; font-size: 0.82rem; font-family: inherit; line-height: 1.5; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+
+            <!-- Gönderim / Eylem Seçenekleri -->
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Mailto Butonu -->
+                    <button type="button" class="btn-primary" onclick="sendBulkConstraintEmail('mailto')" style="padding: 0.75rem 1rem; font-size: 0.85rem; font-weight: 700; background: linear-gradient(135deg, #0284c7, #0369a1); border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);">
+                        <span>✉️</span> E-posta İstemcisinde Aç
+                    </button>
+
+                    <!-- Gmail Web Butonu -->
+                    <button type="button" class="btn-primary" onclick="sendBulkConstraintEmail('gmail')" style="padding: 0.75rem 1rem; font-size: 0.85rem; font-weight: 700; background: linear-gradient(135deg, #ea4335, #c5221f); border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(234, 67, 53, 0.35);">
+                        <span>🌐</span> Gmail Web'de Aç
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Metni ve Alıcıları Kopyala Butonu -->
+                    <button type="button" class="btn-secondary" onclick="sendBulkConstraintEmail('copy')" style="padding: 0.65rem 0.85rem; font-size: 0.82rem; font-weight: 600; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.06); color: #e2e8f0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>📋</span> Metni & BCC'yi Kopyala
+                    </button>
+
+                    <!-- Sistem İçi Kilit Ekranı Bildirimi Olarak da Gönder -->
+                    <button type="button" class="btn-secondary" onclick="sendBulkConstraintEmail('push')" style="padding: 0.65rem 0.85rem; font-size: 0.82rem; font-weight: 600; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.12); color: #38bdf8; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>📲</span> Kilit Ekranı Bildirimi de At
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

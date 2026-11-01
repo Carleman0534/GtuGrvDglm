@@ -1101,3 +1101,170 @@ window.applyMarketTemplate = function(exam, myStaff) {
         .replace(/{BENIM_ADIM}/g, myStaff.name);
 };
 
+/* ========================================================================= */
+/* ✉️ TOPLU KISIT KONTROLÜ & HATIRLATMA E-POSTA MOTORU                     */
+/* ========================================================================= */
+
+window.openBulkConstraintEmailModal = function() {
+    const modal = document.getElementById('modal-bulk-constraint-email');
+    if (!modal) return;
+    
+    window.renderBulkConstraintEmailContent();
+    modal.classList.remove('hidden');
+};
+
+window.closeBulkConstraintEmailModal = function() {
+    const modal = document.getElementById('modal-bulk-constraint-email');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.renderBulkConstraintEmailContent = function() {
+    const staffList = (typeof DB !== 'undefined' && Array.isArray(DB.staff)) ? DB.staff : [];
+    const container = document.getElementById('bulk-email-recipient-list');
+    
+    const systemUrl = (typeof DB !== 'undefined' && DB.emailSettings && DB.emailSettings.systemUrl) 
+        ? DB.emailSettings.systemUrl.trim() 
+        : 'https://carleman0534.github.io/GtuGrvDglm/';
+
+    const defaultSubject = `[GTÜ Sınav Koordinatörlüğü] Sınav Görev Dağıtımı Öncesi Kısıt / Müsaitlik Kontrolü`;
+    
+    const defaultBody = `Değerli Araştırma Görevlilerimiz ve Sınav Görevlilerimiz,
+
+Yaklaşan sınav dönemi öncesinde sınav gözetmenlik görevlendirmeleri adil dağıtım algoritması ile planlanacaktır.
+
+Görev dağıtımı esnasında herhangi bir çakışma, aksaklık veya mağduriyet yaşanmaması adına; varsa ders, laboratuvar veya zorunlu akademik kısıtlarınızı (müsait olmadığınız gün ve saatleri) sistem üzerinden kontrol etmenizi ve gerekiyorsa güncellemenizi önemle rica ederiz.
+
+Sisteme giriş yaparak kısıtlarınızı 1 dakikada kontrol edebilir ve güncelleyebilirsiniz:
+🔗 Sınav Sistemi Bağlantısı: ${systemUrl}
+
+(Not: Sisteme üniversite Google e-postanızla (@gtu.edu.tr) veya adınız123 formatındaki kişisel şifrenizle giriş yapıp "Müsaitlik / Kısıtlarım" bölümünden saatleri işaretleyebilirsiniz.)
+
+Anlayışınız, iş birliğiniz ve katkılarınız için teşekkür eder, çalışmalarınızda kolaylıklar dileriz.
+
+Saygılarımızla,
+Sınav Koordinatörlüğü
+Gebze Teknik Üniversitesi`;
+
+    const subjInput = document.getElementById('bulk-email-subject');
+    if (subjInput && !subjInput.value) subjInput.value = defaultSubject;
+
+    const bodyInput = document.getElementById('bulk-email-body');
+    if (bodyInput && !bodyInput.value) bodyInput.value = defaultBody;
+
+    if (container) {
+        if (staffList.length === 0) {
+            container.innerHTML = `<p style="color:#94a3b8;font-size:0.8rem;text-align:center;padding:1rem;">Personel listesi bulunamadı.</p>`;
+            return;
+        }
+
+        container.innerHTML = staffList.map(s => {
+            const email = (s.email && s.email.includes('@')) ? s.email.trim() : (window.guessStaffEmail ? window.guessStaffEmail(s) : '');
+            const constraints = (typeof DB !== 'undefined' && DB.constraints && DB.constraints[s.name]) ? DB.constraints[s.name] : [];
+            const constraintCount = constraints.length;
+            const hasConstraint = constraintCount > 0;
+
+            return `
+                <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;cursor:pointer;transition:all 0.15s ease;">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
+                        <input type="checkbox" class="bulk-email-recipient-cb" data-id="${s.id}" data-name="${s.name}" data-email="${email}" checked onchange="window.updateBulkEmailSelectedCount()" style="cursor:pointer;width:15px;height:15px;accent-color:#0284c7;">
+                        <div style="min-width:0;flex:1;">
+                            <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}</div>
+                            <div style="font-size:0.72rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${email || 'E-posta yok'}</div>
+                        </div>
+                    </div>
+                    <span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap;${hasConstraint ? 'background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);' : 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25);'}">
+                        ${hasConstraint ? `🔴 ${constraintCount} Kısıt` : '✅ Kısıtsız'}
+                    </span>
+                </label>
+            `;
+        }).join('');
+    }
+
+    window.updateBulkEmailSelectedCount();
+};
+
+window.updateBulkEmailSelectedCount = function() {
+    const cbs = document.querySelectorAll('.bulk-email-recipient-cb:checked');
+    const allCbs = document.querySelectorAll('.bulk-email-recipient-cb');
+    const countBadge = document.getElementById('bulk-email-selected-count');
+    if (countBadge) {
+        countBadge.textContent = `${cbs.length} / ${allCbs.length} Kişi Seçili`;
+    }
+};
+
+window.toggleAllBulkEmailRecipients = function(selectAll = true) {
+    const cbs = document.querySelectorAll('.bulk-email-recipient-cb');
+    cbs.forEach(cb => cb.checked = selectAll);
+    window.updateBulkEmailSelectedCount();
+};
+
+window.sendBulkConstraintEmail = async function(type = 'mailto') {
+    const cbs = Array.from(document.querySelectorAll('.bulk-email-recipient-cb:checked'));
+    if (cbs.length === 0) {
+        if (typeof showToast === 'function') showToast('Lütfen en az bir alıcı seçin.', 'error');
+        else alert('Lütfen en az bir alıcı seçin.');
+        return;
+    }
+
+    const emails = cbs.map(cb => cb.dataset.email).filter(e => e && e.includes('@'));
+    if (emails.length === 0) {
+        if (typeof showToast === 'function') showToast('Seçili kişilerin geçerli e-posta adresi bulunamadı.', 'error');
+        else alert('Seçili kişilerin geçerli e-posta adresi bulunamadı.');
+        return;
+    }
+
+    const subject = (document.getElementById('bulk-email-subject') || {}).value || 'Sınav Görev Dağıtımı Öncesi Kısıt / Müsaitlik Kontrolü';
+    const body = (document.getElementById('bulk-email-body') || {}).value || '';
+    const bccList = emails.join(',');
+
+    if (type === 'copy') {
+        const fullContent = `KİME (BCC):\n${bccList}\n\nKONU:\n${subject}\n\nMESAJ:\n${body}`;
+        try {
+            await navigator.clipboard.writeText(fullContent);
+            if (typeof showToast === 'function') {
+                showToast(`📋 E-posta taslağı ve ${emails.length} alıcı panoya kopyalandı!`, 'success');
+            } else {
+                alert(`E-posta taslağı ve ${emails.length} alıcı panoya kopyalandı.`);
+            }
+        } catch (err) {
+            console.warn('Clipboard kopyalama hatası:', err);
+            prompt('Panoya kopyalamak için Ctrl+C tuşlarına basın:', fullContent);
+        }
+        return;
+    }
+
+    if (type === 'gmail') {
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.open(gmailUrl, '_blank');
+        if (typeof showToast === 'function') {
+            showToast(`🚀 Gmail Web yeni sekmede açıldı (${emails.length} alıcı BCC'ye eklendi).`, 'success');
+        }
+        return;
+    }
+
+    if (type === 'push') {
+        if (typeof window.sendAdminBroadcastNotificationDirect === 'function') {
+            window.sendAdminBroadcastNotificationDirect('🚫 Sınav Öncesi Kısıt Kontrolü', 'Lütfen sınav görev dağıtımı öncesinde müsait olmadığınız saatleri profilinizden kontrol edip güncelleyin.');
+        } else if (typeof showToast === 'function') {
+            showToast('📲 Sistem bildirim kuyruğuna iletildi.', 'info');
+        }
+        return;
+    }
+
+    // Varsayılan: mailto: istemcisini aç
+    const mailtoUrl = `mailto:?bcc=${encodeURIComponent(bccList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (mailtoUrl.length > 1950) {
+        if (confirm(`Alıcı listesi çok uzun (${mailtoUrl.length} karakter). Bazı posta istemcileri bu uzunluğu desteklemeyebilir.\n\nGmail Web ile açmak ister misiniz? (İptal derseniz metin panoya kopyalanır)`)) {
+            window.sendBulkConstraintEmail('gmail');
+        } else {
+            window.sendBulkConstraintEmail('copy');
+        }
+        return;
+    }
+
+    window.location.href = mailtoUrl;
+    if (typeof showToast === 'function') {
+        showToast(`✉️ E-posta istemciniz açılıyor (${emails.length} alıcı BCC'ye eklendi).`, 'success');
+    }
+};
+
