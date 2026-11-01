@@ -3485,6 +3485,19 @@ function showAddExamModal() {
     window.selectedProctorId = null;
     
     fields.innerHTML = `
+        <!-- Hızlı Şablonlar (Tek Tıkla Kalıp Doldurma) -->
+        <div style="margin-bottom: 14px; background: rgba(0,0,0,0.25); padding: 10px 12px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <div style="font-size:0.75rem; color:#94a3b8; font-weight:600; margin-bottom:6px;">⚡ Hızlı Sınav Kalıpları (Tek Tıkla Otomatik Doldur):</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn-secondary" onclick="applyAddExamPreset('MAT 101')" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">⚡ MAT 101</button>
+                <button type="button" class="btn-secondary" onclick="applyAddExamPreset('MAT 102')" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">⚡ MAT 102</button>
+                <button type="button" class="btn-secondary" onclick="applyAddExamPreset('INF 100')" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(124,58,237,0.15); color:#c4b5fd; border:1px solid rgba(124,58,237,0.3);">⚡ INF 100</button>
+                <button type="button" class="btn-secondary" onclick="applyAddExamPreset('ENG 111')" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3);">⚡ ENG 111</button>
+                <button type="button" class="btn-secondary" onclick="applyAddExamPreset('TUR 101')" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3);">⚡ TUR 101</button>
+                <button type="button" class="btn-secondary" onclick="applyAddExamPreset('HIS 101')" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.3);">⚡ HIS 101</button>
+            </div>
+        </div>
+
         <div class="form-group">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                 <label style="margin:0;">Sinav Türü</label>
@@ -3508,8 +3521,9 @@ function showAddExamModal() {
                 ${getCourseCatalogOptionsHtml()}
             </datalist>
             <div id="add-exam-catalog-info" style="display:none; font-size:0.75rem; color:#38bdf8; margin-top:4px; padding:5px 8px; background:rgba(14,165,233,0.1); border-radius:6px; border:1px solid rgba(14,165,233,0.25);"></div>
+            <div id="add-exam-history-duration-badge" style="display:none; margin-top:6px;"></div>
             <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px; display:block;">
-               💡 <b>Katalog Eşleşmesi:</b> Ders kodunu veya adini yazdiğinizda sistem dersi otomatik tanir ve sorumlu hocayi seçer.
+               💡 <b>Katalog Eşleşmesi:</b> Ders kodunu veya adini yazdiğinizda sistem dersi otomatik tanir, arşiv sürelerini ve hocayi önerir.
             </small>
         </div>
         <div class="form-group">
@@ -3520,8 +3534,9 @@ function showAddExamModal() {
             </select>
         </div>
         <div class="form-group">
-            <label>Sinif Mevcudu</label>
-            <input type="number" id="exam-capacity" placeholder="Örn: 250">
+            <label>Sinif Mevcudu (Kapasite)</label>
+            <input type="number" id="exam-capacity" placeholder="Örn: 120">
+            <div id="add-exam-capacity-hint" style="display:none; margin-top:5px;"></div>
         </div>
         <div class="form-group">
             <label>Sinav Tarihi</label>
@@ -3537,7 +3552,8 @@ function showAddExamModal() {
         </div>
         <div class="form-group">
             <label>Derslik / Yer Bilgisi</label>
-            <input type="text" id="exam-location" placeholder="Örn: Amfi 2">
+            <input type="text" id="exam-location" placeholder="Örn: Amfi 1, Amfi 2">
+            <div id="add-exam-conflict-alert" class="hidden" style="margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5;"></div>
         </div>
         <div class="form-group">
             <label>Gözetmen Ekle</label>
@@ -3556,6 +3572,110 @@ function showAddExamModal() {
     `;
     modal.classList.remove('hidden');
 
+    // --- YARDIMCI VE OTOMASYON FONKSİYONLARI ---
+    window.applyAddExamPreset = function (code) {
+        const input = document.getElementById('exam-name');
+        if (!input) return;
+        input.value = code;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        if (typeof showToast === 'function') showToast(`⚡ ${code} kalıbı uygulandı.`, 'info');
+    };
+
+    window.applyHistoricalStatsToAddExam = function (dur, loc) {
+        const durInput = document.getElementById('exam-duration');
+        const locInput = document.getElementById('exam-location');
+        if (durInput && dur) durInput.value = dur;
+        if (locInput && loc && (!locInput.value || locInput.value === 'Amfi 2')) locInput.value = loc;
+        if (typeof showToast === 'function') showToast(`⏱️ Arşiv süresi (${dur} dk) ve salon uygulandı.`, 'success');
+        checkAddExamConflict();
+    };
+
+    window.autoAssignFairProctorsForNewExam = function (neededCount) {
+        if (!DB || !DB.staff) return;
+        const d = document.getElementById('exam-date')?.value;
+        const t = document.getElementById('exam-time')?.value;
+        const dur = parseInt(document.getElementById('exam-duration')?.value, 10) || 60;
+
+        if (!d || !t) {
+            alert('Lütfen önce sınav tarihi ve başlangıç saatini giriniz.');
+            return;
+        }
+
+        if (!window.tempSelectedProctors) window.tempSelectedProctors = [];
+
+        // Müsait asistanları bul (kısıt ve çakışma yok)
+        const availableStaff = DB.staff.filter(s => {
+            if (window.tempSelectedProctors.includes(s.id)) return false;
+            if (typeof isAvailable === 'function' && !isAvailable(s.name, d, t, dur)) return false;
+            if (typeof isProctorTrulyFree === 'function' && !isProctorTrulyFree(s.name, d, t, dur)) return false;
+            return true;
+        });
+
+        // Puanı en düşük olanları sırala
+        availableStaff.sort((a, b) => (parseFloat(a.totalScore) || 0) - (parseFloat(b.totalScore) || 0));
+
+        const toAdd = availableStaff.slice(0, neededCount);
+        if (toAdd.length === 0) {
+            alert('Seçilen tarih ve saatte kısıtı olmayan müsait asistan bulunamadı.');
+            return;
+        }
+
+        toAdd.forEach(s => {
+            window.tempSelectedProctors.push(s.id);
+        });
+
+        if (typeof renderTempProctorList === 'function') renderTempProctorList();
+        if (typeof updateProctorSelect === 'function') updateProctorSelect();
+        if (typeof updateAddSuggestions === 'function') updateAddSuggestions();
+
+        if (typeof showToast === 'function') {
+            showToast(`✅ En adil ve müsait ${toAdd.length} gözetmen (${toAdd.map(s => s.name.split(' ')[0]).join(', ')}) atandı!`, 'success');
+        }
+    };
+
+    window.checkAddExamConflict = function () {
+        const d = document.getElementById('exam-date')?.value;
+        const t = document.getElementById('exam-time')?.value;
+        const dur = parseInt(document.getElementById('exam-duration')?.value, 10) || 60;
+        const loc = document.getElementById('exam-location')?.value?.trim();
+        const alertEl = document.getElementById('add-exam-conflict-alert');
+        if (!alertEl) return;
+
+        if (!d || !t || !loc || !DB || !DB.exams) {
+            alertEl.classList.add('hidden');
+            alertEl.innerHTML = '';
+            return;
+        }
+
+        const [sh, sm] = t.split(':').map(Number);
+        const newStart = sh * 60 + sm;
+        const newEnd = newStart + dur;
+
+        const myRooms = loc.toLowerCase().split(/[,/]+/).map(r => r.trim()).filter(Boolean);
+
+        const conflicts = DB.exams.filter(ex => {
+            if (ex.date !== d || !ex.location || !ex.time) return false;
+            const exRooms = ex.location.toLowerCase().split(/[,/]+/).map(r => r.trim()).filter(Boolean);
+            const roomMatches = myRooms.some(r => exRooms.some(er => er.includes(r) || r.includes(er)));
+            if (!roomMatches) return false;
+
+            const [exH, exM] = ex.time.split(':').map(Number);
+            const exStart = exH * 60 + exM;
+            const exEnd = exStart + (parseInt(ex.duration, 10) || 60);
+
+            return (newStart < exEnd && newEnd > exStart);
+        });
+
+        if (conflicts.length > 0) {
+            const conf = conflicts[0];
+            alertEl.classList.remove('hidden');
+            alertEl.innerHTML = `⚠️ <b>Derslik Çakışması:</b> '${conf.name}' sınavı da bu tarihte (<b>${conf.time}</b>, ${conf.duration} dk) <b>${conf.location}</b> dersliğinde planlanmış!`;
+        } else {
+            alertEl.classList.add('hidden');
+            alertEl.innerHTML = '';
+        }
+    };
+
     const updateAddSuggestions = () => {
         const d = document.getElementById('exam-date').value;
         const t = document.getElementById('exam-time').value;
@@ -3563,20 +3683,43 @@ function showAddExamModal() {
         const isNonExam = document.getElementById('exam-is-non-exam')?.checked || false;
         const name = document.getElementById('new-exam-name')?.value || "";
         updateSuggestionsUI(d, t, dur, 'add-suggestions', 'add-suggestion-list', null, null, isNonExam, name);
+        checkAddExamConflict();
     };
 
     document.getElementById('exam-date').addEventListener('change', updateAddSuggestions);
     document.getElementById('exam-time').addEventListener('change', updateAddSuggestions);
     document.getElementById('exam-duration').addEventListener('input', updateAddSuggestions);
+    document.getElementById('exam-location').addEventListener('input', checkAddExamConflict);
     const cbAdd = document.getElementById('exam-is-non-exam');
     if (cbAdd) cbAdd.addEventListener('change', updateAddSuggestions);
+
+    // Mevcuda Göre Gözetmen İhtiyacı Dinleyicisi
+    document.getElementById('exam-capacity').addEventListener('input', (e) => {
+        const cap = parseInt(e.target.value, 10) || 0;
+        const hintEl = document.getElementById('add-exam-capacity-hint');
+        if (cap > 0 && hintEl) {
+            const needed = cap <= 40 ? 1 : (cap <= 80 ? 2 : (cap <= 130 ? 3 : Math.ceil(cap / 40)));
+            hintEl.style.display = 'block';
+            hintEl.innerHTML = `
+                <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span>👥 <b>Mevcut ${cap}:</b> Önerilen gözetmen sayısı: <b>${needed} kişi</b></span>
+                    <button type="button" class="btn-primary" onclick="autoAssignFairProctorsForNewExam(${needed})" style="padding: 3px 8px; font-size: 0.72rem; border-radius: 6px; background: linear-gradient(135deg, #10b981, #059669);">⚡ En Adil ${needed} Gözetmeni Ata</button>
+                </div>
+            `;
+        } else if (hintEl) {
+            hintEl.style.display = 'none';
+        }
+    });
 
     // --- KURS HAFIZASI VE DERS KATALOĞU ENTEGRASYONU ---
     document.getElementById('exam-name').addEventListener('input', (e) => {
         const val = e.target.value.trim();
         const infoBadge = document.getElementById('add-exam-catalog-info');
+        const histBadge = document.getElementById('add-exam-history-duration-badge');
+
         if (!val) {
             if (infoBadge) { infoBadge.style.display = 'none'; infoBadge.innerHTML = ''; }
+            if (histBadge) { histBadge.style.display = 'none'; histBadge.innerHTML = ''; }
             return;
         }
 
@@ -3585,27 +3728,18 @@ function showAddExamModal() {
         const locInput = document.getElementById('exam-location');
         const durInput = document.getElementById('exam-duration');
 
-        /**
-         * Hoca adini select option'lardan bulup seçer.
-         * Önce tam eşleşme, sonra kismi eşleşme dener.
-         * @param {string} lecturerName  - Seçilecek hocanin adi (ünvan dahil veya hariç)
-         * @param {boolean} force        - true ise mevcut seçimi sifirlayip yeniden atar
-         */
         function autoSelectLecturer(lecturerName, force = true) {
             if (!lecturerName || !selectL) return false;
             const needle = lecturerName.trim().toLowerCase();
-            // 1. Tam eşleşme
             for (let i = 0; i < selectL.options.length; i++) {
                 if (selectL.options[i].value.trim().toLowerCase() === needle) {
                     selectL.selectedIndex = i;
-                    // Görsel ipucu: select'i kisa süre vurgula
                     selectL.style.borderColor = '#10b981';
                     selectL.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
                     setTimeout(() => { selectL.style.borderColor = ''; selectL.style.boxShadow = ''; }, 1800);
                     return true;
                 }
             }
-            // 2. Kismi eşleşme: option içinde needle var mi? veya needle içinde option var mi?
             for (let i = 0; i < selectL.options.length; i++) {
                 const opt = selectL.options[i].value.trim().toLowerCase();
                 if (opt.includes(needle) || needle.includes(opt)) {
@@ -3616,7 +3750,6 @@ function showAddExamModal() {
                     return true;
                 }
             }
-            // 3. Soyadi ile eşleşme — sadece soyadin son parçasini karşilaştir
             const needleParts = needle.split(' ').filter(p => p.length > 2);
             for (let i = 0; i < selectL.options.length; i++) {
                 const opt = selectL.options[i].value.trim().toLowerCase();
@@ -3637,7 +3770,6 @@ function showAddExamModal() {
             infoBadge.style.display = 'block';
             infoBadge.innerHTML = `📘 <b>${catCourse.code} - ${catCourse.name}</b> &nbsp;|&nbsp; 🌐 ${catCourse.lang} &nbsp;|&nbsp; 📅 ${catCourse.term} &nbsp;|&nbsp; ⭐ ${catCourse.credit} Kredi / ${catCourse.akts} AKTS &nbsp;(${catCourse.type})`;
             
-            // Dersin sorumlu hocasini çoklu kaynaktan belirle
             const lecturerToSelect =
                 catCourse.lecturer ||
                 (DB.courseLecturers && (
@@ -3647,7 +3779,6 @@ function showAddExamModal() {
                 )) ||
                 (DB.courseLecturers && DB.courseLecturers[val]);
 
-            // Hoca bulunduysa her zaman güncelle (mevcut seçimden bağimsiz)
             if (lecturerToSelect) {
                 autoSelectLecturer(lecturerToSelect, true);
             }
@@ -3656,22 +3787,39 @@ function showAddExamModal() {
             infoBadge.innerHTML = '';
         }
 
-        // 2. Geçmiş sinavlarda bu isimde bir kayit varsa o kayittan hoca ve diğer bilgileri al
+        // 2. Geçmiş Sınav Süre ve Salon İstatistikleri (Akıllı Hafıza)
+        const stats = (typeof getExamHistoricalDurationStats === 'function') ? getExamHistoricalDurationStats(val) : null;
+        if (stats && histBadge) {
+            histBadge.style.display = 'block';
+            histBadge.innerHTML = `
+                <div style="background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span>⏱️ <b>Arşiv Önerisi:</b> Geçmişte ortalama <b>${stats.avgDuration} dk</b> sürmüş${stats.lastLocation ? ` (Son Salon: ${stats.lastLocation})` : ''}</span>
+                    <button type="button" class="btn-primary" onclick="applyHistoricalStatsToAddExam(${stats.avgDuration}, '${(stats.lastLocation || '').replace(/'/g, "\'")}')" style="padding: 2px 8px; font-size: 0.72rem; border-radius: 6px;">⚡ Uygula</button>
+                </div>
+            `;
+        } else if (histBadge) {
+            histBadge.style.display = 'none';
+        }
+
+        // 3. Geçmiş sınavlarda bu isimde bir kayıt varsa o kayıttan hoca ve diğer bilgileri al
         const pastExams = DB.exams.filter(ex => ex.name.toLowerCase() === val.toLowerCase());
         if (pastExams.length > 0) {
             const latest = pastExams[pastExams.length - 1];
-            // Hoca: katalog eşleşmesi bulamazdiysa geçmiş sinavdan al
             if (latest.lecturer && (!catCourse || !catCourse.lecturer)) {
                 autoSelectLecturer(latest.lecturer, false);
             }
-            if (latest.capacity && capInput && !capInput.value) capInput.value = latest.capacity;
+            if (latest.capacity && capInput && !capInput.value) {
+                capInput.value = latest.capacity;
+                capInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             if (latest.location && locInput && !locInput.value) locInput.value = latest.location;
             if (latest.duration && durInput && durInput.value === '60') durInput.value = latest.duration;
         } else if (!catCourse) {
-            // 3. Katalogda da geçmiş sinavlarda da yoksa DB.courseLecturers doğrudan dene
             const lecturerName = DB.courseLecturers && DB.courseLecturers[val];
             if (lecturerName) autoSelectLecturer(lecturerName, true);
         }
+
+        checkAddExamConflict();
     });
 
     window.addProctorToAddListManually = (id) => {
@@ -14088,10 +14236,35 @@ function generateICalContent(exams, calendarName = "Sinav Görevleri") {
             `LOCATION:${location.replace(/,/g,'\\,')}`,
             `DESCRIPTION:${description}`,
             "STATUS:CONFIRMED",
+            // 24 Saat Önce Bildirim Alarmı
             "BEGIN:VALARM",
-            "TRIGGER:-PT30M",
+            "TRIGGER:-PT24H",
             "ACTION:DISPLAY",
-            "DESCRIPTION:Sinav görevine 30 dakika kaldi",
+            `DESCRIPTION:Yarın ${ex.name} sınav göreviniz var (${location})`,
+            "END:VALARM",
+            // 18 Saat Önce Bildirim Alarmı
+            "BEGIN:VALARM",
+            "TRIGGER:-PT18H",
+            "ACTION:DISPLAY",
+            `DESCRIPTION:18 Saat Kaldı: ${ex.name} sınavı (${location})`,
+            "END:VALARM",
+            // 12 Saat Önce Bildirim Alarmı
+            "BEGIN:VALARM",
+            "TRIGGER:-PT12H",
+            "ACTION:DISPLAY",
+            `DESCRIPTION:12 Saat Kaldı: ${ex.name} sınavı (${location})`,
+            "END:VALARM",
+            // 6 Saat Önce Bildirim Alarmı
+            "BEGIN:VALARM",
+            "TRIGGER:-PT6H",
+            "ACTION:DISPLAY",
+            `DESCRIPTION:6 Saat Kaldı: ${ex.name} sınavı (${location})`,
+            "END:VALARM",
+            // 3 Saat Önce Bildirim Alarmı
+            "BEGIN:VALARM",
+            "TRIGGER:-PT3H",
+            "ACTION:DISPLAY",
+            `DESCRIPTION:Son 3 Saat! ${ex.name} sınavı için salona geçiniz (${location})`,
             "END:VALARM",
             "END:VEVENT"
         );

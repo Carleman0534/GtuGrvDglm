@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v26';
+const CACHE_NAME = 'gozetmenlik-ai-v27';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -10,6 +10,8 @@ const ASSETS_TO_CACHE = [
     './swap_email.js',
     './swap_market.js',
     './smart_doc_parser.js',
+    './notification_engine.js',
+    './mobile_app_engine.js',
     './ai_features.js',
     './icon-192.png',
     './icon-512.png',
@@ -58,6 +60,21 @@ self.addEventListener('fetch', event => {
     }
 });
 
-
-
-
+// Push & Notification Click Event (PWA Bildirimine Dokunulduğunda Uygulamayı Açar)
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            // Açık sekme varsa odaklan
+            for (let client of windowClients) {
+                if (client.url.includes('index.html') && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // Açık sekme yoksa yeni pencerede aç
+            if (clients.openWindow) {
+                return clients.openWindow('./index.html');
+            }
+        })
+    );
+});
