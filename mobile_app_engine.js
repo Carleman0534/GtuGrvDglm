@@ -159,8 +159,57 @@
         }
     }
 
+    // --- Mobil Kart / Tablo Görünümü Yöneticisi ---
+    window.toggleMobileExamViewMode = function () {
+        const table = document.getElementById('table-exams');
+        const btn = document.getElementById('btn-mobile-view-toggle');
+        if (!table) return;
+
+        const isCardMode = table.classList.toggle('mobile-card-mode');
+        localStorage.setItem('gtu_exam_view_mode', isCardMode ? 'card' : 'table');
+
+        if (btn) {
+            btn.innerHTML = isCardMode ? '📋 Tablo Görünümü' : '📱 Kart Görünümü';
+            btn.title = isCardMode ? 'Klasik geniş tabloya geç' : 'Mobil dokunmatik kartlara geç';
+        }
+
+        if (typeof showToast === 'function') {
+            showToast(isCardMode ? '📱 Mobil Kart Görünümüne geçildi.' : '📋 Klasik Tablo Görünümüne geçildi.', 'info');
+        }
+    };
+
+    function initMobileCardView() {
+        const table = document.getElementById('table-exams');
+        if (!table) return;
+
+        const savedMode = localStorage.getItem('gtu_exam_view_mode');
+        // Mobilde varsayılan kart modu olsun
+        if (savedMode === 'table') {
+            table.classList.remove('mobile-card-mode');
+        } else {
+            table.classList.add('mobile-card-mode');
+        }
+
+        // Toggle butonunu toolbar'a ekle (eğer yoksa)
+        if (!document.getElementById('btn-mobile-view-toggle')) {
+            const container = document.querySelector('#section-exams .section-header > div');
+            if (container) {
+                const btn = document.createElement('button');
+                btn.id = 'btn-mobile-view-toggle';
+                btn.type = 'button';
+                btn.className = 'btn-secondary mobile-view-toggle-btn';
+                const isCard = table.classList.contains('mobile-card-mode');
+                btn.innerHTML = isCard ? '📋 Tablo' : '📱 Kart';
+                btn.title = 'Görünüm Değiştir (Kart / Tablo)';
+                btn.onclick = window.toggleMobileExamViewMode;
+                container.insertBefore(btn, container.firstChild);
+            }
+        }
+    }
+
     // Başlatıcı
     function initMobileEngine() {
+        initMobileCardView();
         syncMobileNavWithDesktop();
 
         // Rozetleri periyodik senkronize et
