@@ -1,0 +1,83 @@
+# ⏱️ Sınav Süresi Onay Hatırlatıcısı
+#
+# Her 15 dakikada bir, bitmiş ve süresi onaylanmamış sınavların gözetmenlerine e-posta gönderir.
+# Site kapalıyken de çalışır. Ayrıntılar: .github/scripts/sure-hatirlatma.mjs
+#
+# Kurulum (bir kez):
+#   1. Gönderen Gmail hesabında 2 Adımlı Doğrulama açık olmalı.
+#      https://myaccount.google.com/apppasswords adresinden bir "Uygulama şifresi" oluşturun.
+#   2. GitHub'da depo → Settings → Secrets and variables → Actions → New repository secret:
+#        GMAIL_USER          gönderen Gmail adresi
+#        GMAIL_APP_PASSWORD  oluşturduğunuz 16 haneli uygulama şifresi
+#   3. Actions sekmesinden "Süre Onayı Hatırlatıcısı" → Run workflow ile deneyin.
+#
+# Sırlar tanımlı değilse iş akışı deneme modunda çalışır ve e-posta göndermez.
+# Gönderim kaydı "durum" dalındaki hatirlatma.json dosyasında tutulur (siteyi etkilemez).
+
+name: Süre Onayı Hatırlatıcısı
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Deneme modu (e-posta göndermeden yalnızca say)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sure-hatirlatma
+  cancel-in-progress: false
+
+jobs:
+  hatirlat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Gönderim kaydını al (durum dalı)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p .durum && cd .durum
+          git init -q
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin durum; then
+            git checkout -q -b durum FETCH_HEAD
+          else
+            git checkout -q --orphan durum
+          fi
+          [ -f hatirlatma.json ] || echo '{}' > hatirlatma.json
+
+      - name: E-posta kütüphanesini kur
+        run: npm install --no-save --no-audit --no-fund nodemailer@6.9.14
+
+      - name: Hatırlatmaları gönder
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          STATE_FILE: .durum/hatirlatma.json
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node .github/scripts/sure-hatirlatma.mjs
+
+      - name: Gönderim kaydını sakla
+        if: always()
+        run: |
+          cd .durum
+          git add hatirlatma.json
+          if git diff --cached --quiet; then
+            echo "Kayıtta değişiklik yok."
+          else
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Süre hatırlatma kaydı güncellendi"
+            git push -q origin durum
+          fi
