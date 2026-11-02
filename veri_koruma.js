@@ -65,6 +65,76 @@
         try { localStorage.setItem(DB_KEY, JSON.stringify(DB)); } catch (e) {}
     }
 
+    // ---------- Gönderilmemiş değişiklik kaydı ----------
+    // Kayıt sunucuya ulaşmadan sayfa yenilenir/kapanırsa, açılışta sunucu verisi yerel kopyanın
+    // üzerine yazıldığı için değişiklik kaybolurdu. Bu yüzden her kayıt isteğinde, son okunan
+    // sunucu verisine (_base) göre farkı küçük bir kayıt olarak tutarız ve açılışta yeniden uygularız.
+    const PENDING_KEY = 'gozetmenlik_pending_changes_v1';
+    let _loading = false;        // Yükleme sırasında oluşan normalizasyon kayıtları farkı ezmesin
+
+    function buildPending(b, l) {
+        b = b || {}; l = l || {};
+        const keys = {};
+        new Set([...Object.keys(b), ...Object.keys(l)]).forEach(k => {
+            if (k === '_rev' || k === '_lastWrite' || same(l[k], b[k])) return;
+            if (hasIds(b[k]) && hasIds(l[k])) {
+                const bMap = new Map(b[k].map(e => [String(e.id), e]));
+                const lMap = new Map(l[k].map(e => [String(e.id), e]));
+                const items = [];
+                new Set([...bMap.keys(), ...lMap.keys()]).forEach(id => {
+                    const be = bMap.get(id), le = lMap.get(id);
+                    if (!same(be, le)) items.push({ id, b: clone(be), l: clone(le) });
+                });
+                if (items.length) keys[k] = { items };
+            } else {
+                keys[k] = { b: clone(b[k]), l: clone(l[k]) };
+            }
+        });
+        return Object.keys(keys).length ? { savedAt: new Date().toISOString(), keys } : null;
+    }
+
+    function writePending() {
+        if (_loading || !_serverLoaded || !_base) return;
+        try {
+            const p = buildPending(_base, DB);
+            if (p) localStorage.setItem(PENDING_KEY, JSON.stringify(p));
+            else localStorage.removeItem(PENDING_KEY);
+        } catch (e) { console.warn('🛡️ Bekleyen değişiklik kaydı yazılamadı:', e.message); }
+    }
+
+    function readPending() {
+        try { return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch (e) { return null; }
+    }
+
+    function clearPending() {
+        try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+    }
+
+    // Bekleyen farkı güncel veriye 3 yönlü uygula: yalnızca kullanıcının değiştirdiği alanlar yazılır
+    function applyPending(p, current) {
+        const out = clone(current);
+        Object.entries(p.keys || {}).forEach(([k, d]) => {
+            if (d.items) {
+                const arr = Array.isArray(out[k]) ? out[k] : [];
+                d.items.forEach(({ id, b, l }) => {
+                    const idx = arr.findIndex(e => e && String(e.id) === id);
+                    if (l && b) { if (idx !== -1) arr[idx] = mergeObject(b, l, arr[idx]); } // değiştirildi
+                    else if (l) { if (idx === -1) arr.push(clone(l)); }                     // eklendi
+                    else if (idx !== -1) arr.splice(idx, 1);                                 // silindi
+                });
+                out[k] = arr;
+            } else if (same(out[k], d.b)) {
+                out[k] = clone(d.l);
+            } else if (isPlainObj(d.l) && isPlainObj(out[k])) {
+                out[k] = mergeObject(d.b, d.l, out[k]);
+            } else {
+                out[k] = clone(d.l);
+            }
+            if (out[k] === undefined) delete out[k];
+        });
+        return out;
+    }
+
     async function fetchRemote() {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 15000);
@@ -165,6 +235,10 @@
             // Gönderilmemiş değişiklik varsa önce onları kaydet, sonra yeniden yükle
             if (_dirty && _serverLoaded) await window.saveToBackend();
 
+            // Önceki oturumdan (yenileme/kapatma) sunucuya ulaşmamış değişiklik kaldı mı?
+            const pending = readPending();
+            _loading = true;
+
             let remote = null;
             try { remote = await fetchRemote(); }
             catch (e) { console.warn('🛡️ Sunucudan okunamadı:', e.message); }
@@ -192,8 +266,18 @@
                 };
             }
             try {
-                return await originalLoad.apply(this, arguments);
+                const result = await originalLoad.apply(this, arguments);
+                if (pending && _serverLoaded && isValidRemote(DB)) {
+                    DB = applyPending(pending, DB);
+                    cacheLocally();
+                    _loading = false;
+                    console.log('🛡️ Sunucuya ulaşmamış değişiklikler geri yüklendi:', Object.keys(pending.keys || {}));
+                    toast('💾 Kaydedilmeden kalan son değişiklikleriniz geri yüklendi ve kaydediliyor.', 'success');
+                    window.saveToBackend();
+                }
+                return result;
             } finally {
+                _loading = false;
                 window.fetch = realFetch;
                 if (!_serverLoaded) {
                     setStatus('error', '🔴 Sunucuya ulaşılamadı — değişiklikler KAYDEDİLMİYOR');
@@ -207,6 +291,7 @@
     // ---------- Kaydetme ----------
     window.saveToBackend = function () {
         _dirty = true;
+        writePending();
         _saveChain = _saveChain.then(doSave).catch(e => console.error('🛡️ Kayıt hatası:', e));
         return _saveChain;
     };
@@ -260,6 +345,7 @@
                 // Yerelde değişiklik yoksa yazmaya gerek yok
                 if (same(localSnap, _base)) {
                     if (!same(remote.data, _base)) adoptRemote(remote.data, localSnap);
+                    else writePending();
                     done = true;
                     break;
                 }
@@ -316,6 +402,7 @@
                     _dirty = true;
                 }
                 cacheLocally();
+                writePending(); // Sunucuya ulaşanlar kayıttan düşer; arada yapılan yeni değişiklikler kalır
                 if (othersChanged) {
                     refreshUI();
                     toast('🔄 Başka kullanıcıların değişiklikleri sizinkilerle birleştirildi.', 'success');
@@ -355,6 +442,7 @@
         _serverLoaded = true;
         DB = next;
         cacheLocally();
+        if (keepLocal) writePending(); else clearPending();
         if (typeof saveAutoSnapshot === 'function') saveAutoSnapshot(DB, 'Periyodik Senkronizasyon');
         refreshUI();
     }
