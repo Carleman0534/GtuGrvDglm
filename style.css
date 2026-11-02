@@ -5454,3 +5454,172 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
         padding: 0.85rem 0.8rem 1.2rem 0.8rem !important;
     }
 }
+
+/* =====================================================================
+   KOMPAKT AÇILIR PENCERELER (masaüstü / tablet)
+   Tüm modallarda kenar boşluğu, başlık, alan aralığı ve kutu yüksekliği
+   küçültülür; form pencerelerinde kısa alanlar iki sütuna dizilir.
+   Mobil (≤768px) kuralları ayrı tutulur ve etkilenmez.
+   ===================================================================== */
+@media (min-width: 769px) {
+    .modal {
+        padding: 1rem;
+    }
+    .modal .modal-content {
+        padding: 1.25rem 1.5rem !important;
+        border-radius: 18px;
+        max-height: 92vh;
+    }
+    .modal .modal-content h2 {
+        font-size: 1.15rem;
+        margin: 0 0 0.9rem 0;
+    }
+    .modal .modal-content h3 {
+        font-size: 1rem;
+    }
+    .modal .modal-header {
+        margin-bottom: 0.9rem !important;
+    }
+    .modal .form-group {
+        margin-bottom: 0.7rem;
+    }
+    .modal .form-group label {
+        font-size: 0.78rem;
+        margin-bottom: 0.3rem;
+    }
+    .modal .form-group input,
+    .modal .form-group select,
+    .modal .form-group textarea {
+        padding: 0.5rem 0.7rem !important;
+        font-size: 0.875rem;
+        border-radius: 8px !important;
+    }
+    .modal .form-group small {
+        font-size: 0.7rem !important;
+    }
+    .modal .form-actions {
+        margin-top: 0.9rem;
+        padding-top: 0.75rem;
+        gap: 0.6rem;
+    }
+    .modal .form-actions button,
+    .modal .modal-footer button {
+        padding: 0.55rem 1.2rem;
+        font-size: 0.875rem;
+    }
+    .modal .modal-tab-btn {
+        padding: 0.45rem 0.9rem;
+        font-size: 0.8rem;
+    }
+
+    /* Sınav düzenleme: iki sütun */
+    #edit-modal .modal-content {
+        max-width: 760px;
+    }
+    #edit-modal-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0.9rem;
+    }
+    #edit-modal-form > * {
+        grid-column: 1 / -1;
+    }
+    #edit-modal-form > .form-group.fg-half {
+        grid-column: auto;
+    }
+    #edit-proctor-list {
+        max-height: 110px !important;
+        padding: 6px !important;
+        gap: 5px !important;
+    }
+    #edit-exam-avail-status {
+        padding: 6px 10px !important;
+        font-size: 0.78rem !important;
+        margin-bottom: 6px !important;
+    }
+
+    /* Akıllı öneriler: 3 sütunlu küçük kartlar, sınırlı yükseklik */
+    .modal .suggestion-area {
+        margin-top: 0.4rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 12px;
+    }
+    .modal .suggestion-area h4 {
+        margin-bottom: 0.45rem;
+    }
+    .modal .suggestion-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+    .modal .suggestion-item {
+        padding: 0.35rem 0.6rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        min-width: 0;
+    }
+    .modal .suggestion-item > div {
+        gap: 0.5rem;
+    }
+    .modal .suggestion-item > div > div:first-child {
+        min-width: 0;
+    }
+    .modal .suggestion-item > div > div:last-child {
+        flex-shrink: 0;
+    }
+    .modal .suggestion-item strong {
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Kaydet / İptal butonları pencerenin altına sabit: kaydırmadan erişilir */
+    .modal .modal-content > form > .form-actions {
+        position: sticky;
+        bottom: -1.25rem;
+        z-index: 2;
+        margin-bottom: -1.25rem;
+        padding: 0.75rem 0 1.25rem;
+        background: #0f172a;
+        border-top: 1px solid var(--glass-border);
+    }
+
+    /* Genel ekleme/düzenleme penceresi (#modal): kısa alanlar iki sütun,
+       metin kutusu / çoklu seçim / liste içeren alanlar tam genişlik */
+    #modal .modal-content {
+        max-width: 760px;
+    }
+    #form-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0.9rem;
+    }
+    #form-fields > * {
+        grid-column: 1 / -1;
+    }
+    #form-fields > .form-group:not(:has(textarea, select[multiple], .suggestion-area, [id$="-list"], table, input[type="checkbox"])) {
+        grid-column: auto;
+    }
+}
+
+/* Açık temada (varsayılan) modallar koyu zeminde kalıyor ama metin rengi koyu
+   (--text-primary: #0f172a) olduğu için başlık ve alan değerleri okunmuyordu.
+   Modal içinde metin değişkenleri koyu zemine uygun tonlara çekilir. */
+body:not(.dark-theme) .modal .modal-content {
+    --text-primary: hsl(0, 0%, 95%);
+    --text-secondary: hsl(220, 14%, 74%);
+    --text-muted: hsl(220, 10%, 60%);
+    color: var(--text-primary);
+}
+body:not(.dark-theme) .modal .modal-content input,
+body:not(.dark-theme) .modal .modal-content select,
+body:not(.dark-theme) .modal .modal-content textarea {
+    color: var(--text-primary);
+}
+body:not(.dark-theme) .modal .modal-content input::placeholder,
+body:not(.dark-theme) .modal .modal-content textarea::placeholder {
+    color: var(--text-muted);
+}
