@@ -5710,3 +5710,230 @@ body:not(.dark-theme) .modal .modal-content textarea::placeholder {
         padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
     }
 }
+
+/* =====================================================================
+   MOBİL: GÖREV KARTLARI (Profil → Aktif Görevler / Açık Görevler / Arşiv,
+   Sınavlar listesi)
+   Masaüstü "kart görünümü" kuralı (exam-card-mode) medya sorgusu dışında
+   olduğu için mobilde satırı dikey sütuna çeviriyor, tarih/saat/yer/süre
+   rozetleri alt alta ortalanıyor ve tek görev neredeyse bir ekran
+   kaplıyordu. Mobilde rozetler yan yana tek şeritte, butonlar kompakt
+   bir ızgarada gösterilir.
+   ===================================================================== */
+@media (max-width: 768px) {
+    #table-exams.mobile-card-mode tbody,
+    #table-exams.exam-card-mode tbody,
+    #profile-table-active.exam-card-mode tbody,
+    #profile-table-marketplace.exam-card-mode tbody,
+    #profile-table-archive.exam-card-mode tbody,
+    #profile-table-active.mobile-card-mode tbody,
+    #profile-table-marketplace.mobile-card-mode tbody,
+    #profile-table-archive.mobile-card-mode tbody {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.6rem !important;
+    }
+
+    #table-exams.mobile-card-mode tbody tr,
+    #table-exams.exam-card-mode tbody tr,
+    #profile-table-active.exam-card-mode tbody tr,
+    #profile-table-marketplace.exam-card-mode tbody tr,
+    #profile-table-archive.exam-card-mode tbody tr,
+    #profile-table-active.mobile-card-mode tbody tr,
+    #profile-table-marketplace.mobile-card-mode tbody tr,
+    #profile-table-archive.mobile-card-mode tbody tr {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 4px !important;
+        padding: 0.7rem 0.8rem !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    /* Rozetler: içerik kadar genişlik, tek satır, küçük */
+    #table-exams.mobile-card-mode tbody tr td,
+    #table-exams.exam-card-mode tbody tr td,
+    #profile-table-active.exam-card-mode tbody tr td,
+    #profile-table-marketplace.exam-card-mode tbody tr td,
+    #profile-table-archive.exam-card-mode tbody tr td,
+    #profile-table-active.mobile-card-mode tbody tr td,
+    #profile-table-marketplace.mobile-card-mode tbody tr td,
+    #profile-table-archive.mobile-card-mode tbody tr td {
+        flex-direction: row !important;
+        flex: 0 0 auto;
+        max-width: 100%;
+        margin: 0 !important;
+        line-height: 1.3 !important;
+        text-align: left !important;
+    }
+    #profile-table-active.exam-card-mode tbody tr td:nth-child(6),
+    #profile-table-archive.exam-card-mode tbody tr td:nth-child(6),
+    #profile-table-active.mobile-card-mode tbody tr td:nth-child(6),
+    #profile-table-archive.mobile-card-mode tbody tr td:nth-child(6) {
+        flex-direction: row !important;
+        gap: 3px;
+    }
+    #table-exams.mobile-card-mode tbody tr td strong,
+    #profile-table-active.exam-card-mode tbody tr td strong,
+    #profile-table-marketplace.exam-card-mode tbody tr td strong,
+    #profile-table-archive.exam-card-mode tbody tr td strong {
+        font-weight: inherit;
+    }
+
+    /* Başlık ve hoca satırları tam genişlik */
+    #table-exams.mobile-card-mode tbody tr td:nth-child(1),
+    #table-exams.exam-card-mode tbody tr td:nth-child(1),
+    #profile-table-active.exam-card-mode tbody tr td:nth-child(1),
+    #profile-table-marketplace.exam-card-mode tbody tr td:nth-child(1),
+    #profile-table-archive.exam-card-mode tbody tr td:nth-child(1),
+    #profile-table-active.mobile-card-mode tbody tr td:nth-child(1),
+    #profile-table-marketplace.mobile-card-mode tbody tr td:nth-child(1),
+    #profile-table-archive.mobile-card-mode tbody tr td:nth-child(1) {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        font-size: 0.92rem !important;
+        padding: 0 !important;
+    }
+    #profile-table-active.exam-card-mode tbody tr td:nth-child(3),
+    #profile-table-archive.exam-card-mode tbody tr td:nth-child(3),
+    #profile-table-active.mobile-card-mode tbody tr td:nth-child(3),
+    #profile-table-archive.mobile-card-mode tbody tr td:nth-child(3) {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        padding: 0 0 2px 0 !important;
+        font-size: 0.74rem !important;
+    }
+
+    /* İşlem butonları: son hücre, tam genişlik 3 sütunlu ızgara */
+    #table-exams.mobile-card-mode tbody tr td:last-child:not(:first-child),
+    #table-exams.exam-card-mode tbody tr td:last-child:not(:first-child),
+    #profile-table-active.exam-card-mode tbody tr td:last-child:not(:first-child),
+    #profile-table-marketplace.exam-card-mode tbody tr td:last-child:not(:first-child),
+    #profile-table-archive.exam-card-mode tbody tr td:last-child:not(:first-child),
+    #profile-table-active.mobile-card-mode tbody tr td:last-child:not(:first-child),
+    #profile-table-marketplace.mobile-card-mode tbody tr td:last-child:not(:first-child),
+    #profile-table-archive.mobile-card-mode tbody tr td:last-child:not(:first-child) {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px !important;
+        padding: 6px 0 0 0 !important;
+        margin-top: 4px !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+        background: transparent !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #table-exams.exam-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #profile-table-active.exam-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #profile-table-marketplace.exam-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #profile-table-archive.exam-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #profile-table-active.mobile-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #profile-table-marketplace.mobile-card-mode tbody tr td:last-child:not(:first-child) > *,
+    #profile-table-archive.mobile-card-mode tbody tr td:last-child:not(:first-child) > * {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0.4rem 0.3rem !important;
+        min-height: 32px !important;
+        height: auto !important;
+        font-size: 0.7rem !important;
+        line-height: 1.15 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        justify-content: center;
+        text-align: center;
+        border-radius: 8px !important;
+    }
+}
+
+/* Mobil Sınavlar listesi (#table-exams): 11 sütun
+   1 Tür · 2 Ders · 3 Hoca · 4 Derslik · 5 Tarih · 6 Saat · 7 Süre · 8 Katsayı · 9 Puan · 10 Gözetmen · 11 İşlem
+   Eski mobil kurallar 9 sütuna göre yazıldığı için Gözetmen/İşlem kartın en üstüne çıkıyor,
+   Katsayı hücresine "Görevli Asistanlar" etiketi düşüyordu. */
+@media (max-width: 768px) {
+    #table-exams.mobile-card-mode tbody tr td:nth-child(1) {
+        order: 1 !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(2) {
+        order: 2 !important;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        font-size: 0.92rem !important;
+        padding: 0 !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(3) {
+        order: 3 !important;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        font-size: 0.74rem !important;
+        padding: 0 0 2px 0 !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(5) { order: 4 !important; }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(6) { order: 5 !important; }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(4) { order: 6 !important; }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(7) { order: 7 !important; }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(7)::after { content: ' dk'; }
+
+    /* Katsayı ve Puan: küçük rozet */
+    #table-exams.mobile-card-mode tbody tr td:nth-child(8),
+    #table-exams.mobile-card-mode tbody tr td:nth-child(9) {
+        display: inline-flex !important;
+        align-items: center !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
+        padding: 3px 6px !important;
+        font-size: 0.68rem !important;
+        background: rgba(0, 0, 0, 0.35) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 6px !important;
+        justify-content: flex-start !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(8) { order: 8 !important; color: #cbd5e1 !important; }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(9) { order: 9 !important; color: #fb7185 !important; font-weight: 700 !important; }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(8)::before {
+        content: 'Katsayı ' !important;
+        display: inline !important;
+        margin: 0 3px 0 0 !important;
+        font-size: inherit !important;
+        color: #94a3b8 !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(9)::before {
+        content: '🏆 ' !important;
+        display: inline !important;
+        margin-right: 3px;
+    }
+
+    /* Gözetmenler: tam genişlik, küçük çipler */
+    #table-exams.mobile-card-mode tbody tr td:nth-child(10) {
+        order: 10 !important;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        padding: 4px 0 0 0 !important;
+        background: transparent !important;
+        border: none !important;
+        font-size: 0.72rem !important;
+    }
+    #table-exams.mobile-card-mode tbody tr td:nth-child(10) > span {
+        margin: 0 !important;
+        padding: 2px 7px !important;
+        font-size: 0.72rem !important;
+    }
+
+    /* İşlem: en altta, 3 sütunlu küçük butonlar */
+    #table-exams.mobile-card-mode tbody tr td:nth-child(11) {
+        order: 11 !important;
+    }
+}
