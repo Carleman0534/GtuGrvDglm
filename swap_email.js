@@ -131,6 +131,7 @@ function guessEmail(staff) {
  * @param {string|number} myExamId - Kullanıcının kendi sınavı
  */
 window.openSwapEmailModal = function(myExamId) {
+    if (!document.getElementById('modal-swap-email') && typeof injectSwapEmailModals === 'function') { injectSwapEmailModals(); }
     const myStaffId = localStorage.getItem('myStaffId');
     if (!myStaffId) {
         alert('Lütfen önce profilinizden kimliğinizi seçin.');
@@ -385,6 +386,7 @@ window.seOpenMailto = function() {
  * @param {string|number} examId
  */
 window.openMarketEmailModal = function(examId) {
+    if (!document.getElementById('modal-market-email') && typeof injectSwapEmailModals === 'function') { injectSwapEmailModals(); }
     const myStaffId = localStorage.getItem('myStaffId');
     if (!myStaffId) {
         alert('Lütfen önce profilinizden kimliğinizi seçin.');

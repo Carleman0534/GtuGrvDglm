@@ -193,12 +193,15 @@
             const btn = document.getElementById('btn-profile');
             if (btn) btn.click();
         } else if (tabKey === 'swap') {
-            // Profil sekmesine git ve Takas pazarını göster
+            // Profil sekmesine git ve Takas / Pazar Yeri görünümünü aç
             const btn = document.getElementById('btn-profile');
             if (btn) btn.click();
             setTimeout(() => {
-                const swapCard = document.getElementById('card-swap-market') || document.getElementById('profile-marketplace-announcement');
-                if (swapCard) swapCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (typeof window.switchProfileTab === 'function') {
+                    window.switchProfileTab('marketplace');
+                }
+                const pane = document.getElementById('tab-marketplace');
+                if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
         } else if (tabKey === 'notifs') {
             // Bildirim Ayarları & Bildirimler Penceresini Aç

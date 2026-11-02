@@ -2290,6 +2290,7 @@
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Değişmek istediğiniz hocayı ve onun hangi sınavıyla takas yapmak istediğinizi seçin.</p>
                 
                 <input type="hidden" id="direct-swap-my-exam-id">
+                <div id="direct-swap-my-exam-card" style="margin-bottom: 1rem;"></div>
                 
                 <div class="form-group">
                     <label>Takas Yapılacak Hoca</label>
@@ -2348,6 +2349,7 @@
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Bu açık görevi almak karşılığında kendi sınavlarınızdan hangisini karşı tarafa devretmek istiyorsunuz?</p>
                 
                 <input type="hidden" id="offer-swap-request-id">
+                <div id="offer-swap-target-card" style="margin-bottom: 1rem;"></div>
                 
                 <div id="offer-swap-my-exams-container">
                     <label>Kendi Aktif Sınavlarınız (Birini Seçin)</label>
@@ -2367,6 +2369,18 @@
                             <strong id="offer-swap-my-exam-name" style="color: var(--primary);">Vereceğiniz Görev</strong>
                         </div>
                     </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 1.25rem;">
+                    <label style="font-size: 0.85rem; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">💬 Açıklama / Not (İsteğe Bağlı):</label>
+                    <textarea id="offer-swap-note" placeholder="Örn: Bu sınavla değiştirmek istiyorum..." style="width: 100%; min-height: 60px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem; color: white;"></textarea>
+                </div>
+
+                <div style="margin-top: 0.75rem;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text-secondary);">
+                        <input type="checkbox" id="offer-swap-create-mail" checked style="accent-color: var(--primary);">
+                        <span>Karşı hocaya otomatik bilgilendirme e-postası taslağı oluştur</span>
+                    </label>
                 </div>
             </div>
             <div class="modal-footer">

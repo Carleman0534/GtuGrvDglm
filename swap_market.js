@@ -803,12 +803,18 @@ ${signature(claimer)}`
     const directSwapState = { myExamId: null, targetStaffId: null, targetExamId: null };
 
     function initiateDirectSwap(myExamId) {
-        const me = myId();
-        if (!me) return alert('Lütfen önce profilinizden kimliğinizi seçin.');
+        let me = myId();
         const myExam = examById(myExamId);
         if (!myExam) return alert('Sınav bulunamadı.');
-        if (!holds(myExam, me)) return alert('Bu görev size ait görünmüyor.');
-        if (!isUpcoming(myExam)) return alert('Geçmiş bir görev takas edilemez.');
+
+        // Yönetici için kolaylık: Kimlik seçilmemişse sınavın ilk gözetmenini kaynak al
+        const pids = proctorIdsOf(myExam);
+        if (!me && isAdmin()) {
+            me = pids[0] ? S(pids[0]) : null;
+        }
+        if (!me) return alert('Lütfen önce profilinizden kimliğinizi seçin.');
+        if (!holds(myExam, me) && !isAdmin()) return alert('Bu görev size ait görünmüyor.');
+        if (!isUpcoming(myExam) && !isAdmin()) return alert('Geçmiş bir görev takas edilemez.');
         const active = activeRequestsForExam(myExam.id);
         if (active.length) {
             return alert(`Bu görev için zaten aktif bir talep var (${historyLabel(active[0]).label}). Yeni talep oluşturmadan önce mevcut talebi iptal edin veya sonuçlanmasını bekleyin.`);
@@ -818,28 +824,38 @@ ${signature(claimer)}`
         directSwapState.targetStaffId = null;
         directSwapState.targetExamId = null;
 
-        document.getElementById('direct-swap-my-exam-id').value = myExam.id;
-        document.getElementById('direct-swap-my-exam-card').innerHTML = examCardHTML(myExam);
+        const idInput = document.getElementById('direct-swap-my-exam-id');
+        if (idInput) idInput.value = myExam.id;
+        const myExamCard = document.getElementById('direct-swap-my-exam-card');
+        if (myExamCard) myExamCard.innerHTML = examCardHTML(myExam);
+        const myNameEl = document.getElementById('direct-swap-my-exam-name');
+        if (myNameEl) myNameEl.textContent = myExam.name;
 
         const sel = document.getElementById('direct-swap-target-proctor');
-        const counts = {};
-        (DB.exams || []).forEach(e => { if (isUpcoming(e)) proctorIdsOf(e).forEach(p => { counts[S(p)] = (counts[S(p)] || 0) + 1; }); });
-        sel.innerHTML = '<option value="">Hoca seçin...</option>' + (DB.staff || [])
-            .filter(s => S(s.id) !== S(me))
-            .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
-            .map(s => `<option value="${esc(S(s.id))}" ${counts[S(s.id)] ? '' : 'disabled'}>${esc(s.name)} (${counts[S(s.id)] || 0} aktif görev)</option>`).join('');
-        sel.onchange = () => {
-            directSwapState.targetStaffId = sel.value || null;
-            directSwapState.targetExamId = null;
-            updateDirectSwapSummary();
-            renderDirectSwapTargetExams(sel.value);
-        };
+        if (sel) {
+            const counts = {};
+            (DB.exams || []).forEach(e => { if (isUpcoming(e)) proctorIdsOf(e).forEach(p => { counts[S(p)] = (counts[S(p)] || 0) + 1; }); });
+            sel.innerHTML = '<option value="">Hoca seçin...</option>' + (DB.staff || [])
+                .filter(s => S(s.id) !== S(me))
+                .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+                .map(s => `<option value="${esc(S(s.id))}" ${counts[S(s.id)] ? '' : 'disabled'}>${esc(s.name)} (${counts[S(s.id)] || 0} aktif görev)</option>`).join('');
+            sel.onchange = () => {
+                directSwapState.targetStaffId = sel.value || null;
+                directSwapState.targetExamId = null;
+                updateDirectSwapSummary();
+                renderDirectSwapTargetExams(sel.value);
+            };
+        }
 
-        document.getElementById('direct-swap-target-exams-container').classList.add('hidden');
-        document.getElementById('direct-swap-note').value = '';
-        document.getElementById('direct-swap-create-mail').checked = true;
+        const examsContainer = document.getElementById('direct-swap-target-exams-container');
+        if (examsContainer) examsContainer.classList.add('hidden');
+        const noteInput = document.getElementById('direct-swap-note');
+        if (noteInput) noteInput.value = '';
+        const mailCheckbox = document.getElementById('direct-swap-create-mail');
+        if (mailCheckbox) mailCheckbox.checked = true;
         updateDirectSwapSummary();
-        document.getElementById('modal-direct-swap').classList.remove('hidden');
+        const modal = document.getElementById('modal-direct-swap');
+        if (modal) modal.classList.remove('hidden');
     }
 
     function renderDirectSwapTargetExams(targetStaffId) {
@@ -936,45 +952,67 @@ ${signature(claimer)}`
     const offerState = { marketReqId: null, myExamId: null };
 
     function openOfferSwapModal(requestId) {
-        const me = myId();
-        if (!me) return alert('Lütfen önce profilinizden kimliğinizi seçin.');
+        let me = myId();
         const mr = reqById(requestId);
         if (!mr || mr.status !== 'pending' || mr.receiverId != null) return alert('Bu ilan artık aktif değil.');
         const target = examById(mr.examId);
         if (!target) return alert('Sınav bulunamadı.');
+
+        if (!me && isAdmin()) {
+            const myExams = (DB.exams || []).filter(e => isUpcoming(e) && proctorIdsOf(e).length > 0);
+            if (myExams.length) me = S(proctorIdsOf(myExams[0])[0]);
+        }
+        if (!me) return alert('Lütfen önce profilinizden kimliğinizi seçin.');
+
         offerState.marketReqId = mr.id; offerState.myExamId = null;
 
-        document.getElementById('offer-swap-request-id').value = mr.id;
-        document.getElementById('offer-swap-target-card').innerHTML = examCardHTML(target, `<div class="swap-check-line">Görev sahibi: <b>${esc(mr.initiatorName || '')}</b></div>`);
+        const reqInput = document.getElementById('offer-swap-request-id');
+        if (reqInput) reqInput.value = mr.id;
+        const targetCard = document.getElementById('offer-swap-target-card');
+        if (targetCard) targetCard.innerHTML = examCardHTML(target, `<div class="swap-check-line">Görev sahibi: <b>${esc(mr.initiatorName || '')}</b></div>`);
+        const targetNameEl = document.getElementById('offer-swap-target-exam-name');
+        if (targetNameEl) targetNameEl.textContent = target.name;
+
         const myExams = (DB.exams || []).filter(e => holds(e, me) && isUpcoming(e)).sort((a, b) => examStart(a) - examStart(b));
         const list = document.getElementById('offer-swap-exam-list');
-        if (!myExams.length) list.innerHTML = '<p class="swap-empty">Aktif göreviniz bulunmuyor; takas teklif edemezsiniz. "Görevi Al" seçeneğini kullanabilirsiniz.</p>';
-        else {
-            list.innerHTML = myExams.map(ex => {
-                const busy = activeRequestsForExam(ex.id).length > 0;
-                const v = validateSwap(ex, me, target, mr.initiatorId);
-                const ok = !busy && !v.errors.length;
-                return `<div class="swap-exam-option ${ok ? '' : 'disabled'}" data-exam-id="${esc(S(ex.id))}">
-                    ${examCardHTML(ex, `<div class="swap-check-line ${ok ? 'ok' : 'bad'}">${ok ? '✅ Teklif edilebilir' : '⛔ ' + esc(busy ? 'Bu görev için aktif bir talebiniz var' : v.errors.join(' · '))}</div>`)}
-                </div>`;
-            }).join('');
-            list.querySelectorAll('.swap-exam-option:not(.disabled)').forEach(el => {
-                el.onclick = () => {
-                    offerState.myExamId = el.getAttribute('data-exam-id');
-                    list.querySelectorAll('.swap-exam-option').forEach(x => x.classList.remove('active'));
-                    el.classList.add('active');
-                    const box = document.getElementById('offer-swap-summary');
-                    box.innerHTML = `<div class="swap-summary-head">Teklif Özeti</div>${summaryTableHTML(examById(offerState.myExamId), target, 'Sizdeki (verilecek)', esc(mr.initiatorName || '') + ' (alınacak)')}`;
-                    box.classList.remove('hidden');
-                    document.getElementById('btn-confirm-offer-swap').disabled = false;
-                };
-            });
+        if (list) {
+            if (!myExams.length) {
+                list.innerHTML = '<p class="swap-empty">Aktif göreviniz bulunmuyor; takas teklif edemezsiniz. "Görevi Al" seçeneğini kullanabilirsiniz.</p>';
+            } else {
+                list.innerHTML = myExams.map(ex => {
+                    const busy = activeRequestsForExam(ex.id).length > 0;
+                    const v = validateSwap(ex, me, target, mr.initiatorId);
+                    const ok = !busy && !v.errors.length;
+                    return `<div class="swap-exam-option ${ok ? '' : 'disabled'}" data-exam-id="${esc(S(ex.id))}">
+                        ${examCardHTML(ex, `<div class="swap-check-line ${ok ? 'ok' : 'bad'}">${ok ? '✅ Teklif edilebilir' : '⛔ ' + esc(busy ? 'Bu görev için aktif bir talebiniz var' : v.errors.join(' · '))}</div>`)}
+                    </div>`;
+                }).join('');
+                list.querySelectorAll('.swap-exam-option:not(.disabled)').forEach(el => {
+                    el.onclick = () => {
+                        offerState.myExamId = el.getAttribute('data-exam-id');
+                        list.querySelectorAll('.swap-exam-option').forEach(x => x.classList.remove('active'));
+                        el.classList.add('active');
+                        const box = document.getElementById('offer-swap-summary');
+                        if (box) {
+                            box.innerHTML = `<div class="swap-summary-head">Teklif Özeti</div>${summaryTableHTML(examById(offerState.myExamId), target, 'Sizdeki (verilecek)', esc(mr.initiatorName || '') + ' (alınacak)')}`;
+                            box.classList.remove('hidden');
+                        }
+                        const confBtn = document.getElementById('btn-confirm-offer-swap');
+                        if (confBtn) confBtn.disabled = false;
+                    };
+                });
+            }
         }
-        document.getElementById('offer-swap-summary').classList.add('hidden');
-        document.getElementById('offer-swap-note').value = '';
-        document.getElementById('offer-swap-create-mail').checked = true;
-        document.getElementById('btn-confirm-offer-swap').disabled = true;
-        document.getElementById('modal-offer-swap').classList.remove('hidden');
+        const summaryBox = document.getElementById('offer-swap-summary');
+        if (summaryBox) summaryBox.classList.add('hidden');
+        const noteEl = document.getElementById('offer-swap-note');
+        if (noteEl) noteEl.value = '';
+        const mailEl = document.getElementById('offer-swap-create-mail');
+        if (mailEl) mailEl.checked = true;
+        const confirmBtn = document.getElementById('btn-confirm-offer-swap');
+        if (confirmBtn) confirmBtn.disabled = true;
+        const modal = document.getElementById('modal-offer-swap');
+        if (modal) modal.classList.remove('hidden');
     }
 
     async function confirmOfferSwap() {
@@ -1392,9 +1430,9 @@ ${signature(claimer)}`
     }
 
     function renderMyRequests() {
-        const pane = document.getElementById('my-requests-content');
+        const pane = document.getElementById('my-requests-content') || document.getElementById('swap-history-list');
         const me = myId();
-        const badge = document.getElementById('requests-tab-badge');
+        const badge = document.getElementById('requests-tab-badge') || document.getElementById('marketplace-badge');
         if (!pane || !me) { if (badge) badge.classList.add('hidden'); return; }
 
         const incoming = incomingFor(me);
@@ -1444,8 +1482,13 @@ ${signature(claimer)}`
         const btnProfile = document.getElementById('btn-profile');
         const section = document.getElementById('section-profile');
         if (btnProfile && section && section.classList.contains('hidden')) btnProfile.click();
-        const tab = document.querySelector('#section-profile .tab-btn[data-tab="requests"]');
-        if (tab) tab.click();
+        if (typeof window.switchProfileTab === 'function') {
+            window.switchProfileTab('swap-history');
+        } else {
+            const tab = document.querySelector('#section-profile .tab-btn[data-tab="swap-history"]') ||
+                        document.querySelector('#section-profile .tab-btn[data-tab="requests"]');
+            if (tab) tab.click();
+        }
         renderMyRequests();
     }
 
@@ -1593,7 +1636,7 @@ ${signature(claimer)}`
     function bindStatic() {
         const btn = document.getElementById('btn-confirm-direct-swap');
         if (btn) btn.onclick = confirmDirectSwap;
-        const tab = document.querySelector('#section-profile .tab-btn[data-tab="requests"]');
+        const tab = document.querySelector('#section-profile .tab-btn[data-tab="swap-history"]') || document.querySelector('#section-profile .tab-btn[data-tab="requests"]');
         if (tab && !tab.__swapBound) { tab.__swapBound = true; tab.addEventListener('click', renderMyRequests); }
         settings();
     }
