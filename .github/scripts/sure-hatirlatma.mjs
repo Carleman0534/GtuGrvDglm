@@ -30,7 +30,11 @@ const MAX_SENDS = 2;
 const STATE_FILE = process.env.STATE_FILE || 'hatirlatma.json';
 const user = process.env.GMAIL_USER || '';
 const pass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
-const dryRun = process.env.DRY_RUN === '1' || !user || !pass;
+const vapidPublic = (process.env.VAPID_PUBLIC_KEY || '').trim();
+const vapidPrivate = (process.env.VAPID_PRIVATE_KEY || '').trim();
+const emailEnabled = !!(user && pass);
+const pushEnabled = !!(vapidPublic && vapidPrivate);
+const dryRun = process.env.DRY_RUN === '1' || (!emailEnabled && !pushEnabled);
 const now = process.env.NOW ? Date.parse(process.env.NOW) : Date.now();
 
 const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -127,50 +131,97 @@ async function main() {
         }
     }
 
-    let transporter = null;
+    let transporter = null, webpush = null;
     if (!dryRun && due.size) {
-        const nodemailer = (await import('nodemailer')).default;
-        transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+        if (emailEnabled) {
+            const nodemailer = (await import('nodemailer')).default;
+            transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+        }
+        if (pushEnabled) {
+            webpush = (await import('web-push')).default;
+            webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL.replace(/\/GtuGrvDglm\/$/, ''), vapidPublic, vapidPrivate);
+        }
     }
 
-    let sent = 0, skipped = 0, failed = 0;
+    // Telefona kayıtlı cihazlar (site, izin verilince DB.pushAbonelikleri[gözetmenId] altına yazar)
+    const subsOf = (pid) => {
+        const all = db.pushAbonelikleri && db.pushAbonelikleri[pid];
+        const list = Array.isArray(all) ? all : (all && typeof all === 'object' ? Object.values(all) : []);
+        const dead = state._oluAbonelikler || {};
+        return list.filter(s => s && s.endpoint && s.keys && s.keys.p256dh && s.keys.auth && !dead[s.id]);
+    };
+
+    let sent = 0, pushed = 0, skipped = 0, failed = 0;
     for (const [pid, exams] of due) {
         const staff = staffById.get(pid);
-        if (!staff || !isEmail(staff.email)) { skipped++; console.log(`Atlandı: gözetmen #${pid} için geçerli e-posta yok (${exams.length} sınav)`); continue; }
-        const mail = buildEmail(staff, exams);
+        if (!staff) { skipped++; console.log(`Atlandı: gözetmen #${pid} personel listesinde yok (${exams.length} sınav)`); continue; }
+        const subs = subsOf(pid);
+        const hasEmail = isEmail(staff.email);
+        if (!hasEmail && !subs.length) { skipped++; console.log(`Atlandı: gözetmen #${pid} için e-posta veya kayıtlı cihaz yok`); continue; }
         if (dryRun) {
-            console.log(`[Deneme] gözetmen #${pid} → ${exams.length} sınav: ${exams.map(e => e.id).join(', ')}`);
+            console.log(`[Deneme] gözetmen #${pid} → ${exams.length} sınav (${exams.map(e => e.id).join(', ')}), e-posta: ${hasEmail ? 'var' : 'yok'}, cihaz: ${subs.length}`);
             continue;
         }
-        try {
-            await transporter.sendMail({
-                from: `"GTÜ Gözetmenlik Sistemi" <${user}>`,
-                to: staff.email.trim(),
-                subject: mail.subject,
-                text: mail.text,
-                html: mail.html
+
+        let delivered = false;
+        if (transporter && hasEmail) {
+            const mail = buildEmail(staff, exams);
+            try {
+                await transporter.sendMail({ from: `"GTÜ Gözetmenlik Sistemi" <${user}>`, to: staff.email.trim(), subject: mail.subject, text: mail.text, html: mail.html });
+                delivered = true; sent++;
+                console.log(`E-posta gönderildi: gözetmen #${pid} (${exams.length} sınav)`);
+            } catch (e) {
+                failed++;
+                console.error(`E-posta gönderilemedi: gözetmen #${pid}: ${e.message}`);
+            }
+        }
+        if (webpush && subs.length) {
+            const first = exams[0];
+            const payload = JSON.stringify({
+                title: '⏱️ Sınav sürenizi onaylayın',
+                body: exams.length === 1
+                    ? `${first.name} (${first.date} ${first.time}) — ${parseInt(first.scheduledDuration || first.duration, 10) || 60} dk sürdü mü?`
+                    : `${exams.length} sınavın süresi onay bekliyor. Dokunun ve onaylayın.`,
+                tag: 'sure_onay',
+                data: { url: SITE_URL, action: 'verify_duration', examId: first.id, step: 'question' }
             });
+            for (const s of subs) {
+                try {
+                    await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload, { TTL: 24 * 60 * 60 });
+                    delivered = true; pushed++;
+                } catch (e) {
+                    if (e.statusCode === 404 || e.statusCode === 410) {
+                        // Cihaz aboneliği iptal olmuş (uygulama silindi / izin kaldırıldı): bir daha deneme
+                        state._oluAbonelikler = Object.assign(state._oluAbonelikler || {}, { [s.id]: new Date(now).toISOString() });
+                        console.log(`Cihaz aboneliği geçersiz, atlanacak: gözetmen #${pid}`);
+                    } else {
+                        failed++;
+                        console.error(`Bildirim gönderilemedi: gözetmen #${pid}: ${e.statusCode || ''} ${e.message}`);
+                    }
+                }
+            }
+            console.log(`Telefon bildirimi: gözetmen #${pid}, ${subs.length} cihaz`);
+        }
+
+        if (delivered) {
             const stamp = new Date(now).toISOString();
             for (const ex of exams) {
                 const key = `${ex.id}:${pid}`;
                 state[key] = { count: ((state[key] && state[key].count) || 0) + 1, last: stamp };
             }
-            sent++;
-            console.log(`Gönderildi: gözetmen #${pid} (${exams.length} sınav)`);
-        } catch (e) {
-            failed++;
-            console.error(`Gönderilemedi: gözetmen #${pid}: ${e.message}`);
         }
     }
 
     // 30 günden eski kayıtları temizle
     for (const [k, v] of Object.entries(state)) {
+        if (k.startsWith('_')) continue;
         if (now - Date.parse(v.last) > 30 * 24 * 60 * 60 * 1000) delete state[k];
     }
     if (!dryRun) writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 
-    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, e-posta alacak gözetmen: ${due.size}, gönderilen: ${sent}, atlanan: ${skipped}, hata: ${failed}`);
-    if (dryRun && (!user || !pass)) console.log('GMAIL_USER / GMAIL_APP_PASSWORD tanımlı olmadığı için e-posta gönderilmedi.');
+    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, hatırlatılacak gözetmen: ${due.size}, e-posta: ${sent}, telefon bildirimi: ${pushed}, atlanan: ${skipped}, hata: ${failed}`);
+    if (!emailEnabled) console.log('GMAIL_USER / GMAIL_APP_PASSWORD tanımlı değil: e-posta gönderilmiyor.');
+    if (!pushEnabled) console.log('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY tanımlı değil: telefon bildirimi gönderilmiyor.');
     if (failed) process.exitCode = 1;
 }
 

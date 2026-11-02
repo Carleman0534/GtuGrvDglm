@@ -82,6 +82,8 @@
                 // Hemen kontrolleri çalıştır
                 checkAllExamNotifications();
                 window.checkIncomingBroadcastNotifications();
+                // Uygulama kapalıyken de bildirim alabilmek için cihazı kaydet
+                window.ensurePushSubscription();
                 return true;
             } else if (permission === 'denied') {
                 alert('Bildirim izni reddedildi. Telefon ayarlarından tarayıcınız için bildirimlere izin vermeniz gerekebilir.');
@@ -674,16 +676,143 @@
             }
         }
 
-        // 3. Uygulama içi proaktif banner
+        // 3. Uygulama içi proaktif banner: duruma göre doğru yönlendirme
         const proactiveBanner = document.getElementById('proactive-notif-banner');
         if (proactiveBanner) {
-            if (state === 'granted' || sessionStorage.getItem('proactive_notif_banner_dismissed') === '1') {
-                proactiveBanner.classList.add('hidden');
+            const pTitle = document.getElementById('proactive-notif-title');
+            const pText = document.getElementById('proactive-notif-text');
+            const pBtn = document.getElementById('proactive-notif-btn');
+            const iosNotInstalled = isIosDevice() && !isStandalone;
+            let show = state !== 'granted' && sessionStorage.getItem('proactive_notif_banner_dismissed') !== '1';
+
+            if (iosNotInstalled) {
+                // iPhone'da bildirim yalnızca ana ekrana eklenen uygulamada çalışır; izin istemek işe yaramaz
+                if (pTitle) pTitle.textContent = 'Bildirimler için uygulamayı ana ekrana ekleyin';
+                if (pText) pText.textContent = 'iPhone\'da sınav ve süre onayı bildirimleri yalnızca ana ekrana eklenen uygulamada çalışır.';
+                if (pBtn) { pBtn.style.display = ''; pBtn.textContent = '📲 Nasıl Eklenir?'; pBtn.onclick = () => window.triggerPwaInstall && window.triggerPwaInstall(); }
+            } else if (state === 'denied') {
+                if (pTitle) pTitle.textContent = 'Bildirimler kapalı';
+                if (pText) pText.textContent = 'Telefon veya tarayıcı ayarlarından bu site için bildirimlere izin verirseniz sınav ve süre onayı hatırlatmaları gelir.';
+                if (pBtn) pBtn.style.display = 'none';
+            } else if (state === 'unsupported') {
+                show = false;
             } else {
-                proactiveBanner.classList.remove('hidden');
+                if (pTitle) pTitle.textContent = 'Sınav ve Duyuru Bildirimlerini Kaçırmayın';
+                if (pText) pText.textContent = 'Uygulama kapalıyken bile sınav hatırlatmaları ve süre onayı bildirimleri telefonunuza gelsin.';
+                if (pBtn) { pBtn.style.display = ''; pBtn.textContent = '🔔 Bildirimleri Aç'; pBtn.onclick = () => window.quickEnableNotificationWithFeedback(); }
             }
+            proactiveBanner.classList.toggle('hidden', !show);
         }
     };
+
+    function isIosDevice() {
+        const ua = navigator.userAgent;
+        return (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    }
+
+    // --- Telefona kurulu uygulamada doğru anda izin isteği ---
+    // Uygulama ana ekrana eklenip giriş yapıldıktan sonra, ekranın ortasında bir kez açıklamalı
+    // izin penceresi gösterilir (reddedilirse 24 saat sorulmaz). İzin bir dokunuşla istenir;
+    // tarayıcılar (özellikle iPhone) yalnızca kullanıcı dokunuşuyla izin penceresi açar.
+    function maybeShowPermissionPrompt() {
+        if (getPermissionState() !== 'default') return;
+        const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        if (!standalone || sessionStorage.getItem('isLoggedIn') !== 'true' || !localStorage.getItem('myStaffId')) return;
+        const last = parseInt(localStorage.getItem('notif_permission_prompt_at') || '0', 10);
+        if (Date.now() - last < 24 * 60 * 60 * 1000) return;
+        if (document.querySelector('.modal:not(.hidden)')) return;
+
+        localStorage.setItem('notif_permission_prompt_at', String(Date.now()));
+        let modal = document.getElementById('modal-notif-permission');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-notif-permission';
+            modal.className = 'modal hidden';
+            modal.style.zIndex = '9000';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width:420px; text-align:center;">
+                    <div style="font-size:2.4rem;">🔔</div>
+                    <h2 style="margin:0.3rem 0 0.5rem;">Bildirimlere izin verin</h2>
+                    <p style="font-size:0.86rem; color:#cbd5e1; margin:0 0 1rem;">
+                        Sınavlarınızdan önce hatırlatma ve sınav bitince <b>süre onayı</b> bildirimi alırsınız —
+                        uygulama kapalıyken bile.
+                    </p>
+                    <button type="button" class="btn-primary" id="notif-permission-allow" style="width:100%; padding:0.7rem; font-weight:700;">🔔 İzin Ver</button>
+                    <button type="button" class="btn-secondary" id="notif-permission-later" style="width:100%; margin-top:0.5rem; padding:0.55rem;">Şimdi Değil</button>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.querySelector('#notif-permission-allow').onclick = async () => {
+                modal.classList.add('hidden');
+                await window.requestExamNotificationPermission();
+            };
+            modal.querySelector('#notif-permission-later').onclick = () => modal.classList.add('hidden');
+        }
+        modal.classList.remove('hidden');
+    }
+
+    // --- Web Push: uygulama kapalıyken bildirim için cihaz aboneliği ---
+    // Abonelik DB.pushAbonelikleri[gözetmenId] altında saklanır; zamanlanmış GitHub iş akışı
+    // (.github/scripts/sure-hatirlatma.mjs) bu aboneliklere bildirim gönderir. Abonelik bilgisi
+    // tek başına bildirim göndermeye yetmez (gizli VAPID anahtarı gerekir).
+    const VAPID_PUBLIC_KEY = 'BPwOOdXIKbMCjEK107ygO3JgtASY5gU5fT2B_KBk6BGPafuWWQx6lEE6E0tRxPdUohZS2alTsmpPKIfNH72NdDo';
+    let pushSyncDone = false;
+
+    function base64UrlToUint8Array(s) {
+        const raw = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+        return Uint8Array.from(raw, c => c.charCodeAt(0));
+    }
+
+    function endpointId(endpoint) {
+        let h = 5381;
+        for (let i = 0; i < endpoint.length; i++) h = ((h << 5) + h + endpoint.charCodeAt(i)) >>> 0;
+        return 'p' + h.toString(16) + endpoint.length.toString(16);
+    }
+
+    window.ensurePushSubscription = async function () {
+        const myStaffId = localStorage.getItem('myStaffId');
+        if (!myStaffId || getPermissionState() !== 'granted' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!window.DB || !Array.isArray(DB.staff) || DB.staff.length === 0) return;
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            let sub = await reg.pushManager.getSubscription();
+            if (!sub) {
+                sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY) });
+            }
+            const json = sub.toJSON();
+            if (!json.endpoint || !json.keys) return;
+            const id = endpointId(json.endpoint);
+            if (!DB.pushAbonelikleri || typeof DB.pushAbonelikleri !== 'object') DB.pushAbonelikleri = {};
+
+            const mine = Array.isArray(DB.pushAbonelikleri[myStaffId]) ? DB.pushAbonelikleri[myStaffId] : [];
+            const already = mine.some(s => s && s.id === id && s.endpoint === json.endpoint);
+            // Aynı cihaz başka bir kişiye kayıtlıysa (profil değiştirildi) oradan kaldır
+            let changed = false;
+            Object.keys(DB.pushAbonelikleri).forEach(k => {
+                if (k === myStaffId || !Array.isArray(DB.pushAbonelikleri[k])) return;
+                const before = DB.pushAbonelikleri[k].length;
+                DB.pushAbonelikleri[k] = DB.pushAbonelikleri[k].filter(s => s && s.id !== id);
+                if (DB.pushAbonelikleri[k].length !== before) changed = true;
+            });
+            if (!already) {
+                const entry = { id, endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth }, cihaz: /iPhone|iPad/.test(navigator.userAgent) ? 'iOS' : (/Android/.test(navigator.userAgent) ? 'Android' : 'Masaüstü'), eklendi: new Date().toISOString() };
+                DB.pushAbonelikleri[myStaffId] = mine.filter(s => s && s.id !== id).concat(entry).slice(-5);
+                changed = true;
+            }
+            if (changed && typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            pushSyncDone = true;
+        } catch (e) {
+            console.warn('[Push] Abonelik oluşturulamadı:', e.message);
+        }
+    };
+
+    let lastPushAttempt = 0;
+    function pushAndPromptTick() {
+        maybeShowPermissionPrompt();
+        if (!pushSyncDone && sessionStorage.getItem('isLoggedIn') === 'true' && Date.now() - lastPushAttempt > 60000) {
+            lastPushAttempt = Date.now();
+            window.ensurePushSubscription();
+        }
+    }
 
     // Modal Açma: Bildirim Ayarları
     window.openNotificationSettingsModal = function () {
@@ -799,6 +928,7 @@
         setInterval(window.checkIncomingBroadcastNotifications, 30000);
         // Sınav biter bitmez (en geç 5 sn içinde) bildirim + onay penceresi; giriş yapılınca da hemen
         setInterval(window.checkPostExamDurationVerifications, 5000);
+        setInterval(pushAndPromptTick, 5000);
 
         // Kullanıcı sekmeye veya uygulamaya geri döndüğünde anında kontrol et
         window.addEventListener('focus', () => {

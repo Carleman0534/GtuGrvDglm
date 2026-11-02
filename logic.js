@@ -1647,7 +1647,7 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null, 
  * Akıllı Atama Asistanı için Gözetmen Önerileri Listesi oluştur
  */
 function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "") {
-    if (DB.staff.length === 0) return [];
+    if (!dateStr || !timeStr || DB.staff.length === 0) return [];
     const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName));
     if (available.length === 0) return [];
 
@@ -3156,28 +3156,6 @@ function getLocationConflicts() {
         }
     }
     return conflicts;
-}
-
-/**
- * Akıllı Öneri: Müsait ve en düşük puanlı personelleri getir
- * @param {string} date 'YYYY-MM-DD'
- * @param {string} time 'HH:mm'
- * @param {number} duration dk
- * @param {number|null} currentExamId Düzenleme işlemiysek mevcut sınavı yoksaymak için
- * @returns {Array} En iyi 3 aday
- */
-function getRecommendedProctors(date, time, duration, currentExamId = null, isNonExam = false, examName = "") {
-    if (!date || !time) return [];
-
-    // 1. Müsait olanları filtrele (Hem kısıt hem de çakışma)
-    const availableStaff = DB.staff.filter(s => 
-        isProctorTrulyFree(s.id, date, time, duration, currentExamId, isNonExam, examName)
-    );
-
-    // 2. Puana göre sırala ve ilk 5'i dön
-    return availableStaff
-        .sort((a, b) => a.totalScore - b.totalScore)
-        .slice(0, 5);
 }
 
 

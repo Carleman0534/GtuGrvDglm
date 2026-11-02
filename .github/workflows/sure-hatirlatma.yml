@@ -1,7 +1,7 @@
 # ⏱️ Sınav Süresi Onay Hatırlatıcısı
 #
-# Her 15 dakikada bir, bitmiş ve süresi onaylanmamış sınavların gözetmenlerine e-posta gönderir.
-# Site kapalıyken de çalışır. Ayrıntılar: .github/scripts/sure-hatirlatma.mjs
+# Her 15 dakikada bir, bitmiş ve süresi onaylanmamış sınavların gözetmenlerine e-posta ve
+# telefon bildirimi gönderir. Site kapalıyken de çalışır. Ayrıntılar: .github/scripts/sure-hatirlatma.mjs
 #
 # Kurulum (bir kez):
 #   1. Gönderen Gmail hesabında 2 Adımlı Doğrulama açık olmalı.
@@ -9,9 +9,13 @@
 #   2. GitHub'da depo → Settings → Secrets and variables → Actions → New repository secret:
 #        GMAIL_USER          gönderen Gmail adresi
 #        GMAIL_APP_PASSWORD  oluşturduğunuz 16 haneli uygulama şifresi
-#   3. Actions sekmesinden "Süre Onayı Hatırlatıcısı" → Run workflow ile deneyin.
+#   3. Telefon bildirimi için (isteğe bağlı) aynı yerden:
+#        VAPID_PUBLIC_KEY    sitedeki açık anahtar (notification_engine.js içindeki VAPID_PUBLIC_KEY ile aynı)
+#        VAPID_PRIVATE_KEY   gizli anahtar (depoya asla yazılmaz)
+#   4. Actions sekmesinden "Süre Onayı Hatırlatıcısı" → Run workflow ile deneyin.
 #
-# Sırlar tanımlı değilse iş akışı deneme modunda çalışır ve e-posta göndermez.
+# Hiçbir sır tanımlı değilse iş akışı deneme modunda çalışır ve hiçbir şey göndermez.
+# Yalnızca e-posta ya da yalnızca telefon bildirimi sırları da tek başına çalışır.
 # Gönderim kaydı "durum" dalındaki hatirlatma.json dosyasında tutulur (siteyi etkilemez).
 
 name: Süre Onayı Hatırlatıcısı
@@ -58,13 +62,15 @@ jobs:
           fi
           [ -f hatirlatma.json ] || echo '{}' > hatirlatma.json
 
-      - name: E-posta kütüphanesini kur
-        run: npm install --no-save --no-audit --no-fund nodemailer@6.9.14
+      - name: E-posta ve bildirim kütüphanelerini kur
+        run: npm install --no-save --no-audit --no-fund nodemailer@6.9.14 web-push@3.6.7
 
       - name: Hatırlatmaları gönder
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           STATE_FILE: .durum/hatirlatma.json
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: node .github/scripts/sure-hatirlatma.mjs

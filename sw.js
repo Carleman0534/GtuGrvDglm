@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v45';
+const CACHE_NAME = 'gozetmenlik-ai-v46';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -54,12 +54,18 @@ self.addEventListener('activate', event => {
 });
 
 // Fetch Event (Network First, fallback to cache for dynamic PWA)
+// Sitenin kendi dosyaları her seferinde sunucuyla doğrulanır (cache: 'no-cache'); GitHub Pages
+// dosyaları 10 dk önbellekte tuttuğu için yeni sürüm yayınlandıktan sonra eski kod gelebiliyordu.
 self.addEventListener('fetch', event => {
-    if (event.request.url.startsWith(self.location.origin) || typeof event.request.url === 'string') {
-        event.respondWith(
-            fetch(event.request).catch(() => caches.match(event.request))
-        );
+    const req = event.request;
+    if (req.method === 'GET' && req.url.startsWith(self.location.origin)) {
+        const fresh = req.mode === 'navigate'
+            ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
+            : fetch(new Request(req, { cache: 'no-cache' }));
+        event.respondWith(fresh.catch(() => caches.match(req)));
+        return;
     }
+    event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
 
 // Push & Notification Click Event (PWA Bildirimine Dokunulduğunda Uygulamayı Açar)

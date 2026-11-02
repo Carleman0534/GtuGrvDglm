@@ -14544,16 +14544,15 @@ if ('serviceWorker' in navigator) {
             .then(registration => {
                 console.log('[PWA] Service Worker registered with scope:', registration.scope);
                 
-                // Eğer yeni bir service worker yüklenirse sayfayi yenile
+                // Yeni bir service worker yüklenirse sayfayı kendiliğinden yenileme (o an sınav
+                // düzenleyen kişinin işi bölünüyordu); "Yeni sürüm var — Yenile" uyarısı göster
                 registration.onupdatefound = () => {
                     const installingWorker = registration.installing;
                     if (installingWorker) {
                         installingWorker.onstatechange = () => {
-                            if (installingWorker.state === 'installed') {
-                                if (navigator.serviceWorker.controller) {
-                                    console.log('[PWA] Yeni güncelleme algilandi, sayfa yenileniyor...');
-                                    window.location.reload();
-                                }
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('[PWA] Yeni güncelleme algilandi.');
+                                if (typeof window.showUpdateBanner === 'function') window.showUpdateBanner();
                             }
                         };
                     }
@@ -14562,15 +14561,6 @@ if ('serviceWorker' in navigator) {
             .catch(error => {
                 console.error('[PWA] Service Worker registration failed:', error);
             });
-
-        // Service Worker değiştiğinde sayfayi otomatik yenile
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
-                refreshing = true;
-                window.location.reload();
-            }
-        });
     });
 }
 

@@ -373,10 +373,59 @@
         }
     }
 
+    // --- Yeni Sürüm Uyarısı ---
+    // GitHub Pages her yayında tüm dosyaların Last-Modified değerini yeniler. Açılıştaki değer
+    // saklanır; 5 dakikada bir ve uygulamaya geri dönüldüğünde karşılaştırılır. Değiştiyse
+    // (telefona kurulu uygulama günlerce açık kalabildiği için) "Yeni sürüm var" uyarısı çıkar.
+    let loadedVersion = null;
+    let lastVersionCheck = 0;
+
+    async function fetchDeployedVersion() {
+        const res = await fetch('./index.html?surum=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+        if (!res.ok) return null;
+        return res.headers.get('Last-Modified') || res.headers.get('ETag');
+    }
+
+    async function checkForNewVersion() {
+        if (!navigator.onLine || Date.now() - lastVersionCheck < 60000) return;
+        lastVersionCheck = Date.now();
+        try {
+            const v = await fetchDeployedVersion();
+            if (!v) return;
+            if (!loadedVersion) loadedVersion = v;
+            else if (v !== loadedVersion) window.showUpdateBanner();
+        } catch (e) { /* çevrimdışı vb. */ }
+    }
+
+    window.showUpdateBanner = function () {
+        if (document.getElementById('app-update-banner')) return;
+        const bar = document.createElement('div');
+        bar.id = 'app-update-banner';
+        bar.setAttribute('role', 'status');
+        bar.style.cssText = 'position:fixed; left:50%; transform:translateX(-50%); top:calc(10px + env(safe-area-inset-top, 0px)); z-index:10100;' +
+            'display:flex; align-items:center; gap:10px; max-width:calc(100vw - 20px); padding:10px 12px 10px 14px;' +
+            'background:#0f172a; color:#f8fafc; border:1px solid rgba(56,189,248,0.5); border-radius:12px;' +
+            'box-shadow:0 10px 30px rgba(0,0,0,0.45); font-size:0.88rem;';
+        bar.innerHTML = '<span>🔄 Sitenin yeni sürümü yayınlandı.</span>' +
+            '<button type="button" id="app-update-reload" style="background:#0284c7; color:#fff; border:none; border-radius:8px; padding:6px 12px; font-weight:700; cursor:pointer;">Yenile</button>' +
+            '<button type="button" id="app-update-later" aria-label="Kapat" style="background:none; border:none; color:#94a3b8; font-size:1.1rem; cursor:pointer;">✕</button>';
+        document.body.appendChild(bar);
+        document.getElementById('app-update-reload').onclick = () => window.location.reload();
+        document.getElementById('app-update-later').onclick = () => bar.remove();
+    };
+
+    function initVersionCheck() {
+        checkForNewVersion();
+        setInterval(checkForNewVersion, 5 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForNewVersion(); });
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initMobileEngine);
+        document.addEventListener('DOMContentLoaded', initVersionCheck);
     } else {
         initMobileEngine();
+        initVersionCheck();
     }
 
 })();
