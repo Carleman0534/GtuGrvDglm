@@ -1973,6 +1973,8 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
     };
 
     DB.exams.push(newExam);
+    window._hasLocalEdits = true;
+    DB.lastUpdated = new Date().toISOString();
     
     // Personel puanlarını güncelle (yalnızca gözetmen atanmışsa)
     if (proctors.length > 0) {
@@ -2702,16 +2704,18 @@ function saveToLocalStorage() {
 }
 
 async function loadFromDataJSON() {
-    // Yerel kısıtları kaybetmemek için önce localStorage'dan alalım
+    // Yerel kısıtları ve sınavları kaybetmemek için önce localStorage'dan alalım
     let localConstraints = null;
+    let localExams = null;
     try {
         const saved = localStorage.getItem(DB_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
             localConstraints = parsed.constraints;
+            localExams = parsed.exams;
         }
     } catch(e) {
-        console.warn("Yerel kısıtlar okunamadı:", e);
+        console.warn("Yerel kısıtlar ve sınavlar okunamadı:", e);
     }
 
     try {
@@ -2776,6 +2780,17 @@ async function loadFromDataJSON() {
                 data.courseLecturers = Object.assign({}, data.courseLecturers, DB.courseLecturers);
             }
             
+            // Yerel hafızada olup henüz sunucuya yansımamış sınavları koru (F5 anında silinmeyi önler)
+            if (localExams && Array.isArray(localExams) && Array.isArray(data.exams)) {
+                const serverExamIds = new Set(data.exams.map(e => String(e.id)));
+                localExams.forEach(le => {
+                    if (le && le.id && !serverExamIds.has(String(le.id))) {
+                        console.log('🛡️ [F5 Koruması] Sunucuda henüz bulunmayan yerel sınav korundu:', le.name, le.id);
+                        data.exams.push(le);
+                    }
+                });
+            }
+
             // Sunucuda kısıtlar boşsa veya yerel kısıt varsa güvenli birleştirme yap
             if (localConstraints && typeof localConstraints === 'object') {
                 for (let staffName in localConstraints) {

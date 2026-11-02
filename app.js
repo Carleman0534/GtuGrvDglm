@@ -761,14 +761,14 @@ function startPeriodicSync() {
             const remoteTime = parseTs(remoteData.lastUpdated || remoteData._lastWrite);
             const localTime  = parseTs(DB.lastUpdated || DB._lastWrite);
 
-            if (remoteTime > 0 && localTime > 0 && remoteTime <= (localTime + 1500)) {
-                console.log('Periyodik senkronizasyon: Sunucudaki veri yerel veriden daha yeni değil, yerel veri korunuyor.');
+            // SADECE ve SADECE sunucudaki veri yereldekinden açıkça daha yeniyse (> localTime + 1500) içeri al
+            if (remoteTime <= (localTime + 1500)) {
                 return;
             }
 
-            // Yerelde bekleyen sınav düzenlemesi varsa asla ezme
-            if (window._hasLocalEdits) {
-                console.warn('Periyodik senkronizasyon: Yerel kaydedilmemiş sınav güncellemeleri var, ezme engellendi.');
+            // Yerelde bekleyen herhangi bir düzenleme/ekleme varsa ASLA ezme
+            if (window._hasLocalEdits || (typeof _dirty !== 'undefined' && _dirty)) {
+                console.warn('Periyodik senkronizasyon: Yerel kaydedilmemiş düzenlemeler var, ezme engellendi.');
                 return;
             }
 
@@ -3919,8 +3919,14 @@ function showAddExamModal() {
         }
     };
 
-    document.getElementById('modal-form').onsubmit = (e) => {
+    document.getElementById('modal-form').onsubmit = async (e) => {
         e.preventDefault();
+        const durationVal = parseInt(document.getElementById('exam-duration').value);
+        if (!durationVal || durationVal <= 0) {
+            alert('Lütfen geçerli bir süre (dakika) giriniz!');
+            return;
+        }
+
         const examData = {
             isNonExam: document.getElementById('exam-is-non-exam')?.checked || false,
             type: document.getElementById('exam-type').value,
@@ -3930,19 +3936,26 @@ function showAddExamModal() {
             location: document.getElementById('exam-location').value,
             date: document.getElementById('exam-date').value,
             time: document.getElementById('exam-time').value,
-            duration: parseInt(document.getElementById('exam-duration').value),
+            duration: durationVal,
             proctorIds: window.tempSelectedProctors || []
         };
 
         // Müsaitlik kontrolü (Seçili tüm hocalar için)
         for (const pid of examData.proctorIds) {
-            const staff = DB.staff.find(s => s.id === pid);
+            const staff = DB.staff.find(s => String(s.id) === String(pid));
             if (staff && !isAvailable(staff.name, examData.date, examData.time, examData.duration)) {
                 if (!confirm(`${staff.name} bu saatte müsait değil! Yine de devam etmek istiyor musunuz?`)) return;
             }
         }
 
-        addExam(examData);
+        window._hasLocalEdits = true;
+        DB.lastUpdated = new Date().toISOString();
+
+        const added = addExam(examData);
+        if (!added) {
+            window._hasLocalEdits = false;
+            return;
+        }
         
         window.tempSelectedProctors = [];
         
@@ -3951,6 +3964,22 @@ function showAddExamModal() {
         renderSchedule();
         renderDashboard();
         updateNotificationBadge();
+
+        if (typeof showToast === 'function') {
+            showToast('✓ Sınav eklendi, bulutla eşitleniyor...', 'info');
+        }
+
+        try {
+            await saveToBackend();
+            if (typeof showToast === 'function') {
+                showToast('✅ Sınav başarıyla eklendi ve buluta kaydedildi!', 'success');
+            }
+        } catch (saveErr) {
+            console.error('Sınav ekleme kaydetme hatası:', saveErr);
+            if (typeof showToast === 'function') {
+                showToast('⚠️ Sınav yerel olarak saklandı: ' + saveErr.message, 'warning');
+            }
+        }
     };
 
     // Proctor selection setup
@@ -4518,6 +4547,8 @@ ${siteUrl}`;
     });
 
     DB.exams.splice(exIndex, 1);
+    window._hasLocalEdits = true;
+    DB.lastUpdated = new Date().toISOString();
     saveToLocalStorage();
     logAction('admin', 'Sinav Silme', `${ex.name} sinavi silindi ${wantMail ? '(Toplu iptal maili tetiklendi)' : ''}.`);
     renderExams();

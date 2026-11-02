@@ -468,7 +468,7 @@
         async function tick() {
             // Kayıt engellenmiş oturumda (_serverLoaded=false) yerel değişiklik beklese bile
             // sunucu verisini almaya devam et ki oturum kendini toparlayabilsin.
-            const busy = () => _isSyncing || (_dirty && _serverLoaded);
+            const busy = () => _isSyncing || (_dirty && _serverLoaded) || window._hasLocalEdits;
             if (!navigator.onLine || document.hidden || busy()) return;
             try {
                 const now = Date.now();
