@@ -5623,3 +5623,90 @@ body:not(.dark-theme) .modal .modal-content input::placeholder,
 body:not(.dark-theme) .modal .modal-content textarea::placeholder {
     color: var(--text-muted);
 }
+
+/* =====================================================================
+   MOBİL: TAM SAYFA GÖRÜNÜMÜ
+   - Alt menü (z-index 8500) açılır pencerelerin (z-index 2000) üstünde
+     kaldığı için pencere sonuna inildiğinde Kaydet/Güncelle butonları
+     menünün arkasında kalıyordu. Pencere açıkken alt menü gizlenir.
+   - Pencere yüksekliği telefon tarayıcısının açılıp kapanan adres
+     çubuğunu hesaba katan dvh ile sınırlanır.
+   - Kaydet/İptal butonları pencerenin altına sabitlenir.
+   - Sayfanın sonu alt menünün arkasında kalmasın diye alt boşluk artırılır.
+   ===================================================================== */
+@media (max-width: 768px) {
+    body:has(.modal:not(.hidden)) .mobile-bottom-nav {
+        display: none !important;
+    }
+    body:has(.modal:not(.hidden)) {
+        overflow: hidden;
+    }
+
+    .modal .modal-content {
+        max-height: 88vh !important;
+        max-height: 92dvh !important;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+        overscroll-behavior: contain;
+    }
+    .swap-modal .modal-body {
+        max-height: none;
+        overflow: visible;
+    }
+
+    .modal .modal-content > form > .form-actions {
+        position: sticky;
+        bottom: calc(-1rem - env(safe-area-inset-bottom, 0px));
+        z-index: 2;
+        margin: 0.75rem 0 calc(-1rem - env(safe-area-inset-bottom, 0px));
+        padding: 0.6rem 0 calc(1rem + env(safe-area-inset-bottom, 0px));
+        background: #0f172a;
+        border-top: 1px solid var(--glass-border);
+        display: flex;
+        gap: 0.5rem;
+    }
+    .modal .modal-content > form > .form-actions button {
+        flex: 1;
+    }
+
+    /* Akıllı öneriler: tek sütun, kısa satırlar, sınırlı yükseklik */
+    .modal .suggestion-area {
+        margin-top: 0.4rem;
+        padding: 0.55rem 0.6rem;
+        border-radius: 12px;
+    }
+    .modal .suggestion-area h4 {
+        margin-bottom: 0.4rem;
+    }
+    .modal .suggestion-list {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
+        max-height: 170px;
+        overflow-y: auto;
+    }
+    .modal .suggestion-item {
+        padding: 0.35rem 0.6rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        min-width: 0;
+    }
+    .modal .suggestion-item > div {
+        gap: 0.5rem;
+    }
+    .modal .suggestion-item > div > div:first-child {
+        min-width: 0;
+    }
+    .modal .suggestion-item > div > div:last-child {
+        flex-shrink: 0;
+    }
+    .modal .suggestion-item strong {
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body {
+        padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+}
