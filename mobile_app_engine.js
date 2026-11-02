@@ -49,10 +49,11 @@
             return;
         }
 
-        // 2. iOS Safari ise Apple kuralları gereği görsel Safari rehberini aç
-        if (isIosSafari()) {
-            const iosModal = document.getElementById('modal-ios-pwa-guide');
-            if (iosModal) iosModal.classList.remove('hidden');
+        // 2. iPhone / iPad: Apple otomatik kurulum penceresine izin vermez, "Ana Ekrana Ekle" rehberini aç.
+        // (Eskiden yalnızca Safari tanınıyordu; iPhone'da Chrome veya WhatsApp/Instagram içi tarayıcıdakiler
+        // Android talimatlarını görüyordu.)
+        if (isIosDevice()) {
+            openIosInstallGuide();
             return;
         }
 
@@ -128,12 +129,40 @@
         }
     });
 
+    // iPhone / iPad tespiti (iPadOS 13+ kendini Mac olarak tanıtır; dokunmatik ekrandan ayırt edilir)
+    function isIosDevice() {
+        const ua = window.navigator.userAgent;
+        return (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) ||
+            (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    }
+
     // iOS Safari Tespiti
     function isIosSafari() {
         const ua = window.navigator.userAgent;
-        const isIos = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|Chrome/.test(ua);
-        return isIos && isSafari;
+        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|FBAN|FBAV|Instagram|WhatsApp|GSA\//.test(ua);
+        return isIosDevice() && isSafari;
+    }
+
+    // Tarayıcıya göre doğru talimatı göster
+    function openIosInstallGuide() {
+        const iosModal = document.getElementById('modal-ios-pwa-guide');
+        if (!iosModal) {
+            alert('Safari\'de alttaki Paylaş simgesine dokunup "Ana Ekrana Ekle"yi seçin.');
+            return;
+        }
+        const ua = window.navigator.userAgent;
+        const note = document.getElementById('ios-pwa-browser-note');
+        if (note) {
+            let text = '';
+            if (/FBAN|FBAV|Instagram|WhatsApp|GSA\/|Line\//.test(ua)) {
+                text = 'Siteyi bir uygulamanın içinden açtınız. Önce sağ üstteki menüden (⋯) <b>"Safari\'de Aç"</b> seçeneğine dokunun, sonra aşağıdaki adımları uygulayın.';
+            } else if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) {
+                text = 'Chrome / Firefox / Edge kullanıyorsunuz: Paylaş simgesi adres çubuğunun yanındadır. Menüde "Ana Ekrana Ekle" yoksa siteyi <b>Safari</b> ile açın.';
+            }
+            note.innerHTML = text;
+            note.style.display = text ? 'block' : 'none';
+        }
+        iosModal.classList.remove('hidden');
     }
 
     // Bağımsız (Standalone) modda mı çalışıyor? (Yüklü PWA)
@@ -326,7 +355,7 @@
         setInterval(syncMobileBadges, 2000);
 
         // iOS Safari ise ve henüz standalone kurulmamışsa banner'ı hazırla
-        if (isIosSafari() && !isRunningStandalone() && !sessionStorage.getItem('pwa_banner_dismissed')) {
+        if (isIosDevice() && !isRunningStandalone() && !sessionStorage.getItem('pwa_banner_dismissed')) {
             const banner = document.getElementById('pwa-install-banner');
             if (banner) {
                 const textSpan = banner.querySelector('.pwa-install-text span');

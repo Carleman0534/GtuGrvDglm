@@ -366,11 +366,22 @@
         const portalSelectVal = (portalSelect && portalSelect.value) ? portalSelect.value.trim().toLowerCase() : '';
         const storedLecturer = (localStorage.getItem('myLecturerName') || '').trim().toLowerCase();
 
+        // Bu cihazdaki kişinin sınavı mı? (gözetmeni ya da ders hocası)
+        // Eskiden siteyi açan herkesin cihazına, sınavla ilgisi olmasa da bildirim gidiyordu.
+        const isMine = (ex) => {
+            if (myStaffId && isMyProctorExam(ex, myStaffId)) return true;
+            const exLecturer = (ex.lecturer || '').toLowerCase();
+            if (!exLecturer || exLecturer === '-') return false;
+            return (portalSelectVal && exLecturer.includes(portalSelectVal)) ||
+                (storedLecturer && exLecturer.includes(storedLecturer));
+        };
+
         // Biten ve henüz süresi onaylanmamış sınavları kontrol et
         DB.exams.forEach(ex => {
             if (!ex.date || !ex.time) return;
             // Zaten onaylanmış veya hoca tarafından teyit edilmişse atla
             if (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved) return;
+            if (!isMine(ex)) return;
 
             let safeStart = null;
             if (typeof getSafeDate === 'function') {
@@ -458,6 +469,108 @@
                 }
             }
         });
+
+        // Bildirim kaçırılmış olsa bile siteye girişte "Sürenizi onaylayın" penceresi
+        window.showPendingDurationPrompt();
+    };
+
+    function isMyProctorExam(ex, staffId) {
+        const sid = String(staffId);
+        if (String(ex.proctorId) === sid) return true;
+        return Array.isArray(ex.proctorIds) && ex.proctorIds.map(String).includes(sid);
+    }
+
+    // 31 Ekim 2026 öncesi sınavlar peşinen kabul edildi (app.js ile aynı sınır)
+    const DURATION_CUTOFF = new Date('2026-10-31T21:48:45+03:00');
+
+    // Gözetmenin bitmiş ve süresi onaylanmamış sınavları
+    function getMyPendingDurationExams() {
+        const myStaffId = localStorage.getItem('myStaffId');
+        if (!myStaffId || !window.DB || !Array.isArray(DB.exams)) return [];
+        const now = Date.now();
+        return DB.exams.filter(ex => {
+            if (!ex.date || !ex.time || !isMyProctorExam(ex, myStaffId)) return false;
+            if (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved || ex.actualDuration) return false;
+            const start = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}:00`);
+            if (!start || isNaN(start.getTime()) || start < DURATION_CUTOFF) return false;
+            const end = start.getTime() + (parseInt(ex.duration, 10) || 60) * 60000;
+            return now >= end;
+        }).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // Siteye girişte, hangi sayfada olursa olsun, süresi onaylanmamış sınavları listeleyen pencere.
+    // "Daha Sonra" denirse bu oturumda yeni bir sınav eklenmedikçe tekrar açılmaz.
+    window.showPendingDurationPrompt = function (force) {
+        if (sessionStorage.getItem('isLoggedIn') !== 'true') return;
+        const pending = getMyPendingDurationExams();
+        let modal = document.getElementById('modal-pending-duration');
+
+        if (pending.length === 0) {
+            if (modal) modal.classList.add('hidden');
+            return;
+        }
+
+        const key = pending.map(e => e.id).join(',');
+        const isOpen = modal && !modal.classList.contains('hidden');
+        if (!force && (isOpen || sessionStorage.getItem('pending_duration_prompt_seen') === key)) return;
+        // Başka bir pencere açıksa (ör. düzenleme) araya girme; bir sonraki kontrolde açılır
+        if (!isOpen && document.querySelector('.modal:not(.hidden)')) return;
+
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-pending-duration';
+            modal.className = 'modal hidden';
+            modal.style.zIndex = '9000';
+            document.body.appendChild(modal);
+        }
+
+        const rows = pending.map(ex => {
+            const mins = parseInt(ex.scheduledDuration || ex.duration, 10) || 60;
+            const id = escapeHtml(ex.id);
+            return `
+                <div style="border:1px solid rgba(245,158,11,0.45); background:rgba(245,158,11,0.08); border-radius:12px; padding:0.7rem 0.8rem; margin-bottom:0.6rem;">
+                    <div style="font-weight:700; color:#f8fafc; font-size:0.92rem;">${escapeHtml(ex.name)}</div>
+                    <div style="font-size:0.76rem; color:#cbd5e1; margin:3px 0 8px;">📅 ${escapeHtml(ex.date)} · ⏰ ${escapeHtml(ex.time)} · 📍 ${escapeHtml(ex.location || '-')} · Planlanan <b>${mins} dk</b></div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                        <button type="button" class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669); border:none; padding:0.55rem 0.4rem; border-radius:8px; font-weight:700; font-size:0.8rem;"
+                            onclick="window.confirmPendingDuration('${id}', ${mins})">✓ ${mins} dk sürdü</button>
+                        <button type="button" class="btn-secondary" style="background:rgba(249,115,22,0.15); border:1.5px solid #f97316; color:#fb923c; padding:0.55rem 0.4rem; border-radius:8px; font-weight:700; font-size:0.8rem;"
+                            onclick="window.openPendingDurationEdit('${id}')">⏱️ Farklı bitti</button>
+                    </div>
+                </div>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:480px;">
+                <h2 style="margin:0 0 0.3rem; color:#fbbf24;">⏱️ Sınav Sürenizi Onaylayın</h2>
+                <p style="margin:0 0 0.9rem; font-size:0.84rem; color:#cbd5e1;">
+                    Gözetmenlik yaptığınız ${pending.length > 1 ? pending.length + ' sınavın' : 'sınavın'} süresi henüz onaylanmadı.
+                    Puanlar onayladığınız süreye göre hesaplanır.
+                </p>
+                ${rows}
+                <button type="button" class="btn-secondary" style="width:100%; margin-top:0.3rem; padding:0.55rem;" onclick="window.dismissPendingDurationPrompt()">Daha Sonra</button>
+            </div>`;
+        modal.classList.remove('hidden');
+        sessionStorage.setItem('pending_duration_prompt_seen', key);
+    };
+
+    window.confirmPendingDuration = function (examId, mins) {
+        if (typeof window.confirmScheduledDuration === 'function') window.confirmScheduledDuration(examId, mins);
+        window.showPendingDurationPrompt(true);
+    };
+
+    window.openPendingDurationEdit = function (examId) {
+        window.dismissPendingDurationPrompt();
+        if (typeof window.openUpdateDurationModal === 'function') window.openUpdateDurationModal(examId);
+    };
+
+    window.dismissPendingDurationPrompt = function () {
+        const modal = document.getElementById('modal-pending-duration');
+        if (modal) modal.classList.add('hidden');
     };
 
     // Anlık Test Bildirimi
@@ -685,6 +798,8 @@
         setInterval(checkAllExamNotifications, 60000);
         setInterval(window.checkIncomingBroadcastNotifications, 30000);
         setInterval(window.checkPostExamDurationVerifications, 60000);
+        // Giriş yapılır yapılmaz (60 sn beklemeden) onay penceresini göster
+        setInterval(() => window.showPendingDurationPrompt(), 5000);
 
         // Kullanıcı sekmeye veya uygulamaya geri döndüğünde anında kontrol et
         window.addEventListener('focus', () => {

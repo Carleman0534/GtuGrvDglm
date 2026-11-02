@@ -5937,3 +5937,9 @@ body:not(.dark-theme) .modal .modal-content textarea::placeholder {
         order: 11 !important;
     }
 }
+
+/* Kurulum rehberleri giriş ekranından (z-index 9999) açılıyor; eskiden altında kalıp görünmüyordu */
+#modal-ios-pwa-guide,
+#modal-pwa-general-guide {
+    z-index: 10050 !important;
+}
