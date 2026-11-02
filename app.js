@@ -891,9 +891,13 @@ function checkAndPerformDailyBackup() {
 function processTercihGunleri2026() {
     if (!DB || !DB.exams || !DB.staff) return;
 
-    // Daha önce eklenmiş mi kontrol et (23.07.2026 tarihli Tercih Günü görevi var mi)
-    const alreadyAdded = DB.exams.some(ex => (ex.name || "").includes("Tercih") && ex.date === "2026-07-23");
-    if (alreadyAdded) return;
+    // Daha önce eklenmiş mi kontrol et. Kalıcı bayrak kullanılır: sınavın tarihi/adı düzenlense bile
+    // her açılışta görevler yeniden eklenip düzenlemeyi "geri almış" gibi görünmesin.
+    if (!DB.migrations) DB.migrations = {};
+    if (DB.migrations.tercihGunleri2026) return;
+    const alreadyAdded = DB.exams.some(ex => (ex.name || "").includes("Tercih"));
+    if (alreadyAdded) { DB.migrations.tercihGunleri2026 = true; return; }
+    DB.migrations.tercihGunleri2026 = true;
 
     console.log("⏳ 2026 Tercih Günleri Etkinliği görevleri sisteme işleniyor...");
 
@@ -982,8 +986,11 @@ function processAgustos2026Vizeler() {
     if (!DB || !DB.exams || !DB.staff) return;
 
     // Daha önce eklenip eklenmediğini kontrol et (10.08.2026 tarihli MATH111 veya 06.08.2026 PHYS 114 sinavi)
-    const alreadyAdded = DB.exams.some(ex => (ex.name || "").toUpperCase().includes("MATH111") && ex.date === "2026-08-10");
-    if (alreadyAdded) return;
+    if (!DB.migrations) DB.migrations = {};
+    if (DB.migrations.agustos2026Vizeler) return;
+    const alreadyAdded = DB.exams.some(ex => /MATH\s?111|PHYS\s?11[34]|MATH\s?112/.test((ex.name || "").toUpperCase()));
+    if (alreadyAdded) { DB.migrations.agustos2026Vizeler = true; return; }
+    DB.migrations.agustos2026Vizeler = true;
 
     console.log("⏳ Ağustos 2026 Vize sinavlari sisteme işleniyor...");
 
