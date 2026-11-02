@@ -45,6 +45,37 @@ const BONUSLAR = {
     DINAMIK_IHTIYAC: 0.5   // Marketplace'te 48 saatten az kalan görevler
 };
 
+/**
+ * ISO ve Türkçe (DD.MM.YYYY HH:mm:ss) formatındaki tarihleri güvenle zaman damgasına (ms) çevirir.
+ */
+function parseFlexibleTimestamp(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.getTime();
+    const str = String(val).trim();
+    const parts = str.split(/[\s,T]+/);
+    const dateParts = parts[0].split(/[./-]/);
+    if (dateParts.length === 3) {
+        const day = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1;
+        const year = parseInt(dateParts[2], 10);
+        let hour = 0, min = 0, sec = 0;
+        if (parts[1]) {
+            const timeParts = parts[1].split(':');
+            hour = parseInt(timeParts[0], 10) || 0;
+            min = parseInt(timeParts[1], 10) || 0;
+            sec = parseInt(timeParts[2], 10) || 0;
+        }
+        const parsed = new Date(year, month, day, hour, min, sec);
+        if (!isNaN(parsed.getTime())) return parsed.getTime();
+    }
+    return 0;
+}
+if (typeof window !== 'undefined') {
+    window.parseFlexibleTimestamp = parseFlexibleTimestamp;
+}
+
 function isFutureOrToday(dateStr) {
     if (!dateStr) return false;
     const today = new Date();
@@ -1982,6 +2013,8 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
     return newExam;
 }
 
+if (typeof window !== 'undefined') window.addExam = addExam;
+
 function updateExam(id, newData, skipSave = false) {
     takeSnapshot("Sınav Güncelleme");
     const exIndex = DB.exams.findIndex(e => String(e.id) === String(id));
@@ -2113,6 +2146,9 @@ function updateExam(id, newData, skipSave = false) {
         katsayi: kts,
         notifiedStaffIds: finalNotifiedStaffIds
     };
+
+    window._hasLocalEdits = true;
+    DB.lastUpdated = new Date().toISOString();
 
     if (!skipSave) {
         saveToLocalStorage();
@@ -2327,6 +2363,7 @@ let _isSyncing = false;
 
 /** Durum badge'ini günceller */
 function _setCloudStatus(state, text) {
+    if (typeof document === 'undefined') return;
     const statusDiv = document.getElementById('cloud-status');
     const statusText = document.getElementById('cloud-status-text');
     if (!statusDiv) return;
@@ -2427,11 +2464,16 @@ async function saveToBackend(attempt = 1) {
     // Eğer sayfa sunucudan canlı veriyi çekemeyip eski localStorage önbelleğiyle açıldıysa,
     // sunucudaki canlı veritabanını eski verilerle ezmesine ASLA izin verilmez!
     if (window.isFallbackOfflineMode) {
-        console.warn('🛡️ [GÜVENLİK ENGELİ] Sistem çevrimdışı önbellek modunda! Canlı sunucudaki güncel verilerin ezilmemesi için sunucuya kayıt durduruldu.');
-        if (typeof _setCloudStatus === 'function') {
-            _setCloudStatus('offline', '🛡️ Yerel Önbellek Modu (Sunucu Korundu)');
+        if (navigator.onLine && DB && Array.isArray(DB.exams) && DB.exams.length > 0) {
+            console.log('🛡️ Çevrimdışı koruması kaldırıldı (bağlantı aktif ve yerel sınav verisi mevcut).');
+            window.isFallbackOfflineMode = false;
+        } else {
+            console.warn('🛡️ [GÜVENLİK ENGELİ] Sistem çevrimdışı önbellek modunda! Canlı sunucudaki güncel verilerin ezilmemesi için sunucuya kayıt durduruldu.');
+            if (typeof _setCloudStatus === 'function') {
+                _setCloudStatus('offline', '🛡️ Yerel Önbellek Modu (Sunucu Korundu)');
+            }
+            return;
         }
-        return;
     }
 
     // 2. Güvenlik koruması: Personel veya veritabanı boş ise kayıt yapma
@@ -2488,11 +2530,11 @@ async function saveToBackend(attempt = 1) {
         if (checkRes.ok) {
             const remoteLastUpdated = await checkRes.json();
             if (remoteLastUpdated && window._lastLoadedServerTime) {
-                const remoteTime = new Date(remoteLastUpdated).getTime();
-                const localBaseTime = new Date(window._lastLoadedServerTime).getTime();
+                const remoteTime = parseFlexibleTimestamp(remoteLastUpdated);
+                const localBaseTime = parseFlexibleTimestamp(window._lastLoadedServerTime);
 
-                // Eğer sunucudaki veri bizim son çektiğimizden daha yeniyse (1.5 sn tolerans)
-                if (remoteTime > (localBaseTime + 1500)) {
+                // SADECE sunucu bizden yeniyse VE yerelde henüz kaydedilmemiş sınav değişikliği yoksa çakışma olarak ele al
+                if (remoteTime > 0 && localBaseTime > 0 && remoteTime > (localBaseTime + 3000) && !window._hasLocalEdits) {
                     console.warn('⚠️ [ÇAKIŞMA KORUMASI] Sunucuya bizden sonra başka bir kullanıcı yazmış!', {
                         remote: remoteLastUpdated,
                         localBase: window._lastLoadedServerTime
@@ -2530,6 +2572,8 @@ async function saveToBackend(attempt = 1) {
         // Başarı - yerel referansları güncelle
         window._lastLoadedServerTime = nowIso;
         window._lastLoadedExamCount = (DB.exams || []).length;
+        window._hasLocalEdits = false;
+        window.isFallbackOfflineMode = false;
         _isSyncing = false;
         _clearPendingSync();
         _setCloudStatus('ok', '✅ Bulutla Eşitlendi');
@@ -2601,6 +2645,18 @@ if (typeof window !== 'undefined') {
 
 
 
+let _saveToBackendDebounceTimer = null;
+function debouncedSaveToBackend(delay = 1500) {
+    if (_saveToBackendDebounceTimer) clearTimeout(_saveToBackendDebounceTimer);
+    _saveToBackendDebounceTimer = setTimeout(() => {
+        _saveToBackendDebounceTimer = null;
+        if (typeof saveToBackend === 'function') {
+            saveToBackend();
+        }
+    }, delay);
+}
+if (typeof window !== 'undefined') window.debouncedSaveToBackend = debouncedSaveToBackend;
+
 function saveToLocalStorage() {
     // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için
     const dbStr = JSON.stringify(DB);
@@ -2641,8 +2697,8 @@ function saveToLocalStorage() {
         }
     }
     
-    // Sunucuya asenkron olarak yaz (tüm kullanıcılar için)
-    saveToBackend();
+    // Sunucuya asenkron olarak yaz (tüm kullanıcılar için - debounced)
+    debouncedSaveToBackend();
 }
 
 async function loadFromDataJSON() {
@@ -3424,9 +3480,7 @@ function recalculateAllScores() {
         });
     });
 
-    saveToLocalStorage();
     console.log('✅ Tüm sınavlar yeni katsayı sistemine göre yeniden hesaplandı (taban puanlar korundu).');
-    logAction('admin', 'Puan Yeniden Hesaplama', `${DB.exams.length} sınav 17:00 parçalı katsayı kuralıyla yeniden hesaplandı. Taban puanlar korundu.`);
     return DB.exams.length;
 }
 window.recalculateAllScores = recalculateAllScores;

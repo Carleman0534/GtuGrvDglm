@@ -286,7 +286,8 @@
                 merged._lastWrite = new Date().toISOString();
 
                 const headers = { 'Content-Type': 'application/json' };
-                if (remote.etag) headers['if-match'] = remote.etag;
+                // İlk denemede if-match dene, 412 çakışmasında birleştirilmiş veriyi koşulsuz yaz
+                if (remote.etag && attempt === 1) headers['if-match'] = remote.etag;
                 const res = await fetch(API_URL, { method: 'PUT', headers, body: JSON.stringify(merged) });
 
                 if (res.status === 412) {
@@ -325,6 +326,8 @@
             if (!done && !_dirty) throw new Error('Eşzamanlı kayıt çakışması çözülemedi.');
 
             if (typeof _clearPendingSync === 'function' && !_dirty) _clearPendingSync();
+            window._hasLocalEdits = false;
+            window.isFallbackOfflineMode = false;
             setStatus('ok', '✅ Bulutla Eşitlendi');
             console.log(`✅ Firebase kayıt başarılı (rev ${_base && _base._rev}). Sınav: ${(DB.exams || []).length}`);
         } catch (e) {

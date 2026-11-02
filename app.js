@@ -705,9 +705,11 @@ function startPeriodicSync() {
         'https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app/gizli_yol_gtu_admin_data.json';
 
     async function checkForUpdates() {
-        // Çevrimdişiysa veya şu an kayit yapiliyorsa atla
+        // Çevrimdişiysa, şu an kayit yapiliyorsa veya bekleyen yerel düzenleme varsa atla
         if (!navigator.onLine) return;
         if (typeof _isSyncing !== 'undefined' && _isSyncing) return;
+        if (typeof _dirty !== 'undefined' && _dirty) return;
+        if (window._hasLocalEdits) return;
 
         try {
             const controller = new AbortController();
@@ -752,13 +754,22 @@ function startPeriodicSync() {
 
             // Yerel lecturers ve courseLecturers korunarak uzak veriyi birleştir
             // Uzak verinin eskilik kontrolü (Stale remote protection)
-            if (remoteData.lastUpdated && DB.lastUpdated) {
-                const remoteTime = new Date(remoteData.lastUpdated).getTime();
-                const localTime = new Date(DB.lastUpdated).getTime();
-                if (remoteTime < (localTime - 2000)) {
-                    console.warn('Periyodik senkronizasyon: Sunucudaki veri yereldekinden eski görünüyor, yerel veri korunuyor.');
-                    return;
-                }
+            const parseTs = typeof parseFlexibleTimestamp === 'function' ? parseFlexibleTimestamp : (val) => {
+                const d = new Date(val);
+                return !isNaN(d.getTime()) ? d.getTime() : 0;
+            };
+            const remoteTime = parseTs(remoteData.lastUpdated || remoteData._lastWrite);
+            const localTime  = parseTs(DB.lastUpdated || DB._lastWrite);
+
+            if (remoteTime > 0 && localTime > 0 && remoteTime <= (localTime + 1500)) {
+                console.log('Periyodik senkronizasyon: Sunucudaki veri yerel veriden daha yeni değil, yerel veri korunuyor.');
+                return;
+            }
+
+            // Yerelde bekleyen sınav düzenlemesi varsa asla ezme
+            if (window._hasLocalEdits) {
+                console.warn('Periyodik senkronizasyon: Yerel kaydedilmemiş sınav güncellemeleri var, ezme engellendi.');
+                return;
             }
 
             if (!remoteData.lecturers || remoteData.lecturers.length === 0) {
@@ -2992,8 +3003,8 @@ function renderExams() {
                      }
                      return '';
                  })()}
-                 <button class="btn-secondary admin-only" onclick="showEditExamModal(${ex.id})" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
-                 <button class="btn-delete admin-only" onclick="deleteExam(${ex.id})">Sil</button>
+                 <button class="btn-secondary admin-only" onclick="showEditExamModal('${ex.id}')" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">Düzenle</button>
+                 <button class="btn-delete admin-only" onclick="deleteExam('${ex.id}')">Sil</button>
                  <button class="btn-secondary admin-only" onclick="sendExamMailViaOutlook(${ex.id})" title="Gözetmenlere Mail Gönder" style="padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; background: rgba(14,165,233,0.15); border-color: #0ea5e9; color: #38bdf8;">📧 Mail</button>
             </td>
         `;
@@ -4834,11 +4845,17 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
     // ID'yi string olarak al — parseInt büyük Date.now() değerlerinde precision kaybi yaratir
     const id = document.getElementById('edit-exam-id').value;
 
-    // tempEditProctors atanmişsa doğrudan kullan (boş dizi de olsa, kullanici tümünü silmiş demektir)
     const currentExam = DB.exams.find(ex => String(ex.id) === String(id));
+    if (!currentExam) {
+        if (typeof showToast === 'function') showToast('Hata: Düzenlenecek sınav bulunamadı!', 'error');
+        else alert('Hata: Düzenlenecek sınav bulunamadı!');
+        return;
+    }
+
+    // tempEditProctors atanmişsa doğrudan kullan (boş dizi de olsa, kullanici tümünü silmiş demektir)
     const proctorIds = Array.isArray(window.tempEditProctors)
         ? window.tempEditProctors
-        : (currentExam ? (currentExam.proctorIds || (currentExam.proctorId ? [currentExam.proctorId] : [])) : []);
+        : (currentExam.proctorIds || (currentExam.proctorId ? [currentExam.proctorId] : []));
 
     const durationVal = parseInt(document.getElementById('edit-exam-duration').value);
     if (!durationVal || durationVal <= 0) {
@@ -4857,23 +4874,40 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
         time:       document.getElementById('edit-exam-time').value,
         duration:   durationVal,
         proctorIds: proctorIds,
-        lecturerNote: document.getElementById('edit-exam-note').value
+        lecturerNote: document.getElementById('edit-exam-note')?.value || ''
     };
 
     // Müsaitlik kontrolü
     for (const pid of data.proctorIds) {
-        const staff = DB.staff.find(s => s.id === pid);
+        const staff = DB.staff.find(s => String(s.id) === String(pid));
         if (staff && !isAvailable(staff.name, data.date, data.time, data.duration, id)) {
             if (!confirm(`${staff.name} bu saatte müsait değil! Yine de devam etmek istiyor musunuz?`)) return;
         }
     }
 
+    window._hasLocalEdits = true;
+    DB.lastUpdated = new Date().toISOString();
     updateExam(id, data);
     document.getElementById('edit-modal').classList.add('hidden');
     renderExams();
     renderSchedule();
     renderDashboard();
-    await saveToBackend();
+
+    if (typeof showToast === 'function') {
+        showToast('✓ Sınav güncellendi, kaydediliyor...', 'info');
+    }
+
+    try {
+        await saveToBackend();
+        if (typeof showToast === 'function') {
+            showToast('✅ Sınav başarıyla güncellendi ve sisteme işlendi!', 'success');
+        }
+    } catch (saveErr) {
+        console.error('Sınav kaydetme hatası:', saveErr);
+        if (typeof showToast === 'function') {
+            showToast('⚠️ Güncelleme yerel olarak saklandı: ' + saveErr.message, 'warning');
+        }
+    }
 };
 
 
@@ -4930,6 +4964,8 @@ window.showEditScheduleModal = (name, date, time, location) => {
             }, true); // skipSave = true
         }
 
+        window._hasLocalEdits = true;
+        DB.lastUpdated = new Date().toISOString();
         saveToLocalStorage(); // Tek seferde kaydet
         logAction('admin', 'Sinav Programi Güncelleme', `${newName} grubundaki ${groupExams.length} sinav güncellendi.`);
         
@@ -4938,7 +4974,22 @@ window.showEditScheduleModal = (name, date, time, location) => {
         renderSchedule();
         renderDashboard();
         updateNotificationBadge();
-        await saveToBackend();
+
+        if (typeof showToast === 'function') {
+            showToast(`✓ ${groupExams.length} sınav güncellendi, kaydediliyor...`, 'info');
+        }
+
+        try {
+            await saveToBackend();
+            if (typeof showToast === 'function') {
+                showToast('✅ Sınav programı başarıyla kaydedildi!', 'success');
+            }
+        } catch (saveErr) {
+            console.error('Program kaydetme hatası:', saveErr);
+            if (typeof showToast === 'function') {
+                showToast('⚠️ Değişiklik yerel olarak saklandı: ' + saveErr.message, 'warning');
+            }
+        }
     };
 };
 
