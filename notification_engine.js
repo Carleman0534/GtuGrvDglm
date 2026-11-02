@@ -797,9 +797,8 @@
 
         setInterval(checkAllExamNotifications, 60000);
         setInterval(window.checkIncomingBroadcastNotifications, 30000);
-        setInterval(window.checkPostExamDurationVerifications, 60000);
-        // Giriş yapılır yapılmaz (60 sn beklemeden) onay penceresini göster
-        setInterval(() => window.showPendingDurationPrompt(), 5000);
+        // Sınav biter bitmez (en geç 5 sn içinde) bildirim + onay penceresi; giriş yapılınca da hemen
+        setInterval(window.checkPostExamDurationVerifications, 5000);
 
         // Kullanıcı sekmeye veya uygulamaya geri döndüğünde anında kontrol et
         window.addEventListener('focus', () => {
