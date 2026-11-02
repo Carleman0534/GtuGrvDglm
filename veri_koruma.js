@@ -24,6 +24,8 @@
     }
 
     const REV_URL = API_URL.replace(/\.json$/, '/_rev.json');
+    // Sunucuyla konuşan tüm istekler daima tarayıcının asıl fetch'ini kullanır
+    const nativeFetch = window.fetch.bind(window);
     const FULL_SYNC_EVERY_MS = 2 * 60 * 1000;   // Tam veri kontrolü: 2 dakikada bir
     const REV_CHECK_EVERY_MS = 10 * 1000;       // Hafif sürüm kontrolü: 10 saniyede bir
     const SHRINK_RATIO = 0.7;                   // %30'dan fazla düşüş şüphelidir
@@ -139,7 +141,7 @@
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 15000);
         try {
-            const res = await fetch(API_URL + '?t=' + Date.now(), {
+            const res = await nativeFetch(API_URL + '?t=' + Date.now(), {
                 headers: { 'X-Firebase-ETag': 'true' },
                 cache: 'no-store',
                 signal: controller.signal
@@ -230,8 +232,28 @@
     // ---------- Yükleme ----------
     const originalLoad = window.loadFromDataJSON;
 
+    // Orijinal yükleyici, az önce okunan veriyi kullansın (ikinci kez indirmesin).
+    // window.fetch tek seferlik ve kalıcı olarak sarılır; yükleme bitince _preloadText temizlenir.
+    // (Eskiden her yüklemede fetch değiştirilip geri alınıyordu; üst üste binen yüklemelerde
+    // geri alma yanlış sırayla çalışınca fetch kalıcı olarak ESKİ sunucu verisini döndürüyor,
+    // sonraki her kayıt bu eski kopyayla birleşip yeni düzenlemeleri geri alıyordu.)
+    let _preloadText = null;
+    window.fetch = function (url, opts) {
+        const isGet = !opts || !opts.method || opts.method.toUpperCase() === 'GET';
+        if (_preloadText !== null && isGet && typeof url === 'string' && url.indexOf(API_URL) === 0) {
+            return Promise.resolve(new Response(_preloadText, {
+                status: 200, headers: { 'Content-Type': 'application/json' }
+            }));
+        }
+        return nativeFetch.apply(this, arguments);
+    };
+
+    let _loadInFlight = null;
+
     window.loadFromDataJSON = function () {
-        _loadPromise = (async () => {
+        // Aynı anda gelen yükleme istekleri (giriş, açılış, bildirim motoru) tek yüklemede birleşir
+        if (_loadInFlight) return _loadInFlight;
+        _loadPromise = _loadInFlight = (async () => {
             // Gönderilmemiş değişiklik varsa önce onları kaydet, sonra yeniden yükle
             if (_dirty && _serverLoaded) await window.saveToBackend();
 
@@ -252,19 +274,7 @@
                 _serverLoaded = false;
             }
 
-            // Orijinal yükleyici, az önce okunan veriyi kullansın (ikinci kez indirmesin)
-            const realFetch = window.fetch;
-            if (ok) {
-                window.fetch = function (url, opts) {
-                    const isGet = !opts || !opts.method || opts.method.toUpperCase() === 'GET';
-                    if (typeof url === 'string' && url.indexOf(API_URL) === 0 && isGet) {
-                        return Promise.resolve(new Response(remote.text, {
-                            status: 200, headers: { 'Content-Type': 'application/json' }
-                        }));
-                    }
-                    return realFetch.apply(this, arguments);
-                };
-            }
+            if (ok) _preloadText = remote.text;
             try {
                 const result = await originalLoad.apply(this, arguments);
                 if (pending && _serverLoaded && isValidRemote(DB)) {
@@ -278,7 +288,8 @@
                 return result;
             } finally {
                 _loading = false;
-                window.fetch = realFetch;
+                _preloadText = null;
+                _loadInFlight = null;
                 if (!_serverLoaded) {
                     setStatus('error', '🔴 Sunucuya ulaşılamadı — değişiklikler KAYDEDİLMİYOR');
                     toast('⚠️ Sunucudan veri alınamadı. Eski veri gösteriliyor olabilir ve değişiklikleriniz kaydedilmeyecek. Lütfen sayfayı yenileyin.', 'error');
@@ -374,7 +385,7 @@
                 const headers = { 'Content-Type': 'application/json' };
                 // İlk denemede if-match dene, 412 çakışmasında birleştirilmiş veriyi koşulsuz yaz
                 if (remote.etag && attempt === 1) headers['if-match'] = remote.etag;
-                const res = await fetch(API_URL, { method: 'PUT', headers, body: JSON.stringify(merged) });
+                const res = await nativeFetch(API_URL, { method: 'PUT', headers, body: JSON.stringify(merged) });
 
                 if (res.status === 412) {
                     // Biz okuduktan sonra başkası kaydetti: yeniden oku ve birleştir
@@ -463,7 +474,7 @@
                 const now = Date.now();
                 if (now - lastFull < FULL_SYNC_EVERY_MS && _serverLoaded) {
                     // Hafif kontrol: sadece _rev sayacını oku (birkaç bayt)
-                    const res = await fetch(REV_URL + '?t=' + now, { cache: 'no-store' });
+                    const res = await nativeFetch(REV_URL + '?t=' + now, { cache: 'no-store' });
                     if (!res.ok) return;
                     const rev = await res.json();
                     const known = (_base && _base._rev !== undefined) ? _base._rev : null;
