@@ -2407,6 +2407,32 @@ function _setCloudStatus(state, text) {
 }
 
 /**
+ * Buluttaki canlı verileri zorla çeker ve arayüzü günceller.
+ */
+window.forceCloudSync = async function(interactive = false) {
+    try {
+        if (typeof _setCloudStatus === 'function') _setCloudStatus('syncing', '🔄 Canlı veriler çekiliyor...');
+        try {
+            localStorage.removeItem('_pendingFirebaseSync');
+            localStorage.removeItem('gozetmenlik_pending_changes_v1');
+        } catch(e) {}
+        await loadFromDataJSON();
+        if (typeof refreshUI === 'function') refreshUI();
+        ['renderExams', 'renderStaff', 'renderSchedule', 'renderDashboard', 'renderSwapRequests'].forEach(fn => {
+            try { if (typeof window[fn] === 'function') window[fn](); } catch(e) {}
+        });
+        if (interactive && typeof window.showToast === 'function') {
+            window.showToast('✅ Canlı sunucu verileriyle başarıyla eşitlendi!', 'success');
+        }
+    } catch(e) {
+        console.error('forceCloudSync error:', e);
+        if (interactive && typeof window.showToast === 'function') {
+            window.showToast('⚠️ Eşitleme hatası: ' + e.message, 'error');
+        }
+    }
+};
+
+/**
  * Firebase'e tek bir PUT isteği gönderir.
  * Başarılıysa true, başarısızsa hata fırlatır.
  */
@@ -2704,20 +2730,6 @@ function saveToLocalStorage() {
 }
 
 async function loadFromDataJSON() {
-    // Yerel kısıtları ve sınavları kaybetmemek için önce localStorage'dan alalım
-    let localConstraints = null;
-    let localExams = null;
-    try {
-        const saved = localStorage.getItem(DB_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            localConstraints = parsed.constraints;
-            localExams = parsed.exams;
-        }
-    } catch(e) {
-        console.warn("Yerel kısıtlar ve sınavlar okunamadı:", e);
-    }
-
     try {
         console.log("Veriler sunucudan yükleniyor...", API_URL);
         const loadController = new AbortController();
@@ -2778,26 +2790,6 @@ async function loadFromDataJSON() {
             } else {
                 // 2026-2027 Güz güncel eşleştirmelerini mevcut olanlarla güvenle birleştir
                 data.courseLecturers = Object.assign({}, data.courseLecturers, DB.courseLecturers);
-            }
-            
-            // Yerel hafızada olup henüz sunucuya yansımamış sınavları koru (F5 anında silinmeyi önler)
-            if (localExams && Array.isArray(localExams) && Array.isArray(data.exams)) {
-                const serverExamIds = new Set(data.exams.map(e => String(e.id)));
-                localExams.forEach(le => {
-                    if (le && le.id && !serverExamIds.has(String(le.id))) {
-                        console.log('🛡️ [F5 Koruması] Sunucuda henüz bulunmayan yerel sınav korundu:', le.name, le.id);
-                        data.exams.push(le);
-                    }
-                });
-            }
-
-            // Sunucuda kısıtlar boşsa veya yerel kısıt varsa güvenli birleştirme yap
-            if (localConstraints && typeof localConstraints === 'object') {
-                for (let staffName in localConstraints) {
-                    if (!data.constraints[staffName] || data.constraints[staffName].length === 0) {
-                        data.constraints[staffName] = localConstraints[staffName];
-                    }
-                }
             }
 
             DB = data;
