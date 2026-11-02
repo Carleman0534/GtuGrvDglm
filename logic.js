@@ -788,9 +788,8 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * YEREL ANLIK GÖRÜNTÜ KASASI (SNAPSHOT VAULT - SON 8 YEDEK)
+ * YEREL ANLIK GÖRÜNTÜ KASASI (SNAPSHOT VAULT - SON 30 YEDEK)
  * Site her açıldığında ve her işlemde tarayıcıda otomatik versiyon geçmişi tutar.
- * Tarayıcı depolama alanını (5 MB sınırı) taşmaması için en fazla 8 yedek tutar ve FIFO tahliye uygular.
  */
 const SNAPSHOT_VAULT_KEY = 'gozetmenlik_snapshot_vault_v1';
 const MAX_SNAPSHOTS = 8;
@@ -1135,7 +1134,7 @@ async function hashSHA256(text) {
 }
 window.hashSHA256 = hashSHA256;
 
-// Yetkili SHA-256 Kriptografik Hash Değerleri (Açık şifreler kodda tutulmaz)
+// Yetkili SHA-256 Hash Değerleri (Plaintext şifreler kodda saklanmaz)
 const AUTH_HASHES = {
     ADMIN_HASHES: [
         '2c5d6078956f040e48eeb3e68e24deaeae547eff39fa8bc358d7ae02dbc8ab65',
@@ -1264,20 +1263,60 @@ function validateDatabaseIntegrity(targetDB = null) {
         pIds.forEach(pid => {
             const sObj = staffMap[pid];
             if (!sObj) return;
-            const cList = (db.constraints && db.constraints[sObj.name]) || [];
+            const cList = (typeof getConstraintsForStaff === 'function') ? getConstraintsForStaff(sObj.name) : ((db.constraints && db.constraints[sObj.name]) || []);
             cList.forEach(c => {
-                if (c.day !== undefined && isCurrentOrFall && c.day === dayOfWeek) {
-                    const cs = timeToMins(c.start);
-                    const ce = timeToMins(c.end);
+                let isClash = false;
+                let constraintDesc = '';
+
+                if (c.day !== undefined && isCurrentOrFall && parseInt(c.day) === dayOfWeek) {
+                    const cs = c.start ? timeToMins(c.start) : 0;
+                    const ce = c.end ? timeToMins(c.end) : 1440;
                     if (sMin < ce && eMin > cs) {
-                        report.constraintClashes.push({
-                            staffName: sObj.name,
-                            examName: ex.name,
-                            date: ex.date,
-                            time: ex.time,
-                            constraint: `${dayNames[dayOfWeek]} ${c.start}-${c.end}`
-                        });
+                        isClash = true;
+                        constraintDesc = `${dayNames[dayOfWeek]} ${c.start || '00:00'}-${c.end || '23:59'}`;
                     }
+                } else if (c.date) {
+                    const parts = ex.date.split('-');
+                    const mmDd = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '';
+                    if (c.date === ex.date || c.date === mmDd || (c.date.length === 5 && mmDd === c.date) || (c.date.length === 10 && ex.date === c.date)) {
+                        const isAllDay = c.allDay || (!c.start && !c.end) || (c.start === "00:00" && (c.end === "23:59" || c.end === "24:00" || c.end === "23:30"));
+                        if (isAllDay) {
+                            isClash = true;
+                            constraintDesc = `Özel Tarih (${c.date} Tüm Gün)`;
+                        } else {
+                            const cs = c.start ? timeToMins(c.start) : 0;
+                            const ce = c.end ? timeToMins(c.end) : 1440;
+                            if (sMin < ce && eMin > cs) {
+                                isClash = true;
+                                constraintDesc = `Özel Tarih (${c.date} ${c.start || '00:00'}-${c.end || '23:59'})`;
+                            }
+                        }
+                    }
+                } else if (c.startDate && c.endDate) {
+                    if (ex.date >= c.startDate && ex.date <= c.endDate) {
+                        const isAllDay = c.allDay || (!c.start && !c.end) || (c.start === "00:00" && (c.end === "23:59" || c.end === "24:00" || c.end === "23:30"));
+                        if (isAllDay) {
+                            isClash = true;
+                            constraintDesc = `Tarih Aralığı (${c.startDate}/${c.endDate} Tüm Gün)`;
+                        } else {
+                            const cs = c.start ? timeToMins(c.start) : 0;
+                            const ce = c.end ? timeToMins(c.end) : 1440;
+                            if (sMin < ce && eMin > cs) {
+                                isClash = true;
+                                constraintDesc = `Tarih Aralığı (${c.startDate}/${c.endDate} ${c.start || '00:00'}-${c.end || '23:59'})`;
+                            }
+                        }
+                    }
+                }
+
+                if (isClash) {
+                    report.constraintClashes.push({
+                        staffName: sObj.name,
+                        examName: ex.name,
+                        date: ex.date,
+                        time: ex.time,
+                        constraint: constraintDesc
+                    });
                 }
             });
         });
@@ -1354,10 +1393,14 @@ function fixDatabaseIntegrity() {
 window.fixDatabaseIntegrity = fixDatabaseIntegrity;
 
 function getConstraintsForStaff(staffName) {
-    if (!DB.constraints || !staffName) return [];
+    const cMap = (typeof DB !== 'undefined' && DB && DB.constraints)
+        ? DB.constraints
+        : ((typeof PROCTOR_CONSTRAINTS !== 'undefined') ? PROCTOR_CONSTRAINTS : {});
+    if (!cMap || !staffName) return [];
+    if (cMap[staffName]) return cMap[staffName];
     
     const normalize = (name) => {
-        return name
+        return (name || '')
             .replace(/Prof\.\s*Dr\./gi, '')
             .replace(/Doç\.\s*Dr\./gi, '')
             .replace(/Dr\.\s*Öğr\.\s*Üyesi/gi, '')
@@ -1365,52 +1408,88 @@ function getConstraintsForStaff(staffName) {
             .replace(/Dr\./gi, '')
             .replace(/Öğr\.Gör\./gi, '')
             .trim()
-            .toLowerCase()
+            .toLocaleLowerCase('tr')
+            .replace(/ç/g, 'c')
+            .replace(/ğ/g, 'g')
+            .replace(/ı/g, 'i')
+            .replace(/ö/g, 'o')
+            .replace(/ş/g, 's')
+            .replace(/ü/g, 'u')
             .replace(/\s+/g, ' ');
     };
 
     const target = normalize(staffName);
-    for (const key of Object.keys(DB.constraints)) {
+    for (const key of Object.keys(cMap)) {
         if (normalize(key) === target) {
-            return DB.constraints[key] || [];
+            return cMap[key] || [];
         }
     }
     return [];
 }
+window.getConstraintsForStaff = getConstraintsForStaff;
 
 function isAvailable(staffName, dateStr, timeStr, duration) {
     const constraints = getConstraintsForStaff(staffName);
-    if (constraints.length === 0) return true;
+    if (!constraints || constraints.length === 0) return true;
+    if (!dateStr || !timeStr) return true;
 
     // Timezone safe local date parsing
-    const parts = dateStr.split('-');
-    const examDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const parts = String(dateStr).split('-');
+    if (parts.length < 3) return true;
+    const examYear = parseInt(parts[0], 10);
+    const examMonth = parseInt(parts[1], 10);
+    const examDay = parseInt(parts[2], 10);
+    const examDate = new Date(examYear, examMonth - 1, examDay);
     const dayOfWeek = examDate.getDay();
-    const mm = String(examDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(examDate.getDate()).padStart(2, '0');
+    const mm = String(examMonth).padStart(2, '0');
+    const dd = String(examDay).padStart(2, '0');
     const matchDateStr = `${mm}-${dd}`;
+    const isoDateStr = `${examYear}-${mm}-${dd}`;
 
     const examStart = timeToMins(timeStr);
-    const examEnd = examStart + duration;
+    const examEnd = examStart + (parseInt(duration, 10) || 60);
 
     for (const c of constraints) {
-        let isDayMatch = (c.day !== undefined && parseInt(c.day) === dayOfWeek);
-        let isDateMatch = (c.date !== undefined && c.date === matchDateStr);
-        let isDaterangeMatch = false;
+        let isDayMatch = (c.day !== undefined && parseInt(c.day, 10) === dayOfWeek);
         
+        let isDateMatch = false;
+        if (c.date) {
+            const cDateStr = String(c.date).trim();
+            if (cDateStr === isoDateStr || cDateStr === matchDateStr || cDateStr === String(dateStr).trim()) {
+                isDateMatch = true;
+            } else if (cDateStr.length === 5 && matchDateStr === cDateStr) {
+                isDateMatch = true;
+            } else if (cDateStr.length === 10 && isoDateStr === cDateStr) {
+                isDateMatch = true;
+            }
+        }
+
+        let isDaterangeMatch = false;
         if (c.startDate && c.endDate) {
-            const startParts = c.startDate.split('-');
-            const endParts = c.endDate.split('-');
-            const startD = new Date(startParts[0], startParts[1] - 1, startParts[2]);
-            const endD = new Date(endParts[0], endParts[1] - 1, endParts[2]);
-            if (examDate >= startD && examDate <= endD) {
+            const startParts = String(c.startDate).split('-');
+            const endParts = String(c.endDate).split('-');
+            if (startParts.length === 3 && endParts.length === 3) {
+                const startD = new Date(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10), 0, 0, 0);
+                const endD = new Date(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10), 23, 59, 59, 999);
+                if (examDate >= startD && examDate <= endD) {
+                    isDaterangeMatch = true;
+                }
+            } else if (String(dateStr).trim() >= String(c.startDate).trim() && String(dateStr).trim() <= String(c.endDate).trim()) {
                 isDaterangeMatch = true;
             }
         }
         
         if (isDayMatch || isDateMatch || isDaterangeMatch) {
-            const constraintStart = timeToMins(c.start);
-            const constraintEnd = timeToMins(c.end);
+            // Tam gün kısıt kontrolü (allDay bayrağı, saat girilmemiş olması veya 00:00-23:59 olması)
+            const isAllDay = c.allDay || (!c.start && !c.end) || 
+                (c.start === "00:00" && (c.end === "23:59" || c.end === "24:00" || c.end === "23:30"));
+
+            if (isAllDay) {
+                return false;
+            }
+
+            const constraintStart = c.start ? timeToMins(c.start) : 0;
+            const constraintEnd = c.end ? timeToMins(c.end) : 1440;
             
             // Çakışma kontrolü
             if (examStart < constraintEnd && examEnd > constraintStart) {
@@ -1420,6 +1499,7 @@ function isAvailable(staffName, dateStr, timeStr, duration) {
     }
     return true;
 }
+window.isAvailable = isAvailable;
 
 /**
  * Gözetmen Müsaitlik Puanını Hesapla (0-100)
@@ -1599,13 +1679,16 @@ function autoResolveConflicts() {
     let resolvedCount = 0;
     let skippedCount = 0;
 
-    // Adım 1: Kısıt ihlali olan sınavları bul
+    // Adım 1: Kısıt ihlali olan sınavları bul (Tüm gözetmenleri tara)
     const violationExamIds = new Set();
     DB.exams.forEach(ex => {
-        const proctorStaff = DB.staff.find(s => s.id === ex.proctorId);
-        if (!proctorStaff) return;
-        if (!isAvailable(proctorStaff.name, ex.date, ex.time, ex.duration)) {
-            violationExamIds.add(ex.id);
+        const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        for (const pid of pIds) {
+            const proctorStaff = DB.staff.find(s => s.id === pid);
+            if (proctorStaff && !isAvailable(proctorStaff.name, ex.date, ex.time, ex.duration)) {
+                violationExamIds.add(ex.id);
+                break;
+            }
         }
     });
 
@@ -1861,18 +1944,18 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
     DB.exams.push(newExam);
     
     // Personel puanlarını güncelle (yalnızca gözetmen atanmışsa)
-    proctors.forEach(p => {
-        if (shouldCountAsNonExam(examData)) {
-            p.nonExamScore = parseFloat(((p.nonExamScore || 0) + score).toFixed(2));
-            p.nonExamTaskCount = (p.nonExamTaskCount || 0) + 1;
-        } else {
-            p.totalScore = parseFloat((p.totalScore + score).toFixed(2));
-            p.taskCount = (p.taskCount || 0) + 1;
-        }
-    });
-
-    // GÖZETMENLERE BİLDİRİM GÖNDER (Yeni Görev)
     if (proctors.length > 0) {
+        proctors.forEach(p => {
+            if (shouldCountAsNonExam(examData)) {
+                p.nonExamScore = parseFloat(((p.nonExamScore || 0) + score).toFixed(2));
+                p.nonExamTaskCount = (p.nonExamTaskCount || 0) + 1;
+            } else {
+                p.totalScore = parseFloat((p.totalScore + score).toFixed(2));
+                p.taskCount = (p.taskCount || 0) + 1;
+            }
+        });
+
+        // GÖZETMENLERE BİLDİRİM GÖNDER (Yeni Görev)
         if (!DB.notifications) DB.notifications = {};
         const nowNotif = new Date().toISOString();
         proctors.forEach(p => {
@@ -2515,6 +2598,8 @@ if (typeof window !== 'undefined') {
     window.saveToBackend = saveToBackend;
     window.initOfflineSyncListener = initOfflineSyncListener;
 }
+
+
 
 function saveToLocalStorage() {
     // Halen local'e de kopyasını (cache) atıyoruz, çökmelerde vs. kullanmak için

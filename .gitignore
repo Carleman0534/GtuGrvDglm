@@ -3,12 +3,15 @@ sifreler.txt
 set_passwords.js
 firebase_backup_recovery.json
 *.key
+*.pem
+.env
 *.env
 
 # Dağıtım ve Yerel Scriptler
 GitHuba_Yukle.bat
 
-# Yerel Yedekler ve Arşivler
+# Geçici ve Yerel Yedek Klasörleri
+backup_before_fix/
 Yedekler/
 *.bak
 *.tmp

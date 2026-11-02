@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 const KATSAYILAR = {
     HAFTA_ICI_MESAI: 1.0,
@@ -121,33 +122,93 @@ function timeToMins(timeStr) {
     const parts = timeStr.split(':');
     return parseInt(parts[0]) * 60 + parseInt(parts[1]);
 }
+function normalizeStaffName(name) {
+    return (name || '')
+        .replace(/Prof\.\s*Dr\./gi, '')
+        .replace(/Doç\.\s*Dr\./gi, '')
+        .replace(/Dr\.\s*Öğr\.\s*Üyesi/gi, '')
+        .replace(/Arş\.\s*Gör\./gi, '')
+        .replace(/Dr\./gi, '')
+        .replace(/Öğr\.Gör\./gi, '')
+        .trim()
+        .toLocaleLowerCase('tr')
+        .replace(/ç/g, 'c')
+        .replace(/ğ/g, 'g')
+        .replace(/ı/g, 'i')
+        .replace(/ö/g, 'o')
+        .replace(/ş/g, 's')
+        .replace(/ü/g, 'u')
+        .replace(/\s+/g, ' ');
+}
+
+function getConstraints(staffName) {
+    if (PROCTOR_CONSTRAINTS[staffName]) return PROCTOR_CONSTRAINTS[staffName];
+    const target = normalizeStaffName(staffName);
+    for (const key of Object.keys(PROCTOR_CONSTRAINTS)) {
+        if (normalizeStaffName(key) === target) {
+            return PROCTOR_CONSTRAINTS[key] || [];
+        }
+    }
+    return [];
+}
+
 function isAvailable(staffName, dateStr, timeStr, duration) {
-    const constraints = PROCTOR_CONSTRAINTS[staffName];
-    if (!constraints) return true;
-    const examDate = new Date(dateStr);
+    const constraints = getConstraints(staffName);
+    if (!constraints || constraints.length === 0) return true;
+    if (!dateStr || !timeStr) return true;
+
+    const parts = String(dateStr).split('-');
+    if (parts.length < 3) return true;
+    const examYear = parseInt(parts[0], 10);
+    const examMonth = parseInt(parts[1], 10);
+    const examDay = parseInt(parts[2], 10);
+    const examDate = new Date(examYear, examMonth - 1, examDay);
     const dayOfWeek = examDate.getDay();
-    const mm = String(examDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(examDate.getDate()).padStart(2, '0');
+    const mm = String(examMonth).padStart(2, '0');
+    const dd = String(examDay).padStart(2, '0');
     const matchDateStr = `${mm}-${dd}`;
+    const isoDateStr = `${examYear}-${mm}-${dd}`;
+
     const examStart = timeToMins(timeStr);
-    const examEnd = examStart + duration;
+    const examEnd = examStart + (parseInt(duration, 10) || 60);
 
     for (const c of constraints) {
-        let isDayMatch = (c.day !== undefined && c.day === dayOfWeek);
-        let isDateMatch = (c.date !== undefined && c.date === matchDateStr);
+        let isDayMatch = (c.day !== undefined && parseInt(c.day, 10) === dayOfWeek);
+        let isDateMatch = false;
+        if (c.date) {
+            const cDateStr = String(c.date).trim();
+            if (cDateStr === isoDateStr || cDateStr === matchDateStr || cDateStr === String(dateStr).trim()) {
+                isDateMatch = true;
+            } else if (cDateStr.length === 5 && matchDateStr === cDateStr) {
+                isDateMatch = true;
+            } else if (cDateStr.length === 10 && isoDateStr === cDateStr) {
+                isDateMatch = true;
+            }
+        }
+
         let isDaterangeMatch = false;
-        
         if (c.startDate && c.endDate) {
-            const startD = new Date(c.startDate);
-            const endD = new Date(c.endDate);
-            if (examDate >= startD && examDate <= endD) {
+            const startParts = String(c.startDate).split('-');
+            const endParts = String(c.endDate).split('-');
+            if (startParts.length === 3 && endParts.length === 3) {
+                const startD = new Date(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10), 0, 0, 0);
+                const endD = new Date(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10), 23, 59, 59, 999);
+                if (examDate >= startD && examDate <= endD) {
+                    isDaterangeMatch = true;
+                }
+            } else if (String(dateStr).trim() >= String(c.startDate).trim() && String(dateStr).trim() <= String(c.endDate).trim()) {
                 isDaterangeMatch = true;
             }
         }
         
         if (isDayMatch || isDateMatch || isDaterangeMatch) {
-            const constraintStart = timeToMins(c.start);
-            const constraintEnd = timeToMins(c.end);
+            const isAllDay = c.allDay || (!c.start && !c.end) || 
+                (c.start === "00:00" && (c.end === "23:59" || c.end === "24:00" || c.end === "23:30"));
+
+            if (isAllDay) return false;
+
+            const constraintStart = c.start ? timeToMins(c.start) : 0;
+            const constraintEnd = c.end ? timeToMins(c.end) : 1440;
             if (examStart < constraintEnd && examEnd > constraintStart) {
                 return false; 
             }
@@ -228,4 +289,6 @@ for(let orig of origNames) {
    }
 }
 
-fs.writeFileSync('C:/Users/ASUS/OneDrive/Desktop/Gözetmenlik/new_assignments.txt', res.join(',\n'), 'utf8');
+const outputPath = path.join(__dirname, 'new_assignments.txt');
+fs.writeFileSync(outputPath, res.join(',\n'), 'utf8');
+console.log(`Assignments written to ${outputPath}`);

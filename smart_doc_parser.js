@@ -120,9 +120,14 @@
                 courseCode = `${mCode[1].toUpperCase()} ${mCode[2]}`;
             }
 
-            // Arşivden tahmini süre
-            let estimatedDuration = 60;
-            if (typeof getExamHistoricalDurationStats === 'function') {
+            // Arşivden tahmini süre (geçmiş sınav bilgileri ile kıyaslama, yoksa 90 dakika)
+            let estimatedDuration = 90;
+            if (typeof findHistoricalExamDuration === 'function') {
+                const hist = findHistoricalExamDuration(courseCode, courseName);
+                if (hist && hist.duration) {
+                    estimatedDuration = hist.duration;
+                }
+            } else if (typeof getExamHistoricalDurationStats === 'function') {
                 const stats = getExamHistoricalDurationStats(courseName);
                 if (stats && stats.recommendedDuration) {
                     estimatedDuration = stats.recommendedDuration;
@@ -385,7 +390,7 @@ Veri Bilimi ve Analitiği 37 HIS 101 Principles of Atatürk and the History of T
             const candidates = _simulatedStaff.filter(st => {
                 // 1. Kısıt kontrolü (logic.js isAvailable fonksiyonu)
                 if (typeof isAvailable === 'function') {
-                    if (!isAvailable(st.name, ex.date, ex.time, ex.duration || 60)) return false;
+                    if (!isAvailable(st.name, ex.date, ex.time, ex.duration || 90)) return false;
                 }
                 // 2. Çakışma kontrolü (Bu simülasyondaki diğer sınavlar veya DB'deki sınavlar)
                 return true;
@@ -403,7 +408,7 @@ Veri Bilimi ve Analitiği 37 HIS 101 Principles of Atatürk and the History of T
                 chosenStaff.push(picked);
 
                 // Simüle edilen puanı ve görev sayısını güncelle
-                const examScore = (ex.duration || 60) * 1.0;
+                const examScore = (ex.duration || 90) * 1.0;
                 picked.totalScore = parseFloat((picked.totalScore + examScore).toFixed(2));
                 picked.taskCount += 1;
             }
@@ -481,7 +486,7 @@ Veri Bilimi ve Analitiği 37 HIS 101 Principles of Atatürk and the History of T
                     <div style="font-size:0.78rem; color:var(--text-muted);">Mevcut: ${ex.capacity || 0}</div>
                 </td>
                 <td>
-                    <input type="number" value="${ex.duration || 60}" min="15" max="240" step="5" style="width: 65px; padding: 4px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.85rem; text-align: center;" onchange="window.updateSmartDocExamDuration(${idx}, this.value)"> dk
+                    <input type="number" value="${ex.duration || 90}" min="15" max="240" step="5" style="width: 65px; padding: 4px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.85rem; text-align: center;" onchange="window.updateSmartDocExamDuration(${idx}, this.value)"> dk
                 </td>
                 <td>
                     <input type="number" value="${ex.proctorDemand || 1}" min="1" max="8" style="width: 50px; padding: 4px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.85rem; text-align: center;" onchange="window.updateSmartDocExamDemand(${idx}, this.value)"> Kişi
@@ -501,7 +506,7 @@ Veri Bilimi ve Analitiği 37 HIS 101 Principles of Atatürk and the History of T
     window.updateSmartDocExamDuration = function(idx, val) {
         const filtered = (_selectedProgram === 'Tümü') ? _allParsedExams : _allParsedExams.filter(e => e.program === _selectedProgram);
         if (filtered[idx]) {
-            filtered[idx].duration = parseInt(val, 10) || 60;
+            filtered[idx].duration = parseInt(val, 10) || 90;
         }
     };
 

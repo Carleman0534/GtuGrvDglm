@@ -92,6 +92,11 @@ window.logoutUser = function() {
     sessionStorage.removeItem('isLecturer');
     sessionStorage.removeItem('userPassword');
     localStorage.removeItem('myStaffId');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('isAdmin');
+    localStorage.removeItem('isLecturer');
+    localStorage.removeItem('userPassword');
+    localStorage.removeItem('rememberMe');
     window.location.reload();
 };
 
@@ -112,6 +117,29 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
         sessionStorage.setItem('isLecturer', isLecturer ? 'true' : 'false');
         window.finishLogin = finishLogin;
+
+        // Beni Hatırla (Remember Me) Kalıcılığı
+        const rememberMeCb = document.getElementById('login-remember-me');
+        const shouldRemember = rememberMeCb ? rememberMeCb.checked : (localStorage.getItem('rememberMe') === 'true');
+        if (shouldRemember) {
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+            localStorage.setItem('isLecturer', isLecturer ? 'true' : 'false');
+            localStorage.setItem('rememberMe', 'true');
+            const pw = sessionStorage.getItem('userPassword') || '';
+            if (pw) localStorage.setItem('userPassword', pw);
+        } else {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('isLecturer');
+            localStorage.removeItem('userPassword');
+            localStorage.removeItem('rememberMe');
+        }
+
+        // FOUC önleme stilini güvenle kaldır
+        const foucEl = document.getElementById('fouc-remember-style');
+        if (foucEl && typeof foucEl.remove === 'function') foucEl.remove();
+        document.documentElement.classList.remove('remembered-auto-login');
         
         if (Object.keys(navButtons).length === 0) initNavigation();
 
@@ -181,10 +209,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Oturum Kontrolü
+    // Oturum Kontrolü (Session + Beni Hatırla Kalıcılığı)
+    const isRemembered = localStorage.getItem('isLoggedIn') === 'true' && localStorage.getItem('rememberMe') === 'true';
     if (sessionStorage.getItem('isLoggedIn') === 'true') {
         finishLogin(sessionStorage.getItem('isAdmin') === 'true', sessionStorage.getItem('isLecturer') === 'true');
+    } else if (isRemembered) {
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('isAdmin', localStorage.getItem('isAdmin') || 'false');
+        sessionStorage.setItem('isLecturer', localStorage.getItem('isLecturer') || 'false');
+        if (localStorage.getItem('userPassword')) {
+            sessionStorage.setItem('userPassword', localStorage.getItem('userPassword'));
+        }
+        finishLogin(localStorage.getItem('isAdmin') === 'true', localStorage.getItem('isLecturer') === 'true');
     } else {
+        const foucEl = document.getElementById('fouc-remember-style');
+        if (foucEl && typeof foucEl.remove === 'function') foucEl.remove();
+        document.documentElement.classList.remove('remembered-auto-login');
         loginOverlay.classList.remove('hidden');
         appWrapper.style.display = 'none';
     }
@@ -12682,7 +12722,110 @@ function findColumnKey(row, matchers, excludedWords = []) {
     return null;
 }
 
-function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 60) {
+/**
+ * GEÇMİŞ SINAV SÜRESİ KIYASLAMA VE TESPİT ETME FONKSİYONU
+ * 1. Öncelikle sistemde daha önce kayıtlı / geçmiş sınavlardaki (DB.exams) sürelerle kıyaslar.
+ * 2. Bölüm / müfredat geçmiş sınav süreleri bilgi bankasına (HISTORICAL_COURSE_DURATIONS) bakar.
+ * 3. Hiçbir bilgi bulunamazsa kullanıcı talimatı gereği varsayılan olarak 90 dakika kabul eder.
+ */
+function findHistoricalExamDuration(code, name) {
+    const cleanCode = (code || '').toUpperCase().replace(/[\s\-_]/g, '');
+    const cleanName = (name || '').toLowerCase()
+        .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+        .replace(/[^a-z0-9]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // 1. Sistemde daha önce kayıtlı / geçmiş sınavlar (DB.exams)
+    if (typeof DB !== 'undefined' && Array.isArray(DB.exams) && DB.exams.length > 0) {
+        if (cleanCode) {
+            const matchCode = DB.exams.find(e => {
+                if (!e.duration || e.duration <= 0) return false;
+                const eCode = (e.code || (e.name ? e.name.split(' - ')[0] : '')).toUpperCase().replace(/[\s\-_]/g, '');
+                return eCode === cleanCode;
+            });
+            if (matchCode) return { duration: matchCode.duration, source: 'history', sourceLabel: 'Geçmiş Sınavlardan' };
+        }
+
+        if (cleanName) {
+            const matchName = DB.exams.find(e => {
+                if (!e.duration || e.duration <= 0) return false;
+                const eName = (e.title || e.name || '').toLowerCase()
+                    .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                    .replace(/[^a-z0-9]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                return eName && (eName === cleanName || eName.includes(cleanName) || cleanName.includes(eName));
+            });
+            if (matchName) return { duration: matchName.duration, source: 'history', sourceLabel: 'Geçmiş Sınavlardan' };
+        }
+    }
+
+    // 2. Bölüm ve Müfredat Geçmiş Sınav Bilgi Bankası (GTÜ standart süreleri)
+    const HISTORICAL_COURSE_DURATIONS = {
+        // Matematik Lisans Temel & İleri
+        "MATH111": 120, "MAT111": 120, "MATH112": 120, "MAT112": 120,
+        "MATH113": 120, "MAT113": 120, "MATH114": 120, "MAT114": 120,
+        "MATH115": 120, "MAT115": 120, "MATH116": 120, "MAT116": 120,
+        "MATH101": 120, "MAT101": 120, "MATH102": 120, "MAT102": 120,
+        "MAT103": 120, "MAT105": 120, "MAT106": 90, "MATH106": 90,
+        "MATH203": 120, "MAT203": 120, "MATH204": 180, "MAT204": 180,
+        "MATH206": 120, "MAT206": 120,
+        "MATH209": 120, "MAT209": 120, "MATH210": 120, "MAT210": 120,
+        "MATH211": 120, "MAT211": 120, "MATH212": 120, "MAT212": 120,
+        "MATH301": 60,  "MAT301": 60,  "MATH302": 60,  "MAT302": 60,
+        "MATH303": 120, "MAT303": 120, "MATH304": 120, "MAT304": 120,
+        "MATH305": 120, "MAT305": 120,
+        "MATH308": 60,  "MAT308": 60,  "MATH401": 90,  "MAT401": 90,
+        "MATH310": 120, "MAT310": 120, "MATH311": 120, "MAT311": 120,
+        "MATH312": 90,  "MAT312": 90,
+        "MATH314": 90,  "MAT314": 90,
+        "MATH406": 90,  "MAT406": 90,
+        "MATH407": 180, "MAT407": 180,
+        "MATH411": 120, "MAT411": 120,
+        "MATH419": 120, "MAT419": 120,
+        "MATH432": 90,  "MAT432": 90,
+        "MATH434": 110, "MAT434": 110,
+        "MATH435": 180, "MAT435": 180,
+        "MATH438": 120, "MAT438": 120,
+        "MATH446": 180, "MAT446": 180,
+        "MATH449": 90,  "MAT449": 90,
+        "MATH451": 90,  "MAT451": 90,
+        "MATH452": 60,  "MAT452": 60,
+
+        // Üniversite Ortak & Servis Dersleri
+        "INF100": 90,  "INF101": 90,  "INF102": 90,
+        "PHYS113": 90, "PHYS114": 90, "FIZ113": 90, "FIZ114": 90, "PHYS121": 90, "PHYS122": 90,
+        "TUR101": 60,  "TUR102": 60,  "TURK101": 60, "TURK102": 60,
+        "HIS101": 60,  "HIS102": 60,  "ATA101": 60,  "ATA102": 60,
+        "ENG111": 60,  "ENG112": 60,  "ING111": 60,  "ING112": 60
+    };
+
+    if (cleanCode && HISTORICAL_COURSE_DURATIONS[cleanCode]) {
+        return { duration: HISTORICAL_COURSE_DURATIONS[cleanCode], source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+    }
+
+    if (cleanName) {
+        if (cleanName.includes('linear algebra') || cleanName.includes('lineer cebir')) return { duration: 120, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('analysis') || cleanName.includes('analiz')) {
+            if (cleanName.includes('complex') || cleanName.includes('kompleks')) return { duration: 60, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+            return { duration: 120, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        }
+        if (cleanName.includes('differential equation') || cleanName.includes('diferansiyel')) return { duration: 120, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('computing') || cleanName.includes('bilgisayar')) return { duration: 90, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('physics') || cleanName.includes('fizik')) return { duration: 90, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('turkish') || cleanName.includes('turkce') || cleanName.includes('turk dili')) return { duration: 60, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('ataturk') || cleanName.includes('inkilap') || cleanName.includes('history') || cleanName.includes('tarih')) return { duration: 60, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('english') || cleanName.includes('ingilizce')) return { duration: 60, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+        if (cleanName.includes('numerical') || cleanName.includes('sayisal analiz')) return { duration: 120, source: 'catalog_history', sourceLabel: 'Geçmiş Sınavlardan' };
+    }
+
+    // 3. Hiçbir bilgi yoksa varsayılan: 90 dakika!
+    return { duration: 90, source: 'default_90', sourceLabel: 'Varsayılan (90 dk)' };
+}
+
+
+function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 90) {
     let dateStr = "";
     let timeStr = "09:00";
     let duration = defaultDuration;
@@ -12992,7 +13135,13 @@ function processExcelRows(rows) {
             return;
         }
 
-        const parsedDT = parseTurkishDateTimeAndDuration(dateTimeRaw, 60);
+        // Geçmiş sınav süresi kıyaslama (hiçbir bilgi yoksa 90 dakika)
+        const histInfo = (typeof findHistoricalExamDuration === 'function')
+            ? findHistoricalExamDuration(courseCode, courseName)
+            : { duration: 90, source: 'default_90', sourceLabel: 'Varsayılan (90 dk)' };
+        const resolvedDefaultDur = histInfo.duration || 90;
+
+        const parsedDT = parseTurkishDateTimeAndDuration(dateTimeRaw, resolvedDefaultDur);
         const date = parsedDT.date;
         const time = parsedDT.time;
         const duration = parsedDT.duration;
@@ -13446,7 +13595,7 @@ Mükerrer sınavlar ATLANSIN mı?
             date: ex.date,
             time: ex.time,
             endTime: ex.endTime || "",
-            duration: ex.duration || 60,
+            duration: ex.duration || 90,
             proctorId: ex.proctorId || null,
             proctorName: ex.proctorName || "Atanmadı",
             proctorIds: ex.proctorIds || [],
@@ -16707,3 +16856,708 @@ window.addEventListener('DOMContentLoaded', () => {
             if (e.target === archiveModal) closeCourseHistoryArchiveModal();
         });
     }
+
+
+// ============================================================================
+// TOPLU SINAV PROGRAMI PDF & E-POSTA İLE PAYLAŞIM SİSTEMİ
+// ============================================================================
+
+/**
+ * Güncel sınav programındaki tüm sınavları kapsayan PDF oluşturur.
+ * jsPDF ve autoTable kullanarak GTÜ kurumsal formatında A4 yatay belge üretir.
+ * Türkçe karakter uyumluluğu (Roboto fontu veya dinamik harf dönüşümü) ve sayfa numaralandırması içerir.
+ * @param {string} [customTitle] PDF üst başlığı
+ * @returns {Promise<{doc: any, filename: string, pdfBlob: Blob, pdfDataUri: string, pdfBase64: string, examCount: number}>}
+ */
+async function generateSchedulePDFBlob(customTitle = 'GÜNCEL SINAV PROGRAMI VE GÖREVLENDİRME LİSTESİ') {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        throw new Error('jsPDF kütüphanesi yüklenemedi.');
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4'); // Yatay A4 formatı
+
+    let pdfFont = 'helvetica';
+    try {
+        // Türkçe destekleyen Roboto fontlarını CDN üzerinden eklemeyi dene
+        const [fontRes, boldRes] = await Promise.all([
+            fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf'),
+            fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf')
+        ]);
+        if (fontRes.ok && boldRes.ok) {
+            const [fontBuffer, boldBuffer] = await Promise.all([fontRes.arrayBuffer(), boldRes.arrayBuffer()]);
+            let binNorm = '', binBold = '';
+            new Uint8Array(fontBuffer).forEach(b => { binNorm += String.fromCharCode(b); });
+            new Uint8Array(boldBuffer).forEach(b => { binBold += String.fromCharCode(b); });
+            doc.addFileToVFS('Roboto-Regular.ttf', window.btoa(binNorm));
+            doc.addFileToVFS('Roboto-Medium.ttf', window.btoa(binBold));
+            doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+            doc.addFont('Roboto-Medium.ttf', 'Roboto', 'bold');
+            pdfFont = 'Roboto';
+        }
+    } catch (e) {
+        console.warn('Roboto fontu yüklenemedi. Varsayılan font kullanılacak:', e);
+    }
+    doc.setFont(pdfFont);
+
+    const trMap = {
+        'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
+        'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
+    };
+    const cleanStr = (str) => {
+        if (str === null || str === undefined) return '-';
+        let s = String(str).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').trim();
+        if (pdfFont === 'helvetica') {
+            s = s.replace(/[çÇğĞıİöÖşŞüÜ]/g, m => trMap[m] || m);
+        }
+        return s;
+    };
+
+    // GTÜ Başlığı ve Üst Bilgi
+    doc.setFont(pdfFont, 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(30, 27, 75); // Dark Indigo
+    doc.text(cleanStr("GEBZE TEKNİK ÜNİVERSİTESİ"), 14, 15);
+
+    doc.setFontSize(11);
+    doc.setTextColor(79, 70, 229); // Primary Indigo
+    doc.text(cleanStr(customTitle), 14, 21);
+
+    doc.setFont(pdfFont, 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    const nowStr = new Date().toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    doc.text(cleanStr(`Oluşturulma Tarihi: ${nowStr} | Sınav & Gözetmen Yönetim Portalı`), 14, 26);
+
+    // Aktif, taslak olmayan sınavları çek ve tarihe/saate göre kronolojik sırala
+    const rawExams = (typeof DB !== 'undefined' && DB.exams) ? DB.exams.filter(e => !e.isDraft) : [];
+    const sortedExams = [...rawExams].sort((a, b) => {
+        const da = a.date || '';
+        const db = b.date || '';
+        if (da !== db) return da.localeCompare(db);
+        return (a.time || '').localeCompare(b.time || '');
+    });
+
+    const tableRows = sortedExams.map((ex, idx) => {
+        let pNames = [];
+        const pids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        if (pids && pids.length > 0) {
+            pNames = pids.map(pid => {
+                const s = (typeof DB !== 'undefined' && DB.staff) ? DB.staff.find(st => String(st.id) === String(pid)) : null;
+                return s ? s.name : `Personel #${pid}`;
+            });
+        } else if (ex.proctorName) {
+            pNames = [ex.proctorName];
+        }
+        const gozetmenMetni = pNames.length > 0 ? pNames.join(', ') : 'Gözetmen Atanmadı';
+
+        let displayDate = ex.date || '-';
+        if (displayDate.includes('-')) {
+            const parts = displayDate.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                displayDate = `${parts[2]}.${parts[1]}.${parts[0]}`;
+            }
+        }
+
+        const sureText = ex.duration ? ` (${ex.duration} dk)` : '';
+        const sinavTuru = ex.type ? ex.type.toUpperCase() : '-';
+
+        return [
+            String(idx + 1),
+            cleanStr(displayDate),
+            cleanStr(`${ex.time || '-'}${sureText}`),
+            cleanStr(sinavTuru),
+            cleanStr(ex.name || '-'),
+            cleanStr(ex.lecturer || '-'),
+            cleanStr(ex.location || '-'),
+            cleanStr(gozetmenMetni)
+        ];
+    });
+
+    // AutoTable Oluştur
+    if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+            startY: 30,
+            head: [[
+                '#',
+                'Tarih',
+                'Saat (Süre)',
+                'Tür',
+                'Ders Kodu & Adı',
+                'Dersi Veren Öğr. Üyesi',
+                'Sınav Salonu / Derslik',
+                'Görevli Gözetmen(ler)'
+            ]],
+            body: tableRows,
+            theme: 'striped',
+            styles: {
+                font: pdfFont,
+                fontSize: 7.5,
+                cellPadding: 2.5,
+                valign: 'middle',
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [79, 70, 229], // #4f46e5
+                textColor: 255,
+                fontSize: 8,
+                font: pdfFont,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 22, halign: 'center' },
+                2: { cellWidth: 26, halign: 'center' },
+                3: { cellWidth: 18, halign: 'center' },
+                4: { cellWidth: 55 },
+                5: { cellWidth: 45 },
+                6: { cellWidth: 35 },
+                7: { cellWidth: 'auto', fontStyle: 'bold' }
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252]
+            },
+            didDrawPage: function(data) {
+                const str = `Sayfa ${doc.internal.getNumberOfPages()}`;
+                doc.setFont(pdfFont, 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(148, 163, 184);
+                const pageSize = doc.internal.pageSize;
+                const pageHeight = pageSize.height || pageSize.getHeight();
+                const pageWidth = pageSize.width || pageSize.getWidth();
+                doc.text(cleanStr("Bu belge Gebze Teknik Üniversitesi Sınav & Gözetmen Dağıtım Sistemi tarafından üretilmiştir."), 14, pageHeight - 8);
+                doc.text(str, pageWidth - 25, pageHeight - 8);
+            }
+        });
+    }
+
+    const nowIso = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `Guncel_Sinav_Programi_${nowIso}.pdf`;
+    const pdfBlob = doc.output('blob');
+    const pdfDataUri = doc.output('datauristring');
+    const pdfBase64 = pdfDataUri.split(',')[1] || '';
+
+    return {
+        doc,
+        filename,
+        pdfBlob,
+        pdfDataUri,
+        pdfBase64,
+        examCount: sortedExams.length
+    };
+}
+window.generateSchedulePDFBlob = generateSchedulePDFBlob;
+
+/**
+ * Toplu sınav programını e-posta ile paylaşma modalını açar ve hazırlar.
+ */
+function openShareScheduleEmailModal() {
+    const modal = document.getElementById('modal-share-schedule-email');
+    if (!modal) return;
+
+    const rawExams = (typeof DB !== 'undefined' && DB.exams) ? DB.exams.filter(e => !e.isDraft) : [];
+    
+    // Görevli gözetmen haritası
+    const assignedProctorsMap = new Map();
+    rawExams.forEach(ex => {
+        const pids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+        pids.forEach(pid => {
+            const s = (typeof DB !== 'undefined' && DB.staff) ? DB.staff.find(st => String(st.id) === String(pid)) : null;
+            if (s && s.email) {
+                const sId = String(s.id);
+                if (!assignedProctorsMap.has(sId)) {
+                    assignedProctorsMap.set(sId, { ...s, assignedExams: [] });
+                }
+                assignedProctorsMap.get(sId).assignedExams.push(ex);
+            }
+        });
+    });
+
+    const assignedProctors = Array.from(assignedProctorsMap.values());
+    const allStaff = (typeof DB !== 'undefined' && DB.staff) ? DB.staff.filter(s => s.email && s.email.trim()) : [];
+
+    // UI Sayaçlarını güncelle
+    const lblProctors = document.getElementById('lbl-count-proctors');
+    if (lblProctors) lblProctors.textContent = `${assignedProctors.length} görevli personel`;
+
+    const lblAllStaff = document.getElementById('lbl-count-all-staff');
+    if (lblAllStaff) lblAllStaff.textContent = `${allStaff.length} kayıtlı personel`;
+
+    const pdfInfo = document.getElementById('share-schedule-pdf-info');
+    if (pdfInfo) pdfInfo.textContent = `${rawExams.length} sınav, güncel takvim ve tüm gözetmen atamaları dahil.`;
+
+    // Varsayılan konu ve mesaj gövdesi ("sınav görevleriniz verilmiştir." zorunlu metni dahil)
+    const subjectEl = document.getElementById('share-schedule-subject');
+    if (subjectEl) subjectEl.value = 'GTÜ Sınav Programı - Sınav Görevleriniz Verilmiştir';
+
+    const bodyEl = document.getElementById('share-schedule-body');
+    if (bodyEl) {
+        bodyEl.value = `Sayın Öğretim Elemanı / Araştırma Görevlisi,
+
+Güncel sınav programındaki sınav görevleriniz verilmiştir.
+
+Bölümümüzün güncel sınav takvimi ve tüm görevlendirmeleri içeren detaylı liste ekteki "Guncel_Sinav_Programi.pdf" dosyasında bilgilerinize sunulmuştur.
+
+Ayrıca sisteme giriş yaparak kendi sınav görevlerinizi görüntüleyebilir, mazeret ve takas işlemlerinizi gerçekleştirebilirsiniz.
+
+Sınav görevlerinizde başarılar dileriz.
+GTÜ Bölüm Başkanlığı`;
+    }
+
+    // Radio seçeneğini sıfırla
+    const radios = document.getElementsByName('share-recipient-type');
+    radios.forEach(r => { if (r.value === 'assigned_proctors') r.checked = true; });
+
+    // Custom email container'ı gizle
+    const customContainer = document.getElementById('share-custom-recipients-container');
+    if (customContainer) customContainer.classList.add('hidden');
+
+    // İlerleme çubuğunu gizle
+    const progressContainer = document.getElementById('share-schedule-progress-container');
+    if (progressContainer) progressContainer.classList.add('hidden');
+
+    handleRecipientTypeChange();
+
+    modal.classList.remove('hidden');
+}
+window.openShareScheduleEmailModal = openShareScheduleEmailModal;
+
+/**
+ * Modalı kapatır.
+ */
+function closeShareScheduleEmailModal() {
+    const modal = document.getElementById('modal-share-schedule-email');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeShareScheduleEmailModal = closeShareScheduleEmailModal;
+
+/**
+ * Alıcı türü değiştiğinde tetiklenir (Görevli / Tüm Bölüm / Özel).
+ */
+function handleRecipientTypeChange() {
+    const radios = document.getElementsByName('share-recipient-type');
+    let selectedType = 'assigned_proctors';
+    radios.forEach(r => { if (r.checked) selectedType = r.value; });
+
+    const customContainer = document.getElementById('share-custom-recipients-container');
+    if (customContainer) {
+        if (selectedType === 'custom') {
+            customContainer.classList.remove('hidden');
+        } else {
+            customContainer.classList.add('hidden');
+        }
+    }
+    updateRecipientPreview();
+}
+window.handleRecipientTypeChange = handleRecipientTypeChange;
+
+/**
+ * Seçilen alıcı listesini döndüren yardımcı fonksiyon.
+ * @returns {Array<{id: any, name: string, email: string, exams: Array}>}
+ */
+function getResolvedShareRecipients() {
+    const radios = document.getElementsByName('share-recipient-type');
+    let selectedType = 'assigned_proctors';
+    radios.forEach(r => { if (r.checked) selectedType = r.value; });
+
+    const rawExams = (typeof DB !== 'undefined' && DB.exams) ? DB.exams.filter(e => !e.isDraft) : [];
+
+    if (selectedType === 'assigned_proctors') {
+        const assignedMap = new Map();
+        rawExams.forEach(ex => {
+            const pids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+            pids.forEach(pid => {
+                const s = (typeof DB !== 'undefined' && DB.staff) ? DB.staff.find(st => String(st.id) === String(pid)) : null;
+                if (s && s.email && s.email.trim()) {
+                    const sId = String(s.id);
+                    if (!assignedMap.has(sId)) {
+                        assignedMap.set(sId, { id: s.id, name: s.name, email: s.email.trim(), exams: [] });
+                    }
+                    assignedMap.get(sId).exams.push(ex);
+                }
+            });
+        });
+        return Array.from(assignedMap.values());
+    } else if (selectedType === 'all_staff') {
+        const all = (typeof DB !== 'undefined' && DB.staff) ? DB.staff.filter(s => s.email && s.email.trim()) : [];
+        return all.map(s => {
+            const myExams = rawExams.filter(ex => {
+                const pids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                return pids.map(String).includes(String(s.id));
+            });
+            return { id: s.id, name: s.name, email: s.email.trim(), exams: myExams };
+        });
+    } else if (selectedType === 'custom') {
+        const txt = document.getElementById('share-custom-emails')?.value || '';
+        const emails = txt.split(/[\s,;]+/).map(e => e.trim()).filter(e => e && e.includes('@'));
+        return emails.map(email => {
+            const matchStaff = (typeof DB !== 'undefined' && DB.staff) ? DB.staff.find(s => s.email && s.email.toLowerCase() === email.toLowerCase()) : null;
+            if (matchStaff) {
+                const myExams = rawExams.filter(ex => {
+                    const pids = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+                    return pids.map(String).includes(String(matchStaff.id));
+                });
+                return { id: matchStaff.id, name: matchStaff.name, email: matchStaff.email, exams: myExams };
+            }
+            return { id: null, name: email.split('@')[0], email, exams: [] };
+        });
+    }
+    return [];
+}
+window.getResolvedShareRecipients = getResolvedShareRecipients;
+
+/**
+ * Alıcı önizleme kutusunu günceller.
+ */
+function updateRecipientPreview() {
+    const recipients = getResolvedShareRecipients();
+    const summaryEl = document.getElementById('share-recipients-summary');
+    const listBox = document.getElementById('share-recipients-list-box');
+
+    if (summaryEl) {
+        summaryEl.textContent = `Alıcılar: Toplam ${recipients.length} kişi (${recipients.filter(r => r.email).length} geçerli e-posta)`;
+    }
+
+    if (listBox) {
+        if (recipients.length === 0) {
+            listBox.innerHTML = '<span style="color:#ef4444;">E-posta adresi bulunan alıcı bulunamadı.</span>';
+        } else {
+            listBox.innerHTML = recipients.map(r => `
+                <div style="display:inline-block; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:2px 8px; margin:2px; font-size:0.75rem;">
+                    <b>${r.name}</b> &lt;${r.email}&gt; ${r.exams && r.exams.length > 0 ? `<span style="color:#34d399;">(${r.exams.length} görev)</span>` : ''}
+                </div>
+            `).join('');
+        }
+    }
+}
+window.updateRecipientPreview = updateRecipientPreview;
+
+/**
+ * Alıcı listesi kutusunu açar veya gizler.
+ */
+function toggleRecipientPreviewList() {
+    const listBox = document.getElementById('share-recipients-list-box');
+    const btn = document.getElementById('btn-toggle-recipient-list');
+    if (!listBox) return;
+    const isHidden = listBox.classList.toggle('hidden');
+    if (btn) btn.textContent = isHidden ? 'Listeyi Göster ▼' : 'Listeyi Gizle ▲';
+}
+window.toggleRecipientPreviewList = toggleRecipientPreviewList;
+
+/**
+ * Modaldan direkt PDF indirir.
+ */
+async function downloadSchedulePDFFromModal() {
+    try {
+        if (typeof showToast === 'function') showToast('PDF hazırlanıyor, lütfen bekleyin...', 'info');
+        const res = await generateSchedulePDFBlob();
+        res.doc.save(res.filename);
+        if (typeof showToast === 'function') showToast(`✓ ${res.filename} başarıyla indirildi.`, 'success');
+    } catch (e) {
+        console.error('PDF indirme hatası:', e);
+        alert('PDF oluşturulurken bir hata oluştu: ' + e.message);
+    }
+}
+window.downloadSchedulePDFFromModal = downloadSchedulePDFFromModal;
+
+/**
+ * Masaüstü E-Posta İstemcisi (Outlook / Thunderbird / Mailto) ile Paylaşır.
+ * PDF dosyasını kullanıcının bilgisayarına indirir ve mailto linkini hazırlar.
+ */
+async function openShareScheduleDesktopMail() {
+    try {
+        const recipients = getResolvedShareRecipients();
+        if (recipients.length === 0) {
+            alert('Lütfen en az bir geçerli alıcı seçiniz.');
+            return;
+        }
+
+        const subject = document.getElementById('share-schedule-subject')?.value || 'GTÜ Sınav Programı - Sınav Görevleriniz Verilmiştir';
+        let body = document.getElementById('share-schedule-body')?.value || '';
+        
+        // "sınav görevleriniz verilmiştir." güvencesi
+        if (!body.toLowerCase().includes('sınav görevleriniz verilmiştir')) {
+            body = "Güncel sınav programındaki sınav görevleriniz verilmiştir.\n\n" + body;
+        }
+
+        const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
+        body += `\n\n[Ek Dosya: Guncel_Sinav_Programi.pdf indirilenler klasörünüzdedir, lütfen maile ekleyiniz]\n🌐 Sisteme erişmek için: ${siteUrl}`;
+
+        // PDF'i oluştur ve indir
+        if (typeof showToast === 'function') showToast('PDF indiriliyor ve e-posta istemcisi açılıyor...', 'info');
+        const res = await generateSchedulePDFBlob();
+        res.doc.save(res.filename);
+
+        const emails = recipients.map(r => r.email).filter(Boolean);
+        // Çok sayıda alıcı varsa BCC'ye koymak en doğrusudur
+        const mailto = `mailto:?bcc=${encodeURIComponent(emails.join(','))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        window.location.href = mailto;
+
+        if (typeof showToast === 'function') {
+            showToast(`📄 '${res.filename}' indirildi ve e-posta istemcisi açıldı. İndirilen PDF dosyasını eklemeyi unutmayınız.`, 'success');
+        }
+        closeShareScheduleEmailModal();
+    } catch (e) {
+        console.error('Masaüstü e-posta hatası:', e);
+        alert('İşlem başarısız: ' + e.message);
+    }
+}
+window.openShareScheduleDesktopMail = openShareScheduleDesktopMail;
+
+/**
+ * Webmail (Gmail / Outlook 365) ile Paylaşır.
+ */
+async function openShareScheduleWebmail(provider = 'gmail') {
+    try {
+        const recipients = getResolvedShareRecipients();
+        if (recipients.length === 0) {
+            alert('Lütfen en az bir geçerli alıcı seçiniz.');
+            return;
+        }
+
+        const subject = document.getElementById('share-schedule-subject')?.value || 'GTÜ Sınav Programı - Sınav Görevleriniz Verilmiştir';
+        let body = document.getElementById('share-schedule-body')?.value || '';
+        if (!body.toLowerCase().includes('sınav görevleriniz verilmiştir')) {
+            body = "Güncel sınav programındaki sınav görevleriniz verilmiştir.\n\n" + body;
+        }
+
+        const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
+        body += `\n\n[Ek Dosya: Guncel_Sinav_Programi.pdf indirilenler klasörünüzdedir, lütfen maile ekleyiniz]\n🌐 Sisteme erişmek için: ${siteUrl}`;
+
+        if (typeof showToast === 'function') showToast('PDF indiriliyor...', 'info');
+        const res = await generateSchedulePDFBlob();
+        res.doc.save(res.filename);
+
+        const emails = recipients.map(r => r.email).filter(Boolean).join(',');
+
+        let webmailUrl = '';
+        if (provider === 'gmail') {
+            webmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(emails)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        } else if (provider === 'outlook') {
+            webmailUrl = `https://outlook.office.com/mail/deeplink/compose?bcc=${encodeURIComponent(emails)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        }
+
+        if (webmailUrl) window.open(webmailUrl, '_blank');
+
+        if (typeof showToast === 'function') {
+            showToast(`📄 '${res.filename}' indirildi. Açılan webmail sekmesinde PDF'i ekleyerek gönderebilirsiniz.`, 'success');
+        }
+        closeShareScheduleEmailModal();
+    } catch (e) {
+        console.error('Webmail hatası:', e);
+        alert('İşlem başarısız: ' + e.message);
+    }
+}
+window.openShareScheduleWebmail = openShareScheduleWebmail;
+
+/**
+ * Doğrudan Sistem Üzerinden (SmtpJS / API / EmailJS) PDF Ekli Toplu E-posta Gönderir.
+ */
+async function sendScheduleShareDirectly() {
+    const emailSettings = (typeof DB !== 'undefined' && DB.emailSettings) ? DB.emailSettings : null;
+    
+    // Sistem e-postası kurulu değilse kullanıcıyı masaüstü istemcisine yönlendir
+    if (!emailSettings || !emailSettings.enabled) {
+        const useDesktop = confirm(
+            "⚠️ Sistem E-Posta Servisi (SmtpJS / API) henüz aktif edilmemiş.\n\n" +
+            "Masaüstü E-Posta İstemciniz (Outlook / Thunderbird) veya Gmail Web ile göndermek ister misiniz?\n" +
+            "(Güncel sınav programı PDF dosyası otomatik olarak bilgisayarınıza indirilecek ve e-postanız hazır hale getirilecektir.)"
+        );
+        if (useDesktop) {
+            openShareScheduleDesktopMail();
+        }
+        return;
+    }
+
+    const recipients = getResolvedShareRecipients();
+    if (recipients.length === 0) {
+        alert('Lütfen en az bir geçerli e-posta adresine sahip alıcı seçiniz.');
+        return;
+    }
+
+    const subject = document.getElementById('share-schedule-subject')?.value || 'GTÜ Sınav Programı - Sınav Görevleriniz Verilmiştir';
+    let baseBody = document.getElementById('share-schedule-body')?.value || '';
+    if (!baseBody.toLowerCase().includes('sınav görevleriniz verilmiştir')) {
+        baseBody = "Güncel sınav programındaki sınav görevleriniz verilmiştir.\n\n" + baseBody;
+    }
+
+    const includePersonal = document.getElementById('share-schedule-include-personal')?.checked;
+
+    if (!confirm(`${recipients.length} kişiye güncel sınav programı PDF eki ile birlikte e-posta olarak gönderilecektir. Onaylıyor musunuz?`)) {
+        return;
+    }
+
+    const progressContainer = document.getElementById('share-schedule-progress-container');
+    const progressBar = document.getElementById('share-schedule-progress-bar');
+    const progressLabel = document.getElementById('share-schedule-progress-label');
+    const progressPercent = document.getElementById('share-schedule-progress-percent');
+    const sendBtn = document.getElementById('btn-send-schedule-share-direct');
+
+    if (progressContainer) progressContainer.classList.remove('hidden');
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = '⏳ Gönderiliyor...';
+    }
+
+    try {
+        if (progressLabel) progressLabel.textContent = 'PDF belgesi hazırlanıyor...';
+        const pdfResult = await generateSchedulePDFBlob();
+        const siteUrl = (typeof getSystemUrl === 'function') ? getSystemUrl() : (window.location.origin + window.location.pathname);
+
+        let sentCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < recipients.length; i++) {
+            const r = recipients[i];
+            const percent = Math.round(((i + 1) / recipients.length) * 100);
+
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            if (progressPercent) progressPercent.textContent = `${percent}%`;
+            if (progressLabel) progressLabel.textContent = `Gönderiliyor (${i + 1}/${recipients.length}): ${r.name}`;
+
+            // Kişiye özel görev tablosu HTML'i
+            let personalDutyHtml = '';
+            if (includePersonal && r.exams && r.exams.length > 0) {
+                personalDutyHtml = `
+                <div style="margin: 20px 0; padding: 14px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #4f46e5; font-size: 14px;">📋 Şahsınıza Atanan Sınav Görevleri (${r.exams.length} Görev):</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
+                        <thead>
+                            <tr style="background: #e2e8f0; color: #1e293b;">
+                                <th style="padding: 6px 8px; border: 1px solid #cbd5e1;">Tarih</th>
+                                <th style="padding: 6px 8px; border: 1px solid #cbd5e1;">Saat</th>
+                                <th style="padding: 6px 8px; border: 1px solid #cbd5e1;">Ders Kodu & Adı</th>
+                                <th style="padding: 6px 8px; border: 1px solid #cbd5e1;">Sınav Salonu</th>
+                                <th style="padding: 6px 8px; border: 1px solid #cbd5e1;">Dersi Veren</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${r.exams.map(ex => `
+                                <tr>
+                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.date || '-'}</td>
+                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.time || '-'}${ex.duration ? ` (${ex.duration} dk)` : ''}</td>
+                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 600;">${ex.name || '-'}</td>
+                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.location || '-'}</td>
+                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.lecturer || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            } else if (includePersonal) {
+                personalDutyHtml = `
+                <div style="margin: 15px 0; padding: 10px 14px; background: #f1f5f9; border-radius: 6px; font-size: 13px; color: #64748b;">
+                    ℹ️ Bu sınav döneminde şahsınıza tanımlı gözetmenlik görevi bulunmamaktadır. Tüm bölüm sınav takvimi ekteki PDF dosyasındadır.
+                </div>`;
+            }
+
+            const htmlBody = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 680px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+                <div style="text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 14px; margin-bottom: 20px;">
+                    <h2 style="color: #1e1b4b; margin: 0; font-size: 19px; letter-spacing: 0.5px;">GEBZE TEKNİK ÜNİVERSİTESİ</h2>
+                    <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">Sınav & Gözetmen Yönetim Portalı</p>
+                </div>
+                <p style="font-size: 14.5px; white-space: pre-line; color: #334155;">${baseBody}</p>
+                ${personalDutyHtml}
+                <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 12px 16px; border-radius: 8px; margin: 20px 0; font-size: 13px; color: #3730a3; display: flex; align-items: center; gap: 8px;">
+                    <span>📎</span> <b>Ekli Belge:</b> ${pdfResult.filename} (Tüm sınav takvimini ve görev listesini içerir).
+                </div>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+                <p style="font-size: 12.5px; color: #64748b; text-align: center;">
+                    🌐 Sınav portalına erişmek ve takas/mazeret işlemleriniz için: <br>
+                    <a href="${siteUrl}" style="color: #4f46e5; font-weight: bold; text-decoration: underline;">${siteUrl}</a>
+                </p>
+            </div>`;
+
+            // Provider'a göre gönder
+            try {
+                if (emailSettings.provider === 'smtpjs') {
+                    if (window.Email && window.Email.send) {
+                        await window.Email.send({
+                            SecureToken: emailSettings.smtpToken,
+                            To: r.email,
+                            From: emailSettings.fromEmail || 'noreply@gtu.edu.tr',
+                            Subject: subject,
+                            Body: htmlBody,
+                            Attachments: [
+                                {
+                                    name: pdfResult.filename,
+                                    data: pdfResult.pdfDataUri
+                                }
+                            ]
+                        });
+                        sentCount++;
+                    } else {
+                        throw new Error('SmtpJS kütüphanesi hazır değil.');
+                    }
+                } else if (emailSettings.provider === 'api') {
+                    const apiEndpoint = emailSettings.apiEndpoint;
+                    const res = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: r.email,
+                            to_name: r.name,
+                            subject: subject,
+                            body: htmlBody,
+                            isHtml: true,
+                            attachments: [
+                                {
+                                    filename: pdfResult.filename,
+                                    content: pdfResult.pdfBase64,
+                                    contentType: 'application/pdf'
+                                }
+                            ]
+                        })
+                    });
+                    if (res.ok) sentCount++; else failCount++;
+                } else if (emailSettings.provider === 'emailjs') {
+                    if (window.emailjs && window.emailjs.send) {
+                        await window.emailjs.send(
+                            emailSettings.emailjsServiceId,
+                            emailSettings.emailjsTemplateId,
+                            {
+                                to_email: r.email,
+                                to_name: r.name,
+                                subject: subject,
+                                message: baseBody,
+                                site_url: siteUrl,
+                                pdf_filename: pdfResult.filename
+                            },
+                            emailSettings.emailjsPublicKey
+                        );
+                        sentCount++;
+                    } else {
+                        throw new Error('EmailJS kütüphanesi hazır değil.');
+                    }
+                }
+
+                await new Promise(res => setTimeout(res, 250));
+            } catch (err) {
+                console.warn(`Email gönderilemedi: ${r.email}`, err);
+                failCount++;
+            }
+        }
+
+        if (typeof logAction === 'function') {
+            logAction('admin', 'Toplu Sınav Programı E-Posta Paylaşımı', `${sentCount} personele güncel sınav programı PDF eki ile iletildi.`);
+        }
+
+        if (typeof showToast === 'function') {
+            showToast(`✓ ${sentCount} kişiye güncel sınav programı ve bildirimler başarıyla gönderildi!`, 'success');
+        }
+
+        closeShareScheduleEmailModal();
+    } catch (e) {
+        console.error('Toplu e-posta gönderiminde genel hata:', e);
+        alert('E-posta gönderimi sırasında hata oluştu: ' + e.message);
+    } finally {
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.textContent = '🚀 E-Postaları Gönder';
+        }
+        if (progressContainer) progressContainer.classList.add('hidden');
+    }
+}
+window.sendScheduleShareDirectly = sendScheduleShareDirectly;
