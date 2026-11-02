@@ -3023,6 +3023,60 @@ function renderExams() {
 let currentScheduleDate = new Date(); // Genel program için seçili ay
 let currentScheduleType = 'all'; 
 let currentScheduleView = 'list';
+let currentScheduleCategory = 'all'; // 'all', 'math', 'servis'
+let currentScheduleYearGrouping = false; // true = 1-4. Yıl bazlı alt başlıklar, false = Kategori bazlı (MAT / Servis)
+
+// Dersin MAT / MATH kodlu olup olmadığını belirleme (Bölüm dersi vs Servis dersi)
+function isMathCourse(name, code = '') {
+    const text = ((code || '') + ' ' + (name || '')).trim().toUpperCase();
+    if (!text) return false;
+    return /\b(MATH|MAT)\b/i.test(text) || /^(MATH|MAT)\s*\d+/i.test(text);
+}
+
+// Ders kodunun numarasını alma (örn: MATH 111 -> 111, MAT 203 -> 203)
+function getCourseNumber(name, code = '') {
+    const text = ((code || '') + ' ' + (name || '')).trim();
+    if (!text) return 9999;
+    const match = text.match(/\b(?:MATH|MAT)\s*(\d{3,4})\b/i) || text.match(/\b(\d{3,4})\b/);
+    return match ? parseInt(match[1], 10) : 9999;
+}
+
+// Dersin sınıf/yıl bilgisini alma
+function getCourseYearLabel(name, code = '') {
+    if (!isMathCourse(name, code)) return 'Servis';
+    const num = getCourseNumber(name, code);
+    if (num >= 500 && num < 1000) return 'Lisansüstü';
+    if (num >= 400 && num < 500) return '4. Yıl';
+    if (num >= 300 && num < 400) return '3. Yıl';
+    if (num >= 200 && num < 300) return '2. Yıl';
+    if (num >= 100 && num < 200) return '1. Yıl';
+    return 'Matematik';
+}
+
+function getCourseYearNumber(name, code = '') {
+    if (!isMathCourse(name, code)) return 99; // Servis dersleri en sona
+    const num = getCourseNumber(name, code);
+    if (num >= 500 && num < 1000) return 5;
+    if (num >= 400 && num < 500) return 4;
+    if (num >= 300 && num < 400) return 3;
+    if (num >= 200 && num < 300) return 2;
+    if (num >= 100 && num < 200) return 1;
+    return 0;
+}
+
+window.setScheduleCategoryFilter = (category) => {
+    currentScheduleCategory = category;
+    document.querySelectorAll('#schedule-category-filter .category-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.category === category);
+    });
+    renderSchedule();
+};
+
+window.toggleScheduleYearGrouping = () => {
+    const chk = document.getElementById('toggle-schedule-year-group');
+    currentScheduleYearGrouping = chk ? chk.checked : false;
+    renderSchedule();
+};
 
 window.switchScheduleView = (mode) => {
     currentScheduleView = mode;
@@ -3093,6 +3147,7 @@ function renderSchedule() {
                 id: ex.id,
                 type: ex.type || 'vize',
                 name: ex.name,
+                code: ex.courseCode || '',
                 date: ex.date,
                 time: ex.time,
                 duration: ex.duration,
@@ -3122,7 +3177,7 @@ function renderSchedule() {
     const scheduleList = Object.values(groups);
     const searchTerm = document.getElementById('schedule-search')?.value.toLowerCase() || '';
 
-    // Filtreleme (2 Aylik Dönem + Tür + Arama)
+    // Filtreleme (2 Aylik Dönem + Tür + Arama + Kategori)
     const filteredSchedule = scheduleList.filter(ex => {
         if (!ex.date) return false;
         const d = new Date(ex.date.replace(/-/g, "/"));
@@ -3130,6 +3185,14 @@ function renderSchedule() {
                              (d.getMonth() === nextMonth && d.getFullYear() === nextYear);
         const matchesType = currentScheduleType === 'all' || ex.type === currentScheduleType;
         
+        const isMath = isMathCourse(ex.name, ex.code);
+        let matchesCategory = true;
+        if (currentScheduleCategory === 'math') {
+            matchesCategory = isMath;
+        } else if (currentScheduleCategory === 'servis') {
+            matchesCategory = !isMath;
+        }
+
         let matchesSearch = true;
         if (searchTerm) {
             matchesSearch = (ex.name || "").toLowerCase().includes(searchTerm) ||
@@ -3138,65 +3201,82 @@ function renderSchedule() {
                             (ex.location || "").toLowerCase().includes(searchTerm);
         }
         
-        return matchesMonth && matchesType && matchesSearch;
+        return matchesMonth && matchesType && matchesCategory && matchesSearch;
     });
 
-    // Siralama ve Kategorize Etme
-    function getYear(name) {
-        const lowerName = name.toLowerCase();
-        
-        // Açikça (1. Yil, 2. Sinif vb) belirtilmişse öncelikli al
-        const explicitMatch = lowerName.match(/(1|2|3|4)\.\s*(yil|sinif)/);
-        if (explicitMatch) return parseInt(explicitMatch[1]);
-        
-        if (lowerName.includes("yüksek lisans") || lowerName.includes("doktora") || lowerName.includes("yl")) return 5;
-
-        // Yüksek Lisans / Doktora: 500 ve üzeri
-        if (name.match(/\b(5|6|7|8|9)\d{2}\b/)) return 5;
-        
-        // Lisans: 100, 200, 300, 400
-        const match = name.match(/\b(1|2|3|4)\d{2}\b/);
-        if (match) return parseInt(match[1]);
-        
-        // İsim bazli zorunlu/ortak dersler genelde 1. sinif
-        if (lowerName.includes("101") || lowerName.includes("102") || lowerName.includes("106") || lowerName.includes("112") || lowerName.includes("114")) return 1;
-        
-        // Bulunamayanlar
-        return 0;
-    }
-
+    // Sıralama: MAT/MATH kodlu dersler önce ve numarasına göre (artan sırada), ardından Servis dersleri
     filteredSchedule.sort((a, b) => {
-        const ya = getYear(a.name);
-        const yb = getYear(b.name);
-        
-        // 0 (Diğer) olanlari en sona atmak için ağirlik(weight) hesapliyoruz
-        const weightA = ya === 0 ? 99 : ya;
-        const weightB = yb === 0 ? 99 : yb;
-        
-        if (weightA !== weightB) return weightA - weightB;
-        return a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
+        const isMathA = isMathCourse(a.name, a.code);
+        const isMathB = isMathCourse(b.name, b.code);
+
+        // MAT/MATH dersleri önce (üstte), servis dersleri sonra (altta)
+        if (isMathA !== isMathB) {
+            return isMathA ? -1 : 1;
+        }
+
+        if (isMathA) {
+            // MAT/MATH kodlu olanlar numarasına göre yukarıdan aşağıya doğru (küçükten büyüğe)
+            const numA = getCourseNumber(a.name, a.code);
+            const numB = getCourseNumber(b.name, b.code);
+            if (numA !== numB) return numA - numB;
+            return (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || '');
+        } else {
+            // Servis dersleri: Tarih ve saat veya ada göre
+            const dateComp = (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || '');
+            if (dateComp !== 0) return dateComp;
+            return (a.name || '').localeCompare(b.name || '');
+        }
     });
 
     const conflicts = getConflicts();
     const locConflicts = getLocationConflicts();
 
+    const mathCount = filteredSchedule.filter(e => isMathCourse(e.name, e.code)).length;
+    const servisCount = filteredSchedule.filter(e => !isMathCourse(e.name, e.code)).length;
+
     // 1. Liste Görünümü Render
-    let curYearActive = -1;
+    let curHeaderKey = null;
 
     filteredSchedule.forEach(ex => {
-        const y = getYear(ex.name);
-        
-        if (y !== curYearActive) {
-            curYearActive = y;
+        const isMath = isMathCourse(ex.name, ex.code);
+        let headerKey = '';
+        let labelText = '';
+        let headStyle = '';
+
+        if (currentScheduleYearGrouping) {
+            // Yıl bazlı başlık modu
+            const yg = getCourseYearNumber(ex.name, ex.code);
+            headerKey = `year_${yg}`;
+            if (yg === 5) {
+                labelText = '🎓 Yüksek Lisans / Doktora';
+                headStyle = 'background: rgba(168,85,247,0.18); border-left: 5px solid #a855f7; color: #e9d5ff;';
+            } else if (yg >= 1 && yg <= 4) {
+                labelText = `🏫 ${yg}. YIL (MAT / MATH)`;
+                headStyle = 'background: rgba(99,102,241,0.18); border-left: 5px solid var(--primary); color: #c7d2fe;';
+            } else if (yg === 99) {
+                labelText = `📚 Servis Dersleri (${servisCount} Sınav)`;
+                headStyle = 'background: rgba(14,165,233,0.18); border-left: 5px solid #0ea5e9; color: #bae6fd;';
+            } else {
+                labelText = '📚 Diğer / Ortak Dersler';
+                headStyle = 'background: rgba(100,116,139,0.18); border-left: 5px solid #64748b; color: #cbd5e1;';
+            }
+        } else {
+            // Kategori bazlı başlık modu (Varsayılan: MAT kodlular ayrı, Servis dersleri ayrı)
+            headerKey = isMath ? 'cat_math' : 'cat_servis';
+            if (isMath) {
+                labelText = `📐 MAT / MATH Kodlu Matematik Bölüm Dersleri (${mathCount} Sınav)`;
+                headStyle = 'background: rgba(99,102,241,0.18); border-left: 5px solid var(--primary); color: #c7d2fe;';
+            } else {
+                labelText = `📚 Servis Dersleri (${servisCount} Sınav)`;
+                headStyle = 'background: rgba(14,165,233,0.18); border-left: 5px solid #0ea5e9; color: #bae6fd;';
+            }
+        }
+
+        if (headerKey !== curHeaderKey) {
+            curHeaderKey = headerKey;
             const trHead = document.createElement('tr');
             trHead.className = 'year-header';
-            
-            let labelText = "";
-            if (y === 5) labelText = "🎓 Yüksek Lisans / Doktora";
-            else if (y > 0 && y < 5) labelText = `🏫 ${y}. YIL`;
-            else labelText = "📚 Diğer / Ortak Dersler";
-
-            trHead.innerHTML = `<td colspan="11" style="background: rgba(99,102,241,0.15); border-left: 4px solid var(--primary); color: #c7d2fe; padding-left: 1rem; font-weight: 700; letter-spacing: 0.5px;">${labelText}</td>`;
+            trHead.innerHTML = `<td colspan="11" style="${headStyle} padding: 0.75rem 1rem; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.5px;">${labelText}</td>`;
             tbodyActive.appendChild(trHead);
         }
 
@@ -3215,10 +3295,17 @@ function renderSchedule() {
         // Group Key identifier to use for bulk actions instead of a single ID
         const examGroupKey = btoa(encodeURIComponent(`${ex.type}|${ex.name}|${ex.date}|${ex.time}|${ex.location}`));
 
+        const yLabel = getCourseYearLabel(ex.name, ex.code);
+        const yBadgeStyle = isMath
+            ? 'background: rgba(99,102,241,0.22); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.4);'
+            : 'background: rgba(14,165,233,0.2); color: #7dd3fc; border: 1px solid rgba(14,165,233,0.35);';
+        const yearBadge = `<span style="${yBadgeStyle} padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; margin-right: 6px; display: inline-block;">${yLabel}</span>`;
+
         tr.innerHTML = `
             <td class="admin-only" style="text-align: center;"><input type="checkbox" class="bulk-check" value="${examGroupKey}" style="cursor: pointer;"></td>
             <td><span class="badge-type type-${ex.type}">${ex.type.toUpperCase()}</span></td>
             <td>
+                ${yearBadge}
                 <span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')"><strong>${ex.name}</strong></span>
                 ${isConflict ? `
                     <span class="conflict-warning" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#ef4444; margin-top:4px;">
@@ -16861,15 +16948,26 @@ window.exportScheduleToExcel = function() {
     }
 
     let csvContent = "\uFEFF"; // UTF-8 BOM, Excel'de Türkçe karakterlerin düzgün görünmesi için
-    csvContent += "Tür,Ders/Sinav,Dersi Veren,Derslik/Yer,Tarih,Saat,Sure (Dk),Atanan Gozetmenler\n";
+    csvContent += "Kategori,Yıl/Sınıf,Tür,Ders/Sinav,Dersi Veren,Derslik/Yer,Tarih,Saat,Sure (Dk),Atanan Gozetmenler\n";
 
     const sortedExams = [...DB.exams].sort((a, b) => {
-        const dateA = new Date((a.date || '1970-01-01') + 'T' + (a.time || '00:00'));
-        const dateB = new Date((b.date || '1970-01-01') + 'T' + (b.time || '00:00'));
-        return dateA - dateB;
+        const isMathA = isMathCourse(a.name, a.courseCode);
+        const isMathB = isMathCourse(b.name, b.courseCode);
+        if (isMathA !== isMathB) return isMathA ? -1 : 1;
+        if (isMathA) {
+            const numA = getCourseNumber(a.name, a.courseCode);
+            const numB = getCourseNumber(b.name, b.courseCode);
+            if (numA !== numB) return numA - numB;
+            return (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || '');
+        } else {
+            return (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || '');
+        }
     });
 
     sortedExams.forEach(ex => {
+        const isMath = isMathCourse(ex.name, ex.courseCode);
+        const category = isMath ? 'Matematik Bölüm Dersi' : 'Servis Dersi';
+        const yearLabel = getCourseYearLabel(ex.name, ex.courseCode);
         const type = (ex.type || '').toUpperCase();
         const name = (ex.name || '').replace(/,/g, ' ');
         const lecturer = (ex.lecturer || '').replace(/,/g, ' ');
@@ -16887,7 +16985,7 @@ window.exportScheduleToExcel = function() {
         if (!proctors && ex.proctorName) proctors = ex.proctorName;
         proctors = proctors.replace(/,/g, ' '); // Virgülleri temizle ki sütunlar kaymasin
 
-        const row = `${type},${name},${lecturer},${location},${date},${time},${duration},${proctors}`;
+        const row = `${category},${yearLabel},${type},${name},${lecturer},${location},${date},${time},${duration},${proctors}`;
         csvContent += row + "\n";
     });
 

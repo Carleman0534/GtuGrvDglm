@@ -2541,7 +2541,7 @@ table {
     justify-content: center;
 }
 
-.type-filter-btn {
+.type-filter-btn, .category-filter-btn {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
@@ -2552,11 +2552,11 @@ table {
     transition: all 0.2s;
 }
 
-.type-filter-btn:hover {
+.type-filter-btn:hover, .category-filter-btn:hover {
     background: rgba(255, 255, 255, 0.08);
 }
 
-.type-filter-btn.active {
+.type-filter-btn.active, .category-filter-btn.active {
     background: var(--primary);
     color: var(--text-primary);
     border-color: var(--primary);

@@ -1267,6 +1267,13 @@
                             <button class="type-filter-btn" data-type="diger">Diğer</button>
                         </div>
 
+                        <!-- Ders Kategorisi Filtresi (Tümü / MAT / Servis) -->
+                        <div class="category-filter-bar" id="schedule-category-filter" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                            <button class="category-filter-btn active" data-category="all" onclick="setScheduleCategoryFilter('all')">Tüm Dersler</button>
+                            <button class="category-filter-btn" data-category="math" onclick="setScheduleCategoryFilter('math')">📐 MAT / MATH Kodlu Dersler</button>
+                            <button class="category-filter-btn" data-category="servis" onclick="setScheduleCategoryFilter('servis')">📚 Servis Dersleri</button>
+                        </div>
+
                         <!-- Ay Seçici / Navigasyon -->
                         <div style="display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.05); padding: 0.5rem 1.5rem; border-radius: 12px; border: 1px solid var(--glass-border);">
                             <button onclick="changeScheduleMonth(-1)" style="background:none; border:none; color:white; cursor:pointer; font-size: 1.2rem;">◀</button>
@@ -1281,6 +1288,15 @@
                                 <span class="slider round"></span>
                             </label>
                             <span style="font-weight: 600; color: #38bdf8; font-size: 0.9rem;">Sadece Benim Gözetmenliklerim</span>
+                        </div>
+
+                        <!-- Yıl Bazlı Alt Başlık Seçeneği -->
+                        <div style="display: flex; align-items: center; gap: 10px; background: rgba(99, 102, 241, 0.1); padding: 0.5rem 1.2rem; border-radius: 20px; border: 1px solid rgba(99, 102, 241, 0.3);">
+                            <label class="switch" style="margin-bottom:0;">
+                                <input type="checkbox" id="toggle-schedule-year-group" onchange="toggleScheduleYearGrouping()">
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-weight: 600; color: #c7d2fe; font-size: 0.9rem;">Yıl Bazlı Başlıklar (1-4. Yıl)</span>
                         </div>
 
                         <!-- Excel Çıktısı Butonu -->
