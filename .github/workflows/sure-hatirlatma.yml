@@ -17,6 +17,29 @@
 # Hiçbir sır tanımlı değilse iş akışı deneme modunda çalışır ve hiçbir şey göndermez.
 # Yalnızca e-posta ya da yalnızca telefon bildirimi sırları da tek başına çalışır.
 # Gönderim kaydı "durum" dalındaki hatirlatma.json dosyasında tutulur (siteyi etkilemez).
+#
+# Panelden gönderilen yönetici duyuruları da (son 3 gün, "cihaz bildirimi" açık) bu iş akışıyla
+# telefon bildirimine kayıtlı cihazlara gönderilir.
+#
+# ⚠️ Zamanlama: GitHub "schedule" tetikleyicisini yoğunlukta saatlerce erteler (bu depoda 37 saatte
+# yalnızca 7 kez çalıştı). Dakikasında çalışması için ücretsiz cron-job.org ile 5 dakikada bir tetikleyin:
+#   1. GitHub → sağ üst profil → Settings → Developer settings → Personal access tokens →
+#      Fine-grained tokens → Generate new token
+#        Repository access: Only select repositories → GtuGrvDglm
+#        Permissions → Repository permissions → Actions: Read and write   (başka izin vermeyin)
+#        Expiration: en fazla 1 yıl (süresi dolunca yenileyin)
+#   2. https://cron-job.org → ücretsiz hesap → CREATE CRONJOB
+#        URL:      https://api.github.com/repos/Carleman0534/GtuGrvDglm/actions/workflows/sure-hatirlatma.yml/dispatches
+#        Schedule: Every 5 minutes
+#        Advanced → Request method: POST
+#        Advanced → Headers:
+#          Accept: application/vnd.github+json
+#          Authorization: Bearer <1. adımdaki token>
+#          X-GitHub-Api-Version: 2022-11-28
+#          Content-Type: application/json
+#        Advanced → Request body: {"ref":"main"}
+#      "Test run" yanıtı 204 olmalı; Actions sekmesinde "workflow_dispatch" ile yeni bir çalışma görünür.
+# Aşağıdaki schedule, dış tetikleyici durursa yedek olarak kalır.
 
 name: Süre Onayı Hatırlatıcısı
 

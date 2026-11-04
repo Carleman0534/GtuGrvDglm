@@ -115,14 +115,21 @@ self.addEventListener('push', event => {
             payload.body = event.data.text();
         }
     }
+    const tag = payload.tag || 'gtu_broadcast';
     const options = {
         body: payload.body || payload.message,
         icon: './icon-192.png',
         badge: './icon-192.png',
         vibrate: [200, 100, 200],
-        tag: payload.tag || 'gtu_broadcast',
+        tag: tag,
         renotify: true,
         data: Object.assign({ url: './index.html' }, payload.data || {})
     };
-    event.waitUntil(self.registration.showNotification(payload.title, options));
+    // Aynı bildirim uygulama açıkken zaten gösterildiyse sessizce yerini al (ikinci kez titretme)
+    event.waitUntil(
+        self.registration.getNotifications({ tag: tag })
+            .then(existing => { if (existing.length) options.renotify = false; })
+            .catch(() => {})
+            .then(() => self.registration.showNotification(payload.title, options))
+    );
 });

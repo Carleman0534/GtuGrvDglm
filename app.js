@@ -12217,7 +12217,8 @@ function getNotifications() {
             if (tomorrowStaffIds !== null) return tomorrowStaffIds;
             tomorrowStaffIds = new Set();
             if (Array.isArray(DB.exams)) {
-                const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                // Türkiye saatine göre yarın (toISOString UTC'dir; gece 00:00-03:00 arası yanlış gün çıkıyordu)
+                const tomorrowStr = new Date(Date.now() + 86400000 + 3 * 3600000).toISOString().split('T')[0];
                 DB.exams.forEach(ex => {
                     if (ex.date === tomorrowStr) {
                         const ids = (ex.proctorIds || [ex.proctorId]).map(String);
@@ -15879,7 +15880,7 @@ Hedef: ${targetLabel}
 Öncelik: ${priority.toUpperCase()}
 Cihaz Bildirimi: ${pushEnabled ? 'Açık' : 'Kapalı'}
 
-Bu bildirim tüm hedeflenen kişilerin telefonlarına ve sistem panellerine canlı olarak iletilecektir. Devam etmek istiyor musunuz?`;
+Uygulaması açık olanlar bildirimi hemen görür. Uygulaması kapalı olup bildirim izni vermiş gözetmenlere birkaç dakika içinde telefon bildirimi gider; diğerleri uygulamayı açtıklarında görür. Devam etmek istiyor musunuz?`;
     if (!confirm(confirmMsg)) return;
 
     // Yeni broadcast nesnesi oluştur
@@ -15928,7 +15929,7 @@ Bu bildirim tüm hedeflenen kişilerin telefonlarına ve sistem panellerine canl
     window.renderAdminBroadcastHistory();
 
     if (typeof showToast === 'function') {
-        showToast('🚀 Bildirim başarıyla sisteme ve tüm cihazlara yayınlandı!', 'success');
+        showToast('🚀 Bildirim yayınlandı. Açık uygulamalara hemen, kapalı olanlara birkaç dakika içinde ulaşacak.', 'success');
     }
 
     // Inputları sıfırla ve modalı kapat

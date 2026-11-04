@@ -2412,9 +2412,16 @@ function _setCloudStatus(state, text) {
 window.forceCloudSync = async function(interactive = false) {
     try {
         if (typeof _setCloudStatus === 'function') _setCloudStatus('syncing', '🔄 Canlı veriler çekiliyor...');
+        // Henüz sunucuya ulaşmamış değişiklik varsa önce onu kaydet; yoksa silinip kaybolurdu
+        let hasPending = false;
+        try { hasPending = !!localStorage.getItem('gozetmenlik_pending_changes_v1'); } catch(e) {}
+        if (hasPending && typeof window.saveToBackend === 'function') {
+            try { await window.saveToBackend(); } catch(e) { console.warn('forceCloudSync: bekleyen kayıt gönderilemedi', e); }
+        }
         try {
             localStorage.removeItem('_pendingFirebaseSync');
-            localStorage.removeItem('gozetmenlik_pending_changes_v1');
+            // Kayıt başarılıysa veri koruma katmanı bu kaydı zaten temizler; başarısızsa korunur
+            if (!hasPending) localStorage.removeItem('gozetmenlik_pending_changes_v1');
         } catch(e) {}
         await loadFromDataJSON();
         if (typeof refreshUI === 'function') refreshUI();

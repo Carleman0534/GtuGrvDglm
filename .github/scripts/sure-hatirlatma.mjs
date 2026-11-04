@@ -26,6 +26,7 @@ const GRACE_MS = 15 * 60 * 1000;
 const REMIND_AFTER_MS = 24 * 60 * 60 * 1000;
 const LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_SENDS = 2;
+const BROADCAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000; // sitedeki duyuru süre sınırıyla aynı
 
 const STATE_FILE = process.env.STATE_FILE || 'hatirlatma.json';
 const user = process.env.GMAIL_USER || '';
@@ -45,6 +46,24 @@ function examStart(ex) {
     if (!ex.date || !ex.time) return NaN;
     const [h, m] = String(ex.time).split(':');
     return Date.parse(`${ex.date}T${String(h).padStart(2, '0')}:${String(m || '0').padStart(2, '0')}:00+03:00`);
+}
+
+// Türkiye saatine göre YYYY-MM-DD
+function trDate(ms) {
+    return new Date(ms + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// Duyurunun hedeflediği gözetmen kimlikleri (sitedeki checkIncomingBroadcastNotifications ile aynı kurallar)
+function broadcastTargets(db, bc) {
+    const t = bc.target;
+    if (!t || t === 'all') return Object.keys(db.pushAbonelikleri || {});
+    if (t === 'tomorrow_only') {
+        const tomorrow = trDate((Date.parse(bc.createdAt) || bc.timestamp) + 24 * 60 * 60 * 1000);
+        const ids = new Set();
+        for (const ex of db.exams || []) if (ex && ex.date === tomorrow) proctorIds(ex).forEach(id => ids.add(id));
+        return [...ids];
+    }
+    return (Array.isArray(t) ? t : [t]).map(String);
 }
 
 function proctorIds(ex) {
@@ -131,8 +150,17 @@ async function main() {
         }
     }
 
+    // Panelden gönderilen yönetici duyuruları (son 3 gün, cihaz bildirimi açık, henüz gönderilmemiş)
+    const sentBroadcasts = state._duyurular || {};
+    const broadcastsDue = (Array.isArray(db.adminBroadcasts) ? db.adminBroadcasts : Object.values(db.adminBroadcasts || {}))
+        .filter(bc => bc && bc.id && bc.message && bc.pushToDevice !== false && !sentBroadcasts[bc.id])
+        .filter(bc => {
+            const at = Date.parse(bc.createdAt) || bc.timestamp;
+            return at && now - at <= BROADCAST_MAX_AGE_MS && at <= now;
+        });
+
     let transporter = null, webpush = null;
-    if (!dryRun && due.size) {
+    if (!dryRun && (due.size || (broadcastsDue.length && pushEnabled))) {
         if (emailEnabled) {
             const nodemailer = (await import('nodemailer')).default;
             transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
@@ -212,14 +240,54 @@ async function main() {
         }
     }
 
+    // --- Yönetici duyurularını telefonlara gönder ---
+    let broadcastPushed = 0;
+    for (const bc of broadcastsDue) {
+        const targetIds = broadcastTargets(db, bc);
+        const subs = new Map();
+        for (const pid of targetIds) for (const s of subsOf(pid)) subs.set(s.id, s);
+        if (dryRun || !webpush) {
+            console.log(`${dryRun ? '[Deneme] ' : ''}Duyuru ${bc.id} → hedef ${targetIds.length} kişi, ${subs.size} cihaz${webpush ? '' : ' (telefon anahtarları tanımlı değil, gönderilmedi)'}`);
+            continue;
+        }
+        const payload = JSON.stringify({
+            title: bc.title || '📢 GTÜ Gözetmenlik Yönetici Bildirimi',
+            body: String(bc.message).slice(0, 300),
+            // Uygulama açıkken sitenin gösterdiği bildirimle aynı etiket: aynı cihazda ikinci kez çıkmaz, yerini alır
+            tag: `gtu_exam_bc_${bc.id}`,
+            data: { url: SITE_URL, broadcastId: bc.id, priority: bc.priority || 'normal' }
+        });
+        let ok = 0;
+        for (const s of subs.values()) {
+            try {
+                await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload, { TTL: 24 * 60 * 60, urgency: bc.priority === 'urgent' ? 'high' : 'normal' });
+                ok++;
+            } catch (e) {
+                if (e.statusCode === 404 || e.statusCode === 410) {
+                    state._oluAbonelikler = Object.assign(state._oluAbonelikler || {}, { [s.id]: new Date(now).toISOString() });
+                } else {
+                    failed++;
+                    console.error(`Duyuru gönderilemedi (${bc.id}): ${e.statusCode || ''} ${e.message}`);
+                }
+            }
+        }
+        state._duyurular = Object.assign(state._duyurular || {}, { [bc.id]: new Date(now).toISOString() });
+        broadcastPushed += ok;
+        console.log(`Duyuru ${bc.id}: hedef ${targetIds.length} kişi, ${ok}/${subs.size} cihaza gönderildi`);
+    }
+
     // 30 günden eski kayıtları temizle
+    const MONTH = 30 * 24 * 60 * 60 * 1000;
     for (const [k, v] of Object.entries(state)) {
         if (k.startsWith('_')) continue;
-        if (now - Date.parse(v.last) > 30 * 24 * 60 * 60 * 1000) delete state[k];
+        if (now - Date.parse(v.last) > MONTH) delete state[k];
+    }
+    for (const [k, v] of Object.entries(state._duyurular || {})) {
+        if (now - Date.parse(v) > MONTH) delete state._duyurular[k];
     }
     if (!dryRun) writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 
-    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, hatırlatılacak gözetmen: ${due.size}, e-posta: ${sent}, telefon bildirimi: ${pushed}, atlanan: ${skipped}, hata: ${failed}`);
+    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, hatırlatılacak gözetmen: ${due.size}, e-posta: ${sent}, telefon bildirimi: ${pushed}, yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), atlanan: ${skipped}, hata: ${failed}`);
     if (!emailEnabled) console.log('GMAIL_USER / GMAIL_APP_PASSWORD tanımlı değil: e-posta gönderilmiyor.');
     if (!pushEnabled) console.log('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY tanımlı değil: telefon bildirimi gönderilmiyor.');
     if (failed) process.exitCode = 1;

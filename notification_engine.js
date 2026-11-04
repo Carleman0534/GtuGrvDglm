@@ -24,6 +24,9 @@
         { hours: 3,  label: '3 Saat Önce (Son Hatırlatma)', icon: '🚨', tagPrefix: '3h' }
     ];
 
+    // Yönetici duyurularının cihaz bildirimi olarak gösterileceği en uzun süre (zamanlanmış görevle aynı)
+    const BROADCAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
     // Erken Önbellek Senkronizasyonu (Giriş yapılmasa bile veritabanını ve yayınları hazırla)
     function syncCachedDBEarly() {
         if (!window.DB || !Array.isArray(window.DB.staff) || window.DB.staff.length <= 2) {
@@ -841,12 +844,13 @@
         const now = Date.now();
 
         // Yarın sınavı olanların kimliklerini hesapla (tomorrow_only hedefi için)
+        // Tarih Türkiye saatine göre alınır; toISOString UTC olduğundan gece 00:00-03:00 arası "yarın" yanlış çıkıyordu.
         let tomorrowStaffIds = null;
         function getTomorrowProctorIds() {
             if (tomorrowStaffIds !== null) return tomorrowStaffIds;
             tomorrowStaffIds = new Set();
             if (Array.isArray(DB.exams)) {
-                const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                const tomorrowStr = new Date(Date.now() + 86400000 + 3 * 3600000).toISOString().split('T')[0];
                 DB.exams.forEach(ex => {
                     if (ex.date === tomorrowStr) {
                         const ids = (ex.proctorIds || [ex.proctorId]).map(String);
@@ -885,21 +889,36 @@
             // İlk kez karşılaşıyoruz! Hemen teslim edildi olarak mühürle
             localStorage.setItem(deliveryKey, now.toString());
 
+            // 3 günden eski duyurular yeni açılan cihazda topluca bildirim olarak yığılmasın
+            const createdAt = Date.parse(bc.createdAt) || bc.timestamp || 0;
+            if (createdAt && now - createdAt > BROADCAST_MAX_AGE_MS) return;
+
             // 3. Cihaz / Push Bildirimi Gönder (İzin verilmişse ve bildirimde push açıksa)
             const title = bc.title || '📢 GTÜ Gözetmenlik Yönetici Bildirimi';
             const message = bc.message;
             const priority = bc.priority || 'normal';
 
             if (bc.pushToDevice !== false && getPermissionState() === 'granted') {
-                if (priority === 'urgent' && 'vibrate' in navigator) {
-                    try { navigator.vibrate([300, 100, 300, 100, 300]); } catch (e) {}
+                const show = () => {
+                    if (priority === 'urgent' && 'vibrate' in navigator) {
+                        try { navigator.vibrate([300, 100, 300, 100, 300]); } catch (e) {}
+                    }
+                    window.dispatchLocalNotification(
+                        title,
+                        message,
+                        `bc_${bc.id}`,
+                        { broadcastId: bc.id, priority: priority, url: './index.html' }
+                    );
+                };
+                // Duyuru telefon bildirimiyle (Web Push) zaten geldiyse ve hâlâ duruyorsa ikinci kez gösterme
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready
+                        .then(reg => reg.getNotifications({ tag: `gtu_exam_bc_${bc.id}` }))
+                        .then(list => { if (!list.length) show(); })
+                        .catch(show);
+                } else {
+                    show();
                 }
-                window.dispatchLocalNotification(
-                    title,
-                    message,
-                    `bc_${bc.id}`,
-                    { broadcastId: bc.id, priority: priority, url: './index.html' }
-                );
             }
 
             // 4. Ekranda açıksa Toast Gösterimi
