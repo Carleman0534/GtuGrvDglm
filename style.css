@@ -6074,3 +6074,183 @@ body:not(.dark-theme) .modal .modal-content textarea::placeholder {
         margin-bottom: 0.75rem;
     }
 }
+
+/* =====================================================================
+   MOBİL ÜST BAŞLIK: TEK SATIR
+   Önceden 3 satır ve ~200px'ti (logo / "Bulutla Eşitlendi" + simgeler / sekmeler).
+   Logo solda, bulut durumu (yalnızca simge) ve araç simgeleri sağda tek satırda;
+   sekmeler ince, yatay kaydırılabilen bir şerit.
+   ===================================================================== */
+@media (max-width: 768px) {
+    header.app-header {
+        padding: 8px 10px 6px !important;
+        margin-bottom: 8px !important;
+        border-radius: 14px !important;
+        gap: 6px !important;
+    }
+    header.app-header .header-top-row {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 6px !important;
+        padding: 0 0 6px 0 !important;
+        margin: 0 !important;
+    }
+    header.app-header .logo {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        gap: 6px !important;
+        align-items: center !important;
+    }
+    header.app-header .logo .icon {
+        font-size: 1.15rem !important;
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    header.app-header .logo-text-group {
+        min-width: 0 !important;
+        line-height: 1.1 !important;
+    }
+    header.app-header .logo-text-group h1 {
+        font-size: 0.98rem !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    header.app-header .logo-text-group .logo-sub {
+        font-size: 0.52rem !important;
+        letter-spacing: 0.06em !important;
+        white-space: nowrap !important;
+    }
+    header.app-header .header-utilities {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        max-width: none !important;
+        flex-wrap: nowrap !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        gap: 4px !important;
+        row-gap: 0 !important;
+        margin: 0 !important;
+    }
+    /* Bulut durumu: yazı yerine yalnızca simge (durum rengi kutunun kenarında) */
+    header.app-header #cloud-status:not(.hidden) {
+        padding: 0 !important;
+        width: 34px !important;
+        height: 38px !important;
+        min-width: 34px !important;
+        justify-content: center !important;
+        border-radius: 8px !important;
+        gap: 0 !important;
+    }
+    header.app-header #cloud-status-text {
+        display: none !important;
+    }
+    header.app-header #cloud-status .cloud-icon {
+        font-size: 1rem !important;
+        margin: 0 !important;
+    }
+    header.app-header .btn-utility {
+        width: 38px !important;
+        min-width: 38px !important;
+        height: 38px !important;
+        font-size: 0.95rem !important;
+        border-radius: 9px !important;
+        padding: 3px 0 2px !important;
+    }
+    header.app-header .btn-undo-header {
+        padding: 0 8px !important;
+        height: 38px !important;
+        font-size: 0 !important; /* "Geri Al" yazısını gizle, yalnızca simge */
+    }
+    header.app-header .btn-undo-header .icon {
+        font-size: 1rem !important;
+        margin: 0 !important;
+    }
+    header.app-header #btn-header-admin-broadcast,
+    header.app-header #btn-header-bulk-email {
+        width: 38px !important;
+        height: 38px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+    }
+
+    /* Sekmeler: ince, yatay kaydırılan şerit */
+    header.app-header .header-nav-row {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    header.app-header .main-nav-tabs {
+        padding: 3px !important;
+        gap: 4px !important;
+        border-radius: 10px !important;
+        min-height: 0 !important;
+    }
+    header.app-header .main-nav-tabs button {
+        padding: 0.32rem 0.7rem !important;
+        font-size: 0.76rem !important;
+        border-radius: 8px !important;
+        min-height: 32px !important;
+        line-height: 1.2 !important;
+    }
+}
+
+/* Çok dar telefonlar: yönetici simgeleri sığmazsa logo yazısı kısalır, simgeler yine tek satırda kayar */
+@media (max-width: 380px) {
+    header.app-header .logo-text-group .logo-sub {
+        display: none !important;
+    }
+    header.app-header .header-utilities {
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+        max-width: 72vw !important;
+    }
+    header.app-header .header-utilities::-webkit-scrollbar {
+        display: none !important;
+    }
+}
+
+/* Bilgi kutusu kapatma düğmesi: sağ üst köşe (mobilde düğmeleri tam genişlik yapan kurallardan etkilenmesin) */
+#profile-password-announcement-banner > button.info-box-close {
+    position: absolute !important;
+    top: 6px !important;
+    right: 8px !important;
+    left: auto !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+@media (max-width: 768px) {
+    /* Yöneticide simgeler fazla: logo yazısı kesilmesin diye yalnızca logo kalır */
+    body.admin-mode header.app-header .logo-text-group {
+        display: none !important;
+    }
+    header.app-header #btn-header-admin-broadcast[data-label],
+    header.app-header #btn-header-bulk-email[data-label] {
+        flex-direction: column !important;
+        line-height: 1.05 !important;
+        padding-top: 3px !important;
+    }
+    header.app-header #btn-header-admin-broadcast[data-label]::after,
+    header.app-header #btn-header-bulk-email[data-label]::after {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.55rem;
+        font-weight: 700;
+        margin-top: 2px;
+        opacity: 0.9;
+    }
+}

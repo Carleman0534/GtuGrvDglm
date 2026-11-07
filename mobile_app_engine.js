@@ -496,7 +496,7 @@
 
     // Başlıktaki etiketsiz simgeler için kısa etiketler (mobilde simgenin altında görünür)
     function labelHeaderIcons() {
-        const labels = { 'btn-header-pwa-install': 'Yükle', 'btn-theme-toggle': 'Tema', 'btn-logout': 'Çıkış', 'btn-notifications': 'Bildirim' };
+        const labels = { 'btn-header-admin-broadcast': 'Duyuru', 'btn-header-bulk-email': 'Kısıt', 'btn-header-pwa-install': 'Yükle', 'btn-theme-toggle': 'Tema', 'btn-logout': 'Çıkış', 'btn-notifications': 'Bildirim' };
         Object.entries(labels).forEach(([id, text]) => {
             const b = document.getElementById(id);
             if (b && !b.dataset.label) b.dataset.label = text;
