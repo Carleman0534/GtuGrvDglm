@@ -187,8 +187,19 @@
             const btn = document.getElementById('btn-dashboard');
             if (btn) btn.click();
         } else if (tabKey === 'exams') {
-            const btn = document.getElementById('btn-exams');
-            if (btn) btn.click();
+            if (sessionStorage.getItem('isAdmin') === 'true') {
+                const btn = document.getElementById('btn-exams');
+                if (btn) btn.click();
+            } else {
+                // Gözetmen için "Görevlerim": tüm sınav listesi ve yönetici düğmeleri yerine kendi aktif görevleri
+                const btn = document.getElementById('btn-profile');
+                if (btn) btn.click();
+                setTimeout(() => {
+                    if (typeof window.switchProfileTab === 'function') window.switchProfileTab('active');
+                    const pane = document.getElementById('tab-active') || document.getElementById('profile-table-active');
+                    if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 150);
+            }
         } else if (tabKey === 'profile') {
             const btn = document.getElementById('btn-profile');
             if (btn) btn.click();
@@ -241,6 +252,16 @@
 
     // Mobil Rozet Senkronizasyonu
     function syncMobileBadges() {
+        // Alt menü: gözetmen için "Sınavlar" yerine "Görevlerim"
+        const examsNav = document.querySelector('.mobile-nav-item[data-tab="exams"]');
+        if (examsNav) {
+            const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+            const label = examsNav.querySelector('.mobile-nav-label');
+            const icon = examsNav.querySelector('.mobile-nav-icon');
+            if (label) label.textContent = isAdmin ? 'Sınavlar' : 'Görevlerim';
+            if (icon) icon.textContent = isAdmin ? '📝' : '📋';
+        }
+
         const profileBadge = document.getElementById('notif-badge-profile');
         const mobileBadge = document.getElementById('mobile-notif-badge');
         if (profileBadge && mobileBadge) {
@@ -376,6 +397,132 @@
         }
     }
 
+    // --- Profil: "Sıradaki Görevim" kartı ve kapatılabilir bilgi kutuları ---
+    const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function examStartMs(ex) {
+        const d = (typeof getSafeDate === 'function') ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}`);
+        return d.getTime();
+    }
+
+    function countdownText(startMs, endMs) {
+        const now = Date.now();
+        if (now >= startMs && now < endMs) return '🟢 Şu an devam ediyor';
+        const mins = Math.max(0, Math.round((startMs - now) / 60000));
+        if (mins < 60) return `⏳ ${mins} dakika sonra`;
+        const hours = Math.floor(mins / 60), rest = mins % 60;
+        if (hours < 24) return `⏳ ${hours} saat${rest ? ' ' + rest + ' dk' : ''} sonra`;
+        const days = Math.floor(hours / 24), h = hours % 24;
+        return `⏳ ${days} gün${h ? ' ' + h + ' saat' : ''} sonra`;
+    }
+
+    // Profilin en üstünde, kimlik kartının hemen altında bir sonraki görev; telefonda aktif görevlere
+    // ulaşmak için birkaç ekran kaydırmak gerekiyordu
+    function renderNextDutyCard() {
+        const hero = document.querySelector('#profile-main-content .profile-hero');
+        const staffId = localStorage.getItem('myStaffId');
+        let card = document.getElementById('profile-next-duty-card');
+        if (!hero || !staffId || !window.DB || !Array.isArray(DB.exams)) { if (card) card.remove(); return; }
+
+        const isMine = (typeof isStaffProctorById === 'function')
+            ? (e) => isStaffProctorById(e, staffId)
+            : (e) => (e.proctorIds || [e.proctorId]).map(String).includes(String(staffId));
+        const now = Date.now();
+        const next = DB.exams
+            .filter(e => e && e.date && e.time && isMine(e))
+            .map(e => ({ e, start: examStartMs(e), end: examStartMs(e) + (parseInt(e.duration, 10) || 60) * 60000 }))
+            .filter(x => !isNaN(x.start) && x.end > now)
+            .sort((a, b) => a.start - b.start)[0];
+
+        if (!card) {
+            card = document.createElement('div');
+            card.id = 'profile-next-duty-card';
+            card.className = 'next-duty-card';
+            hero.insertAdjacentElement('afterend', card);
+        }
+
+        if (!next) {
+            card.innerHTML = `<div class="next-duty-empty">📭 Yaklaşan gözetmenlik göreviniz yok.</div>`;
+            return;
+        }
+
+        const ex = next.e;
+        const id = escapeHtml(ex.id);
+        const ongoing = now >= next.start;
+        const dayName = new Date(next.start).toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
+        const others = DB.exams.filter(e => e && isMine(e) && examStartMs(e) + (parseInt(e.duration, 10) || 60) * 60000 > now).length - 1;
+        card.innerHTML = `
+            <div class="next-duty-head">
+                <span class="next-duty-label">Sıradaki Görevim</span>
+                <span class="next-duty-countdown" data-start="${next.start}" data-end="${next.end}">${countdownText(next.start, next.end)}</span>
+            </div>
+            <div class="next-duty-title">${escapeHtml(ex.name)}</div>
+            <div class="next-duty-meta">
+                <span>📅 ${escapeHtml(dayName)}</span>
+                <span>⏰ ${escapeHtml(ex.time)}</span>
+                <span>⏱️ ${parseInt(ex.duration, 10) || 60} dk</span>
+                <span>📍 ${escapeHtml(ex.location || '-')}</span>
+            </div>
+            <div class="next-duty-actions">
+                <button type="button" onclick="openUpdateDurationModal('${id}')">⏱️ Saat / Süre</button>
+                <button type="button" onclick="exportSingleExamToICal('${id}')">📅 Takvime ekle</button>
+                ${ongoing ? '' : `<button type="button" onclick="initiateOpenSwap('${id}')">🛒 Yerime biri lazım</button>`}
+            </div>
+            ${others > 0 ? `<button type="button" class="next-duty-all" onclick="exportMyExamsToICal()">📅 Yaklaşan ${others + 1} görevimin hepsini takvime ekle</button>` : ''}`;
+    }
+
+    // Geri sayımı dakikada bir tazele
+    setInterval(() => {
+        const el = document.querySelector('#profile-next-duty-card .next-duty-countdown');
+        if (el) el.textContent = countdownText(parseInt(el.dataset.start, 10), parseInt(el.dataset.end, 10));
+    }, 60000);
+
+    // Şifre bilgilendirmesi bir kez kapatılınca o cihazda bir daha çıkmaz
+    function applyDismissedInfoBoxes() {
+        const pwd = document.getElementById('profile-password-announcement-banner');
+        if (!pwd) return;
+        if (localStorage.getItem('pwd_banner_dismissed') === '1') { pwd.style.display = 'none'; return; }
+        if (!pwd.querySelector('.info-box-close')) {
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'info-box-close';
+            x.setAttribute('aria-label', 'Kapat');
+            x.textContent = '✕';
+            x.onclick = () => { localStorage.setItem('pwd_banner_dismissed', '1'); pwd.style.display = 'none'; };
+            pwd.style.position = 'relative';
+            pwd.appendChild(x);
+        }
+    }
+
+    // Başlıktaki etiketsiz simgeler için kısa etiketler (mobilde simgenin altında görünür)
+    function labelHeaderIcons() {
+        const labels = { 'btn-header-pwa-install': 'Yükle', 'btn-theme-toggle': 'Tema', 'btn-logout': 'Çıkış', 'btn-notifications': 'Bildirim' };
+        Object.entries(labels).forEach(([id, text]) => {
+            const b = document.getElementById(id);
+            if (b && !b.dataset.label) b.dataset.label = text;
+        });
+    }
+
+    function hookProfileRender() {
+        if (typeof window.renderProfile !== 'function' || window.renderProfile.__nextDutyHooked) return;
+        const original = window.renderProfile;
+        const wrapped = function () {
+            try { return original.apply(this, arguments); }
+            finally {
+                try { renderNextDutyCard(); applyDismissedInfoBoxes(); } catch (e) { console.warn('next duty card:', e); }
+            }
+        };
+        wrapped.__nextDutyHooked = true;
+        window.renderProfile = wrapped;
+    }
+
+    function initProfileComfort() {
+        hookProfileRender();
+        labelHeaderIcons();
+        applyDismissedInfoBoxes();
+        try { renderNextDutyCard(); } catch (e) {}
+    }
+
     // --- Yeni Sürüm Uyarısı ---
     // GitHub Pages her yayında tüm dosyaların Last-Modified değerini yeniler. Açılıştaki değer
     // saklanır; 5 dakikada bir ve uygulamaya geri dönüldüğünde karşılaştırılır. Değiştiyse
@@ -426,9 +573,11 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initMobileEngine);
         document.addEventListener('DOMContentLoaded', initVersionCheck);
+        document.addEventListener('DOMContentLoaded', initProfileComfort);
     } else {
         initMobileEngine();
         initVersionCheck();
+        initProfileComfort();
     }
 
 })();

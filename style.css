@@ -5087,7 +5087,7 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
     }
     #login-password {
         padding: 0.52rem 0.75rem !important;
-        font-size: 0.88rem !important;
+        font-size: 16px !important; /* iPhone'da dokununca yakınlaştırmasın */
         margin-bottom: 0.45rem !important;
         border-radius: 10px !important;
     }
@@ -5306,7 +5306,8 @@ body.dark-theme::after { opacity: 0.08; filter: brightness(1.5) grayscale(20%); 
     /* 8. Form Girişleri, Seçim Kutuları ve Etiketler */
     input, select, textarea {
         padding: 0.42rem 0.6rem !important;
-        font-size: 0.82rem !important;
+        /* 16px'ten küçük yazıda iPhone, kutuya dokunulunca sayfayı kendiliğinden yakınlaştırıyordu */
+        font-size: 16px !important;
         border-radius: 8px !important;
         min-height: 34px !important;
     }
@@ -5942,4 +5943,134 @@ body:not(.dark-theme) .modal .modal-content textarea::placeholder {
 #modal-ios-pwa-guide,
 #modal-pwa-general-guide {
     z-index: 10050 !important;
+}
+
+/* =====================================================================
+   PROFİL: SIRADAKİ GÖREVİM KARTI ve KAPATILABİLİR BİLGİ KUTULARI
+   ===================================================================== */
+.next-duty-card {
+    /* Açık temada da okunur olsun diye koyu zemin üzerinde */
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(14, 165, 233, 0.04)), #0f172a;
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    border-radius: 16px;
+    padding: 0.9rem 1rem;
+    margin: 0 0 1rem 0;
+    color: #f8fafc;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.next-duty-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+}
+.next-duty-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #7dd3fc;
+}
+.next-duty-countdown {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fde68a;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+.next-duty-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    line-height: 1.3;
+    margin-bottom: 0.4rem;
+}
+.next-duty-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    margin-bottom: 0.7rem;
+}
+.next-duty-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 6px;
+}
+.next-duty-actions button,
+.next-duty-all {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    padding: 0.55rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 40px;
+}
+.next-duty-actions button:hover,
+.next-duty-all:hover {
+    background: rgba(56, 189, 248, 0.2);
+}
+.next-duty-all {
+    width: 100%;
+    margin-top: 6px;
+    background: transparent;
+    border-style: dashed;
+    color: #7dd3fc;
+}
+.next-duty-empty {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+.info-box-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    /* Başlıktaki simgelerin altında kısa etiket */
+    #btn-header-pwa-install[data-label],
+    #btn-theme-toggle[data-label],
+    #btn-logout[data-label],
+    #btn-notifications[data-label] {
+        display: inline-flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.05;
+        height: auto !important;
+        padding-top: 4px !important;
+        padding-bottom: 3px !important;
+    }
+    #btn-header-pwa-install[data-label]::after,
+    #btn-theme-toggle[data-label]::after,
+    #btn-logout[data-label]::after,
+    #btn-notifications[data-label]::after {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        opacity: 0.85;
+        margin-top: 2px;
+    }
+
+
+    .next-duty-card {
+        margin-bottom: 0.75rem;
+    }
 }

@@ -111,7 +111,7 @@
     window.dismissProactiveNotifBanner = function () {
         const b = document.getElementById('proactive-notif-banner');
         if (b) b.classList.add('hidden');
-        sessionStorage.setItem('proactive_notif_banner_dismissed', '1');
+        localStorage.setItem('proactive_notif_banner_dismissed', '1'); // kalıcı: bir kez kapatılınca bu cihazda bir daha çıkmaz
     };
 
     // Şifresiz 1 Tıkla İsim Seçme ve Cihazı Bağlama
@@ -688,7 +688,7 @@
             const pText = document.getElementById('proactive-notif-text');
             const pBtn = document.getElementById('proactive-notif-btn');
             const iosNotInstalled = isIosDevice() && !isStandalone;
-            let show = state !== 'granted' && sessionStorage.getItem('proactive_notif_banner_dismissed') !== '1';
+            let show = state !== 'granted' && localStorage.getItem('proactive_notif_banner_dismissed') !== '1';
 
             if (iosNotInstalled) {
                 // iPhone'da bildirim yalnızca ana ekrana eklenen uygulamada çalışır; izin istemek işe yaramaz

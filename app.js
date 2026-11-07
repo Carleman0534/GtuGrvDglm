@@ -15315,13 +15315,19 @@ window.exportMyExamsToICal = function() {
     }
 
     const staff = DB.staff.find(s => String(s.id) === String(myStaffId));
+    // Yalnızca yaklaşan görevler (geçmiş sınavlar takvimi gereksiz yere doldurmasın)
+    const nowMs = Date.now();
     const myExams = DB.exams.filter(e => {
-        if (typeof isStaffProctorById === 'function') return isStaffProctorById(e, myStaffId);
-        return (e.proctorIds || [e.proctorId]).map(String).includes(String(myStaffId));
+        const mine = (typeof isStaffProctorById === 'function')
+            ? isStaffProctorById(e, myStaffId)
+            : (e.proctorIds || [e.proctorId]).map(String).includes(String(myStaffId));
+        if (!mine || !e.date || !e.time) return false;
+        const end = getSafeDate(e.date, e.time).getTime() + (parseInt(e.duration, 10) || 60) * 60000;
+        return end > nowMs;
     });
 
     if (myExams.length === 0) {
-        showToast('Takvime aktarilacak aktif sinav göreviniz bulunmuyor.', 'info');
+        showToast('Takvime aktarilacak yaklaşan sinav göreviniz bulunmuyor.', 'info');
         return;
     }
 
