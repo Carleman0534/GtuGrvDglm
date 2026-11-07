@@ -8,6 +8,9 @@
  *     31 Ekim 2026 öncesi sınavlar peşinen onaylıdır.
  *  2. Panelden gönderilen yönetici duyurularını (son 3 gün, cihaz bildirimi açık) duyurunun
  *     hedefindeki kişilerin cihazlarına; her duyuru her cihaza bir kez.
+ *  3. "Sıradaki göreviniz 3 gün sonra / 2 gün sonra / yarın" hatırlatmaları: sınava 3, 2 ve 1 gün
+ *     kala o günün sabahı (TR 09:00-21:00 arası) yalnızca sınavın gözetmenlerine; aynı gündeki
+ *     görevler tek bildirimde birleşir, her hatırlatma bir kez gider.
  *
  * Neyin gönderildiği STATE_FILE'da tutulur (iş akışı bunu "durum" dalında saklar).
  * Depo herkese açık olduğu için kayıtlara isim / e-posta / cihaz adresi yazılmaz.
@@ -29,6 +32,10 @@ const REMIND_AFTER_MS = 24 * 60 * 60 * 1000;
 const LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_SENDS = 2;
 const BROADCAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000; // sitedeki duyuru süre sınırıyla aynı
+// "Sıradaki göreviniz 3 gün sonra / 2 gün sonra / yarın" hatırlatmaları (notification_engine.js ile aynı)
+const REMINDER_DAYS = [3, 2, 1];
+const REMINDER_FROM_HOUR = 9;   // Türkiye saatiyle 09:00'dan önce gönderme
+const REMINDER_UNTIL_HOUR = 21; // 21:00'den sonra gönderme (ertesi sabaha kalırsa bir sonraki gün aşamasına geçer)
 
 const STATE_FILE = process.env.STATE_FILE || 'hatirlatma.json';
 const vapidPublic = (process.env.VAPID_PUBLIC_KEY || '').trim();
@@ -65,6 +72,22 @@ function broadcastTargets(db, bc) {
         return [...ids];
     }
     return (Array.isArray(t) ? t : [t]).map(String);
+}
+
+// Sitedeki bildirimle aynı metin ve etiket (aynı cihazda ikisi birden gelirse biri diğerinin yerini alır)
+function upcomingPayload({ pid, days, date, exams }) {
+    const dayName = new Date(date + 'T12:00:00+03:00').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' });
+    const sorted = [...exams].sort((a, b) => String(a.time).localeCompare(String(b.time)));
+    const title = days === 1 ? '📅 Yarın göreviniz var' : `📅 Sıradaki göreviniz ${days} gün sonra`;
+    const body = sorted.length === 1
+        ? `${sorted[0].name} — ${dayName} ${sorted[0].time}, ${sorted[0].location || 'derslik belirtilmedi'} (${parseInt(sorted[0].duration, 10) || 60} dk)`
+        : `${dayName}: ${sorted.length} görev — ` + sorted.map(e => `${e.time} ${e.name}`).join(' · ');
+    return {
+        title,
+        body: body.slice(0, 300),
+        tag: `gtu_exam_gun_${pid}_${days}_${date}`,
+        data: { url: SITE_URL, examId: sorted[0].id }
+    };
 }
 
 async function loadDB() {
@@ -117,8 +140,28 @@ async function main() {
             return at && now - at <= BROADCAST_MAX_AGE_MS && at <= now;
         });
 
+    // Yaklaşan görev hatırlatmaları: sınava 3 gün, 2 gün ve 1 gün (yarın) kala, o günün sabahı.
+    // Gözetmen başına ve gün başına tek bildirim (aynı gün birden fazla görevi varsa birleşir).
+    const upcomingDue = new Map(); // `${pid}|${days}|${date}` -> { pid, days, date, exams }
+    const trHour = new Date(now + 3 * 60 * 60 * 1000).getUTCHours();
+    if (trHour >= REMINDER_FROM_HOUR && trHour < REMINDER_UNTIL_HOUR) {
+        const today = trDate(now);
+        for (const ex of db.exams) {
+            if (!ex || !ex.date || !ex.time) continue;
+            const days = Math.round((Date.parse(ex.date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+            if (!REMINDER_DAYS.includes(days)) continue;
+            for (const pid of proctorIds(ex)) {
+                const key = `gun:${pid}:${days}:${ex.date}`;
+                if (state[key]) continue;
+                const k = `${pid}|${days}|${ex.date}`;
+                if (!upcomingDue.has(k)) upcomingDue.set(k, { pid, days, date: ex.date, key, exams: [] });
+                upcomingDue.get(k).exams.push(ex);
+            }
+        }
+    }
+
     let webpush = null;
-    if (!dryRun && (due.size || broadcastsDue.length)) {
+    if (!dryRun && (due.size || broadcastsDue.length || upcomingDue.size)) {
         webpush = (await import('web-push')).default;
         webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL.replace(/\/GtuGrvDglm\/$/, ''), vapidPublic, vapidPrivate);
     }
@@ -173,6 +216,24 @@ async function main() {
         console.log(`Süre hatırlatması: gözetmen #${pid}, ${exams.length} sınav, ${subs.length} cihaz`);
     }
 
+    // --- Yaklaşan görev hatırlatmaları ---
+    let upcomingPushed = 0;
+    for (const item of upcomingDue.values()) {
+        const subs = staffIds.has(item.pid) ? subsOf(item.pid) : [];
+        if (!subs.length) continue;
+        if (dryRun) {
+            console.log(`[Deneme] Sıradaki görev: gözetmen #${item.pid}, ${item.days} gün sonra (${item.date}), ${item.exams.length} sınav, ${subs.length} cihaz`);
+            continue;
+        }
+        const payload = JSON.stringify(upcomingPayload(item));
+        let delivered = false;
+        for (const s of subs) {
+            if (await send(item.pid, s, payload, { TTL: 12 * 60 * 60 })) { delivered = true; upcomingPushed++; }
+        }
+        if (delivered) state[item.key] = { count: 1, last: new Date(now).toISOString() };
+        console.log(`Sıradaki görev: gözetmen #${item.pid}, ${item.days} gün sonra, ${subs.length} cihaz`);
+    }
+
     // --- Yönetici duyuruları ---
     let broadcastPushed = 0;
     for (const bc of broadcastsDue) {
@@ -210,7 +271,7 @@ async function main() {
     }
     if (!dryRun) writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 
-    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, hatırlatılacak gözetmen: ${due.size} (kayıtlı cihazı olmayan: ${noDevice}), telefon bildirimi: ${pushed}, yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), hata: ${failed}`);
+    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, hatırlatılacak gözetmen: ${due.size} (kayıtlı cihazı olmayan: ${noDevice}), telefon bildirimi: ${pushed}, sıradaki görev hatırlatması: ${upcomingPushed}, yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), hata: ${failed}`);
     if (!pushEnabled) console.log('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY tanımlı değil: telefon bildirimi gönderilmiyor (deneme modu).');
     if (failed) process.exitCode = 1;
 }

@@ -263,6 +263,48 @@
         }
     };
 
+    // --- "Sıradaki göreviniz 3 gün sonra / 2 gün sonra / yarın" hatırlatmaları ---
+    // Zamanlanmış görev (.github/scripts/sure-hatirlatma.mjs) uygulama kapalıyken aynısını gönderir;
+    // metin ve etiket aynı olduğu için aynı cihazda ikisi birden gelirse biri diğerinin yerini alır.
+    const REMINDER_DAYS = [3, 2, 1];
+    const REMINDER_FROM_HOUR = 9, REMINDER_UNTIL_HOUR = 21; // Türkiye saati
+
+    function checkUpcomingDayReminders(staffId, exams) {
+        const trNow = new Date(Date.now() + 3 * 3600000);
+        const hour = trNow.getUTCHours();
+        if (hour < REMINDER_FROM_HOUR || hour >= REMINDER_UNTIL_HOUR) return;
+        const today = trNow.toISOString().slice(0, 10);
+
+        const groups = new Map(); // `${days}|${date}` -> exams
+        exams.forEach(ex => {
+            const days = Math.round((Date.parse(ex.date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+            if (!REMINDER_DAYS.includes(days)) return;
+            const k = `${days}|${ex.date}`;
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(ex);
+        });
+
+        groups.forEach((list, k) => {
+            const [days, date] = [parseInt(k.split('|')[0], 10), k.split('|')[1]];
+            const storageKey = `gtu_gun_${staffId}_${days}_${date}`;
+            if (localStorage.getItem(storageKey)) return;
+            localStorage.setItem(storageKey, new Date().toISOString());
+
+            const sorted = list.slice().sort((a, b) => String(a.time).localeCompare(String(b.time)));
+            const dayName = new Date(date + 'T12:00:00+03:00').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' });
+            const title = days === 1 ? '📅 Yarın göreviniz var' : `📅 Sıradaki göreviniz ${days} gün sonra`;
+            const body = sorted.length === 1
+                ? `${sorted[0].name} — ${dayName} ${sorted[0].time}, ${sorted[0].location || 'derslik belirtilmedi'} (${parseInt(sorted[0].duration, 10) || 60} dk)`
+                : `${dayName}: ${sorted.length} görev — ` + sorted.map(e => `${e.time} ${e.name}`).join(' · ');
+
+            if (getPermissionState() === 'granted') {
+                // dispatchLocalNotification etikete "gtu_exam_" ekler: zamanlanmış görevdeki etiketle aynı olur
+                window.dispatchLocalNotification(title, body, `gun_${staffId}_${days}_${date}`, { examId: sorted[0].id });
+            }
+            if (typeof showToast === 'function') showToast(`${title}: ${body}`, days === 1 ? 'warning' : 'info');
+        });
+    }
+
     // --- Sınav Bildirimlerini Denetleyen Ana Döngü ---
     function checkAllExamNotifications() {
         if (!window.DB || !DB.exams || !Array.isArray(DB.exams)) return;
@@ -284,6 +326,8 @@
             const ids = (ex.proctorIds || [ex.proctorId]).map(String);
             return ids.includes(String(myStaffId));
         });
+
+        checkUpcomingDayReminders(myStaffId, targetExams);
 
         targetExams.forEach(ex => {
             const examDateTimeStr = `${ex.date}T${ex.time.length === 5 ? ex.time : ex.time.padStart(5, '0')}:00`;
