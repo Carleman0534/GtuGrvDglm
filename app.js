@@ -409,7 +409,15 @@ function initNavigation() {
             if (key === 'availability') renderAvailability();
             if (key === 'constraints') renderConstraintsPage();
             if (key === 'requests') loadFromDataJSON().then(() => renderSwapRequests());
-            if (key === 'profile') { renderProfile(); updateNotificationBadge(); }
+            if (key === 'profile') {
+                renderProfile();
+                updateNotificationBadge();
+                // Sınavı bitmiş ve saati/süresi onaylanmamış gözetmene, profili her açılışında
+                // onay penceresi doğrudan öne çıkar ("Daha Sonra" ile kapatıp devam edebilir)
+                if (typeof window.showPendingDurationPrompt === 'function') {
+                    setTimeout(() => window.showPendingDurationPrompt(true), 400);
+                }
+            }
             if (key === 'audit') renderAuditLogs();
             if (key === 'announcements') { renderAnnouncements(); markAnnouncementsAsRead(); }
             if (key === 'timeline') renderMonthlyCalendar();
@@ -8756,7 +8764,9 @@ function renderProfileDurationAlerts(myStaffId, staff) {
 
     const pendingExams = myExams.filter(e => {
         const examDate = getSafeDate(e.date, e.time);
-        return examDate >= CUTOFF_DATE && now >= examDate && !e.durationConfirmed && !e.actualDuration;
+        // Sınav bittikten sonra (başlangıç + süre) onay istenir; eskiden sınav başlar başlamaz "tamamlandı" diyordu
+        const examEnd = new Date(examDate.getTime() + (parseInt(e.duration, 10) || 60) * 60000);
+        return examDate >= CUTOFF_DATE && now >= examEnd && !e.durationConfirmed && !e.actualDuration;
     }).sort((a, b) => (b.date + 'T' + b.time).localeCompare(a.date + 'T' + a.time));
 
     if (pendingExams.length === 0) {
@@ -8813,7 +8823,7 @@ function renderProfileDurationAlerts(myStaffId, staff) {
                         <span style="font-size: 1.8rem; line-height: 1; background: rgba(245,158,11,0.2); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">⏱️</span>
                         <div>
                             <div style="font-weight: 700; font-size: 0.98rem; color: #fbbf24; display: flex; align-items: center; gap: 8px;">
-                                <span>Sınav Tamamlandı - Süre Teyidi Bekleniyor</span>
+                                <span>Sınav Tamamlandı - Saat ve Süre Teyidi Bekleniyor</span>
                                 <span class="badge" style="background: rgba(245,158,11,0.25); color: #fbbf24; font-size: 0.7rem; padding: 1px 7px; border-radius: 4px;">Sıfır Sürtünmeli Onay</span>
                             </div>
                             <div style="font-size: 0.88rem; color: #f8fafc; margin-top: 4px;">
@@ -8828,10 +8838,10 @@ function renderProfileDurationAlerts(myStaffId, staff) {
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; padding: 0.65rem 1.15rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 10px rgba(16,185,129,0.35);" onclick="confirmScheduledDuration('${ex.id}', ${scheduled})">
-                            <span>✓</span> Planlandığı Gibi (${scheduled} dk)
+                            <span>✓</span> ${ex.time}'da başladı, ${scheduled} dk sürdü
                         </button>
                         <button type="button" class="btn-secondary" style="background: rgba(249, 115, 22, 0.15); border: 1.5px solid #f97316; color: #fb923c; padding: 0.65rem 1.15rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" onclick="openUpdateDurationModal('${ex.id}')">
-                            <span>⏱️</span> Farklı Bitti (Süre Gir)
+                            <span>⏱️</span> Saat veya süre farklı
                         </button>
                     </div>
                 </div>
