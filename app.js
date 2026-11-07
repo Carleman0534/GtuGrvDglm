@@ -7547,7 +7547,7 @@ window.renderProfile = function() {
                         <td>${statusBadge || '<span style="color:var(--text-muted);font-size:0.7rem;">Normal</span>'}</td>
                         <td style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
                             <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sinavi Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
-                            <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Gerçekleşen Sınav Süresini Gir / Güncelle" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.35); color: #fb923c; cursor:pointer; font-size:0.72rem; font-weight:600;">⏱️ Süre Gir</button>
+                            <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Sınavın başlangıç saatini ve süresini gir / güncelle" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.35); color: #fb923c; cursor:pointer; font-size:0.72rem; font-weight:600;">⏱️ Saat / Süre</button>
                             ${(() => {
                                 const hasRequest = (DB.requests || []).find(r => 
                                     (String(r.examId) === String(ex.id) || String(r.initiatorExamId) === String(ex.id)) && 
@@ -7587,7 +7587,7 @@ window.renderProfile = function() {
                     </td>
                     <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
                     <td style="text-align:right;">
-                        <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Gerçekleşen Sınav Süresini Güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange); cursor:pointer;">⏱️ Süre Gir</button>
+                        <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Sınavın başlangıç saatini ve süresini güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange); cursor:pointer;">⏱️ Saat / Süre</button>
                     </td>
                 </tr>
             `;
@@ -8938,6 +8938,14 @@ window.openUpdateDurationModal = function(examId) {
         idInput.value = ex.id;
         durInput.value = ex.duration || 60;
         if (noteInput) noteInput.value = ex.durationNote || '';
+        const startInput = document.getElementById('duration-modal-start');
+        if (startInput) startInput.value = ex.time || '';
+        const startHint = document.getElementById('duration-modal-start-hint');
+        if (startHint) {
+            startHint.textContent = (ex.scheduledTime && ex.scheduledTime !== ex.time)
+                ? `Planlanan saat ${ex.scheduledTime} idi; ${ex.timeUpdatedBy ? ex.timeUpdatedBy + ' tarafından ' : ''}${ex.time} olarak değiştirildi.`
+                : 'Sınav planlanandan farklı saatte başladıysa / başlayacaksa değiştirin.';
+        }
 
         const scheduled = ex.scheduledDuration || ex.duration || 60;
         const currentScore = parseFloat(ex.score) || 0;
@@ -9065,7 +9073,9 @@ window.updateDurationModalScorePreview = function(val) {
         return;
     }
 
-    const testDate = getSafeDate(ex.date, ex.time);
+    // Başlangıç saati değiştirildiyse puan yeni saate göre (akşam / hafta sonu katsayısı) hesaplanır
+    const startVal = document.getElementById('duration-modal-start')?.value || ex.time;
+    const testDate = getSafeDate(ex.date, startVal);
     const oldScore = parseFloat(ex.score) || 0;
     const newScore = calculateScore(testDate, numVal, ex.id);
     const diff = parseFloat((newScore - oldScore).toFixed(2));
@@ -9134,6 +9144,21 @@ window.saveExamDurationFromModal = function() {
         const note = noteInput ? noteInput.value.trim() : '';
         const scheduledDur = ex.scheduledDuration || ex.duration || 60;
 
+        // Başlangıç saati (gözetmen sınavın planlanandan farklı saatte başladığını bildirebilir)
+        const startInput = document.getElementById('duration-modal-start');
+        const newTime = (startInput && startInput.value) ? startInput.value : ex.time;
+        if (!/^\d{2}:\d{2}$/.test(newTime)) {
+            if (typeof showToast === 'function') showToast('Lütfen geçerli bir başlangıç saati girin!', 'error');
+            if (startInput) startInput.focus();
+            return;
+        }
+        const oldTime = ex.time;
+        const timeChanged = newTime !== oldTime;
+        // Sınav henüz bitmediyse yalnızca saat/süre güncellenir; süre "onaylandı" sayılmaz
+        // (bitince yine onay istenir)
+        const newEnd = getSafeDate(ex.date, newTime).getTime() + val * 60000;
+        const examEnded = Date.now() >= newEnd;
+
         let actor = 'Gözetmen';
         const myStaffId = localStorage.getItem('myStaffId');
         if (myStaffId && DB.staff) {
@@ -9159,17 +9184,30 @@ window.saveExamDurationFromModal = function() {
 
         const nowIso = new Date().toISOString();
         sameRoomExams.forEach(item => {
-            updateExam(item.id, {
+            const data = {
                 duration: val,
-                actualDuration: val,
                 scheduledDuration: item.scheduledDuration || item.duration || scheduledDur,
                 durationNote: note,
-                durationConfirmed: true,
-                durationConfirmedBy: actor,
-                durationConfirmedAt: nowIso,
                 durationUpdatedBy: actor,
                 durationUpdatedAt: nowIso
-            });
+            };
+            if (timeChanged) {
+                Object.assign(data, {
+                    time: newTime,
+                    scheduledTime: item.scheduledTime || item.time,
+                    timeUpdatedBy: actor,
+                    timeUpdatedAt: nowIso
+                });
+            }
+            if (examEnded) {
+                Object.assign(data, {
+                    actualDuration: val,
+                    durationConfirmed: true,
+                    durationConfirmedBy: actor,
+                    durationConfirmedAt: nowIso
+                });
+            }
+            updateExam(item.id, data);
         });
 
         if (typeof recalculateAllScores === 'function') {
@@ -9181,7 +9219,7 @@ window.saveExamDurationFromModal = function() {
             logAction(
                 'user',
                 'Sınav Süresi Güncelleme',
-                `${actor} tarafından "${ex.name}" (${ex.date} ${ex.time}, Salon: ${ex.location || '-'}) süresi ${ex.duration} dk -> ${val} dk yapıldı.${note ? ' Not: ' + note : ''}${partnerInfo}`
+                `${actor} tarafından "${ex.name}" (${ex.date} ${oldTime}, Salon: ${ex.location || '-'})${timeChanged ? ` başlangıç saati ${oldTime} -> ${newTime},` : ''} süresi ${scheduledDur} dk -> ${val} dk yapıldı${examEnded ? ' ve onaylandı' : ''}.${note ? ' Not: ' + note : ''}${partnerInfo}`
             );
         }
 
@@ -9198,9 +9236,9 @@ window.saveExamDurationFromModal = function() {
             saveBtn.textContent = '💾 Kaydet & Puanı Güncelle';
         }
 
-        let msg = `${ex.name} süresi ${val} dk olarak güncellendi ve puanlar yeniden hesaplandı.`;
+        let msg = `${ex.name}: ${timeChanged ? `başlangıç ${newTime}, ` : ''}süre ${val} dk olarak ${examEnded ? 'onaylandı' : 'güncellendi'}; puanlar yeniden hesaplandı.`;
         if (partnerNames.length > 0) {
-            msg += ` Aynı derslikteki (${ex.location || '-'}) ortak gözetmenler (${partnerNames.join(', ')}) için de süre eşitlendi!`;
+            msg += ` Aynı derslikteki (${ex.location || '-'}) ortak gözetmenler (${partnerNames.join(', ')}) için de eşitlendi!`;
         }
         if (typeof showToast === 'function') showToast(msg, 'success');
         else alert(msg);

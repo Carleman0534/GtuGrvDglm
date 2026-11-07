@@ -544,19 +544,19 @@
                     <div style="font-size:0.76rem; color:#cbd5e1; margin:3px 0 8px;">📅 ${escapeHtml(ex.date)} · ⏰ ${escapeHtml(ex.time)} · 📍 ${escapeHtml(ex.location || '-')} · Planlanan <b>${mins} dk</b></div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
                         <button type="button" class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669); border:none; padding:0.55rem 0.4rem; border-radius:8px; font-weight:700; font-size:0.8rem;"
-                            onclick="window.confirmPendingDuration('${id}', ${mins})">✓ ${mins} dk sürdü</button>
+                            onclick="window.confirmPendingDuration('${id}', ${mins})">✓ ${escapeHtml(ex.time)}'da başladı, ${mins} dk sürdü</button>
                         <button type="button" class="btn-secondary" style="background:rgba(249,115,22,0.15); border:1.5px solid #f97316; color:#fb923c; padding:0.55rem 0.4rem; border-radius:8px; font-weight:700; font-size:0.8rem;"
-                            onclick="window.openPendingDurationEdit('${id}')">⏱️ Farklı bitti</button>
+                            onclick="window.openPendingDurationEdit('${id}')">⏱️ Saat veya süre farklı</button>
                     </div>
                 </div>`;
         }).join('');
 
         modal.innerHTML = `
             <div class="modal-content" style="max-width:480px;">
-                <h2 style="margin:0 0 0.3rem; color:#fbbf24;">⏱️ Sınav Sürenizi Onaylayın</h2>
+                <h2 style="margin:0 0 0.3rem; color:#fbbf24;">⏱️ Sınav Saatini ve Sürenizi Onaylayın</h2>
                 <p style="margin:0 0 0.9rem; font-size:0.84rem; color:#cbd5e1;">
-                    Gözetmenlik yaptığınız ${pending.length > 1 ? pending.length + ' sınavın' : 'sınavın'} süresi henüz onaylanmadı.
-                    Puanlar onayladığınız süreye göre hesaplanır.
+                    Gözetmenlik yaptığınız ${pending.length > 1 ? pending.length + ' sınavın' : 'sınavın'} başlangıç saati ve süresi henüz onaylanmadı.
+                    Sınav farklı saatte başladıysa ya da farklı sürdüyse düzeltin; puanlar buna göre hesaplanır.
                 </p>
                 ${rows}
                 <button type="button" class="btn-secondary" style="width:100%; margin-top:0.3rem; padding:0.55rem;" onclick="window.dismissPendingDurationPrompt()">Daha Sonra</button>

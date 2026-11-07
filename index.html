@@ -2441,7 +2441,7 @@
     <div id="modal-update-duration" class="modal hidden">
         <div class="modal-content card-large swap-modal" style="max-width: 540px;">
             <div class="modal-header">
-                <h2>⏱️ Gerçekleşen Sınav Süresini Güncelle</h2>
+                <h2>⏱️ Sınav Saati ve Süresi</h2>
                 <button class="close-modal" onclick="closeUpdateDurationModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -2457,7 +2457,15 @@
 
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">
-                        ⏱️ Gerçekleşen Süre (Dakika):
+                        🕐 Başlangıç Saati:
+                    </label>
+                    <input type="time" id="duration-modal-start" style="width: 100%; padding: 0.6rem 0.8rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; font-size: 1.05rem; font-weight: 700;" oninput="updateDurationModalScorePreview(document.getElementById('duration-modal-input').value)">
+                    <div id="duration-modal-start-hint" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.3rem;">Sınav planlanandan farklı saatte başladıysa / başlayacaksa değiştirin.</div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">
+                        ⏱️ Süre (Dakika):
                     </label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="number" id="duration-modal-input" min="15" max="360" step="5" style="flex: 1; padding: 0.65rem 0.8rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; font-size: 1.1rem; font-weight: 700;" oninput="updateDurationModalScorePreview(this.value)">
@@ -2493,7 +2501,7 @@
                     <label style="font-size: 0.85rem; color: var(--text-secondary); display:block; margin-bottom: 0.4rem;">
                         📝 Not / Açıklama (İsteğe Bağlı):
                     </label>
-                    <input type="text" id="duration-modal-note" placeholder="Örn: Sınav hocası 15 dk ek süre verdi" style="width: 100%; padding: 0.6rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                    <input type="text" id="duration-modal-note" placeholder="Örn: Sınav 15 dk geç başladı / hoca 15 dk ek süre verdi" style="width: 100%; padding: 0.6rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
                 </div>
 
                 <div class="modal-footer" style="padding: 0; margin-top: 1rem; display: flex; justify-content: flex-end; gap: 8px;">
