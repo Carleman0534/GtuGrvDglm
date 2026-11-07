@@ -670,7 +670,9 @@ async function initApp() {
     initUI();
     applyTheme(); // Theme on load
     renderProfile();
-    updateRequestBadge(); // Update badge on load
+    // updateRequestBadge hiçbir dosyada tanımlı değil; korumasız çağrı başlatmayı burada kesiyor,
+    // aşağıdaki rozetler, eşitleme ve günlük yedek hiç çalışmıyordu
+    if (typeof updateRequestBadge === 'function') updateRequestBadge(); // Update badge on load
     updateAnnouncementBadge(); // New announcement badge
     updateMarketplaceBadge(); // Marketplace badge
     updateNotificationBadge(); // Notification badge
@@ -679,6 +681,10 @@ async function initApp() {
     loadStaffSelects(); // Personel seçim dropdownlarini yükle
     updateDraftBanner(); // Taslak Modu Banner'i Güncelle
     if (typeof updateUndoUI === 'function') updateUndoUI(); // Undo UI
+
+    // initApp girişte birden fazla kez çalışabiliyor; zamanlayıcılar ve dinleyiciler yalnızca bir kez kurulur
+    if (window.__initAppTimersStarted) return;
+    window.__initAppTimersStarted = true;
 
     // Günlük otomatik yedeklemeyi tetikle (arayüz açildiktan 2 saniye sonra)
     setTimeout(checkAndPerformDailyBackup, 2000);
@@ -864,7 +870,13 @@ function checkAndPerformDailyBackup() {
 
     const lastBackupDate = localStorage.getItem('last_auto_backup_date');
 
-    if (lastBackupDate !== todayStr) {
+    // Telefonda / tablette her gün kendiliğinden dosya inmesin; yedek dosyası yalnızca bilgisayarda indirilir
+    // (yukarıdaki anlık görüntü kasası yedeği her cihazda alınmaya devam eder)
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) ||
+        window.matchMedia('(display-mode: standalone)').matches;
+
+    if (lastBackupDate !== todayStr && !isMobileDevice) {
         console.log(`⏳ Günlük otomatik yedekleme başlatiliyor: ${todayStr}`);
         try {
             downloadBackupFile('Otomatik_Gunluk_Yedek');
@@ -7989,13 +8001,18 @@ function updateProfileDashboard(staffId) {
 
     const constrSummaryEl = document.getElementById('profile-kpi-constraint-summary');
     if (constrSummaryEl) {
-        const staffConstraints = (DB.constraints || []).filter(c => c.staffName === staff.name || c.staffId === staff.id);
+        // DB.constraints kişi adına göre gruplanmış bir nesnedir ({ "Ad Soyad": [kısıtlar] }); dizi sanılıp
+        // .filter çağrıldığı için profil özeti hata verip yarıda kalıyordu
+        const staffConstraints = (typeof getConstraintsForStaff === 'function') ? getConstraintsForStaff(staff.name) : [];
         if (staffConstraints.length === 0) {
             constrSummaryEl.innerHTML = `<span style="color:#34d399;">✓ Tam Müsait</span>`;
         } else {
+            const dayShort = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
             const cList = staffConstraints.map(c => {
-                if (c.type === 'day') return `${c.day.substring(0,3)} ${c.startHour || ''}-${c.endHour || ''}`;
-                return `${c.date ? c.date.substring(5) : 'Tarih'}`;
+                const hours = (c.start || c.end) ? ` ${c.start || ''}-${c.end || ''}` : '';
+                if (c.day !== undefined && c.day !== null && c.day !== '') return `${dayShort[parseInt(c.day, 10)] || c.day}${hours}`;
+                if (c.startDate && c.endDate) return `${String(c.startDate).substring(5)}→${String(c.endDate).substring(5)}`;
+                return `${c.date ? String(c.date).slice(-5) : 'Tarih'}${hours}`;
             }).slice(0, 2).join(', ');
             constrSummaryEl.innerHTML = `<span style="color:#f87171;" title="${staffConstraints.length} kisit">🚫 ${cList}${staffConstraints.length > 2 ? '...' : ''}</span>`;
         }
@@ -8004,8 +8021,10 @@ function updateProfileDashboard(staffId) {
     // 4. Sinav Günü Canli Durum Banner'i (Bugün / Yarin)
     const liveBanner = document.getElementById('profile-live-duty-banner');
     if (liveBanner) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        // Türkiye saatine göre bugün / yarın (toISOString UTC'dir; gece 00:00-03:00 arası bir gün geride kalıyordu)
+        const trNow = Date.now() + 3 * 3600000;
+        const todayStr = new Date(trNow).toISOString().split('T')[0];
+        const tomorrowStr = new Date(trNow + 86400000).toISOString().split('T')[0];
 
         const todayExams = myExams.filter(e => e.date === todayStr);
         const tomorrowExams = myExams.filter(e => e.date === tomorrowStr);
@@ -10551,7 +10570,8 @@ function renderProfileConstraints() {
     const container = document.querySelector('#profile-table-constraints tbody');
     if (!container) return;
 
-    const userConstraints = DB.constraints[staff.name] || [];
+    // Firebase boş nesneyi saklamaz; hiç kısıt yoksa DB.constraints tanımsız gelebilir
+    const userConstraints = (DB.constraints && DB.constraints[staff.name]) || [];
     container.innerHTML = '';
 
     if (userConstraints.length === 0) {
