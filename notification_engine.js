@@ -15,13 +15,10 @@
 (function () {
     'use strict';
 
-    // 5 Kademeli Bildirim Eşikleri (Saat Cinsinden)
+    // Sınav saatinden önceki son hatırlatma: 2 saat kala, sınav başına bir kez.
+    // (3 gün önce ve "yarın" hatırlatmaları checkUpcomingDayReminders içinde; toplam 3 bildirim)
     const MILESTONES = [
-        { hours: 24, label: '24 Saat Önce', icon: '🔔', tagPrefix: '24h' },
-        { hours: 18, label: '18 Saat Önce', icon: '🔔', tagPrefix: '18h' },
-        { hours: 12, label: '12 Saat Önce', icon: '🔔', tagPrefix: '12h' },
-        { hours: 6,  label: '6 Saat Önce',  icon: '⏰', tagPrefix: '6h' },
-        { hours: 3,  label: '3 Saat Önce (Son Hatırlatma)', icon: '🚨', tagPrefix: '3h' }
+        { hours: 2, label: '2 Saat Önce', icon: '⏰', tagPrefix: '2h' }
     ];
 
     // Yönetici duyurularının cihaz bildirimi olarak gösterileceği en uzun süre (zamanlanmış görevle aynı)
@@ -263,10 +260,10 @@
         }
     };
 
-    // --- "Sıradaki göreviniz 3 gün sonra / 2 gün sonra / yarın" hatırlatmaları ---
+    // --- "Sıradaki göreviniz 3 gün sonra / yarın" hatırlatmaları ---
     // Zamanlanmış görev (.github/scripts/sure-hatirlatma.mjs) uygulama kapalıyken aynısını gönderir;
     // metin ve etiket aynı olduğu için aynı cihazda ikisi birden gelirse biri diğerinin yerini alır.
-    const REMINDER_DAYS = [3, 2, 1];
+    const REMINDER_DAYS = [3, 1]; // 3 gün önce ve yarın
     const REMINDER_FROM_HOUR = 9, REMINDER_UNTIL_HOUR = 21; // Türkiye saati
 
     function checkUpcomingDayReminders(staffId, exams) {
@@ -341,35 +338,17 @@
             if (diffHours < 0) return;
 
             MILESTONES.forEach(m => {
-                if (!isMilestoneEnabled(m.hours)) return;
-
                 const storageKey = `gtu_notif_fired_${ex.id}_${m.hours}h`;
                 const alreadySent = localStorage.getItem(storageKey);
 
-                if (!alreadySent && diffHours <= m.hours && diffHours > (m.hours - 2.5)) {
+                if (!alreadySent && diffHours <= m.hours && diffHours > 0) {
                     localStorage.setItem(storageKey, new Date().toISOString());
 
-                    let title = '';
-                    let message = '';
                     const loc = ex.location ? `Salon: ${ex.location}` : 'Derslik henüz belirtilmedi';
                     const dur = ex.duration ? `(${ex.duration} dk)` : '';
 
-                    if (m.hours === 24) {
-                        title = `🔔 [Yarın Sınav Göreviniz Var] ${ex.name}`;
-                        message = `Yarın saat ${ex.time}'da ${ex.name} sınavı gözetmenliğiniz var. ${loc} ${dur}.`;
-                    } else if (m.hours === 18) {
-                        title = `🔔 [18 Saat Kaldı] ${ex.name} Görevi`;
-                        message = `${ex.name} sınavına 18 saat kaldı. Başlama: ${ex.time}, ${loc}.`;
-                    } else if (m.hours === 12) {
-                        title = `🔔 [12 Saat Kaldı] ${ex.name} Görevi`;
-                        message = `Göreviniz yaklaşıyor. Saat ${ex.time}'da ${loc} salonunda olunuz.`;
-                    } else if (m.hours === 6) {
-                        title = `⏰ [6 Saat Kaldı] ${ex.name}`;
-                        message = `Sınava 6 saat kaldı! Başlama: ${ex.time}, ${loc}.`;
-                    } else if (m.hours === 3) {
-                        title = `🚨 [Son 3 Saat!] ${ex.name} Başlıyor`;
-                        message = `Saat ${ex.time}'da başlayacak ${ex.name} sınavı için lütfen hazırlığınızı yapıp salona geçiniz. ${loc}.`;
-                    }
+                    const title = `⏰ ${ex.name} 2 saat sonra başlıyor`;
+                    const message = `Saat ${ex.time}'da başlayacak sınav görevi. ${loc} ${dur}`.trim();
 
                     // 1. Cihaz / Push Bildirimi Gönder
                     if (getPermissionState() === 'granted') {

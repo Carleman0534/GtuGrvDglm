@@ -3339,42 +3339,15 @@
                 <button id="btn-enable-notifications" type="button" class="btn-primary" onclick="requestExamNotificationPermission()" style="padding: 0.5rem 1rem; font-size: 0.82rem; border-radius: 8px;">🔔 İzni Aç</button>
             </div>
 
-            <!-- Kademeli Bildirim Eşikleri (24s, 18s, 12s, 6s, 3s) -->
+            <!-- Görev hatırlatmaları: toplam 3 bildirim -->
             <div style="margin-bottom: 1.5rem;">
                 <div style="font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                    ⏱️ Hatırlatma Eşikleri (Seçilen saatlerde bildirim gönderilir):
+                    ⏱️ Görev Hatırlatmaları (her görev için toplam 3 bildirim):
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer;">
-                        <span style="font-size: 0.88rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🔔</span> <b>24 Saat Önce:</b> "Yarın sınav göreviniz var" uyarısı
-                        </span>
-                        <input type="checkbox" id="notif-chk-24h" checked onchange="toggleMilestonePref(24, this.checked)" style="width: 18px; height: 18px; accent-color: #0284c7;">
-                    </label>
-                    <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer;">
-                        <span style="font-size: 0.88rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🔔</span> <b>18 Saat Önce:</b> Hazırlık ve ajanda hatırlatması
-                        </span>
-                        <input type="checkbox" id="notif-chk-18h" checked onchange="toggleMilestonePref(18, this.checked)" style="width: 18px; height: 18px; accent-color: #0284c7;">
-                    </label>
-                    <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer;">
-                        <span style="font-size: 0.88rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🔔</span> <b>12 Saat Önce:</b> Yarınki görev planlaması
-                        </span>
-                        <input type="checkbox" id="notif-chk-12h" checked onchange="toggleMilestonePref(12, this.checked)" style="width: 18px; height: 18px; accent-color: #0284c7;">
-                    </label>
-                    <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer;">
-                        <span style="font-size: 0.88rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>⏰</span> <b>6 Saat Önce:</b> Sınav günü kritik hazırlık
-                        </span>
-                        <input type="checkbox" id="notif-chk-6h" checked onchange="toggleMilestonePref(6, this.checked)" style="width: 18px; height: 18px; accent-color: #0284c7;">
-                    </label>
-                    <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer;">
-                        <span style="font-size: 0.88rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🚨</span> <b>3 Saat Önce:</b> Görev yerine geçiş son uyarısı
-                        </span>
-                        <input type="checkbox" id="notif-chk-3h" checked onchange="toggleMilestonePref(3, this.checked)" style="width: 18px; height: 18px; accent-color: #ef4444;">
-                    </label>
+                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.86rem; color: #f1f5f9;">
+                    <div style="padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">📅 <b>3 gün önce:</b> "Sıradaki göreviniz 3 gün sonra"</div>
+                    <div style="padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">📅 <b>Bir gün önce:</b> "Yarın göreviniz var"</div>
+                    <div style="padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">⏰ <b>2 saat önce:</b> "Sınav 2 saat sonra başlıyor"</div>
                 </div>
             </div>
 

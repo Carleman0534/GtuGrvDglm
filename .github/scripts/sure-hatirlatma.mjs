@@ -8,9 +8,9 @@
  *     31 Ekim 2026 öncesi sınavlar peşinen onaylıdır.
  *  2. Panelden gönderilen yönetici duyurularını (son 3 gün, cihaz bildirimi açık) duyurunun
  *     hedefindeki kişilerin cihazlarına; her duyuru her cihaza bir kez.
- *  3. "Sıradaki göreviniz 3 gün sonra / 2 gün sonra / yarın" hatırlatmaları: sınava 3, 2 ve 1 gün
- *     kala o günün sabahı (TR 09:00-21:00 arası) yalnızca sınavın gözetmenlerine; aynı gündeki
- *     görevler tek bildirimde birleşir, her hatırlatma bir kez gider.
+ *  3. Görev hatırlatmaları, gözetmen başına toplam 3 bildirim, her biri bir kez:
+ *     "Sıradaki göreviniz 3 gün sonra" ve "Yarın göreviniz var" (o günün sabahı, TR 09:00-21:00 arası;
+ *     aynı gündeki görevler tek bildirimde birleşir) ve sınav saatinden 2 saat önce "2 saat sonra başlıyor".
  *
  * Neyin gönderildiği STATE_FILE'da tutulur (iş akışı bunu "durum" dalında saklar).
  * Depo herkese açık olduğu için kayıtlara isim / e-posta / cihaz adresi yazılmaz.
@@ -32,8 +32,9 @@ const REMIND_AFTER_MS = 24 * 60 * 60 * 1000;
 const LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_SENDS = 2;
 const BROADCAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000; // sitedeki duyuru süre sınırıyla aynı
-// "Sıradaki göreviniz 3 gün sonra / 2 gün sonra / yarın" hatırlatmaları (notification_engine.js ile aynı)
-const REMINDER_DAYS = [3, 2, 1];
+// "Sıradaki göreviniz 3 gün sonra / yarın" hatırlatmaları (notification_engine.js ile aynı)
+const REMINDER_DAYS = [3, 1];
+const REMINDER_HOURS_BEFORE = 2; // sınav saatinden 2 saat önce son hatırlatma (sitedeki MILESTONES ile aynı)
 const REMINDER_FROM_HOUR = 9;   // Türkiye saatiyle 09:00'dan önce gönderme
 const REMINDER_UNTIL_HOUR = 21; // 21:00'den sonra gönderme (ertesi sabaha kalırsa bir sonraki gün aşamasına geçer)
 
@@ -140,7 +141,7 @@ async function main() {
             return at && now - at <= BROADCAST_MAX_AGE_MS && at <= now;
         });
 
-    // Yaklaşan görev hatırlatmaları: sınava 3 gün, 2 gün ve 1 gün (yarın) kala, o günün sabahı.
+    // Yaklaşan görev hatırlatmaları: sınava 3 gün ve 1 gün (yarın) kala, o günün sabahı.
     // Gözetmen başına ve gün başına tek bildirim (aynı gün birden fazla görevi varsa birleşir).
     const upcomingDue = new Map(); // `${pid}|${days}|${date}` -> { pid, days, date, exams }
     const trHour = new Date(now + 3 * 60 * 60 * 1000).getUTCHours();
@@ -160,8 +161,20 @@ async function main() {
         }
     }
 
+    // Sınava 2 saat kala son hatırlatma (gözetmen ve sınav başına bir kez; saat kısıtı yok)
+    const hourDue = [];
+    for (const ex of db.exams) {
+        if (!ex) continue;
+        const start = examStart(ex);
+        if (isNaN(start) || start <= now || start - now > REMINDER_HOURS_BEFORE * 3600000) continue;
+        for (const pid of proctorIds(ex)) {
+            const key = `saat${REMINDER_HOURS_BEFORE}:${pid}:${ex.id}`;
+            if (!state[key]) hourDue.push({ pid, ex, key });
+        }
+    }
+
     let webpush = null;
-    if (!dryRun && (due.size || broadcastsDue.length || upcomingDue.size)) {
+    if (!dryRun && (due.size || broadcastsDue.length || upcomingDue.size || hourDue.length)) {
         webpush = (await import('web-push')).default;
         webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL.replace(/\/GtuGrvDglm\/$/, ''), vapidPublic, vapidPrivate);
     }
@@ -232,6 +245,32 @@ async function main() {
         }
         if (delivered) state[item.key] = { count: 1, last: new Date(now).toISOString() };
         console.log(`Sıradaki görev: gözetmen #${item.pid}, ${item.days} gün sonra, ${subs.length} cihaz`);
+    }
+
+    // --- 2 saat kala hatırlatmaları ---
+    for (const item of hourDue) {
+        const subs = staffIds.has(item.pid) ? subsOf(item.pid) : [];
+        if (!subs.length) continue;
+        if (dryRun) {
+            console.log(`[Deneme] ${REMINDER_HOURS_BEFORE} saat kala: gözetmen #${item.pid}, sınav ${item.ex.id} (${item.ex.date} ${item.ex.time}), ${subs.length} cihaz`);
+            continue;
+        }
+        const ex = item.ex;
+        const loc = ex.location ? `Salon: ${ex.location}` : 'Derslik henüz belirtilmedi';
+        const dur = ex.duration ? `(${ex.duration} dk)` : '';
+        // Sitedeki bildirimle aynı metin ve etiket (aynı cihazda ikisi birden gelirse biri diğerinin yerini alır)
+        const payload = JSON.stringify({
+            title: `⏰ ${ex.name} 2 saat sonra başlıyor`,
+            body: `Saat ${ex.time}'da başlayacak sınav görevi. ${loc} ${dur}`.trim().slice(0, 300),
+            tag: `gtu_exam_${ex.id}_2h`,
+            data: { url: SITE_URL, examId: ex.id }
+        });
+        let delivered = false;
+        for (const s of subs) {
+            if (await send(item.pid, s, payload, { TTL: 2 * 60 * 60 })) { delivered = true; upcomingPushed++; }
+        }
+        if (delivered) state[item.key] = { count: 1, last: new Date(now).toISOString() };
+        console.log(`${REMINDER_HOURS_BEFORE} saat kala: gözetmen #${item.pid}, ${subs.length} cihaz`);
     }
 
     // --- Yönetici duyuruları ---
