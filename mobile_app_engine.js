@@ -503,13 +503,73 @@
         });
     }
 
+    // --- Küçültülebilir profil panelleri ---
+    // Her panelin başlığına −/+ düğmesi; küçültülen panelde yalnızca başlık kalır.
+    // Tercih cihazda saklanır (localStorage), sayfa yenilense de öyle kalır.
+    const COLLAPSIBLE_PANELS = [
+        { key: 'next_duty', selector: '#profile-next-duty-card', header: '.next-duty-head' },
+        { key: 'smart_swaps', selector: '#profile-smart-swaps', header: ':scope > div:first-child' },
+        { key: 'kpi', selector: '#profile-main-content .profile-bento-kpi-grid', label: '📊 Puan ve Görev Özeti' },
+        { key: 'calendar', selector: '.sidebar-widget.personal-calendar-card', header: ':scope > .sidebar-widget-header' },
+        { key: 'checklist', find: () => { const c = document.getElementById('profile-checklist-container'); return c && c.closest('.sidebar-widget'); }, header: ':scope > .sidebar-widget-header' },
+        { key: 'journal', selector: '#profile-joke-section', header: ':scope > .sidebar-widget-header' }
+    ];
+
+    const isPanelCollapsed = (key) => localStorage.getItem('panel_collapsed_' + key) === '1';
+
+    function setPanelState(panel, btn, key, collapsed) {
+        panel.classList.toggle('panel-collapsed', collapsed);
+        btn.textContent = collapsed ? '+' : '−';
+        btn.title = collapsed ? 'Paneli aç' : 'Paneli küçült';
+        btn.setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    function applyCollapsiblePanels() {
+        COLLAPSIBLE_PANELS.forEach(cfg => {
+            let panel = null;
+            try { panel = cfg.find ? cfg.find() : document.querySelector(cfg.selector); } catch (e) {}
+            if (!panel) return;
+
+            let header = null;
+            if (cfg.header) {
+                try { header = panel.querySelector(cfg.header); } catch (e) {}
+            } else {
+                // Başlığı olmayan panel (ör. puan kutuları): ince bir başlık satırı eklenir
+                header = panel.querySelector(':scope > .panel-collapse-header');
+                if (!header) {
+                    header = document.createElement('div');
+                    header.className = 'panel-collapse-header';
+                    header.innerHTML = `<span class="panel-collapse-title">${cfg.label}</span>`;
+                    panel.insertBefore(header, panel.firstChild);
+                }
+            }
+            if (!header) return;
+            header.classList.add('panel-collapse-keep');
+
+            let btn = header.querySelector(':scope > .panel-collapse-btn');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'panel-collapse-btn';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const collapsed = !panel.classList.contains('panel-collapsed');
+                    localStorage.setItem('panel_collapsed_' + cfg.key, collapsed ? '1' : '0');
+                    setPanelState(panel, btn, cfg.key, collapsed);
+                });
+                header.appendChild(btn);
+            }
+            setPanelState(panel, btn, cfg.key, isPanelCollapsed(cfg.key));
+        });
+    }
+
     function hookProfileRender() {
         if (typeof window.renderProfile !== 'function' || window.renderProfile.__nextDutyHooked) return;
         const original = window.renderProfile;
         const wrapped = function () {
             try { return original.apply(this, arguments); }
             finally {
-                try { renderNextDutyCard(); applyDismissedInfoBoxes(); } catch (e) { console.warn('next duty card:', e); }
+                try { renderNextDutyCard(); applyDismissedInfoBoxes(); applyCollapsiblePanels(); } catch (e) { console.warn('profile panels:', e); }
             }
         };
         wrapped.__nextDutyHooked = true;
@@ -521,6 +581,7 @@
         labelHeaderIcons();
         applyDismissedInfoBoxes();
         try { renderNextDutyCard(); } catch (e) {}
+        try { applyCollapsiblePanels(); } catch (e) {}
     }
 
     // --- Yeni Sürüm Uyarısı ---

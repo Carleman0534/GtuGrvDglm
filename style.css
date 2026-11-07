@@ -6254,3 +6254,21 @@ body:not(.dark-theme) .modal .modal-content textarea::placeholder {
         opacity: 0.9;
     }
 }
+
+/* ===== KÜÇÜLTÜLEBİLİR PROFİL PANELLERİ ===== */
+.panel-collapse-keep { position: relative; padding-right: 38px !important; }
+.panel-collapse-btn {
+    position: absolute; top: 50%; right: 0; transform: translateY(-50%);
+    width: 28px; height: 28px; padding: 0; margin: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: 1px solid var(--border-color, rgba(148,163,184,0.35));
+    background: var(--bg-secondary, rgba(148,163,184,0.12)); color: var(--text-main, inherit);
+    font-size: 1.1rem; font-weight: 700; line-height: 1; cursor: pointer;
+}
+.panel-collapse-btn:hover { background: rgba(99,102,241,0.15); }
+.panel-collapsed > :not(.panel-collapse-keep) { display: none !important; }
+.panel-collapsed > .panel-collapse-keep { margin-bottom: 0 !important; border-bottom: none !important; padding-bottom: 0 !important; }
+.panel-collapse-header {
+    grid-column: 1 / -1; display: flex; align-items: center; min-height: 28px;
+    font-weight: 700; font-size: 0.9rem; color: var(--text-main, inherit);
+}
