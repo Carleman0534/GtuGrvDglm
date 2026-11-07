@@ -111,6 +111,8 @@
                 sessionStorage.setItem('googleUser', JSON.stringify({ name: user.displayName, email: user.email }));
                 if (matchedStaff) {
                     localStorage.setItem('myStaffId', String(matchedStaff.id));
+                    // Yöneticinin e-postası bir gözetmenle eşleşiyor: bu cihaz o gözetmenin
+                    if (typeof setDeviceStaffId === 'function') setDeviceStaffId(matchedStaff.id);
                 }
                 const loginError = document.getElementById('login-error');
                 if (loginError) loginError.classList.add('hidden');
@@ -129,6 +131,7 @@
             // 4. Personel / Hoca Girişi
             if (matchedStaff) {
                 localStorage.setItem('myStaffId', String(matchedStaff.id));
+                if (typeof setDeviceStaffId === 'function') setDeviceStaffId(matchedStaff.id);
                 sessionStorage.setItem('userEmail', email);
                 sessionStorage.setItem('googleUser', JSON.stringify({ name: user.displayName, email: user.email }));
                 const loginError = document.getElementById('login-error');

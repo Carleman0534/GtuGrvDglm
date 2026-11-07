@@ -92,6 +92,7 @@ window.logoutUser = function() {
     sessionStorage.removeItem('isLecturer');
     sessionStorage.removeItem('userPassword');
     localStorage.removeItem('myStaffId');
+    localStorage.removeItem('myDeviceStaffId');
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('isAdmin');
     localStorage.removeItem('isLecturer');
@@ -296,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (matchedStaff) {
                 localStorage.setItem('myStaffId', String(matchedStaff.id));
+                setDeviceStaffId(matchedStaff.id);
                 logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle doğrudan kendi profiline giriş yaptı.`);
                 if (loginError) loginError.classList.add('hidden');
                 await finishLogin(false);
@@ -1337,6 +1339,8 @@ function initUI() {
         }
 
         localStorage.setItem('myStaffId', staffId);
+        // Yönetici profile bakıyorsa cihazın sahibi değişmez; gözetmen kendi adını seçiyorsa cihaz onundur
+        if (sessionStorage.getItem('isAdmin') !== 'true') setDeviceStaffId(staffId);
         renderProfile();
         updateNotificationBadge();
     });
@@ -1351,6 +1355,7 @@ function initUI() {
         const matched = DB.staff.find(s => isStaffPasswordMatch(s, pass));
         if (matched) {
             localStorage.setItem('myStaffId', String(matched.id));
+            setDeviceStaffId(matched.id);
             if (errorEl) errorEl.classList.add('hidden');
             renderProfile();
             updateNotificationBadge();
@@ -12321,7 +12326,7 @@ function getNotifications() {
         // 3. Yaklaşan Sinavlar (Sonraki 48 saat içindeki sinavlar)
         const now = Date.now();
         const futureLimit = now + (48 * 60 * 60 * 1000);
-        DB.exams.filter(ex => String(ex.proctorId) === String(myStaffId)).forEach(ex => {
+        DB.exams.filter(ex => isStaffProctorById(ex, myStaffId)).forEach(ex => {
             const exDate = getSafeDate(ex.date, ex.time).getTime();
             if (exDate > now && exDate < futureLimit) {
                 notifs.push({
@@ -12336,7 +12341,6 @@ function getNotifications() {
 
         // 4. Biten ve Süre Onayı Bekleyen Sınavlar (Hoca & Gözetmen Bildirimleri)
         if (DB.exams && Array.isArray(DB.exams)) {
-            const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
             const portalSelect = document.getElementById('lecturer-portal-staff-select');
             const portalLecturer = portalSelect ? (portalSelect.value || '').trim().toLowerCase() : '';
             const myLecturer = (localStorage.getItem('myLecturerName') || '').trim().toLowerCase();
@@ -12352,11 +12356,11 @@ function getNotifications() {
 
                 if (now >= end.getTime()) {
                     const exLecturer = (ex.lecturer || '').toLowerCase();
+                    // Yalnızca sınavın gözetmeni ya da dersin hocası (eskiden hoca girişi yapan herkese
+                    // ve yöneticiye bütün sınavların süre onayı listeleniyordu)
                     const isMyExam = (myStaffId && typeof isStaffProctorById === 'function' && isStaffProctorById(ex, myStaffId)) ||
-                                     isLecturerMode ||
                                      (portalLecturer && exLecturer.includes(portalLecturer)) ||
-                                     (myLecturer && exLecturer.includes(myLecturer)) ||
-                                     sessionStorage.getItem('isAdmin') === 'true';
+                                     (myLecturer && exLecturer.includes(myLecturer));
 
                     if (isMyExam) {
                         notifs.push({

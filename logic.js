@@ -29,6 +29,29 @@ if (typeof window !== 'undefined') {
 // Şifreler artık backend'de tutuluyor. Frontend'de şifre YOKTUR.
 const DB_KEY = 'gozetmenlik_db_v25';
 
+/**
+ * Bu cihazın sahibi olan gözetmen. Telefon bildirimleri (sınav hatırlatmaları, süre onayı,
+ * duyurular, Web Push kaydı) yalnızca buna göre gönderilir.
+ * localStorage.myStaffId ise o an GÖRÜNTÜLENEN profildir: yönetici başka profillere bakarken
+ * değişir; eskiden bildirimler de ona göre çalıştığı için yöneticinin telefonuna baktığı
+ * herkesin sınav hatırlatmaları gidiyordu.
+ * Cihaz sahibi yalnızca kişi kendi adına giriş yapınca (kişisel şifre, Google, kendi adını seçme) belirlenir.
+ */
+function getDeviceStaffId() {
+    const own = localStorage.getItem('myDeviceStaffId');
+    if (own) return own;
+    // Eski cihazlar için: yönetici oturumu değilse görüntülenen profil kişinin kendisidir
+    const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+    return isAdmin ? null : localStorage.getItem('myStaffId');
+}
+function setDeviceStaffId(staffId) {
+    if (staffId) localStorage.setItem('myDeviceStaffId', String(staffId));
+}
+if (typeof window !== 'undefined') {
+    window.getDeviceStaffId = getDeviceStaffId;
+    window.setDeviceStaffId = setDeviceStaffId;
+}
+
 // Backend API Adresi
 // const API_BASE_URL = "http://localhost:8082";
 const API_BASE_URL = "https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app"; // Firebase Realtime Database

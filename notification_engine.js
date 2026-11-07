@@ -124,6 +124,7 @@
         }
 
         localStorage.setItem('myStaffId', String(staffId));
+        window.setDeviceStaffId(staffId);
         const staff = (window.DB && Array.isArray(window.DB.staff)) ? window.DB.staff.find(s => String(s.id) === String(staffId)) : null;
         const staffName = staff ? staff.name : 'Gözetmen';
 
@@ -156,6 +157,7 @@
         const selectEl = document.getElementById('quick-staff-select');
         if (selectEl && selectEl.value) {
             localStorage.setItem('myStaffId', String(selectEl.value));
+            window.setDeviceStaffId(selectEl.value);
         }
         if (typeof window.finishLogin === 'function') {
             window.finishLogin(false, false);
@@ -265,7 +267,7 @@
     function checkAllExamNotifications() {
         if (!window.DB || !DB.exams || !Array.isArray(DB.exams)) return;
 
-        const myStaffId = localStorage.getItem('myStaffId');
+        const myStaffId = window.getDeviceStaffId();
         // Eğer kullanıcı henüz kimlik seçmemişse (anonim):
         // Kişisel sınav görevleri eşleşemeyeceği için yüzlerce sınavın bildirimini telefona yığmıyoruz.
         // Anonim kullanıcılar checkIncomingBroadcastNotifications() ile tüm yönetici genel duyurularını alır.
@@ -365,7 +367,7 @@
         if (!window.DB || !DB.exams || !Array.isArray(DB.exams)) return;
 
         const now = new Date();
-        const myStaffId = localStorage.getItem('myStaffId');
+        const myStaffId = window.getDeviceStaffId();
         const isLecturerMode = sessionStorage.getItem('isLecturer') === 'true';
         const portalSelect = document.getElementById('lecturer-portal-staff-select');
         const portalSelectVal = (portalSelect && portalSelect.value) ? portalSelect.value.trim().toLowerCase() : '';
@@ -490,7 +492,7 @@
 
     // Gözetmenin bitmiş ve süresi onaylanmamış sınavları
     function getMyPendingDurationExams() {
-        const myStaffId = localStorage.getItem('myStaffId');
+        const myStaffId = window.getDeviceStaffId();
         if (!myStaffId || !window.DB || !Array.isArray(DB.exams)) return [];
         const now = Date.now();
         return DB.exams.filter(ex => {
@@ -720,7 +722,7 @@
     function maybeShowPermissionPrompt() {
         if (getPermissionState() !== 'default') return;
         const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-        if (!standalone || sessionStorage.getItem('isLoggedIn') !== 'true' || !localStorage.getItem('myStaffId')) return;
+        if (!standalone || sessionStorage.getItem('isLoggedIn') !== 'true' || !window.getDeviceStaffId()) return;
         const last = parseInt(localStorage.getItem('notif_permission_prompt_at') || '0', 10);
         if (Date.now() - last < 24 * 60 * 60 * 1000) return;
         if (document.querySelector('.modal:not(.hidden)')) return;
@@ -772,9 +774,30 @@
     }
 
     window.ensurePushSubscription = async function () {
-        const myStaffId = localStorage.getItem('myStaffId');
-        if (!myStaffId || getPermissionState() !== 'granted' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const myStaffId = window.getDeviceStaffId();
+        if (getPermissionState() !== 'granted' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
         if (!window.DB || !Array.isArray(DB.staff) || DB.staff.length === 0) return;
+        if (!myStaffId) {
+            // Cihazın sahibi yok (ör. yönetici profillere bakıyor): bu cihaz daha önce baktığı bir
+            // gözetmen adına kaydedildiyse o kaydı kaldır, yoksa onun bildirimleri bu telefona gelir
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (sub && DB.pushAbonelikleri && typeof DB.pushAbonelikleri === 'object') {
+                    const id = endpointId(sub.endpoint);
+                    let removed = false;
+                    Object.keys(DB.pushAbonelikleri).forEach(k => {
+                        const list = DB.pushAbonelikleri[k];
+                        if (!Array.isArray(list)) return;
+                        const kept = list.filter(s => s && s.id !== id && s.endpoint !== sub.endpoint);
+                        if (kept.length !== list.length) { DB.pushAbonelikleri[k] = kept; removed = true; }
+                    });
+                    if (removed && typeof saveToLocalStorage === 'function') saveToLocalStorage();
+                }
+                pushSyncDone = true;
+            } catch (e) { /* önemsiz */ }
+            return;
+        }
         try {
             const reg = await navigator.serviceWorker.ready;
             let sub = await reg.pushManager.getSubscription();
@@ -793,7 +816,7 @@
             Object.keys(DB.pushAbonelikleri).forEach(k => {
                 if (k === myStaffId || !Array.isArray(DB.pushAbonelikleri[k])) return;
                 const before = DB.pushAbonelikleri[k].length;
-                DB.pushAbonelikleri[k] = DB.pushAbonelikleri[k].filter(s => s && s.id !== id);
+                DB.pushAbonelikleri[k] = DB.pushAbonelikleri[k].filter(s => s && s.id !== id && s.endpoint !== json.endpoint);
                 if (DB.pushAbonelikleri[k].length !== before) changed = true;
             });
             if (!already) {
@@ -840,7 +863,7 @@
     window.checkIncomingBroadcastNotifications = function () {
         if (!window.DB || !Array.isArray(DB.adminBroadcasts) || DB.adminBroadcasts.length === 0) return;
 
-        const myStaffId = localStorage.getItem('myStaffId');
+        const myStaffId = window.getDeviceStaffId();
         const now = Date.now();
 
         // Yarın sınavı olanların kimliklerini hesapla (tomorrow_only hedefi için)
