@@ -67,8 +67,7 @@
     function setMode(dark) {
         document.body.classList.toggle('dark-theme', dark);
         safeSet('theme', dark ? 'dark' : 'light');
-        const btn = document.getElementById('btn-theme-toggle');
-        if (btn) btn.textContent = dark ? '🌙' : '☀️';
+        setHeaderIcon();
         updateMetaColor();
         renderPanelState();
     }
@@ -117,7 +116,8 @@
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
         document.addEventListener('click', (e) => {
             if (!panel || panel.classList.contains('hidden')) return;
-            if (panel.contains(e.target) || e.target.closest('#btn-theme-toggle')) return;
+            // Paneli açan düğmelere tıklama "dışarı tıklama" sayılmasın (yoksa açılır açılmaz kapanır)
+            if (panel.contains(e.target) || e.target.closest('#btn-theme-toggle, #btn-profile-theme, [data-tema-ac]')) return;
             closePanel();
         });
     }
@@ -144,18 +144,31 @@
         panel.querySelector('.theme-picker-reset').classList.toggle('active', !choice);
     }
 
-    function positionPanel() {
+    // Başlık simgesi her zaman 🎨 (uygulama açılışta ☀️/🌙 yazıyordu; panelin açılacağı belli olsun)
+    function setHeaderIcon() {
         const btn = document.getElementById('btn-theme-toggle');
-        if (!btn || !panel) return;
+        if (btn && btn.textContent.trim() !== '🎨') btn.textContent = '🎨';
+    }
+
+    let lastTrigger = null;
+    function positionPanel() {
+        if (!panel) return;
         if (window.innerWidth <= 600) { panel.style.left = ''; panel.style.top = ''; return; }
-        const r = btn.getBoundingClientRect();
-        const w = panel.offsetWidth || 280;
-        panel.style.top = (r.bottom + 8) + 'px';
+        // Paneli açan düğmenin altına yerleştir; düğme ekranda değilse sağ üst köşeye
+        const trigger = (lastTrigger && document.body.contains(lastTrigger)) ? lastTrigger : document.getElementById('btn-theme-toggle');
+        let r = trigger ? trigger.getBoundingClientRect() : null;
+        if (!r || r.bottom < 0 || r.top > window.innerHeight || (r.width === 0 && r.height === 0)) {
+            r = { bottom: 64, right: window.innerWidth - 16 };
+        }
+        const w = panel.offsetWidth || 290;
+        const h = panel.offsetHeight || 380;
+        panel.style.top = Math.max(8, Math.min(window.innerHeight - h - 8, r.bottom + 8)) + 'px';
         panel.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
     }
 
-    function openPanel() {
+    function openPanel(trigger) {
         if (!panel) buildPanel();
+        lastTrigger = (trigger && trigger.nodeType === 1) ? trigger : null;
         renderPanelState();
         panel.classList.remove('hidden');
         positionPanel();
@@ -183,7 +196,15 @@
             if (panel && !panel.classList.contains('hidden')) closePanel(); else openPanel();
         }, true);
         const btn = document.getElementById('btn-theme-toggle');
-        if (btn) { btn.title = 'Tema: görünüm ve renk'; btn.setAttribute('aria-haspopup', 'dialog'); }
+        if (btn) {
+            btn.title = 'Tema: görünüm ve renk';
+            btn.setAttribute('aria-haspopup', 'dialog');
+            setHeaderIcon();
+            // app.js applyTheme() simgeyi sonradan ☀️/🌙 yapabiliyor; değişirse 🎨'ye geri al
+            try { new MutationObserver(setHeaderIcon).observe(btn, { childList: true, characterData: true, subtree: true }); } catch (e) {}
+        }
+        // Kaydırma sırasında açık panel düğmeyle birlikte doğru yerde kalsın
+        window.addEventListener('scroll', () => { if (panel && !panel.classList.contains('hidden')) positionPanel(); }, { passive: true });
 
         window.addEventListener('resize', positionPanel);
         // Kimlik değişince (profil değiştir / giriş) kişinin kendi seçimi uygulansın
