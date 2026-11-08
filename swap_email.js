@@ -408,6 +408,8 @@ window.openMarketEmailModal = function(examId) {
     const eligible = [], ineligible = [];
 
     allOtherStaff.forEach(s => {
+        // Ek uygunluğu sağlamayan kişi bu görev için hiç listelenmez
+        if (window.AtamaDestek && !window.AtamaDestek.uygunMu(s, exam, { ayrilan: [myStaffId] })) return;
         let reason = null;
         // Çakışan sınav kontrolü
         const hasConflict = (DB.exams || []).some(e => {

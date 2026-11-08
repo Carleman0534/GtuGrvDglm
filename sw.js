@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v52';
+const CACHE_NAME = 'gozetmenlik-ai-v53';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -9,6 +9,7 @@ const ASSETS_TO_CACHE = [
     './final_forecast_engine.js',
     './mobil_tablo.js',
     './app.js',
+    './atama_destek.js',
     './logic.js',
     './auth_google.js',
     './veri_koruma.js',

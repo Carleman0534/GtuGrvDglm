@@ -1625,12 +1625,18 @@ function predictGender(name) {
 /**
  * Bir gözetmenin o saatte hem kısıt hem de mevcut sınavlar açısından gerçekten boş olup olmadığını kontrol et
  */
-function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null, isNonExam = false, examName = "") {
+function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null, isNonExam = false, examName = "", examCtx = null) {
     const staff = DB.staff.find(s => s.id === staffId);
     if (!staff) return false;
 
     // 1. Kısıt kontrolü
     if (!isAvailable(staff.name, date, time, duration)) return false;
+
+    // 1b. Ek uygunluk (yalnızca sınav bilgisi verilen öneri/otomatik atama akışlarında)
+    if (examCtx && typeof window !== 'undefined' && window.AtamaDestek &&
+        !window.AtamaDestek.uygunMu(staff, Object.assign({}, examCtx, { date, time, duration }), { ayrilan: examCtx.ayrilan })) {
+        return false;
+    }
 
     // 2. Mevcut sınavlarla çakışma kontrolü (15 dk buffer)
     const start = getSafeDate(date, time);
@@ -1683,9 +1689,16 @@ function isProctorTrulyFree(staffId, date, time, duration, ignoreExamId = null, 
 /**
  * Akıllı Atama Asistanı için Gözetmen Önerileri Listesi oluştur
  */
-function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "") {
+function _examCtxFor(ignoreExamId, examCtx) {
+    if (examCtx) return examCtx;
+    if (ignoreExamId == null || ignoreExamId === '') return null;
+    return (DB.exams || []).find(e => String(e.id) === String(ignoreExamId)) || null;
+}
+
+function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "", examCtx = null) {
     if (!dateStr || !timeStr || DB.staff.length === 0) return [];
-    const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName));
+    const ctx = _examCtxFor(ignoreExamId, examCtx);
+    const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName, ctx));
     if (available.length === 0) return [];
 
     return available.map(s => {
@@ -1706,19 +1719,20 @@ window.getRecommendedProctors = getRecommendedProctors;
 /**
  * En adil gözetmen atamasını yap (hem kısıt hem sınav çakışması kontrolü ile)
  */
-function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "") {
+function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "", examCtx = null) {
     if (DB.staff.length === 0) return null;
+    const ctx = _examCtxFor(ignoreExamId, examCtx);
 
     let available = DB.staff.filter(s =>
-        isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName) &&
+        isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName, ctx) &&
         (s.taskCount || 0) < GLOBAL_LIMITS.MAX_TASKS
     );
 
-    // Eğer MAX_TASKS (6) sınırına herkes ulaştığı için müsait kimse kalmadıysa, bu sınırı esnet. 
+    // Eğer MAX_TASKS (6) sınırına herkes ulaştığı için müsait kimse kalmadıysa, bu sınırı esnet.
     // Böylece test ortamında veya yoğun haftalarda "müsait gözetmen bulunamadı" hatası almayız.
     if (available.length === 0) {
         available = DB.staff.filter(s =>
-            isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId)
+            isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, false, "", ctx)
         );
     }
 
@@ -1788,7 +1802,8 @@ function autoResolveConflicts() {
         }
 
         // Yeni uygun gözetmeni bul (mevcut sınav hariç)
-        const newProctor = findBestProctor(exam.date, exam.time, exam.duration, exam.id);
+        const newProctor = findBestProctor(exam.date, exam.time, exam.duration, exam.id, false, "",
+            Object.assign({}, exam, { ayrilan: oldStaff ? [oldStaff.id] : [] }));
 
         if (newProctor) {
             // Yeni gözetmeni ata
@@ -1876,6 +1891,9 @@ function runGlobalOptimization() {
                 return (start < eEnd && end > eStart);
             });
             if (hasOverlappingExam) penalty += 10000;
+
+            // Ek uygunluk
+            if (typeof window !== 'undefined' && window.AtamaDestek && !window.AtamaDestek.uygunMu(s, ex)) penalty += 10000;
 
             // Aynı gün görev cezası (Orta ceza - adalet için)
             const sameDayCount = DB.exams.filter(e => e.date === date && (e.proctorIds?.includes(s.id) || e.proctorId === s.id)).length;
@@ -1978,7 +1996,7 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
     }
     
     if (proctors.length === 0 && !examData.allowUnassigned) {
-        const best = findBestProctor(examData.date, examData.time, examData.duration);
+        const best = findBestProctor(examData.date, examData.time, examData.duration, null, false, "", examData);
         if (best) proctors = [best];
     }
 
@@ -3327,10 +3345,12 @@ function findSmartSwaps(myStaffId) {
 
                 // KARŞILIKLI UYGUNLUK KONTROLÜ:
                 // 1. Ben diğer hocanın sınavına gidebiliyor muyum? (Mevcut sınavımı bırakacağımı varsayarak)
-                const canIGoToOther = isProctorTrulyFree(myStaff.id, otherEx.date, otherEx.time, otherEx.duration, myEx.id);
-                
+                const canIGoToOther = isProctorTrulyFree(myStaff.id, otherEx.date, otherEx.time, otherEx.duration, myEx.id, false, "",
+                    Object.assign({}, otherEx, { ayrilan: [otherStaff.id] }));
+
                 // 2. Diğer hoca benim sınavıma gelebiliyor mu? (Kendi sınavını bırakacağını varsayarak)
-                const canOtherGoToMine = isProctorTrulyFree(otherStaff.id, myEx.date, myEx.time, myEx.duration, otherEx.id);
+                const canOtherGoToMine = isProctorTrulyFree(otherStaff.id, myEx.date, myEx.time, myEx.duration, otherEx.id, false, "",
+                    Object.assign({}, myEx, { ayrilan: [myStaff.id] }));
 
                 if (canIGoToOther && canOtherGoToMine) {
                     matches.push({
@@ -4063,9 +4083,15 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
         return (s.taskCount || 0) + (s.nonExamTaskCount || 0);
     }
 
-    function canAssignProctor(staff, exam, currentExams, excludeExamId = null) {
+    function canAssignProctor(staff, exam, currentExams, excludeExamId = null, leavingId = null) {
         const pIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
         if (pIds.map(String).includes(String(staff.id))) return false;
+
+        // Ek uygunluk (görevi bırakan kişi hesaba katılmaz)
+        if (typeof window !== 'undefined' && window.AtamaDestek &&
+            !window.AtamaDestek.uygunMu(staff, exam, { exams: currentExams, ayrilan: leavingId != null ? [leavingId] : [], haric: excludeExamId != null ? [excludeExamId] : [] })) {
+            return false;
+        }
 
         // 1. Müsaitlik kısıtları kontrolü (DB.constraints)
         if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) {
@@ -4176,7 +4202,7 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
                     const tasksB = getStaffTasks(staffB);
                     // Kullanıcı direktifi: Görev sayısına bakılmaksızın sadece toplanılan puanlara göre denge oluşturulur.
 
-                    if (!canAssignProctor(staffB, ex, simExams)) continue;
+                    if (!canAssignProctor(staffB, ex, simExams, null, staffA.id)) continue;
 
                     const nextScoreA = parseFloat((scoreA - exScore).toFixed(2));
                     const nextScoreB = parseFloat((scoreB + exScore).toFixed(2));
@@ -4245,8 +4271,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
                         const netShift = parseFloat((scoreExA - scoreExB).toFixed(2));
                         if (netShift <= 5) continue; // Staff B'ye pozitif puan geçişi olmalı
 
-                        if (!canAssignProctor(staffB, exA, simExams, exB.id)) continue;
-                        if (!canAssignProctor(staffA, exB, simExams, exA.id)) continue;
+                        if (!canAssignProctor(staffB, exA, simExams, exB.id, staffA.id)) continue;
+                        if (!canAssignProctor(staffA, exB, simExams, exA.id, staffB.id)) continue;
 
                         const nextScoreA = parseFloat((scoreA - netShift).toFixed(2));
                         const nextScoreB = parseFloat((scoreB + netShift).toFixed(2));

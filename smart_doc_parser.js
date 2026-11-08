@@ -402,9 +402,11 @@ Veri Bilimi ve Analitiği 37 HIS 101 Principles of Atatürk and the History of T
                 return a.taskCount - b.taskCount;
             });
 
-            // Talep edilen sayı kadar asistan seç
-            for (let i = 0; i < demand && i < candidates.length; i++) {
+            // Talep edilen sayı kadar asistan seç (ek uygunluk o ana kadar seçilenlerle birlikte kontrol edilir)
+            for (let i = 0; i < candidates.length && chosenStaff.length < demand; i++) {
                 const picked = candidates[i];
+                if (window.AtamaDestek && !window.AtamaDestek.uygunMu(picked,
+                    Object.assign({}, ex, { lecturer: ex.lecturer || ex.instructor || '', proctorIds: chosenStaff.map(s => s.id) }))) continue;
                 chosenStaff.push(picked);
 
                 // Simüle edilen puanı ve görev sayısını güncelle

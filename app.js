@@ -3789,18 +3789,33 @@ function showAddExamModal() {
 
         if (!window.tempSelectedProctors) window.tempSelectedProctors = [];
 
+        const formCtx = {
+            date: d, time: t, duration: dur,
+            name: document.getElementById('exam-name')?.value || '',
+            lecturer: document.getElementById('exam-lecturer')?.value || '',
+            location: document.getElementById('exam-location')?.value || '',
+            proctorIds: window.tempSelectedProctors.slice()
+        };
+
         // Müsait asistanları bul (kısıt ve çakışma yok)
+        // Not: isProctorTrulyFree personel numarası bekler (önceden ad gönderildiği için hiç aday bulunamıyordu)
         const availableStaff = DB.staff.filter(s => {
             if (window.tempSelectedProctors.includes(s.id)) return false;
             if (typeof isAvailable === 'function' && !isAvailable(s.name, d, t, dur)) return false;
-            if (typeof isProctorTrulyFree === 'function' && !isProctorTrulyFree(s.name, d, t, dur)) return false;
+            if (typeof isProctorTrulyFree === 'function' && !isProctorTrulyFree(s.id, d, t, dur)) return false;
             return true;
         });
 
         // Puanı en düşük olanları sırala
         availableStaff.sort((a, b) => (parseFloat(a.totalScore) || 0) - (parseFloat(b.totalScore) || 0));
 
-        const toAdd = availableStaff.slice(0, neededCount);
+        // Sırayla seç; her seçimde ek uygunluğu o ana kadar seçilenlerle birlikte kontrol et
+        const toAdd = [];
+        for (const s of availableStaff) {
+            if (toAdd.length >= neededCount) break;
+            if (window.AtamaDestek && !window.AtamaDestek.uygunMu(s, formCtx, { ekler: toAdd.map(x => x.id) })) continue;
+            toAdd.push(s);
+        }
         if (toAdd.length === 0) {
             alert('Seçilen tarih ve saatte kısıtı olmayan müsait asistan bulunamadı.');
             return;
@@ -6647,8 +6662,19 @@ function updateSuggestionsUI(date, time, duration, areaId, listId, currentExamId
         return;
     }
 
-    const recs = getRecommendedProctors(date, time, duration, currentExamId, isNonExam, examName);
-    
+    // Öneriler için sınav bilgisi: düzenleme formu → kayıtlı sınav + formdaki güncel gözetmen listesi; ekleme formu → form alanları
+    const isEdit = currentExamId != null && currentExamId !== '';
+    const saved = isEdit ? (DB.exams || []).find(e => String(e.id) === String(currentExamId)) : null;
+    const pref = isEdit ? 'edit-exam-' : 'exam-';
+    const suggestCtx = Object.assign({}, saved || {}, {
+        id: saved ? saved.id : undefined,
+        name: document.getElementById(pref + 'name')?.value || (saved && saved.name) || examName,
+        lecturer: document.getElementById(pref + 'lecturer')?.value || (saved && saved.lecturer) || '',
+        location: document.getElementById(pref + 'location')?.value || (saved && saved.location) || '',
+        proctorIds: (isEdit ? window.tempEditProctors : window.tempSelectedProctors) || (saved && saved.proctorIds) || []
+    });
+    const recs = getRecommendedProctors(date, time, duration, currentExamId, isNonExam, examName, suggestCtx);
+
     if (recs.length === 0) {
         area.classList.add('hidden');
         return;
@@ -7066,7 +7092,8 @@ window.updateProfileMarketplaceAnnouncement = function() {
     // Müsaitlik kontrolü yapilmiş olanlari filtrele (renderMarketplace mantiği gibi)
     const availableRequests = openRequests.filter(req => {
         const exam = DB.exams.find(e => e.id == req.examId);
-        return exam && isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration);
+        return exam && isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration, null, false, "",
+            Object.assign({}, exam, { ayrilan: [req.initiatorId] }));
     });
 
     if (availableRequests.length === 0) {
@@ -10968,7 +10995,8 @@ window.renderMarketplace = function() {
         if (!exam) return;
 
         // Kullanici bu saatte müsait mi?
-        const isFree = isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration);
+        const isFree = isProctorTrulyFree(myStaffIdNum, req.examDate, req.examTime, exam.duration, null, false, "",
+            Object.assign({}, exam, { ayrilan: [req.initiatorId] }));
         
         if (isFree) {
             const tr = document.createElement('tr');
@@ -11657,7 +11685,7 @@ window.batchAutoAssign = async function() {
     if (confirm(`${unassignedExams.length} adet sinava otomatik gözetmen atansin mi?`)) {
         let assignedCount = 0;
         unassignedExams.forEach(ex => {
-            const best = findBestProctor(ex.date, ex.time, ex.duration);
+            const best = findBestProctor(ex.date, ex.time, ex.duration, null, false, "", ex);
             if (best) {
                 ex.proctorId = best.id;
                 ex.proctorIds = [best.id];
@@ -11710,7 +11738,8 @@ window.quickFixConflict = async function(examId) {
         });
 
         // Yeni gözetmen bul
-        const best = findBestProctor(exam.date, exam.time, exam.duration, exam.id);
+        const best = findBestProctor(exam.date, exam.time, exam.duration, exam.id, false, "",
+            Object.assign({}, exam, { proctorIds: [], proctorId: null }));
         if (best) {
             exam.proctorId = best.id;
             exam.proctorIds = [best.id];
@@ -13494,7 +13523,8 @@ function processExcelRows(rows) {
                 
                 if (hasConflict) return false;
                 if (assignedProctors.find(p => p.id === s.id)) return false;
-                
+                if (window.AtamaDestek && !window.AtamaDestek.uygunMu(s, Object.assign({}, ex, { proctorIds: assignedProctors.map(p => p.id) }), { exams: tempExams })) return false;
+
                 // Cuma namazı kısıtı (12:30 - 14:00 arası erkek hocalara atama yapılmaz)
                 const isFriday = new Date(ex.date).getDay() === 5;
                 const gender = s.gender || (typeof predictGender === 'function' ? predictGender(s.name) : 'Bilinmiyor');
@@ -13523,6 +13553,7 @@ function processExcelRows(rows) {
                     });
                     if (hasConflict) return false;
                     if (assignedProctors.find(p => p.id === s.id)) return false;
+                    if (window.AtamaDestek && !window.AtamaDestek.uygunMu(s, Object.assign({}, ex, { proctorIds: assignedProctors.map(p => p.id) }), { exams: tempExams })) return false;
                     return true;
                 });
             }
@@ -14125,7 +14156,8 @@ function processAutoResolve(b64Key, saveLocally = false) {
     
     for(let i=0; i<requiredProctors; i++) {
         // En iyisini bul
-        const best = findBestProctor(date, time, duration);
+        const best = findBestProctor(date, time, duration, null, false, "",
+            { type, name, date, time, location, duration, capacity, lecturer, proctorIds: [] });
         if(best && best.id) {
             // Skoru hemen commitle ki bi sonrakinde tekrar önermesin
             let st = DB.staff.find(s => s.id === best.id);
@@ -16946,10 +16978,11 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
     const hasProctor = (ex, sid) => getPids(ex).map(String).includes(String(sid));
 
     // Alıcı gözetmen için müsaitlik + 15 dk tamponlu çakışma kontrolü (güncel DB üzerinde)
-    const canReceive = (staffId, exam, ignoreExamId) => {
+    const canReceive = (staffId, exam, ignoreExamId, leavingId) => {
         const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
         if (!staff || hasProctor(exam, staffId)) return false;
         if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) return false;
+        if (window.AtamaDestek && !window.AtamaDestek.uygunMu(staff, exam, { ayrilan: leavingId != null ? [leavingId] : [], haric: ignoreExamId != null ? [ignoreExamId] : [] })) return false;
         const start = getSafeDate(exam.date, exam.time);
         const end = new Date(start.getTime() + ((parseInt(exam.duration, 10) || 60) + 15) * 60000);
         return !(DB.exams || []).some(o => {
@@ -16986,7 +17019,7 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
     actionsToApply.forEach((action) => {
         if (action.type === 'transfer') {
             const exam = findExam(action.examId);
-            if (!exam || !hasProctor(exam, action.fromStaff.id) || !canReceive(action.toStaff.id, exam)) {
+            if (!exam || !hasProctor(exam, action.fromStaff.id) || !canReceive(action.toStaff.id, exam, null, action.fromStaff.id)) {
                 skipped.push(action.examName || (exam && exam.name) || action.examId);
                 return;
             }
@@ -17000,8 +17033,8 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
             const exB = findExam(action.examFromB.id);
             const valid = exA && exB
                 && hasProctor(exA, action.staffA.id) && hasProctor(exB, action.staffB.id)
-                && canReceive(action.staffB.id, exA, exB.id)
-                && canReceive(action.staffA.id, exB, exA.id);
+                && canReceive(action.staffB.id, exA, exB.id, action.staffA.id)
+                && canReceive(action.staffA.id, exB, exA.id, action.staffB.id);
             if (!valid) {
                 skipped.push(`${action.examFromA.name} ⇄ ${action.examFromB.name}`);
                 return;

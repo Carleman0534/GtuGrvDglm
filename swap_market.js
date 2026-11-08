@@ -275,6 +275,8 @@
         const eligible = [], excluded = [], all = [];
         (DB.staff || []).forEach(s => {
             if (S(s.id) === S(ownerId)) return;
+            // Ek uygunluğu sağlamayan kişi bu görev için hiç listelenmez (görevi bırakan sahibi hesaba katılmaz)
+            if (window.AtamaDestek && !window.AtamaDestek.uygunMu(s, exam, { ayrilan: [ownerId] })) return;
             const email = validEmail(s.email);
             const reasons = candidateIssues(exam, s.id).errors.slice();
             if (!email) reasons.push('E-posta adresi kayıtlı değil');

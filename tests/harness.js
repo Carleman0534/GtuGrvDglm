@@ -15,7 +15,7 @@ const path = require('node:path');
 
 // TEST_ROOT ortam değişkeniyle başka bir klasördeki (ör. yedek) dosyalar test edilebilir
 const ROOT = process.env.TEST_ROOT ? path.resolve(process.env.TEST_ROOT) : path.resolve(__dirname, '..');
-const DEFAULT_FILES = ['logic.js', 'final_forecast_engine.js'];
+const DEFAULT_FILES = ['atama_destek.js', 'logic.js', 'final_forecast_engine.js'];
 
 function makeStorage() {
     const m = new Map();
