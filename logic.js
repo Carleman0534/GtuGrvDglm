@@ -835,7 +835,15 @@ let DB = {
 };
 
 if (typeof window !== 'undefined') {
-    window.DB = DB;
+    // window.DB her zaman güncel `DB` bağlamasını göstermeli.
+    // (`DB = data` ile yeniden atamalarda düz `window.DB = DB` eski nesnede kalıyordu;
+    //  simülatör, kısıtlar ve işlem günlüğü bu yüzden boş veriyle çalışıyordu.)
+    Object.defineProperty(window, 'DB', {
+        get: function () { return DB; },
+        set: function (v) { DB = v; },
+        configurable: true,
+        enumerable: true
+    });
     window.getCourseCatalog = getCourseCatalog;
     window.findCourseInCatalog = findCourseInCatalog;
     window.DEFAULT_COURSE_CATALOG = DEFAULT_COURSE_CATALOG;
@@ -989,7 +997,8 @@ function undoLastAction() {
  * İşlem Günlüğü (Logging)
  */
 function logAction(category, action, details = "") {
-    if (!DB.auditLogs) DB.auditLogs = [];
+    const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : DB;
+    if (!dbObj.auditLogs) dbObj.auditLogs = [];
     
     // Stringify details if it's an object for simple display
     const detailsStr = (typeof details === 'object') ? JSON.stringify(details) : String(details);
@@ -1002,12 +1011,15 @@ function logAction(category, action, details = "") {
         details: detailsStr
     };
     
-    DB.auditLogs.unshift(logEntry); // En yeni en üstte
-    if (DB.auditLogs.length > 500) DB.auditLogs.pop(); // Maksimum 500 kayıt
+    dbObj.auditLogs.unshift(logEntry); // En yeni en üstte
+    if (dbObj.auditLogs.length > 500) dbObj.auditLogs.pop(); // Maksimum 500 kayıt
     
     // Local storage'a kaydet (saveToLocalStorage içinden zaten çağrılıyor olabilir ama garantiye alalım)
-    localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    if (typeof localStorage !== 'undefined' && localStorage.setItem) {
+        localStorage.setItem(DB_KEY, JSON.stringify(dbObj));
+    }
 }
+window.logAction = logAction;
 function getKatsayi(date, duration = 0, examId = null) {
     const day = date.getDay();
     const isWeekend = (day === 0 || day === 6);
@@ -1447,9 +1459,11 @@ function fixDatabaseIntegrity() {
 window.fixDatabaseIntegrity = fixDatabaseIntegrity;
 
 function getConstraintsForStaff(staffName) {
-    const cMap = (typeof DB !== 'undefined' && DB && DB.constraints)
-        ? DB.constraints
-        : ((typeof PROCTOR_CONSTRAINTS !== 'undefined') ? PROCTOR_CONSTRAINTS : {});
+    const cMap = (typeof window !== 'undefined' && window.DB && window.DB.constraints)
+        ? window.DB.constraints
+        : ((typeof DB !== 'undefined' && DB && DB.constraints)
+            ? DB.constraints
+            : ((typeof PROCTOR_CONSTRAINTS !== 'undefined') ? PROCTOR_CONSTRAINTS : {}));
     if (!cMap || !staffName) return [];
     if (cMap[staffName]) return cMap[staffName];
     
@@ -3431,6 +3445,9 @@ window.requestSmartSwap = requestSmartSwap;
  *   - s.taskCount  : Sadece sistemdeki sınavlardan gelen görev sayısı
  */
 function recalculateAllScores() {
+    const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : (typeof DB !== 'undefined' ? DB : null);
+    if (!dbObj || !dbObj.staff || !dbObj.exams) return 0;
+
     // 0) BASE SCORE GÜNCELLEME (Source of Truth)
     const BASE_MAP = {
         "MUSTAFA AKKURT": 0, "NURI CELIK": 0, "OGUL ESEN": 0, "MANSUR ISGENDEROĞLU": 0, "EMIL NOVRUZ": 0,
@@ -3454,7 +3471,7 @@ function recalculateAllScores() {
         .toUpperCase();
 
     // 1) Her personelin baseScore'unu güvenceye al
-    DB.staff.forEach(s => {
+    dbObj.staff.forEach(s => {
         const normName = normalize(s.name);
         const mappedBase = BASE_MAP[normName];
         
@@ -3472,7 +3489,7 @@ function recalculateAllScores() {
     });
 
     // 2) Her sınavı yeni 17:00 parçalı formüle göre hesapla
-    DB.exams.forEach(ex => {
+    dbObj.exams.forEach(ex => {
         const examDate = getSafeDate(ex.date, ex.time);
         if (isNaN(examDate.getTime())) return;
 
@@ -3482,7 +3499,7 @@ function recalculateAllScores() {
 
         const pIds = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
         pIds.forEach(pid => {
-            const s = DB.staff.find(st => String(st.id) === String(pid));
+            const s = dbObj.staff.find(st => String(st.id) === String(pid));
             if (s) {
                 if (shouldCountAsNonExam(ex)) {
                     s.nonExamScore = parseFloat(((s.nonExamScore || 0) + newScore).toFixed(2));
@@ -3496,7 +3513,7 @@ function recalculateAllScores() {
     });
 
     console.log('✅ Tüm sınavlar yeni katsayı sistemine göre yeniden hesaplandı (taban puanlar korundu).');
-    return DB.exams.length;
+    return dbObj.exams.length;
 }
 window.recalculateAllScores = recalculateAllScores;
 
@@ -3924,10 +3941,24 @@ function calculateGiniCoefficient(scores) {
     return Math.max(0, Math.min(1, parseFloat(gini.toFixed(4))));
 }
 
-function calculateFairnessMetrics(staffList) {
+/**
+ * Aktif gözetmen / asistan havuzunu belirle (Gözetmenlik almayan öğretim üyeleri hesaplamayı ve dağıtımı bozmasın)
+ */
+function getActiveProctorStaff(staffList) {
+    const list = staffList || (typeof DB !== 'undefined' ? DB.staff : []);
+    const regex = /ara?[sş]\.?\s*g[oö]r/i; // "Arş. Gör.", "Araş.Gör.", "Ars Gor" vb.
+    const activeStaff = list.filter(s => {
+        if ((s.baseScore || 0) > 0 || (s.totalScore || 0) > 0 || (s.nonExamScore || 0) > 0 || (s.taskCount || 0) > 0 || (s.nonExamTaskCount || 0) > 0) return true;
+        return regex.test(s.name) || s.role === 'proctor' || s.role === 'assistant';
+    });
+    return activeStaff.length > 0 ? activeStaff : list;
+}
+
+function calculateFairnessMetrics(staffList, mode = 'exam') {
     const sList = staffList || (typeof DB !== 'undefined' ? DB.staff : []);
     if (!sList || sList.length === 0) {
         return {
+            mode,
             count: 0,
             avg: 0,
             stdDev: 0,
@@ -3942,7 +3973,18 @@ function calculateFairnessMetrics(staffList) {
         };
     }
 
-    const scores = sList.map(s => parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2)));
+    const effectiveList = getActiveProctorStaff(sList);
+
+    const scores = effectiveList.map(s => {
+        if (mode === 'non_exam') {
+            return parseFloat((s.nonExamScore || 0).toFixed(2));
+        } else if (mode === 'exam') {
+            return parseFloat((s.totalScore || 0).toFixed(2));
+        } else {
+            return parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2));
+        }
+    });
+
     const count = scores.length;
     const sum = scores.reduce((a, b) => a + b, 0);
     const avg = count > 0 ? sum / count : 0;
@@ -3952,11 +3994,12 @@ function calculateFairnessMetrics(staffList) {
     const cv = avg > 0 ? (stdDev / avg) * 100 : 0;
     const gini = calculateGiniCoefficient(scores);
     const fairnessScore = Math.max(0, Math.min(100, Math.round((1 - gini) * 100)));
-    const minScore = Math.min(...scores);
-    const maxScore = Math.max(...scores);
+    const minScore = count > 0 ? Math.min(...scores) : 0;
+    const maxScore = count > 0 ? Math.max(...scores) : 0;
     const scoreRange = parseFloat((maxScore - minScore).toFixed(2));
 
     return {
+        mode,
         count,
         avg: parseFloat(avg.toFixed(2)),
         stdDev: parseFloat(stdDev.toFixed(2)),
@@ -3971,169 +4014,365 @@ function calculateFairnessMetrics(staffList) {
     };
 }
 
-function simulateFairnessOptimization(maxSwaps = 8) {
+function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
     let dbObj = null;
     if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
     else if (typeof DB !== 'undefined') dbObj = DB;
     else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
 
     if (!dbObj || !dbObj.staff || dbObj.staff.length < 2 || !dbObj.exams || dbObj.exams.length === 0) {
-        const dummy = { count: 0, avg: 0, stdDev: 0, variance: 0, gini: 0, fairnessScore: 100, minScore: 0, maxScore: 0, scoreRange: 0, cv: 0, scores: [] };
+        const dummy = { mode, count: 0, avg: 0, stdDev: 0, variance: 0, gini: 0, fairnessScore: 100, minScore: 0, maxScore: 0, scoreRange: 0, cv: 0, scores: [] };
         return {
+            mode,
             before: dummy,
             after: dummy,
             initialMetrics: dummy,
             simulatedMetrics: dummy,
-            improvement: { giniReduction: 0, stdDevReduction: 0, fairnessScoreGain: 0 },
+            improvement: { giniReduction: 0, stdDevReduction: 0, fairnessScoreGain: 0, rangeReduction: 0 },
             proposedSwaps: [],
             suggestedSwaps: [],
+            suggestedActions: [],
             simulatedStaff: []
         };
     }
 
-    // Çalışma kopyaları oluştur
-    const simStaff = JSON.parse(JSON.stringify(dbObj.staff));
+    // Çalışma kopyaları oluştur (yalnızca aktif gözetmen asistan havuzunu dahil et)
+    const allStaffCopy = JSON.parse(JSON.stringify(dbObj.staff));
+    const simStaff = getActiveProctorStaff(allStaffCopy);
     const simExams = JSON.parse(JSON.stringify(dbObj.exams));
 
-    const initialMetrics = calculateFairnessMetrics(simStaff);
+    const initialMetrics = calculateFairnessMetrics(simStaff, mode);
     const targetAvg = initialMetrics.avg;
-    const suggestedSwaps = [];
 
-    let hasProgress = true;
-    let iterations = 0;
+    // Referans tarih: Gelecek sınavları baz al (geçmiş sınavlar kesinleştiğinden devredilemez)
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
 
-    while (hasProgress && iterations < maxSwaps) {
-        hasProgress = false;
-        iterations++;
-
-        // En yüksek puanlıları ve en düşük puanlıları sırala
-        simStaff.sort((a, b) => ((b.totalScore || 0) + (b.nonExamScore || 0)) - ((a.totalScore || 0) + (a.nonExamScore || 0)));
-
-        let bestSwap = null;
-        let maxVarianceReduction = 0;
-
-        // Yüksek puanlı personellerden başla
-        for (let i = 0; i < simStaff.length; i++) {
-            const highStaff = simStaff[i];
-            const highScore = (highStaff.totalScore || 0) + (highStaff.nonExamScore || 0);
-            if (highScore <= targetAvg + 0.3) break; // Ortalama veya altına indiyse dur
-
-            // Bu personele atanmış sınavları bul
-            const staffExams = simExams.filter(e => {
-                const pIds = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
-                return pIds.map(String).includes(String(highStaff.id));
-            });
-
-            for (const exam of staffExams) {
-                const examScore = parseFloat(exam.score || 0);
-                if (examScore <= 0) continue;
-
-                // Düşük puanlı adayları tara (en düşükten başlayarak)
-                for (let j = simStaff.length - 1; j > i; j--) {
-                    const lowStaff = simStaff[j];
-                    const lowScore = (lowStaff.totalScore || 0) + (lowStaff.nonExamScore || 0);
-                    if (lowScore >= targetAvg - 0.3) break; // Ortalama veya üstüne çıktıysa geç
-
-                    // Kısıt ve çakışma kontrolü
-                    const pIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
-                    if (pIds.map(String).includes(String(lowStaff.id))) continue;
-
-                    // Kısıt kontrolü (DB.constraints)
-                    if (typeof isAvailable === 'function' && !isAvailable(lowStaff.name, exam.date, exam.time, exam.duration)) {
-                        continue;
-                    }
-
-                    // Sınav çakışması kontrolü
-                    const start = getSafeDate(exam.date, exam.time);
-                    const end = new Date(start.getTime() + (exam.duration + 15) * 60000);
-                    const hasConflict = simExams.some(otherEx => {
-                        if (String(otherEx.id) === String(exam.id)) return false;
-                        if (otherEx.date !== exam.date) return false;
-                        const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
-                        if (!otherPids.map(String).includes(String(lowStaff.id))) return false;
-                        const otherStart = getSafeDate(otherEx.date, otherEx.time);
-                        const otherEnd = new Date(otherStart.getTime() + (otherEx.duration + 15) * 60000);
-                        return (start < otherEnd && end > otherStart);
-                    });
-
-                    if (hasConflict) continue;
-
-                    // Cuma namazı kontrolü
-                    const isFriday = new Date(exam.date).getDay() === 5;
-                    const gender = lowStaff.gender || (typeof predictGender === 'function' ? predictGender(lowStaff.name) : 'Erkek');
-                    if (isFriday && gender === 'Erkek') {
-                        const startMins = timeToMins(exam.time);
-                        const endMins = startMins + exam.duration;
-                        const pStart = timeToMins("12:30");
-                        const pEnd = timeToMins("14:00");
-                        if (startMins < pEnd && endMins > pStart) continue;
-                    }
-
-                    // Varyans iyileşmesi hesabı
-                    const currDiff = Math.pow(highScore - targetAvg, 2) + Math.pow(lowScore - targetAvg, 2);
-                    const nextHighScore = highScore - examScore;
-                    const nextLowScore = lowScore + examScore;
-                    const nextDiff = Math.pow(nextHighScore - targetAvg, 2) + Math.pow(nextLowScore - targetAvg, 2);
-                    const diffReduction = currDiff - nextDiff;
-
-                    if (diffReduction > 0.01 && diffReduction > maxVarianceReduction) {
-                        maxVarianceReduction = diffReduction;
-                        bestSwap = {
-                            examId: exam.id,
-                            examName: exam.name,
-                            date: exam.date,
-                            time: exam.time,
-                            location: exam.location || '-',
-                            score: examScore,
-                            fromStaff: { id: highStaff.id, name: highStaff.name, oldScore: highScore, newScore: nextHighScore },
-                            toStaff: { id: lowStaff.id, name: lowStaff.name, oldScore: lowScore, newScore: nextLowScore }
-                        };
-                    }
-                }
-            }
-        }
-
-        if (bestSwap) {
-            // bestSwap'i simülasyona uygula
-            const examRef = simExams.find(e => String(e.id) === String(bestSwap.examId));
-            if (examRef) {
-                if (examRef.proctorIds) {
-                    examRef.proctorIds = examRef.proctorIds.map(pid => String(pid) === String(bestSwap.fromStaff.id) ? bestSwap.toStaff.id : pid);
-                } else if (examRef.proctorId) {
-                    examRef.proctorId = bestSwap.toStaff.id;
-                }
-            }
-
-            const hStaff = simStaff.find(s => String(s.id) === String(bestSwap.fromStaff.id));
-            const lStaff = simStaff.find(s => String(s.id) === String(bestSwap.toStaff.id));
-            if (hStaff) hStaff.totalScore = parseFloat(Math.max(0, (hStaff.totalScore || 0) - bestSwap.score).toFixed(2));
-            if (lStaff) lStaff.totalScore = parseFloat(((lStaff.totalScore || 0) + bestSwap.score).toFixed(2));
-
-            suggestedSwaps.push(bestSwap);
-            hasProgress = true;
-        }
+    function getStaffScore(s) {
+        if (mode === 'non_exam') return parseFloat((s.nonExamScore || 0).toFixed(2));
+        if (mode === 'exam') return parseFloat((s.totalScore || 0).toFixed(2));
+        return parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2));
     }
 
-    const simulatedMetrics = calculateFairnessMetrics(simStaff);
+    function getStaffTasks(s) {
+        if (mode === 'non_exam') return s.nonExamTaskCount || 0;
+        if (mode === 'exam') return s.taskCount || 0;
+        return (s.taskCount || 0) + (s.nonExamTaskCount || 0);
+    }
 
-    const proposedSwaps = suggestedSwaps.map(s => ({
-        examId: s.examId,
-        examName: s.examName,
-        examDate: s.date,
-        examTime: s.time,
-        examLocation: s.location,
-        examScore: s.score,
-        fromStaffId: s.fromStaff.id,
-        fromStaffName: s.fromStaff.name,
-        fromStaffScoreBefore: s.fromStaff.oldScore,
-        fromStaffScoreAfter: s.fromStaff.newScore,
-        toStaffId: s.toStaff.id,
-        toStaffName: s.toStaff.name,
-        toStaffScoreBefore: s.toStaff.oldScore,
-        toStaffScoreAfter: s.toStaff.newScore
-    }));
+    function canAssignProctor(staff, exam, currentExams, excludeExamId = null) {
+        const pIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
+        if (pIds.map(String).includes(String(staff.id))) return false;
+
+        // 1. Müsaitlik kısıtları kontrolü (DB.constraints)
+        if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) {
+            return false;
+        }
+
+        // 2. Sınav çakışması ve 15 dk tampon kontrolü
+        const start = getSafeDate(exam.date, exam.time);
+        const durationMins = parseInt(exam.duration || 60, 10);
+        const end = new Date(start.getTime() + (durationMins + 15) * 60000);
+
+        const hasConflict = currentExams.some(otherEx => {
+            if (String(otherEx.id) === String(exam.id)) return false;
+            if (excludeExamId && String(otherEx.id) === String(excludeExamId)) return false;
+            if (otherEx.date !== exam.date) return false;
+
+            const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
+            if (!otherPids.map(String).includes(String(staff.id))) return false;
+
+            const otherStart = getSafeDate(otherEx.date, otherEx.time);
+            const otherDuration = parseInt(otherEx.duration || 60, 10);
+            const otherEnd = new Date(otherStart.getTime() + (otherDuration + 15) * 60000);
+            return (start < otherEnd && end > otherStart);
+        });
+        if (hasConflict) return false;
+
+        // 3. Cuma namazı kontrolü (Erkek gözetmenler için 12:30 - 14:00 arası çakışma engeli)
+        const isFriday = new Date(exam.date).getDay() === 5;
+        const gender = staff.gender || (typeof predictGender === 'function' ? predictGender(staff.name) : 'Erkek');
+        if (isFriday && gender === 'Erkek') {
+            const startMins = timeToMins(exam.time);
+            const endMins = startMins + durationMins;
+            const pStart = timeToMins("12:30");
+            const pEnd = timeToMins("14:00");
+            if (startMins < pEnd && endMins > pStart) return false;
+        }
+
+        // 4. Sınav Dışı Görev Tekrarı Kısıtı (Aynı sınav dışı görev adını 2. kez alma engeli)
+        const isNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(exam) : !!exam.isNonExam;
+        if (isNon && exam.name) {
+            const hasSameNonExam = currentExams.some(otherEx => {
+                if (String(otherEx.id) === String(exam.id)) return false;
+                if (excludeExamId && String(otherEx.id) === String(excludeExamId)) return false;
+                const otherIsNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(otherEx) : !!otherEx.isNonExam;
+                if (!otherIsNon) return false;
+                if (otherEx.name !== exam.name) return false;
+                const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
+                return otherPids.map(String).includes(String(staff.id));
+            });
+            if (hasSameNonExam) return false;
+        }
+
+        return true;
+    }
+
+    const suggestedActions = [];
+    let iterations = 0;
+
+    while (iterations < maxSwaps) {
+        iterations++;
+
+        let bestAction = null;
+        let bestPriorityGain = 0;
+
+        const currentScores = simStaff.map(getStaffScore);
+        const currAvg = currentScores.reduce((a, b) => a + b, 0) / currentScores.length;
+        const currGlobalVar = currentScores.reduce((acc, v) => acc + Math.pow(v - currAvg, 2), 0);
+
+        // TÜM gözetmen çiftlerini tara (A ve B: scoreA > scoreB)
+        for (let i = 0; i < simStaff.length; i++) {
+            for (let j = 0; j < simStaff.length; j++) {
+                if (i === j) continue;
+                const staffA = simStaff[i];
+                const staffB = simStaff[j];
+                const scoreA = getStaffScore(staffA);
+                const scoreB = getStaffScore(staffB);
+                if (scoreA <= scoreB + 10) continue; // Yalnızca yüksek puanlıdan düşük puanlıya
+
+                const currentPairGap = scoreA - scoreB;
+
+                // Gelecek sınavları filtrele (geçmiş sınavlar kesinleştiğinden devredilemez)
+                const examsA = simExams.filter(e => {
+                    if (!e.date || e.date < todayStr) return false;
+                    const pids = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
+                    if (!pids.map(String).includes(String(staffA.id))) return false;
+                    const isNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(e) : !!e.isNonExam;
+                    if (mode === 'exam' && isNon) return false;
+                    if (mode === 'non_exam' && !isNon) return false;
+                    return true;
+                });
+
+                const examsB = simExams.filter(e => {
+                    if (!e.date || e.date < todayStr) return false;
+                    const pids = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
+                    if (!pids.map(String).includes(String(staffB.id))) return false;
+                    const isNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(e) : !!e.isNonExam;
+                    if (mode === 'exam' && isNon) return false;
+                    if (mode === 'non_exam' && !isNon) return false;
+                    return true;
+                });
+
+                // SEÇENEK 1: Tek Taraflı Görev Devri (Staff A -> Staff B)
+                for (const ex of examsA) {
+                    const exScore = parseFloat(ex.score || 0);
+                    if (exScore <= 0) continue;
+
+                    const tasksA = getStaffTasks(staffA);
+                    const tasksB = getStaffTasks(staffB);
+                    // Kullanıcı direktifi: Görev sayısına bakılmaksızın sadece toplanılan puanlara göre denge oluşturulur.
+
+                    if (!canAssignProctor(staffB, ex, simExams)) continue;
+
+                    const nextScoreA = parseFloat((scoreA - exScore).toFixed(2));
+                    const nextScoreB = parseFloat((scoreB + exScore).toFixed(2));
+                    const nextPairGap = Math.abs(nextScoreA - nextScoreB);
+                    if (nextPairGap >= currentPairGap) continue; // Puan makası daralmalı
+
+                    // Genel varyans iyileşmesi
+                    const nextScores = simStaff.map(s => {
+                        if (s.id === staffA.id) return nextScoreA;
+                        if (s.id === staffB.id) return nextScoreB;
+                        return getStaffScore(s);
+                    });
+                    const nextGlobalVar = nextScores.reduce((acc, v) => acc + Math.pow(v - currAvg, 2), 0);
+                    const varReduction = currGlobalVar - nextGlobalVar;
+
+                    if (varReduction > 5) {
+                        const gapRed = currentPairGap - nextPairGap;
+                        const priorityGain = varReduction + (gapRed * 25); // Puan farkını en çok kapatana eşit öncelik
+
+                        if (priorityGain > bestPriorityGain) {
+                            bestPriorityGain = priorityGain;
+                            bestAction = {
+                                type: 'transfer',
+                                mode,
+                                priorityGain,
+                                varReduction,
+                                examId: ex.id,
+                                examName: ex.name,
+                                examDate: ex.date,
+                                examTime: ex.time,
+                                examDuration: ex.duration || 60,
+                                examLocation: ex.location || '-',
+                                examScore: exScore,
+                                isNonExam: (typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(ex) : !!ex.isNonExam),
+                                categoryLabel: (typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(ex) : !!ex.isNonExam) ? 'Sınav Dışı Görev' : 'Sınav Gözetmenliği',
+                                fromStaff: {
+                                    id: staffA.id,
+                                    name: staffA.name,
+                                    oldScore: scoreA,
+                                    newScore: nextScoreA,
+                                    oldTasks: tasksA,
+                                    newTasks: tasksA - 1
+                                },
+                                toStaff: {
+                                    id: staffB.id,
+                                    name: staffB.name,
+                                    oldScore: scoreB,
+                                    newScore: nextScoreB,
+                                    oldTasks: tasksB,
+                                    newTasks: tasksB + 1
+                                },
+                                gapBefore: parseFloat(currentPairGap.toFixed(2)),
+                                gapAfter: parseFloat(nextPairGap.toFixed(2)),
+                                gapReduction: parseFloat(gapRed.toFixed(2)),
+                                rationale: `${staffA.name} (${scoreA} P.) ile ${staffB.name} (${scoreB} P.) arasındaki ${currentPairGap.toFixed(1)} puanlık farkı ${nextPairGap.toFixed(1)} puana düşürür (-${gapRed.toFixed(1)} P.).`
+                            };
+                        }
+                    }
+                }
+
+                // SEÇENEK 2: Karşılıklı Görev Takası (Staff A <-> Staff B)
+                for (const exA of examsA) {
+                    const scoreExA = parseFloat(exA.score || 0);
+                    for (const exB of examsB) {
+                        const scoreExB = parseFloat(exB.score || 0);
+                        const netShift = parseFloat((scoreExA - scoreExB).toFixed(2));
+                        if (netShift <= 5) continue; // Staff B'ye pozitif puan geçişi olmalı
+
+                        if (!canAssignProctor(staffB, exA, simExams, exB.id)) continue;
+                        if (!canAssignProctor(staffA, exB, simExams, exA.id)) continue;
+
+                        const nextScoreA = parseFloat((scoreA - netShift).toFixed(2));
+                        const nextScoreB = parseFloat((scoreB + netShift).toFixed(2));
+                        const nextPairGap = Math.abs(nextScoreA - nextScoreB);
+                        if (nextPairGap >= currentPairGap) continue;
+
+                        const nextScores = simStaff.map(s => {
+                            if (s.id === staffA.id) return nextScoreA;
+                            if (s.id === staffB.id) return nextScoreB;
+                            return getStaffScore(s);
+                        });
+                        const nextGlobalVar = nextScores.reduce((acc, v) => acc + Math.pow(v - currAvg, 2), 0);
+                        const varReduction = currGlobalVar - nextGlobalVar;
+
+                        if (varReduction > 5) {
+                            const gapRed = currentPairGap - nextPairGap;
+                            // Takaslarda görev sayıları korunduğu için ilave öncelik çarpanı
+                            const priorityGain = varReduction + (gapRed * 25);
+
+                            if (priorityGain > bestPriorityGain) {
+                                bestPriorityGain = priorityGain;
+                                bestAction = {
+                                    type: 'bilateral_swap',
+                                    mode,
+                                    priorityGain,
+                                    varReduction,
+                                    netShift,
+                                    examFromA: {
+                                        id: exA.id,
+                                        name: exA.name,
+                                        date: exA.date,
+                                        time: exA.time,
+                                        duration: exA.duration || 60,
+                                        location: exA.location || '-',
+                                        score: scoreExA
+                                    },
+                                    examFromB: {
+                                        id: exB.id,
+                                        name: exB.name,
+                                        date: exB.date,
+                                        time: exB.time,
+                                        duration: exB.duration || 60,
+                                        location: exB.location || '-',
+                                        score: scoreExB
+                                    },
+                                    isNonExam: mode === 'non_exam',
+                                    categoryLabel: mode === 'non_exam' ? 'Sınav Dışı Görev Takası' : 'Sınav Gözetmenliği Takası',
+                                    staffA: {
+                                        id: staffA.id,
+                                        name: staffA.name,
+                                        oldScore: scoreA,
+                                        newScore: nextScoreA,
+                                        tasks: getStaffTasks(staffA)
+                                    },
+                                    staffB: {
+                                        id: staffB.id,
+                                        name: staffB.name,
+                                        oldScore: scoreB,
+                                        newScore: nextScoreB,
+                                        tasks: getStaffTasks(staffB)
+                                    },
+                                    gapBefore: parseFloat(currentPairGap.toFixed(2)),
+                                    gapAfter: parseFloat(nextPairGap.toFixed(2)),
+                                    gapReduction: parseFloat(gapRed.toFixed(2)),
+                                    rationale: `Karşılıklı takas: ${staffA.name} (${scoreA} P.) daha yüksek puanlı görevi (${scoreExA} P.) devrederken, ${staffB.name} (${scoreB} P.) düşük puanlı görevi (${scoreExB} P.) devrederek net +${netShift.toFixed(1)} P. fark kapatır. Görev sayıları değişmez!`
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!bestAction) break;
+
+        // Simülasyon durumuna uygula.
+        // Puanlar, görevin KENDİ kategorisine (sınav / sınav dışı) delta olarak işlenir.
+        // ('all' modunda newScore birleşik puandır; doğrudan totalScore'a yazmak sınav dışı
+        //  puanı ikinci kez sayıyordu.)
+        const reassign = (exRef, fromId, toId) => {
+            if (!exRef) return;
+            if (Array.isArray(exRef.proctorIds) && exRef.proctorIds.length > 0) {
+                exRef.proctorIds = exRef.proctorIds.map(pid => String(pid) === String(fromId) ? toId : pid);
+                if (String(exRef.proctorId) === String(fromId)) exRef.proctorId = toId;
+            } else {
+                exRef.proctorId = toId;
+            }
+        };
+        const shiftScore = (staff, exRef, sign) => {
+            if (!staff || !exRef) return;
+            const sc = parseFloat(exRef.score || 0) * sign;
+            const isNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(exRef) : !!exRef.isNonExam;
+            if (isNon) {
+                staff.nonExamScore = parseFloat(((staff.nonExamScore || 0) + sc).toFixed(2));
+                staff.nonExamTaskCount = (staff.nonExamTaskCount || 0) + sign;
+            } else {
+                staff.totalScore = parseFloat(((staff.totalScore || 0) + sc).toFixed(2));
+                staff.taskCount = (staff.taskCount || 0) + sign;
+            }
+        };
+
+        if (bestAction.type === 'transfer') {
+            const exRef = simExams.find(e => String(e.id) === String(bestAction.examId));
+            const sA = simStaff.find(s => String(s.id) === String(bestAction.fromStaff.id));
+            const sB = simStaff.find(s => String(s.id) === String(bestAction.toStaff.id));
+            reassign(exRef, bestAction.fromStaff.id, bestAction.toStaff.id);
+            shiftScore(sA, exRef, -1);
+            shiftScore(sB, exRef, +1);
+        } else if (bestAction.type === 'bilateral_swap') {
+            const exARef = simExams.find(e => String(e.id) === String(bestAction.examFromA.id));
+            const exBRef = simExams.find(e => String(e.id) === String(bestAction.examFromB.id));
+            const sA = simStaff.find(s => String(s.id) === String(bestAction.staffA.id));
+            const sB = simStaff.find(s => String(s.id) === String(bestAction.staffB.id));
+            reassign(exARef, bestAction.staffA.id, bestAction.staffB.id);
+            reassign(exBRef, bestAction.staffB.id, bestAction.staffA.id);
+            shiftScore(sA, exARef, -1); shiftScore(sB, exARef, +1);
+            shiftScore(sB, exBRef, -1); shiftScore(sA, exBRef, +1);
+        }
+
+        suggestedActions.push(bestAction);
+    }
+
+    const simulatedMetrics = calculateFairnessMetrics(simStaff, mode);
 
     return {
+        mode,
         before: initialMetrics,
         after: simulatedMetrics,
         initialMetrics,
@@ -4141,14 +4380,17 @@ function simulateFairnessOptimization(maxSwaps = 8) {
         improvement: {
             giniReduction: parseFloat((initialMetrics.gini - simulatedMetrics.gini).toFixed(4)),
             stdDevReduction: parseFloat((initialMetrics.stdDev - simulatedMetrics.stdDev).toFixed(2)),
-            fairnessScoreGain: simulatedMetrics.fairnessScore - initialMetrics.fairnessScore
+            fairnessScoreGain: simulatedMetrics.fairnessScore - initialMetrics.fairnessScore,
+            rangeReduction: parseFloat((initialMetrics.scoreRange - simulatedMetrics.scoreRange).toFixed(2))
         },
-        proposedSwaps,
-        suggestedSwaps,
+        proposedSwaps: suggestedActions,
+        suggestedSwaps: suggestedActions,
+        suggestedActions,
         simulatedStaff: simStaff
     };
 }
 
+window.getActiveProctorStaff = getActiveProctorStaff;
 window.calculateGiniCoefficient = calculateGiniCoefficient;
 window.calculateFairnessMetrics = calculateFairnessMetrics;
 window.simulateFairnessOptimization = simulateFairnessOptimization;

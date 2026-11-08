@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20261108k">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,6 +64,8 @@
 
     <!-- Mobil taşma düzeltmeleri: style.css'ten sonra yüklenmeli -->
     <link rel="stylesheet" href="mobil.css">
+    <!-- Açık tema uyum katmanı: satır içi koyu-tema renklerini açık temada okunur yapar -->
+    <link rel="stylesheet" href="tema_uyum.css?v=20261108k">
 </head>
 <body>
     <!-- Giriş Ekranı (Login Overlay) -->
@@ -201,7 +203,7 @@
                         <span class="btn-email-label">Kısıt Maili</span>
                     </button>
                     <button id="btn-header-pwa-install" class="btn-utility" title="Telefona Uygulama Olarak Yükle (PWA)" onclick="triggerPwaInstall()">📲</button>
-                    <button id="btn-theme-toggle" class="btn-utility" title="Temayı Değiştir">🌓</button>
+                    <button id="btn-theme-toggle" class="btn-utility" title="Tema: görünüm ve renk">🎨</button>
                     <button id="btn-logout" class="btn-utility" title="Oturumu Kapat / Giriş Ekranına Dön" style="color: #ef4444; font-size: 1.1rem;" onclick="logoutUser()">🚪</button>
 
                     <div class="notif-wrapper" style="position: relative; display: flex; align-items: center;">
@@ -271,6 +273,9 @@
                     </button>
                     <button id="btn-nav-fairness-sim" class="admin-tool-pill tool-fairness" onclick="openFairnessSimulatorModal()" title="Yapay Zeka Dağıtım & Gini Adalet Simülatörü">
                         <span class="icon" style="margin:0; margin-right:4px;">⚖️</span>Adalet & Simülatör
+                    </button>
+                    <button id="btn-nav-final-forecast" class="admin-tool-pill tool-forecast" onclick="openFinalForecastModal()" title="Final Dönemi Sonuna Kadar Tahmini Görev ve Süre Analizi" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2)); border-color: rgba(16, 185, 129, 0.45); color: #6ee7b7;">
+                        <span class="icon" style="margin:0; margin-right:4px;">🔮</span>Final & Mazeret Tahmini
                     </button>
                     <button id="btn-audit" class="admin-tool-pill tool-audit" title="İşlem & Değişiklik Geçmişi">
                         <span class="icon" style="margin:0; margin-right:4px;">📜</span>İşlem Geçmişi
@@ -356,6 +361,9 @@
                         <div class="profile-hero-actions">
                             <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="openChangePasswordModal()">
                                 <span>🔑</span> Şifremi Değiştir
+                            </button>
+                            <button type="button" id="btn-profile-theme" class="btn-primary" style="background: linear-gradient(135deg, var(--primary), var(--primary-hover)); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="window.TemaSecici && TemaSecici.open(this)" title="Görünümü (açık/koyu) ve tema rengini seçin">
+                                <span>🎨</span> Tema Rengi
                             </button>
                             <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="exportMyExamsToICal()">
                                 <span>📅</span> Takvimime Ekle (.ics)
@@ -451,6 +459,11 @@
                     <!-- Sınav Günü Canlı Durum Kartı (Bugün / Yarın Sınav Varsa Aktifleşir) -->
                     <div id="profile-live-duty-banner" class="profile-live-duty-banner hidden">
                         <!-- JS ile dinamik doldurulacak -->
+                    </div>
+
+                    <!-- Final Dönemi Sonuna Kadar Tahmini Görev Durumum Alanı -->
+                    <div id="profile-final-forecast-card" class="card-large hidden" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 16px; padding: 1.4rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                        <!-- JS (renderProfileFinalForecast) ile dinamik doldurulacak -->
                     </div>
 
                     <!-- Takas Teklifleri & Bildirimler -->
@@ -3014,8 +3027,117 @@
         </div>
     </div>
 
+    <!-- Final Dönemi Sonuna Kadar Tahmini Görev ve Süre Analizi Modalı (Yönetici Görünümü) -->
+    <div id="modal-final-forecast" class="modal hidden admin-only" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-content card-large" style="max-width: 1200px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 2rem;">🔮</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.25rem; color: #34d399;">Final Dönemi Sonuna Kadar Tahmini Görev & Süre Analizi</h2>
+                        <p style="margin: 2px 0 0 0; color: var(--text-muted); font-size: 0.8rem;">Mevcut sınavlar ve yapılması muhtemel mazeret sınavlarının gözetmen bazında adil yük projeksiyonu</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-final-forecast').classList.add('hidden')" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+
+            <!-- KPI Kartları -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                <div style="background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #67e8f9; text-transform: uppercase;">Kalan Mevcut Sınav</div>
+                    <div id="forecast-admin-kpi-exams" style="font-size: 1.6rem; font-weight: 800; color: white; margin-top: 4px;">0</div>
+                    <div style="font-size: 0.7rem; color: #a5f3fc; margin-top: 2px;">Kesinleşmiş Sınav Sayısı</div>
+                </div>
+
+                <div style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #fcd34d; text-transform: uppercase;">Açıklanmamış Muhtemel Görev</div>
+                    <div id="forecast-admin-kpi-mazeret" style="font-size: 1.6rem; font-weight: 800; color: #fbbf24; margin-top: 4px;">~0</div>
+                    <div style="font-size: 0.7rem; color: #fef08a; margin-top: 2px;">Geçmiş Dönem Trendiyle Tahmin</div>
+                </div>
+
+                <div style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #6ee7b7; text-transform: uppercase;">Gözetmen Başına Ort. Süre</div>
+                    <div id="forecast-admin-kpi-avg-dur" style="font-size: 1.6rem; font-weight: 800; color: #10b981; margin-top: 4px;">0 dk</div>
+                    <div style="font-size: 0.7rem; color: #a7f3d0; margin-top: 2px;">Final Dönemi Sonu Hedef</div>
+                </div>
+
+                <div style="background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3); padding: 12px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: #c4b5fd; text-transform: uppercase;">Gözetmen Başına Ort. Görev</div>
+                    <div id="forecast-admin-kpi-avg-tasks" style="font-size: 1.6rem; font-weight: 800; color: white; margin-top: 4px;">0 Görev</div>
+                    <div style="font-size: 0.7rem; color: #ddd6fe; margin-top: 2px;">Kesin + Tahmini Dağılım</div>
+                </div>
+            </div>
+
+            <!-- Geçmiş Dönem Veri Bütünlüğü ve Metodoloji Banner'ı -->
+            <div id="forecast-admin-info-banner" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.78rem; color: #cbd5e1; line-height: 1.45;">
+                <!-- JS ile doldurulacak -->
+            </div>
+
+            <!-- Arama ve Araçlar Çubuğu -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; max-width: 320px;">
+                    <input type="text" placeholder="🔍 Gözetmen adına göre filtrele..." oninput="filterFinalForecastTable(this.value)" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem;">
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" class="btn-primary" onclick="document.getElementById('modal-final-forecast').classList.add('hidden'); openFairnessSimulatorModal();" style="padding: 6px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #0284c7, #06b6d4); color: white; border: none; border-radius: 6px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer;" title="Puan makasını kapatacak akıllı görev devri ve takas simülatörünü aç">
+                        <span>⚖️</span> Dengeleme & Takas Simülatörü
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="exportFinalForecastToExcel()" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.35); color: #34d399; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>📥</span> Excel İndir
+                    </button>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">* Başlıklara tıklayarak sıralayabilirsiniz</span>
+                </div>
+            </div>
+
+            <!-- Kıyaslama Tablosu -->
+            <div style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">
+                <table id="table-final-forecast" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                    <thead>
+                        <tr style="background: rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; z-index: 1;">
+                            <th style="padding: 10px 14px; text-align: left; cursor: pointer; color: #94a3b8;" onclick="sortFinalForecastTable('name')">
+                                Gözetmen Adı ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #38bdf8;" onclick="sortFinalForecastTable('remainingConfirmedCount')">
+                                Mevcut Görev ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #38bdf8;" onclick="sortFinalForecastTable('remainingConfirmedDuration')">
+                                Mevcut Süre ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #fbbf24;" onclick="sortFinalForecastTable('estimatedCount')" title="Henüz açıklanmamış final (F), mazeret (M) ve D sınavı (D) görevleri">
+                                Muhtemel Görev ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #fbbf24;" onclick="sortFinalForecastTable('estimatedDuration')">
+                                Muhtemel Süre ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #34d399; font-weight: 800;" onclick="sortFinalForecastTable('totalEstimatedCount')">
+                                Toplam Tahmini Görev ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #34d399; font-weight: 800;" onclick="sortFinalForecastTable('totalEstimatedDuration')">
+                                Toplam Tahmini Süre ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; cursor: pointer; color: #c084fc; font-weight: 700;" onclick="sortFinalForecastTable('semesterProjectedDuration')">
+                                Tüm Dönem Sınav ⇕
+                            </th>
+                            <th style="padding: 10px 14px; text-align: center; color: #94a3b8;">
+                                Yük Durumu
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- JS ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Alt Kapatma -->
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 12px; display: flex; justify-content: flex-end;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('modal-final-forecast').classList.add('hidden')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Yapay Zeka Dağıtım Simülatörü & Adalet Analizi Modalı (Gini Katsayısı) -->
-    <div id="modal-fairness-simulator" class="modal hidden admin-only" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
+    <div id="modal-fairness-simulator" class="modal hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
         <div class="modal-content card-large" style="max-width: 1150px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -3028,6 +3150,20 @@
                 <button onclick="document.getElementById('modal-fairness-simulator').classList.add('hidden')" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">&times;</button>
             </div>
 
+            <!-- Kategori / Tab Seçimi (Sınav Gözetmenlikleri vs Sınav Dışı Görevler) -->
+            <div style="display: flex; gap: 8px; margin-bottom: 14px; background: rgba(255,255,255,0.04); padding: 5px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); width: fit-content; align-items: center;">
+                <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; margin: 0 6px 0 4px;">Puan Tablosu:</span>
+                <button type="button" id="fairness-tab-exam" class="fairness-tab-btn" onclick="switchFairnessMode('exam')" style="background: linear-gradient(135deg, #0284c7, #06b6d4); color: white; border: none; padding: 6px 14px; border-radius: 7px; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;">
+                    🎓 Sınav Gözetmenlikleri
+                </button>
+                <button type="button" id="fairness-tab-non-exam" class="fairness-tab-btn" onclick="switchFairnessMode('non_exam')" style="background: transparent; color: #94a3b8; border: none; padding: 6px 14px; border-radius: 7px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;">
+                    📋 Sınav Dışı Görevler
+                </button>
+                <button type="button" id="fairness-tab-all" class="fairness-tab-btn" onclick="switchFairnessMode('all')" style="background: transparent; color: #94a3b8; border: none; padding: 6px 14px; border-radius: 7px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;">
+                    🔄 Genel Toplam (Birleşik)
+                </button>
+            </div>
+
             <!-- Adalet Metrikleri Kartları -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
                 <div style="background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.3); padding: 12px; border-radius: 10px; text-align: center;">
@@ -3037,7 +3173,7 @@
                 </div>
 
                 <div style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); padding: 12px; border-radius: 10px; text-align: center;">
-                    <div style="font-size: 0.75rem; color: #6ee7b7; text-transform: uppercase;">Adalet & Denge Skoru</div>
+                    <div id="fairness-stat-score-title" style="font-size: 0.75rem; color: #6ee7b7; text-transform: uppercase;">Sınav Gözetmenliği Adalet Skoru</div>
                     <div id="fairness-stat-score" style="font-size: 1.6rem; font-weight: 800; color: #10b981; margin-top: 4px;">%100</div>
                     <div id="fairness-stat-score-label" style="font-size: 0.7rem; color: #a7f3d0; margin-top: 2px;">100 üzerinden başarı</div>
                 </div>
@@ -3060,7 +3196,7 @@
                 <!-- Sol: Yük Dağılım Grafiği -->
                 <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column;">
                     <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #22d3ee; display: flex; justify-content: space-between;">
-                        <span>📊 Asistan Yük Dağılımı</span>
+                        <span id="fairness-bars-title">🎓 Sınav Gözetmenliği Yük Dağılımı</span>
                         <span id="fairness-benchmark-avg" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">Hedef Ort: 0.0 P.</span>
                     </h4>
                     <div id="fairness-bars-container" style="flex: 1; overflow-y: auto; max-height: 42vh; padding-right: 6px; display: flex; flex-direction: column; gap: 8px;">
@@ -3070,10 +3206,13 @@
 
                 <!-- Sağ: Simülasyon ve İyileştirme Paneli -->
                 <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0; font-size: 0.9rem; color: #34d399;">🧠 Akıllı Dengeleme Simülatörü</h4>
-                        <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #06b6d4); font-size: 0.8rem; padding: 5px 12px;" onclick="runFairnessRebalanceSimulation()">
-                            ⚡ Simülasyon Çalıştır
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #34d399;" id="fairness-sim-panel-title">🎓 Sınav Gözetmenliği Dengeleme Simülatörü</h4>
+                            <span id="fairness-sim-last-run" style="font-size: 0.72rem; color: #94a3b8; display: block; margin-top: 2px;">Canlı veriye göre hesaplanır (onaysız takvime işlenmez)</span>
+                        </div>
+                        <button type="button" id="btn-run-fairness-sim" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #06b6d4); font-size: 0.8rem; padding: 6px 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; border: none; border-radius: 6px;" onclick="window.runFairnessRebalanceSimulation(true)">
+                            <span>⚡</span> <span id="btn-run-fairness-label">Simülasyon Çalıştır</span>
                         </button>
                     </div>
 
@@ -3092,6 +3231,10 @@
                                 <div style="font-size: 0.7rem; color: #94a3b8;">Sapma Düşüşü</div>
                                 <div id="sim-res-stddev" style="font-weight: 700; color: #10b981; font-size: 0.9rem;">-</div>
                             </div>
+                            <div>
+                                <div style="font-size: 0.7rem; color: #94a3b8;">Puan Makası</div>
+                                <div id="sim-res-range" style="font-weight: 700; color: #10b981; font-size: 0.9rem;">-</div>
+                            </div>
                         </div>
                     </div>
 
@@ -3105,10 +3248,13 @@
             </div>
 
             <!-- Alt Aksiyon Barı -->
-            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <button type="button" id="btn-apply-fairness-sim" class="btn-primary hidden" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700;" onclick="applyFairnessSimulationResults()">
-                        🚀 Önerilen Görev Transferlerini Uygula
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <button type="button" id="btn-apply-fairness-selected" class="btn-primary hidden" style="background: linear-gradient(135deg, #0284c7, #06b6d4); font-weight: 700; display: flex; align-items: center; gap: 6px;" onclick="applySelectedFairnessActions()">
+                        <span>⚡</span> <span id="btn-apply-selected-label">Seçilenleri Onayla & Uygula</span>
+                    </button>
+                    <button type="button" id="btn-apply-fairness-sim" class="btn-primary hidden" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700; display: flex; align-items: center; gap: 6px;" onclick="applyFairnessSimulationResults()">
+                        <span>🚀</span> <span id="btn-apply-all-label">Tümünü Toplu Onayla & Uygula</span>
                     </button>
                     <span id="sim-apply-note" class="hidden" style="font-size: 0.75rem; color: #6ee7b7;">Otomatik Snapshot alınarak uygulanır.</span>
                 </div>
@@ -3117,20 +3263,24 @@
         </div>
     </div>
 
-    <script src="logic.js"></script>
-    <script src="app.js"></script>
+    <script src="logic.js?v=20261108g"></script>
+    <script src="app.js?v=20261108g"></script>
     <script src="auth_google.js"></script>
     <script src="swap_email.js"></script>
     <script src="swap_market.js"></script>
     <script src="smart_doc_parser.js"></script>
+    <script src="final_forecast_engine.js?v=20261108j"></script>
 
     <script src="notification_engine.js"></script>
 
-    <script src="mobile_app_engine.js"></script>
+    <script src="mobile_app_engine.js?v=20261108i"></script>
+
+    <!-- Kişisel tema seçici (görünüm + renk) -->
+    <script src="tema.js?v=20261108k"></script>
 
     <script src="mobil_tablo.js"></script>
 
-    <script src="veri_koruma.js"></script>
+    <script src="veri_koruma.js?v=20261108g"></script>
 
     <!-- E-posta Taslağı / İstemci Seçimi Modalı (swap_market.js) -->
     <div id="modal-mail-draft" class="modal hidden">

@@ -6272,3 +6272,95 @@ body:not(.dark-theme) .modal .modal-content textarea::placeholder {
     grid-column: 1 / -1; display: flex; align-items: center; min-height: 28px;
     font-weight: 700; font-size: 0.9rem; color: var(--text-main, inherit);
 }
+.profile-main-column > .panel-collapse-header { margin-bottom: 0.6rem; }
+.profile-main-column.panel-collapsed > .panel-collapse-header { margin-bottom: 0; }
+
+/* ===== FİNAL DÖNEMİ TAHMİN KARTI (açık + koyu tema) ===== */
+.ffc-scope {
+    --ffc-text: var(--text-primary, #0f172a);
+    --ffc-muted: var(--text-muted, #64748b);
+    --ffc-blue: #0369a1; --ffc-amber: #b45309; --ffc-green: #047857; --ffc-violet: #6d28d9;
+    --ffc-surface: rgba(15, 23, 42, 0.035); --ffc-border: rgba(15, 23, 42, 0.1); --ffc-line: rgba(15, 23, 42, 0.07);
+    --ffc-sec: rgba(15, 23, 42, 0.045);
+    color: var(--ffc-text);
+}
+body.dark-theme .ffc-scope {
+    --ffc-text: #f1f5f9; --ffc-muted: #94a3b8;
+    --ffc-blue: #38bdf8; --ffc-amber: #fbbf24; --ffc-green: #34d399; --ffc-violet: #c084fc;
+    --ffc-surface: rgba(0, 0, 0, 0.25); --ffc-border: rgba(255, 255, 255, 0.08); --ffc-line: rgba(255, 255, 255, 0.05);
+    --ffc-sec: rgba(255, 255, 255, 0.04);
+}
+.ffc-scope .ffc-blue { color: var(--ffc-blue); }
+.ffc-scope .ffc-amber { color: var(--ffc-amber); }
+.ffc-scope .ffc-green { color: var(--ffc-green); }
+.ffc-scope .ffc-violet { color: var(--ffc-violet); }
+.ffc-scope .ffc-muted { color: var(--ffc-muted); }
+.ffc-scope .ffc-strong { font-weight: 600; }
+.ffc-scope .ffc-num { font-weight: 800; }
+
+.ffc-scope .forecast-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.ffc-scope .ffc-head-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ffc-scope .ffc-head-title h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--ffc-green); letter-spacing: -0.01em; }
+.ffc-scope .ffc-head-meta { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
+.ffc-scope .ffc-badge { font-size: 0.74rem; padding: 3px 10px; border-radius: 20px; font-weight: 700; border: 1px solid currentColor; }
+.ffc-scope .ffc-badge-green { color: var(--ffc-green); background: rgba(16, 185, 129, 0.12); }
+.ffc-scope .ffc-badge-amber { color: var(--ffc-amber); background: rgba(245, 158, 11, 0.12); }
+.ffc-scope .ffc-badge-blue { color: var(--ffc-blue); background: rgba(56, 189, 248, 0.12); }
+.ffc-scope .ffc-intro { margin: 0 0 12px 0; color: var(--ffc-muted); font-size: 0.82rem; line-height: 1.45; }
+
+.ffc-scope .ffc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.ffc-scope .ffc-tile { border-radius: 10px; padding: 10px 14px; border: 1px solid var(--ffc-border); background: var(--ffc-surface); font-size: 0.75rem; }
+.ffc-scope .ffc-tile-blue { background: rgba(56, 189, 248, 0.09); border-color: rgba(56, 189, 248, 0.3); }
+.ffc-scope .ffc-tile-amber { background: rgba(245, 158, 11, 0.09); border-color: rgba(245, 158, 11, 0.3); }
+.ffc-scope .ffc-tile-green { background: rgba(16, 185, 129, 0.11); border-color: rgba(16, 185, 129, 0.35); }
+.ffc-scope .ffc-tile-violet { background: rgba(167, 139, 250, 0.09); border-color: rgba(167, 139, 250, 0.3); }
+.ffc-scope .ffc-tile-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.ffc-scope .ffc-tile-value { font-size: 1.35rem; font-weight: 800; color: var(--ffc-text); margin: 2px 0; }
+.ffc-scope .ffc-tile-value.ffc-green { color: var(--ffc-green); }
+.ffc-scope .ffc-tile-value small { font-size: 0.78rem; font-weight: 500; color: var(--ffc-muted); }
+
+.ffc-scope .ffc-table-wrap { overflow-x: auto; margin-bottom: 10px; border-radius: 10px; border: 1px solid var(--ffc-border); }
+.ffc-scope table.ffc-table { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 0.84rem; background: var(--ffc-surface); cursor: default; }
+.ffc-scope table.ffc-table th { padding: 9px 14px !important; font-size: 0.74rem; }
+.ffc-scope table.ffc-table td { padding: 9px 14px; border-bottom: 1px solid var(--ffc-line); font-size: 0.84rem; color: var(--ffc-text); }
+.ffc-scope table.ffc-table tr.ffc-sec td { padding: 6px 14px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; background: var(--ffc-sec); }
+.ffc-scope table.ffc-table .ffc-c { text-align: center; }
+.ffc-scope table.ffc-table .ffc-r { text-align: right; white-space: nowrap; }
+.ffc-scope table.ffc-table .ffc-ico { display: inline-block; width: 22px; }
+.ffc-scope table.ffc-table .ffc-hint { font-size: 0.72rem; color: var(--ffc-muted); margin: 2px 0 0 22px; }
+.ffc-scope table.ffc-table tr.ffc-subtotal td { background: rgba(245, 158, 11, 0.07); font-weight: 700; }
+.ffc-scope table.ffc-table tr.ffc-total td { background: rgba(16, 185, 129, 0.12); font-weight: 800; border-top: 2px solid rgba(16, 185, 129, 0.35); border-bottom: none; }
+.ffc-scope .ffc-footline { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; color: var(--ffc-text); }
+
+.ffc-scope .ffc-exam-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.ffc-scope .ffc-exam-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.8rem; background: var(--ffc-surface); border: 1px solid var(--ffc-line); padding: 6px 9px; border-radius: 6px; }
+.ffc-scope .ffc-method { font-size: 0.76rem; color: var(--ffc-muted); line-height: 1.55; }
+.ffc-scope .ffc-method strong { color: var(--ffc-text); }
+
+/* Tahmin kartı içindeki açılır-kapanır alt bölümler */
+.forecast-details { margin-top: 10px; background: var(--ffc-surface, rgba(0,0,0,0.2)); border: 1px solid var(--ffc-border, rgba(255,255,255,0.06)); border-radius: 10px; padding: 0 12px; }
+.forecast-details > summary { cursor: pointer; padding: 10px 0; font-size: 0.84rem; font-weight: 700; color: var(--ffc-text, inherit); list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; user-select: none; }
+.forecast-details > summary::-webkit-details-marker { display: none; }
+.forecast-details > summary::marker { content: ''; }
+.forecast-details > summary:hover { color: var(--ffc-green, #34d399); }
+.forecast-details .forecast-details-caret { transition: transform 0.2s ease; color: var(--ffc-muted, #94a3b8); }
+.forecast-details:not([open]) .forecast-details-caret { transform: rotate(-90deg); }
+.forecast-details-body { padding-bottom: 12px; }
+
+@media (max-width: 768px) {
+    /* Genel mobil kural tüm tablolara min-width: 620px veriyor; bu küçük tablo ekrana sığsın */
+    .ffc-scope table.ffc-table { min-width: 0 !important; }
+    .ffc-scope table.ffc-table th, .ffc-scope table.ffc-table td { padding: 8px 9px !important; }
+    .ffc-scope table.ffc-table th:nth-child(2) { width: 46px !important; }
+    .ffc-scope table.ffc-table th:nth-child(3) { width: 92px !important; }
+    .ffc-scope table.ffc-table .ffc-r { white-space: normal; }
+    .ffc-scope table.ffc-table .ffc-r .ffc-muted { display: block; font-size: 0.7rem; }
+    .ffc-scope table.ffc-table .ffc-ico { width: 18px; }
+    .ffc-scope table.ffc-table .ffc-hint { margin-left: 18px; }
+}
+@media (max-width: 600px) {
+    .ffc-scope .ffc-tiles { grid-template-columns: 1fr 1fr; }
+    .ffc-scope .ffc-tiles > .ffc-tile-green { grid-column: 1 / -1; }
+    .ffc-scope .ffc-tile-value { font-size: 1.2rem; }
+    .ffc-scope .ffc-head-title h3 { font-size: 0.95rem; }
+}

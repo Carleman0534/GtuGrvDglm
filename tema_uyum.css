@@ -1,0 +1,156 @@
+/* =====================================================================
+   AÇIK TEMA UYUM KATMANI (otomatik üretildi, elle düzenlenebilir)
+   Satır içi yazılmış koyu-tema renklerini (ör. color:#f1f5f9, #94a3b8,
+   background:rgba(0,0,0,0.3)) YALNIZCA açık temada okunur karşılıklarına çevirir.
+   - Koyu tema (body.dark-theme) etkilenmez.
+   - Modallar zaten koyu zeminli olduğu için hariç tutulur (.modal).
+   - Düz renkli/degrade düğmelerdeki beyaz yazı korunur.
+   ===================================================================== */
+
+/* Beyaz / çok açık yazı → ana metin rengi */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #fff;"], [style*="color:#fff;"], [style*="color: #ffffff"], [style*="color:#ffffff"], [style*="color: white"], [style*="color:white"], [style*="color: #f8fafc"], [style*="color:#f8fafc"], [style*="color: #f1f5f9"], [style*="color:#f1f5f9"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(button):not(button *):not(.btn-primary):not(.btn-primary *):not([style*="gradient"]) {
+    color: var(--text-primary, #0f172a) !important;
+}
+
+/* Açık gri yazı → ikincil metin */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #e2e8f0"], [style*="color:#e2e8f0"], [style*="color: #cbd5e1"], [style*="color:#cbd5e1"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(button):not(button *):not(.btn-primary):not(.btn-primary *):not([style*="gradient"]) {
+    color: var(--text-secondary, #475569) !important;
+}
+
+/* Soluk gri yazı → açıklama metni */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #94a3b8"], [style*="color:#94a3b8"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #5b6778 !important;
+}
+
+/* Açık mavi → koyu mavi */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #38bdf8"], [style*="color:#38bdf8"], [style*="color: #7dd3fc"], [style*="color:#7dd3fc"], [style*="color: #93c5fd"], [style*="color:#93c5fd"], [style*="color: #67e8f9"], [style*="color:#67e8f9"], [style*="color: #22d3ee"], [style*="color:#22d3ee"], [style*="color: #a5f3fc"], [style*="color:#a5f3fc"], [style*="color: #bae6fd"], [style*="color:#bae6fd"], [style*="color: #0ea5e9"], [style*="color:#0ea5e9"], [style*="color: #60a5fa"], [style*="color:#60a5fa"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #0369a1 !important;
+}
+
+/* Açık yeşil → koyu yeşil */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #34d399"], [style*="color:#34d399"], [style*="color: #6ee7b7"], [style*="color:#6ee7b7"], [style*="color: #10b981"], [style*="color:#10b981"], [style*="color: #4ade80"], [style*="color:#4ade80"], [style*="color: #86efac"], [style*="color:#86efac"], [style*="color: #a7f3d0"], [style*="color:#a7f3d0"], [style*="color: #22c55e"], [style*="color:#22c55e"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #047857 !important;
+}
+
+/* Açık sarı/amber → koyu amber */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #fbbf24"], [style*="color:#fbbf24"], [style*="color: #fcd34d"], [style*="color:#fcd34d"], [style*="color: #fef08a"], [style*="color:#fef08a"], [style*="color: #fde68a"], [style*="color:#fde68a"], [style*="color: #f59e0b"], [style*="color:#f59e0b"], [style*="color: #facc15"], [style*="color:#facc15"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #b45309 !important;
+}
+
+/* Açık turuncu → koyu turuncu */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #fb923c"], [style*="color:#fb923c"], [style*="color: #fdba74"], [style*="color:#fdba74"], [style*="color: #f97316"], [style*="color:#f97316"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #c2410c !important;
+}
+
+/* Açık kırmızı → koyu kırmızı */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #f87171"], [style*="color:#f87171"], [style*="color: #fca5a5"], [style*="color:#fca5a5"], [style*="color: #fecaca"], [style*="color:#fecaca"], [style*="color: #ef4444"], [style*="color:#ef4444"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #b91c1c !important;
+}
+
+/* Açık mor/çivit → koyu mor */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #a78bfa"], [style*="color:#a78bfa"], [style*="color: #c4b5fd"], [style*="color:#c4b5fd"], [style*="color: #ddd6fe"], [style*="color:#ddd6fe"], [style*="color: #c084fc"], [style*="color:#c084fc"], [style*="color: #d8b4fe"], [style*="color:#d8b4fe"], [style*="color: #e9d5ff"], [style*="color:#e9d5ff"], [style*="color: #a5b4fc"], [style*="color:#a5b4fc"], [style*="color: #818cf8"], [style*="color:#818cf8"], [style*="color: #c7d2fe"], [style*="color:#c7d2fe"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #5b21b6 !important;
+}
+
+/* Açık pembe → koyu pembe */
+body:not(.dark-theme) #app-wrapper :is([style*="color: #f472b6"], [style*="color:#f472b6"], [style*="color: #f9a8d4"], [style*="color:#f9a8d4"], [style*="color: #fbcfe8"], [style*="color:#fbcfe8"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not(.btn-primary):not(.btn-primary *) {
+    color: #be185d !important;
+}
+
+/* Koyu yarı saydam paneller/girdiler → açık yüzey */
+body:not(.dark-theme) #app-wrapper :is([style*="background: rgba(0,0,0,"], [style*="background:rgba(0,0,0,"], [style*="background: rgba(0, 0, 0,"], [style*="background:rgba(0, 0, 0,"], [style*="background: rgba(15,23,42,"], [style*="background:rgba(15,23,42,"], [style*="background: rgba(15, 23, 42,"], [style*="background:rgba(15, 23, 42,"], [style*="background: #0f172a"], [style*="background:#0f172a"], [style*="background: #1e293b"], [style*="background:#1e293b"], [style*="background: rgba(30,41,59"], [style*="background:rgba(30,41,59"], [style*="background: rgba(30, 41, 59"], [style*="background:rgba(30, 41, 59"], [style*="background-color: rgba(0,0,0,"], [style*="background-color:rgba(0,0,0,"], [style*="background-color: rgba(0, 0, 0,"], [style*="background-color:rgba(0, 0, 0,"], [style*="background-color: rgba(15,23,42,"], [style*="background-color:rgba(15,23,42,"], [style*="background-color: rgba(15, 23, 42,"], [style*="background-color:rgba(15, 23, 42,"], [style*="background-color: #0f172a"], [style*="background-color:#0f172a"], [style*="background-color: #1e293b"], [style*="background-color:#1e293b"], [style*="background-color: rgba(30,41,59"], [style*="background-color:rgba(30,41,59"], [style*="background-color: rgba(30, 41, 59"], [style*="background-color:rgba(30, 41, 59"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th):not([style*="gradient"]) {
+    background: rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Açık zeminde görünmeyen beyaz kenarlıklar → tema kenarlığı */
+body:not(.dark-theme) #app-wrapper :is([style*="border: 1px solid rgba(255,255,255,"], [style*="border:1px solid rgba(255,255,255,"], [style*="border: 1px dashed rgba(255,255,255,"], [style*="border:1px dashed rgba(255,255,255,"], [style*="border: 2px solid rgba(255,255,255,"], [style*="border:2px solid rgba(255,255,255,"], [style*="border: 1px solid rgba(255, 255, 255,"], [style*="border:1px solid rgba(255, 255, 255,"], [style*="border: 1px dashed rgba(255, 255, 255,"], [style*="border:1px dashed rgba(255, 255, 255,"], [style*="border: 2px solid rgba(255, 255, 255,"], [style*="border:2px solid rgba(255, 255, 255,"], [style*="border-top: 1px solid rgba(255,255,255,"], [style*="border-top:1px solid rgba(255,255,255,"], [style*="border-top: 1px dashed rgba(255,255,255,"], [style*="border-top:1px dashed rgba(255,255,255,"], [style*="border-top: 2px solid rgba(255,255,255,"], [style*="border-top:2px solid rgba(255,255,255,"], [style*="border-top: 1px solid rgba(255, 255, 255,"], [style*="border-top:1px solid rgba(255, 255, 255,"], [style*="border-top: 1px dashed rgba(255, 255, 255,"], [style*="border-top:1px dashed rgba(255, 255, 255,"], [style*="border-top: 2px solid rgba(255, 255, 255,"], [style*="border-top:2px solid rgba(255, 255, 255,"], [style*="border-bottom: 1px solid rgba(255,255,255,"], [style*="border-bottom:1px solid rgba(255,255,255,"], [style*="border-bottom: 1px dashed rgba(255,255,255,"], [style*="border-bottom:1px dashed rgba(255,255,255,"], [style*="border-bottom: 2px solid rgba(255,255,255,"], [style*="border-bottom:2px solid rgba(255,255,255,"], [style*="border-bottom: 1px solid rgba(255, 255, 255,"], [style*="border-bottom:1px solid rgba(255, 255, 255,"], [style*="border-bottom: 1px dashed rgba(255, 255, 255,"], [style*="border-bottom:1px dashed rgba(255, 255, 255,"], [style*="border-bottom: 2px solid rgba(255, 255, 255,"], [style*="border-bottom:2px solid rgba(255, 255, 255,"], [style*="border-left: 1px solid rgba(255,255,255,"], [style*="border-left:1px solid rgba(255,255,255,"], [style*="border-left: 1px dashed rgba(255,255,255,"], [style*="border-left:1px dashed rgba(255,255,255,"], [style*="border-left: 2px solid rgba(255,255,255,"], [style*="border-left:2px solid rgba(255,255,255,"], [style*="border-left: 1px solid rgba(255, 255, 255,"], [style*="border-left:1px solid rgba(255, 255, 255,"], [style*="border-left: 1px dashed rgba(255, 255, 255,"], [style*="border-left:1px dashed rgba(255, 255, 255,"], [style*="border-left: 2px solid rgba(255, 255, 255,"], [style*="border-left:2px solid rgba(255, 255, 255,"], [style*="border-right: 1px solid rgba(255,255,255,"], [style*="border-right:1px solid rgba(255,255,255,"], [style*="border-right: 1px dashed rgba(255,255,255,"], [style*="border-right:1px dashed rgba(255,255,255,"], [style*="border-right: 2px solid rgba(255,255,255,"], [style*="border-right:2px solid rgba(255,255,255,"], [style*="border-right: 1px solid rgba(255, 255, 255,"], [style*="border-right:1px solid rgba(255, 255, 255,"], [style*="border-right: 1px dashed rgba(255, 255, 255,"], [style*="border-right:1px dashed rgba(255, 255, 255,"], [style*="border-right: 2px solid rgba(255, 255, 255,"], [style*="border-right:2px solid rgba(255, 255, 255,"]):not(.modal *):not(.stat-card *):not(.ffc-scope *):not(th) {
+    border-color: var(--glass-border, #e2e8f0) !important;
+}
+
+/* ---------------------------------------------------------------------
+   Elle eklenen açık tema düzeltmeleri
+   --------------------------------------------------------------------- */
+
+/* Tablolar: açık temada yarı saydam lacivert zemin metni gri-üstüne-gri yapıyordu */
+body:not(.dark-theme) #app-wrapper .table-container {
+    background: var(--glass-bg, #ffffff) !important;
+}
+body:not(.dark-theme) #app-wrapper .table-container tbody tr:hover td {
+    background: rgba(15, 23, 42, 0.03);
+}
+
+/* Yönetici araç hapları: açık renkli yazılar */
+body:not(.dark-theme) #app-wrapper button.admin-tool-pill.tool-reminder,
+body:not(.dark-theme) #app-wrapper button.admin-tool-pill.tool-reminder * { color: #b45309 !important; }
+
+/* Profil avatarı (koyu degrade üzerinde koyu yazı kalıyordu) */
+body:not(.dark-theme) #app-wrapper #profile-avatar-letters,
+body:not(.dark-theme) #app-wrapper .profile-avatar,
+body:not(.dark-theme) #app-wrapper .profile-hero .avatar,
+body:not(.dark-theme) #app-wrapper [class*="avatar"] > span:only-child {
+    color: #ffffff !important;
+}
+/* Profil adı: beyaz→gri degrade yazı açık zeminde görünmüyordu; açık temada ana renk degradesi */
+body:not(.dark-theme) #app-wrapper .profile-name-row h1 {
+    background: linear-gradient(135deg, var(--text-primary, #0f172a) 0%, var(--primary) 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* =====================================================================
+   KİŞİSEL TEMA RENKLERİ (tema.js) — body.theme-color-<ad>
+   Açık temada koyu ana renk (beyaz yazı okunur), koyu temada açık ana renk.
+   Oxford Mavi varsayılandır (sınıf yok); Pembe mevcut theme-female sınıfını kullanır.
+   ===================================================================== */
+body.theme-color-bordo   { --primary: hsl(348, 70%, 32%); --primary-hover: hsl(348, 70%, 24%); --secondary: hsl(212, 85%, 22%); --draft-bg: hsla(348, 70%, 32%, 0.06); --draft-border: hsla(348, 70%, 32%, 0.2); }
+body.theme-color-zumrut  { --primary: hsl(160, 84%, 24%); --primary-hover: hsl(160, 84%, 18%); --secondary: hsl(200, 80%, 25%); --draft-bg: hsla(160, 84%, 24%, 0.06); --draft-border: hsla(160, 84%, 24%, 0.2); }
+body.theme-color-turkuaz { --primary: hsl(190, 85%, 26%); --primary-hover: hsl(190, 85%, 20%); --secondary: hsl(212, 85%, 22%); --draft-bg: hsla(190, 85%, 26%, 0.06); --draft-border: hsla(190, 85%, 26%, 0.2); }
+body.theme-color-mor     { --primary: hsl(262, 60%, 40%); --primary-hover: hsl(262, 60%, 32%); --secondary: hsl(330, 60%, 35%); --draft-bg: hsla(262, 60%, 40%, 0.06); --draft-border: hsla(262, 60%, 40%, 0.2); }
+body.theme-color-turuncu { --primary: hsl(24, 85%, 38%);  --primary-hover: hsl(24, 85%, 30%);  --secondary: hsl(348, 70%, 32%); --draft-bg: hsla(24, 85%, 38%, 0.06); --draft-border: hsla(24, 85%, 38%, 0.2); }
+body.theme-color-grafit  { --primary: hsl(220, 15%, 28%); --primary-hover: hsl(220, 15%, 20%); --secondary: hsl(212, 60%, 30%); --draft-bg: hsla(220, 15%, 28%, 0.06); --draft-border: hsla(220, 15%, 28%, 0.2); }
+
+body.dark-theme.theme-color-bordo   { --primary: hsl(348, 75%, 68%) !important; --primary-hover: hsl(348, 75%, 76%) !important; }
+body.dark-theme.theme-color-zumrut  { --primary: hsl(158, 64%, 52%) !important; --primary-hover: hsl(158, 64%, 62%) !important; }
+body.dark-theme.theme-color-turkuaz { --primary: hsl(188, 80%, 55%) !important; --primary-hover: hsl(188, 80%, 65%) !important; }
+body.dark-theme.theme-color-mor     { --primary: hsl(262, 80%, 74%) !important; --primary-hover: hsl(262, 80%, 82%) !important; }
+body.dark-theme.theme-color-turuncu { --primary: hsl(30, 90%, 62%) !important;  --primary-hover: hsl(30, 90%, 70%) !important; }
+body.dark-theme.theme-color-grafit  { --primary: hsl(220, 15%, 78%) !important; --primary-hover: hsl(220, 15%, 86%) !important; }
+
+/* ---------- Tema paneli ---------- */
+.theme-picker {
+    position: fixed; z-index: 100000; width: 290px; max-width: calc(100vw - 16px);
+    background: var(--glass-bg, #fff); color: var(--text-primary, #0f172a);
+    border: 1px solid var(--glass-border, #e2e8f0); border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.22); padding: 12px 14px 12px;
+    font-size: 0.85rem;
+}
+body.dark-theme .theme-picker { background: #111827; border-color: rgba(255, 255, 255, 0.1); }
+.theme-picker.hidden { display: none; }
+.theme-picker-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem; }
+.theme-picker-close { background: none; border: none; color: var(--text-muted, #64748b); font-size: 1rem; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.theme-picker-close:hover { background: rgba(100, 116, 139, 0.12); }
+.theme-picker-label { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted, #64748b); margin: 8px 0 6px; }
+.theme-picker-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.theme-picker-modes button, .theme-picker-reset {
+    padding: 7px 8px; border-radius: 9px; border: 1px solid var(--glass-border, #e2e8f0);
+    background: transparent; color: var(--text-primary, #0f172a); font-weight: 600; font-size: 0.82rem; cursor: pointer;
+}
+.theme-picker-modes button.active, .theme-picker-reset.active { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.theme-picker-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.theme-swatch {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 2px 5px;
+    border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--text-secondary, #475569);
+}
+.theme-swatch:hover { background: rgba(100, 116, 139, 0.08); }
+.theme-swatch.active { border-color: var(--primary); background: rgba(100, 116, 139, 0.06); }
+.theme-swatch:focus-visible, .theme-picker button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.theme-swatch-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6), 0 1px 3px rgba(0, 0, 0, 0.25); }
+body.dark-theme .theme-swatch-dot { background: var(--sw-dark); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.theme-swatch.active .theme-swatch-dot { box-shadow: 0 0 0 2px var(--glass-bg, #fff), 0 0 0 4px var(--primary); }
+.theme-swatch-name { font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
+.theme-picker-reset { width: 100%; margin-top: 10px; }
+.theme-picker-note { margin-top: 8px; font-size: 0.7rem; color: var(--text-muted, #64748b); text-align: center; }
+@media (max-width: 600px) {
+    .theme-picker { left: 8px !important; right: 8px; bottom: 12px; top: auto !important; width: auto; }
+}

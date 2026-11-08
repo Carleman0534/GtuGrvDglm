@@ -7624,6 +7624,9 @@ window.renderProfile = function() {
         const staffIdNum = parseInt(myStaffId);
         renderPersonalCalendar(staffIdNum);
         updateProfileDashboard(staffIdNum);
+        if (typeof renderProfileFinalForecast === 'function') {
+            renderProfileFinalForecast(staffIdNum);
+        }
         renderProfileChecklist(staffIdNum);
         renderResponsibleExamsTab(staffIdNum, staff);
         renderLecturerExamsTab(staffIdNum, staff);
@@ -7977,8 +7980,12 @@ function updateProfileDashboard(staffId) {
         }
     }
 
-    // 2. Dönemlik Görev Yükü & Süresi
-    const myExams = (DB.exams || []).filter(e => isStaffProctorById(e, staffId));
+    // 2. Dönemlik Sınav Gözetmenliği Yükü & Süresi (Yalnızca Sınav Gözetmenlikleri)
+    const isNonExamFn = (e) => (typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(e) : !!e.isNonExam);
+    const allDuties = (DB.exams || []).filter(e => isStaffProctorById(e, staffId));
+    const myExams = allDuties.filter(e => !isNonExamFn(e));
+    const myNonExams = allDuties.filter(e => isNonExamFn(e));
+
     const now = new Date();
     const activeExams = myExams.filter(e => {
         const examDate = getSafeDate(e.date, e.time);
@@ -7994,7 +8001,11 @@ function updateProfileDashboard(staffId) {
     const avgBadgeEl = document.getElementById('profile-kpi-avg-badge');
 
     if (dutyCountEl) dutyCountEl.textContent = activeExams.length;
-    if (dutyHoursEl) dutyHoursEl.textContent = `${totalHours} Saat (${myExams.length} Toplam)`;
+    if (dutyHoursEl) {
+        const nonExamSubtitle = myNonExams.length > 0 ? ` (+${myNonExams.length} Sınav Dışı)` : '';
+        dutyHoursEl.textContent = `${totalHours} Saat (${myExams.length} Sınav)${nonExamSubtitle}`;
+        dutyHoursEl.setAttribute('title', `Sınav Gözetmenliği: ${myExams.length} sınav (${totalMinutes} dk) | Sınav Dışı Görev: ${myNonExams.length} görev`);
+    }
     if (avgBadgeEl) avgBadgeEl.textContent = `Bölüm Ort: ${avgScore.toFixed(1)} P.`;
 
     // 3. Müsaitlik Esnekliği & Kisit Özeti
@@ -16443,53 +16454,99 @@ window.sendTomorrowRemindersViaWebhook = async function() {
 };
 
 // ==========================================
+// ==========================================
 // 3. YAPAY ZEKA DAĞITIM & ADALET SİMÜLATÖRÜ (GİNİ)
 // ==========================================
+window._currentFairnessMode = 'exam'; // 'exam' | 'non_exam' | 'all'
 window._lastFairnessSimResult = null;
+
+window.switchFairnessMode = function(mode) {
+    window._currentFairnessMode = mode || 'exam';
+    window._lastFairnessSimResult = null;
+
+    // Tab buton stillerini güncelle
+    const tabs = [
+        { id: 'fairness-tab-exam', mode: 'exam' },
+        { id: 'fairness-tab-non-exam', mode: 'non_exam' },
+        { id: 'fairness-tab-all', mode: 'all' }
+    ];
+
+    tabs.forEach(t => {
+        const btn = document.getElementById(t.id);
+        if (!btn) return;
+        if (t.mode === window._currentFairnessMode) {
+            btn.style.background = 'linear-gradient(135deg, #0284c7, #06b6d4)';
+            btn.style.color = '#ffffff';
+            btn.style.fontWeight = '700';
+        } else {
+            btn.style.background = 'transparent';
+            btn.style.color = '#94a3b8';
+            btn.style.fontWeight = '600';
+        }
+    });
+
+    // Simülasyonu çalıştır (metrikleri ve çubuk grafiğini de kendi içinde yeniler)
+    if (typeof window.runFairnessRebalanceSimulation === 'function') {
+        window.runFairnessRebalanceSimulation();
+    } else {
+        window.renderFairnessMetricsUI();
+    }
+};
 
 window.openFairnessSimulatorModal = function() {
     const modal = document.getElementById('modal-fairness-simulator');
     if (!modal) return;
-    
-    window.renderFairnessMetricsUI();
-    
-    // Simülasyon sonuç kutularini sifirla
-    const resBox = document.getElementById('fairness-sim-results-box');
-    const applyBtn = document.getElementById('btn-apply-fairness-sim');
-    const applyNote = document.getElementById('sim-apply-note');
-    const swapsCont = document.getElementById('fairness-swaps-container');
-    
-    if (resBox) resBox.classList.add('hidden');
-    if (applyBtn) applyBtn.classList.add('hidden');
-    if (applyNote) applyNote.classList.add('hidden');
-    if (swapsCont) {
-        swapsCont.innerHTML = `
-            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 30px 10px;">
-                ⚡ <strong>"Simülasyon Çaliştir"</strong> butonuna basarak kisit, çakişma ve cuma kurallarini bozmadan adaleti en üst seviyeye çikaracak akilli görev transfer önerilerini görebilirsiniz.
-            </div>
-        `;
+    if (sessionStorage.getItem('isAdmin') !== 'true') {
+        alert("⚠️ Adalet Simülatörü yalnızca Yönetici (Admin) girişiyle kullanılabilir.");
+        return;
     }
-
+    
+    // Varsayılan olarak sınav gözetmenliği sekmesini aç ve önerileri derhal hazırla
+    window.switchFairnessMode(window._currentFairnessMode || 'exam');
     modal.classList.remove('hidden');
 };
 
 window.renderFairnessMetricsUI = function() {
     if (typeof calculateFairnessMetrics !== 'function') return;
     
-    const stats = calculateFairnessMetrics(DB.staff || []);
+    const mode = window._currentFairnessMode || 'exam';
+    const stats = calculateFairnessMetrics(DB.staff || [], mode);
     
-    // Gini Karti
+    // Mod başlıkları güncellemesi
+    const scoreTitleEl = document.getElementById('fairness-stat-score-title');
+    const barsTitleEl = document.getElementById('fairness-bars-title');
+    const simTitleEl = document.getElementById('fairness-sim-panel-title');
+
+    if (scoreTitleEl) {
+        if (mode === 'non_exam') scoreTitleEl.textContent = "Sınav Dışı Görev Adalet Skoru";
+        else if (mode === 'all') scoreTitleEl.textContent = "Genel Adalet & Denge Skoru";
+        else scoreTitleEl.textContent = "Sınav Gözetmenliği Adalet Skoru";
+    }
+
+    if (barsTitleEl) {
+        if (mode === 'non_exam') barsTitleEl.textContent = "📋 Sınav Dışı Görev Yük Dağılımı";
+        else if (mode === 'all') barsTitleEl.textContent = "🔄 Genel Toplam Yük Dağılımı";
+        else barsTitleEl.textContent = "🎓 Sınav Gözetmenliği Yük Dağılımı";
+    }
+
+    if (simTitleEl) {
+        if (mode === 'non_exam') simTitleEl.textContent = "📋 Sınav Dışı Görev Dengeleme Simülatörü";
+        else if (mode === 'all') simTitleEl.textContent = "🔄 Genel Dengeleme Simülatörü";
+        else simTitleEl.textContent = "🎓 Sınav Gözetmenliği Dengeleme Simülatörü";
+    }
+
+    // Gini Kartı
     const giniEl = document.getElementById('fairness-stat-gini');
     const giniLabel = document.getElementById('fairness-stat-gini-label');
     if (giniEl) giniEl.textContent = stats.gini.toFixed(4);
     if (giniLabel) {
-        if (stats.gini < 0.15) giniLabel.textContent = "🌟 Mükemmele Yakin Eşit Dağilim";
-        else if (stats.gini < 0.25) giniLabel.textContent = "👍 Çok İyi ve Dengeli Dağilim";
-        else if (stats.gini < 0.35) giniLabel.textContent = "⚖️ Kabul Edilebilir Dağilim";
+        if (stats.gini < 0.15) giniLabel.textContent = "🌟 Mükemmele Yakın Eşit Dağılım";
+        else if (stats.gini < 0.25) giniLabel.textContent = "👍 Çok İyi ve Dengeli Dağılım";
+        else if (stats.gini < 0.35) giniLabel.textContent = "⚖️ Kabul Edilebilir Dağılım";
         else giniLabel.textContent = "⚠️ Eşitsizlik Var (Dengeleme Önerilir)";
     }
 
-    // Skor Karti
+    // Skor Kartı
     const scoreEl = document.getElementById('fairness-stat-score');
     if (scoreEl) {
         scoreEl.textContent = `%${stats.fairnessScore}`;
@@ -16498,13 +16555,13 @@ window.renderFairnessMetricsUI = function() {
         else scoreEl.style.color = '#ef4444';
     }
 
-    // Standart Sapma Karti
+    // Standart Sapma Kartı
     const stdEl = document.getElementById('fairness-stat-stddev');
     const avgEl = document.getElementById('fairness-stat-avg');
     if (stdEl) stdEl.textContent = `${stats.stdDev} P.`;
     if (avgEl) avgEl.textContent = `Ortalama: ${stats.avg} Puan`;
 
-    // Makas Karti
+    // Makas Kartı
     const rangeEl = document.getElementById('fairness-stat-range');
     const minmaxEl = document.getElementById('fairness-stat-minmax');
     if (rangeEl) rangeEl.textContent = `${stats.scoreRange} P.`;
@@ -16512,18 +16569,34 @@ window.renderFairnessMetricsUI = function() {
 
     // Benchmark
     const benchAvg = document.getElementById('fairness-benchmark-avg');
-    if (benchAvg) benchAvg.textContent = `Hedef Ortalama: ${stats.avg} P.`;
+    if (benchAvg) benchAvg.textContent = `Hedef Ort: ${stats.avg} P.`;
 
-    // Dağilim Çubuk Grafiği
+    // Dağılım Çubuk Grafiği
     const barsContainer = document.getElementById('fairness-bars-container');
     if (!barsContainer) return;
 
-    const staffList = (DB.staff || []).slice().sort((a,b) => (b.totalScore || 0) - (a.totalScore || 0));
-    const maxScore = Math.max(...staffList.map(s => s.totalScore || 0), 1);
+    // Aktif gözetmen asistan havuzunu al
+    const pool = typeof getActiveProctorStaff === 'function' ? getActiveProctorStaff(DB.staff || []) : (DB.staff || []);
+    
+    function getScore(s) {
+        if (mode === 'non_exam') return parseFloat((s.nonExamScore || 0).toFixed(2));
+        if (mode === 'exam') return parseFloat((s.totalScore || 0).toFixed(2));
+        return parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2));
+    }
+
+    function getTaskCount(s) {
+        if (mode === 'non_exam') return s.nonExamTaskCount || 0;
+        if (mode === 'exam') return s.taskCount || 0;
+        return (s.taskCount || 0) + (s.nonExamTaskCount || 0);
+    }
+
+    const staffList = pool.slice().sort((a, b) => getScore(b) - getScore(a));
+    const maxScore = Math.max(...staffList.map(s => getScore(s)), 1);
 
     let barsHtml = '';
     staffList.forEach(s => {
-        const score = s.totalScore || 0;
+        const score = getScore(s);
+        const taskCount = getTaskCount(s);
         const diff = score - stats.avg;
         const pct = Math.min(100, Math.max(5, (score / maxScore) * 100));
         
@@ -16545,10 +16618,12 @@ window.renderFairnessMetricsUI = function() {
             diffLabel = diff >= 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`;
         }
 
+        let taskLabel = mode === 'non_exam' ? `${taskCount} Görev` : (mode === 'exam' ? `${taskCount} Sınav` : `${taskCount} Toplam`);
+
         barsHtml += `
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 6px 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.8rem;">
-                    <span style="font-weight: 600; color: #f1f5f9;">${s.name} <span style="font-size:0.7rem; color:#94a3b8;">(${s.taskCount || 0} Görev)</span></span>
+                    <span style="font-weight: 600; color: #f1f5f9;">${String(s.name || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))} <span style="font-size:0.7rem; color:#94a3b8;">(${taskLabel})</span></span>
                     <span style="font-weight: 700; color: ${badgeColor};">${score.toFixed(1)} P. <small style="font-weight:normal; opacity:0.8;">(${diffLabel})</small></span>
                 </div>
                 <div style="height: 6px; background: rgba(0,0,0,0.4); border-radius: 3px; overflow: hidden;">
@@ -16561,100 +16636,400 @@ window.renderFairnessMetricsUI = function() {
     barsContainer.innerHTML = barsHtml;
 };
 
-window.runFairnessRebalanceSimulation = function() {
+window.runFairnessRebalanceSimulation = function(isManual = false) {
     if (typeof simulateFairnessOptimization !== 'function') return;
 
-    const simResult = simulateFairnessOptimization(10);
+    const runBtn = document.getElementById('btn-run-fairness-sim');
+    const runLabel = document.getElementById('btn-run-fairness-label');
+    if (runBtn && isManual) {
+        if (runLabel) runLabel.textContent = 'Hesaplanıyor...';
+        runBtn.style.opacity = '0.7';
+        runBtn.disabled = true;
+    }
+
+    const mode = window._currentFairnessMode || 'exam';
+    const simResult = simulateFairnessOptimization(10, mode);
     window._lastFairnessSimResult = simResult;
+
+    // Metrik kartları ve çubuk grafiklerini de anında güncelle
+    if (typeof window.renderFairnessMetricsUI === 'function') {
+        window.renderFairnessMetricsUI();
+    }
 
     const resBox = document.getElementById('fairness-sim-results-box');
     const applyBtn = document.getElementById('btn-apply-fairness-sim');
     const applyNote = document.getElementById('sim-apply-note');
     const swapsCont = document.getElementById('fairness-swaps-container');
 
+    const lastRunEl = document.getElementById('fairness-sim-last-run');
+    if (lastRunEl) {
+        const timeStr = new Date().toLocaleTimeString('tr-TR');
+        lastRunEl.innerHTML = `🕐 Son Hesaplama: <b style="color:#67e8f9;">${timeStr}</b> <span style="color:#6ee7b7;">(Simülasyon hazır • Onaysız uygulanmaz)</span>`;
+    }
+
     if (resBox) {
         resBox.classList.remove('hidden');
-        document.getElementById('sim-res-gini').textContent = `${simResult.before.gini.toFixed(4)} ➔ ${simResult.after.gini.toFixed(4)}`;
-        document.getElementById('sim-res-score').textContent = `%${simResult.before.fairnessScore} ➔ %${simResult.after.fairnessScore}`;
-        document.getElementById('sim-res-stddev').textContent = `±${simResult.before.stdDev} ➔ ±${simResult.after.stdDev} P.`;
+        const giniEl = document.getElementById('sim-res-gini');
+        const scoreEl = document.getElementById('sim-res-score');
+        const stddevEl = document.getElementById('sim-res-stddev');
+        const rangeEl = document.getElementById('sim-res-range');
+
+        if (giniEl) giniEl.textContent = `${simResult.before.gini.toFixed(4)} ➔ ${simResult.after.gini.toFixed(4)}`;
+        if (scoreEl) scoreEl.textContent = `%${simResult.before.fairnessScore} ➔ %${simResult.after.fairnessScore}`;
+        if (stddevEl) stddevEl.textContent = `±${simResult.before.stdDev} ➔ ±${simResult.after.stdDev} P.`;
+        if (rangeEl) rangeEl.textContent = `${simResult.before.scoreRange} ➔ ${simResult.after.scoreRange} P.`;
     }
 
     if (!swapsCont) return;
 
-    if (simResult.proposedSwaps.length === 0) {
+    const actions = simResult.suggestedActions || simResult.proposedSwaps || [];
+
+    if (actions.length === 0) {
+        let catName = mode === 'non_exam' ? 'Sınav Dışı Görevler' : (mode === 'exam' ? 'Sınav Gözetmenlikleri' : 'Tüm Görevler');
         swapsCont.innerHTML = `
             <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 18px; text-align: center; color: #6ee7b7; font-size: 0.85rem;">
                 🎉 <strong>Tebrikler!</strong><br>
-                Mevcut kisit ve çakişma kurallari dahilinde sistem şu anda en adil ve optimal seviyededir. İlave transfer gerekmemektedir.
+                <strong>${catName}</strong> tablosunda mevcut kısıt, çakışma ve gelecek sınav kuralları dahilinde sistem şu anda en adil ve dengeli seviyededir. İlave transfer gerekmemektedir.
             </div>
         `;
         if (applyBtn) applyBtn.classList.add('hidden');
         if (applyNote) applyNote.classList.add('hidden');
+        const btnSelected = document.getElementById('btn-apply-fairness-selected');
+        if (btnSelected) btnSelected.classList.add('hidden');
+
+        if (runBtn && isManual) {
+            setTimeout(() => {
+                if (runLabel) runLabel.textContent = 'Simülasyon Çalıştır';
+                runBtn.style.opacity = '1';
+                runBtn.disabled = false;
+            }, 300);
+        }
         return;
     }
 
-    let swapsHtml = `<div style="font-size: 0.8rem; color: #a5b4fc; font-weight: 600; margin-bottom: 8px;">💡 Yapay Zeka Tarafindan Önerilen ${simResult.proposedSwaps.length} Görev Transferi:</div>`;
-    
-    simResult.proposedSwaps.forEach((swap, idx) => {
-        swapsHtml += `
-            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; margin-bottom: 8px;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">
-                    <span>${idx + 1}. 📚 ${swap.examName}</span>
-                    <span style="color: #38bdf8;">+${swap.examScore} Puan</span>
-                </div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 6px;">
-                    📅 ${swap.examDate} | 🕐 ${swap.examTime}
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px; font-size: 0.8rem;">
-                    <div style="color: #fca5a5;">
-                        🛑 <strong>${swap.fromStaffName}</strong> <small>(${swap.fromStaffScoreBefore} P.)</small>
-                    </div>
-                    <div style="color: #10b981; font-size: 1rem; font-weight: bold;">➔</div>
-                    <div style="color: #86efac;">
-                        🟢 <strong>${swap.toStaffName}</strong> <small>(${swap.toStaffScoreBefore} P.)</small>
-                    </div>
-                </div>
+    const transferCount = actions.filter(a => a.type === 'transfer').length;
+    const swapCount = actions.filter(a => a.type === 'bilateral_swap').length;
+
+    let swapsHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; flex-wrap:wrap; gap:8px; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.78rem; font-weight:700; color:#38bdf8; user-select:none;">
+                    <input type="checkbox" id="fairness-select-all-cb" checked onchange="window.toggleFairnessSelectAll(this.checked)" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
+                    <span>Tümünü Seç / Kaldır</span>
+                </label>
+                <span id="fairness-selected-badge" style="font-size:0.75rem; background:rgba(14,165,233,0.2); color:#38bdf8; border:1px solid rgba(14,165,233,0.4); padding:2px 8px; border-radius:12px; font-weight:700;">
+                    ${actions.length} / ${actions.length} Seçili
+                </span>
             </div>
-        `;
+            <div style="display:flex; gap:6px; font-size:0.7rem;">
+                ${transferCount > 0 ? `<span style="background:rgba(2,132,199,0.2); color:#38bdf8; border:1px solid rgba(2,132,199,0.4); padding:2px 8px; border-radius:4px;">➡️ ${transferCount} Tek Taraflı Devir</span>` : ''}
+                ${swapCount > 0 ? `<span style="background:rgba(147,51,234,0.2); color:#c084fc; border:1px solid rgba(147,51,234,0.4); padding:2px 8px; border-radius:4px;">🔁 ${swapCount} Karşılıklı Takas</span>` : ''}
+            </div>
+        </div>
+    `;
+
+    actions.forEach((act, idx) => {
+        if (act.type === 'transfer') {
+            const badgeStyle = act.isNonExam 
+                ? 'background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);' 
+                : 'background:rgba(99,102,241,0.2); color:#818cf8; border:1px solid rgba(99,102,241,0.4);';
+            const badgeIcon = act.isNonExam ? '📋 Sınav Dışı' : '🎓 Sınav';
+
+            swapsHtml += `
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="background:rgba(2,132,199,0.3); color:#38bdf8; padding:1px 6px; border-radius:4px; font-size:0.7rem;">Adım ${idx + 1} • ➡️ Görev Devri</span>
+                            <span>📚 ${act.examName}</span>
+                            <span style="font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; ${badgeStyle}">${badgeIcon}</span>
+                        </div>
+                        <span style="color: #38bdf8; font-weight: 800;">+${act.examScore} Puan</span>
+                    </div>
+
+                    <div style="font-size: 0.74rem; color: #94a3b8; margin-bottom: 8px; display:flex; gap:12px; flex-wrap:wrap;">
+                        <span>📅 ${act.examDate}</span>
+                        <span>🕐 ${act.examTime} (${act.examDuration || 60} dk)</span>
+                        <span>📍 ${act.examLocation || '-'}</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; margin-bottom: 6px;">
+                        <div style="color: #fca5a5;">
+                            <div style="font-size:0.7rem; color:#f87171; text-transform:uppercase;">Devreden (Yüksek Puan)</div>
+                            <strong>🛑 ${act.fromStaff.name}</strong><br>
+                            <span style="font-size:0.74rem; color:#cbd5e1;">${act.fromStaff.oldScore} ➔ <b>${act.fromStaff.newScore} P.</b> <small>(${act.fromStaff.oldTasks} ➔ ${act.fromStaff.newTasks} Görev)</small></span>
+                        </div>
+                        <div style="color: #10b981; font-size: 1.2rem; font-weight: bold; text-align:center;">➔</div>
+                        <div style="color: #86efac; text-align:right;">
+                            <div style="font-size:0.7rem; color:#4ade80; text-transform:uppercase;">Devralan (Düşük Puan)</div>
+                            <strong>🟢 ${act.toStaff.name}</strong><br>
+                            <span style="font-size:0.74rem; color:#cbd5e1;">${act.toStaff.oldScore} ➔ <b>${act.toStaff.newScore} P.</b> <small>(${act.toStaff.oldTasks} ➔ ${act.toStaff.newTasks} Görev)</small></span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:#cbd5e1; background:rgba(255,255,255,0.02); padding:4px 8px; border-radius:4px;">
+                        <span>⚖️ <b>İkili Puan Farkı:</b> ${act.gapBefore} P. ➔ <b>${act.gapAfter} P.</b></span>
+                        <span style="color:#34d399; font-weight:700;">📉 Fark ${act.gapReduction} Puan Kapandı</span>
+                    </div>
+                    <div style="margin-top:6px; font-size:0.72rem; color:#93c5fd; background:rgba(2,132,199,0.1); border-left:3px solid #38bdf8; padding:5px 8px; border-radius:4px;">
+                        💡 <b>Öneri Nedeni:</b> ${act.rationale}
+                    </div>
+
+                    <!-- Tekil Onay & Seçim Aksiyon Çubuğu -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); flex-wrap:wrap; gap:8px;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#cbd5e1; user-select:none;">
+                            <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" checked onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
+                            <span>Seçime Dahil Et</span>
+                        </label>
+                        <button type="button" class="btn-primary admin-only" onclick="window.applySingleFairnessAction(${idx})" style="padding:4px 12px; font-size:0.74rem; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Sadece bu öneriyi takvime işle">
+                            <span>✅</span> Sadece Bu Adımı Onayla & Uygula
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (act.type === 'bilateral_swap') {
+            swapsHtml += `
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(192,132,252,0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="background:rgba(147,51,234,0.3); color:#c084fc; padding:1px 6px; border-radius:4px; font-size:0.7rem;">Adım ${idx + 1} • 🔁 Karşılıklı Görev Takası</span>
+                            <span style="font-size:0.68rem; background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px;">⚖️ Görev Sayıları Sabit</span>
+                        </div>
+                        <span style="color: #c084fc; font-weight: 800;">Net Puan Geçişi: +${act.netShift} P.</span>
+                    </div>
+
+                    <!-- Takas Edilen Sınavlar -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                        <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-size: 0.75rem; border-left: 3px solid #f87171;">
+                            <div style="font-size:0.68rem; color:#fca5a5; font-weight:700;">🛑 ${act.staffA.name} Tarafından Verilen:</div>
+                            <div style="font-weight:600; color:white; margin:2px 0;">📚 ${act.examFromA.name}</div>
+                            <div style="color:#94a3b8; font-size:0.7rem;">📅 ${act.examFromA.date} ${act.examFromA.time} (${act.examFromA.duration} dk)</div>
+                            <div style="color:#38bdf8; font-weight:700; margin-top:2px;">${act.examFromA.score} Puan ➔ ${act.staffB.name}'a</div>
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-size: 0.75rem; border-left: 3px solid #34d399;">
+                            <div style="font-size:0.68rem; color:#86efac; font-weight:700;">🟢 ${act.staffB.name} Tarafından Verilen:</div>
+                            <div style="font-weight:600; color:white; margin:2px 0;">📚 ${act.examFromB.name}</div>
+                            <div style="color:#94a3b8; font-size:0.7rem;">📅 ${act.examFromB.date} ${act.examFromB.time} (${act.examFromB.duration} dk)</div>
+                            <div style="color:#38bdf8; font-weight:700; margin-top:2px;">${act.examFromB.score} Puan ➔ ${act.staffA.name}'a</div>
+                        </div>
+                    </div>
+
+                    <!-- Puan ve Görev Sayısı Değişimi -->
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; margin-bottom: 6px;">
+                        <div style="color: #fca5a5;">
+                            <strong>🛑 ${act.staffA.name}</strong><br>
+                            <span style="font-size:0.74rem; color:#cbd5e1;">${act.staffA.oldScore} ➔ <b>${act.staffA.newScore} P.</b> <small>(${act.staffA.tasks} Görev Sabit)</small></span>
+                        </div>
+                        <div style="color: #c084fc; font-size: 1.1rem; font-weight: bold; text-align:center;">⇄</div>
+                        <div style="color: #86efac; text-align:right;">
+                            <strong>🟢 ${act.staffB.name}</strong><br>
+                            <span style="font-size:0.74rem; color:#cbd5e1;">${act.staffB.oldScore} ➔ <b>${act.staffB.newScore} P.</b> <small>(${act.staffB.tasks} Görev Sabit)</small></span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:#cbd5e1; background:rgba(255,255,255,0.02); padding:4px 8px; border-radius:4px;">
+                        <span>⚖️ <b>İkili Puan Farkı:</b> ${act.gapBefore} P. ➔ <b>${act.gapAfter} P.</b></span>
+                        <span style="color:#34d399; font-weight:700;">📉 Fark ${act.gapReduction} Puan Kapandı</span>
+                    </div>
+                    <div style="margin-top:6px; font-size:0.72rem; color:#d8b4fe; background:rgba(147,51,234,0.1); border-left:3px solid #c084fc; padding:5px 8px; border-radius:4px;">
+                        💡 <b>Öneri Nedeni:</b> ${act.rationale}
+                    </div>
+
+                    <!-- Tekil Onay & Seçim Aksiyon Çubuğu -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); flex-wrap:wrap; gap:8px;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#cbd5e1; user-select:none;">
+                            <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" checked onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
+                            <span>Seçime Dahil Et</span>
+                        </label>
+                        <button type="button" class="btn-primary admin-only" onclick="window.applySingleFairnessAction(${idx})" style="padding:4px 12px; font-size:0.74rem; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Sadece bu öneriyi takvime işle">
+                            <span>✅</span> Sadece Bu Adımı Onayla & Uygula
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
     });
 
     swapsCont.innerHTML = swapsHtml;
-
-    if (applyBtn) {
-        applyBtn.textContent = `🚀 ${simResult.proposedSwaps.length} Transferi Sisteme Uygula`;
-        applyBtn.classList.remove('hidden');
+    if (typeof window.updateFairnessSelectedCount === 'function') {
+        window.updateFairnessSelectedCount();
     }
     if (applyNote) applyNote.classList.remove('hidden');
+
+    // Manuel tıklama geri bildirimi ve görsel efekt
+    if (runBtn && isManual) {
+        setTimeout(() => {
+            if (runLabel) runLabel.textContent = 'Simülasyon Çalıştır';
+            runBtn.style.opacity = '1';
+            runBtn.disabled = false;
+        }, 300);
+
+        if (typeof window.showToast === 'function') {
+            window.showToast(`⚡ Yapay Zeka Dengeleme Simülasyonu çalıştırıldı! (${actions.length} öneri listelendi)`, 'success');
+        }
+
+        // Kartlar kutusunu yumuşakça parlat ve başa kaydır
+        swapsCont.scrollTop = 0;
+        swapsCont.style.transition = 'box-shadow 0.3s ease';
+        swapsCont.style.boxShadow = '0 0 16px rgba(34, 211, 238, 0.4)';
+        setTimeout(() => {
+            swapsCont.style.boxShadow = 'none';
+        }, 600);
+    }
 };
 
-window.applyFairnessSimulationResults = async function() {
-    const simResult = window._lastFairnessSimResult;
-    if (!simResult || !simResult.proposedSwaps || simResult.proposedSwaps.length === 0) {
-        alert("Uygulanacak transfer önerisi bulunmuyor.");
-        return;
+window.updateFairnessSelectedCount = function() {
+    const checkboxes = document.querySelectorAll('.fairness-step-checkbox');
+    const checked = document.querySelectorAll('.fairness-step-checkbox:checked');
+    const total = checkboxes.length;
+    const count = checked.length;
+
+    const badge = document.getElementById('fairness-selected-badge');
+    if (badge) badge.textContent = `${count} / ${total} Seçili`;
+
+    const selectAllCb = document.getElementById('fairness-select-all-cb');
+    if (selectAllCb) selectAllCb.checked = (total > 0 && count === total);
+
+    const btnSelected = document.getElementById('btn-apply-fairness-selected');
+    const labelSelected = document.getElementById('btn-apply-selected-label');
+    if (btnSelected) {
+        if (total > 0) {
+            btnSelected.classList.remove('hidden');
+            if (labelSelected) labelSelected.textContent = `Seçilen ${count} Adımı Onayla & Uygula`;
+            btnSelected.disabled = (count === 0);
+            btnSelected.style.opacity = (count === 0) ? '0.5' : '1';
+            btnSelected.style.cursor = (count === 0) ? 'not-allowed' : 'pointer';
+        } else {
+            btnSelected.classList.add('hidden');
+        }
     }
 
-    if (!confirm(`⚠️ Önerilen ${simResult.proposedSwaps.length} adet görev transferi onaylanarak sinav programina işlenecek ve sistem adalet skoru yükseltilecektir.\n\nOnayliyor musunuz?`)) {
+    const btnAll = document.getElementById('btn-apply-fairness-sim');
+    const labelAll = document.getElementById('btn-apply-all-label');
+    if (btnAll) {
+        if (total > 0) {
+            btnAll.classList.remove('hidden');
+            if (labelAll) labelAll.textContent = `Tümünü Toplu Onayla & Uygula (${total} Adım)`;
+        } else {
+            btnAll.classList.add('hidden');
+        }
+    }
+};
+
+window.toggleFairnessSelectAll = function(isChecked) {
+    const checkboxes = document.querySelectorAll('.fairness-step-checkbox');
+    checkboxes.forEach(cb => { cb.checked = isChecked; });
+    window.updateFairnessSelectedCount();
+};
+
+window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
+    if (!actionsToApply || actionsToApply.length === 0) {
+        alert("Uygulanacak işlem seçilmedi.");
         return;
     }
 
     // 1. Geri dönüş için Snapshot al
     if (typeof saveAutoSnapshot === 'function') {
-        saveAutoSnapshot(DB, "Yapay Zeka Adalet Dengelemesi");
+        const snapTitle = isBulk 
+            ? `Toplu Adalet Dengelemesi (${actionsToApply.length} Adım)` 
+            : `Tekil Adalet Onayı: ${actionsToApply[0].type === 'transfer' ? actionsToApply[0].examName : (actionsToApply[0].examFromA.name + ' ⇄ ' + actionsToApply[0].examFromB.name)}`;
+        saveAutoSnapshot(DB, snapTitle);
     }
 
-    // 2. Transferleri DB.exams üzerinde uygula
-    simResult.proposedSwaps.forEach(swap => {
-        const exam = (DB.exams || []).find(e => e.id === swap.examId);
-        if (exam) {
-            exam.proctorIds = [swap.toStaffId];
-            exam.proctorId = swap.toStaffId;
-            exam.proctorName = swap.toStaffName;
+    // 2. Transfer ve takasları DB.exams üzerinde sırasıyla uygula.
+    // Öneriler zincirleme hesaplandığı için (her adım öncekilerin uygulandığını varsayar),
+    // her adım GÜNCEL takvime göre yeniden doğrulanır; geçersiz hale gelen adım atlanır.
+    const logger = (typeof window !== 'undefined' && window.logAction) || (typeof logAction === 'function' ? logAction : null);
+
+    const findExam = (id) => (DB.exams || []).find(e => String(e.id) === String(id));
+    const getPids = (ex) => (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) ? ex.proctorIds : (ex.proctorId ? [ex.proctorId] : []);
+    const hasProctor = (ex, sid) => getPids(ex).map(String).includes(String(sid));
+
+    // Alıcı gözetmen için müsaitlik + 15 dk tamponlu çakışma kontrolü (güncel DB üzerinde)
+    const canReceive = (staffId, exam, ignoreExamId) => {
+        const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
+        if (!staff || hasProctor(exam, staffId)) return false;
+        if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) return false;
+        const start = getSafeDate(exam.date, exam.time);
+        const end = new Date(start.getTime() + ((parseInt(exam.duration, 10) || 60) + 15) * 60000);
+        return !(DB.exams || []).some(o => {
+            if (String(o.id) === String(exam.id) || (ignoreExamId && String(o.id) === String(ignoreExamId))) return false;
+            if (o.date !== exam.date || !hasProctor(o, staffId)) return false;
+            const os = getSafeDate(o.date, o.time);
+            const oe = new Date(os.getTime() + ((parseInt(o.duration, 10) || 60) + 15) * 60000);
+            return start < oe && end > os;
+        });
+    };
+
+    const moveProctor = (ex, fromStaff, toStaff) => {
+        if (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) {
+            ex.proctorIds = ex.proctorIds.map(pid => String(pid) === String(fromStaff.id) ? toStaff.id : pid);
+        } else {
+            ex.proctorIds = [toStaff.id];
+        }
+        // Birincil gözetmen yalnızca devreden kişiyse (veya tanımsızsa) değişir;
+        // çok gözetmenli sınavlarda diğer gözetmenin adı ezilmez.
+        if (!ex.proctorId || String(ex.proctorId) === String(fromStaff.id)) {
+            ex.proctorId = toStaff.id;
+        }
+        // Görünen ad: çok gözetmenli sınavlarda tüm gözetmenlerin birleşik listesi
+        const names = ex.proctorIds
+            .map(pid => (DB.staff || []).find(s => String(s.id) === String(pid)))
+            .filter(Boolean)
+            .map(s => s.name);
+        ex.proctorName = names.length > 0 ? names.join(', ') : toStaff.name;
+    };
+
+    const applied = [];
+    const skipped = [];
+
+    actionsToApply.forEach((action) => {
+        if (action.type === 'transfer') {
+            const exam = findExam(action.examId);
+            if (!exam || !hasProctor(exam, action.fromStaff.id) || !canReceive(action.toStaff.id, exam)) {
+                skipped.push(action.examName || (exam && exam.name) || action.examId);
+                return;
+            }
+            moveProctor(exam, action.fromStaff, action.toStaff);
+            applied.push(action);
+            if (logger) {
+                logger('admin', 'Yapay Zeka Görev Devri', `[Onaylandı] ${action.examName || exam.name} (${action.examScore} P.) görevi ${action.fromStaff.name}'dan ${action.toStaff.name}'a devredildi. İkili fark: ${action.gapBefore} P. ➔ ${action.gapAfter} P. (-${action.gapReduction} P.)`);
+            }
+        } else if (action.type === 'bilateral_swap') {
+            const exA = findExam(action.examFromA.id);
+            const exB = findExam(action.examFromB.id);
+            const valid = exA && exB
+                && hasProctor(exA, action.staffA.id) && hasProctor(exB, action.staffB.id)
+                && canReceive(action.staffB.id, exA, exB.id)
+                && canReceive(action.staffA.id, exB, exA.id);
+            if (!valid) {
+                skipped.push(`${action.examFromA.name} ⇄ ${action.examFromB.name}`);
+                return;
+            }
+            moveProctor(exA, action.staffA, action.staffB);
+            moveProctor(exB, action.staffB, action.staffA);
+            applied.push(action);
+            if (logger) {
+                logger('admin', 'Yapay Zeka Karşılıklı Takas', `[Onaylandı] ${action.staffA.name} (${action.examFromA.name}) ⇄ ${action.staffB.name} (${action.examFromB.name}) takası yapıldı. Net geçiş: +${action.netShift} P. (Fark: ${action.gapBefore} P. ➔ ${action.gapAfter} P.)`);
+            }
         }
     });
 
-    // 3. Personel puanlarini yeniden hesapla
-    if (typeof calculateAllStaffScores === 'function') {
+    if (applied.length === 0) {
+        alert(`⚠️ Seçilen adımların hiçbiri güncel takvime uygulanamadı (görev sahibi değişmiş veya çakışma oluşuyor).\n\nSimülasyon yeniden hesaplanıyor.`);
+        window.renderFairnessMetricsUI();
+        window.runFairnessRebalanceSimulation();
+        return;
+    }
+
+    if (logger && applied.length > 1) {
+        logger('admin', 'Yapay Zeka Adalet Dengelemesi', `${applied.length} adet akıllı dengeleme adımı onaylanarak sınav programına işlendi.${skipped.length ? ` (${skipped.length} adım güncel takvimle uyumsuz olduğu için atlandı)` : ''}`);
+    }
+
+    // 3. Personel puanlarını doğru kategorilere göre (sınav vs sınav dışı) yeniden hesapla
+    if (typeof recalculateAllScores === 'function') {
+        recalculateAllScores();
+    } else if (typeof calculateAllStaffScores === 'function') {
         calculateAllStaffScores();
     } else {
         (DB.staff || []).forEach(s => {
@@ -16669,44 +17044,128 @@ window.applyFairnessSimulationResults = async function() {
         });
     }
 
-    // 4. Kaydet
+    // 4. Kaydet (Yerel depolama ve Bulut Firebase)
     saveToLocalStorage();
     if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
-        try { await saveToBackend(); } catch(e) {}
+        try { await saveToBackend(); } catch(e) { console.error('saveToBackend hatası:', e); }
     }
 
-    // 5. Ekranlari tazele
+    // 5. Ekranları tazele
     if (typeof renderExams === 'function') renderExams();
     if (typeof renderStaff === 'function') renderStaff();
     if (typeof renderSchedule === 'function') renderSchedule();
     if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderAuditLogs === 'function') renderAuditLogs();
+    if (typeof window.updateForecastCardForStaff === 'function') {
+        const myName = (typeof getLoggedInStaffName === 'function') ? getLoggedInStaffName() : null;
+        if (myName) window.updateForecastCardForStaff(myName);
+    }
 
     // 6. Simülatör UI tazele
     window.renderFairnessMetricsUI();
-    
-    const swapsCont = document.getElementById('fairness-swaps-container');
-    if (swapsCont) {
-        swapsCont.innerHTML = `
-            <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 18px; text-align: center; color: #6ee7b7; font-size: 0.85rem;">
-                ✅ <strong>Başarili!</strong><br>
-                ${simResult.proposedSwaps.length} adet görev transferi programa işlendi. Adalet skoru <strong>%${simResult.after.fairnessScore}</strong> seviyesine yükseltildi.
-            </div>
-        `;
+    window.runFairnessRebalanceSimulation();
+
+    // 7. Bildirim
+    let msg = applied.length === 1
+        ? `✅ 1 dengeleme adımı başarıyla onaylandı ve takvime işlendi!`
+        : `🌟 ${applied.length} dengeleme adımı başarıyla onaylandı ve takvime işlendi!`;
+    if (skipped.length > 0) {
+        msg += ` ⚠️ ${skipped.length} adım, seçilmeyen önceki adımlara bağlı olduğu veya çakışma oluşturacağı için atlandı: ${skipped.join(', ')}`;
     }
 
-    const applyBtn = document.getElementById('btn-apply-fairness-sim');
-    const applyNote = document.getElementById('sim-apply-note');
-    if (applyBtn) applyBtn.classList.add('hidden');
-    if (applyNote) applyNote.classList.add('hidden');
-
     if (typeof showToast === 'function') {
-        showToast(`🌟 ${simResult.proposedSwaps.length} görev transferiyle adalet puani %${simResult.after.fairnessScore}'a çikarildi!`, 'success');
+        showToast(msg, 'success');
     } else {
-        alert(`✓ ${simResult.proposedSwaps.length} görev transferi başariyla uygulandi!`);
+        alert(msg);
     }
 };
 
-// =============================================================
+window.applySingleFairnessAction = async function(index) {
+    if (sessionStorage.getItem('isAdmin') !== 'true') {
+        alert("⚠️ Dengeleme adımlarını onaylamak ve takvime işlemek için Yönetici (Admin) olarak giriş yapmış olmalısınız.");
+        return;
+    }
+    const actions = (window._lastFairnessSimResult && (window._lastFairnessSimResult.suggestedActions || window._lastFairnessSimResult.proposedSwaps)) || [];
+    const act = actions[index];
+    if (!act) {
+        alert("İlgili öneri adımı bulunamadı.");
+        return;
+    }
+
+    let confirmMsg = "";
+    if (act.type === 'transfer') {
+        confirmMsg = `⚠️ [Adım ${index + 1} • Görev Devri Onayı]\n\n`
+            + `📚 Sınav: ${act.examName} (${act.examScore} Puan)\n`
+            + `📅 Tarih & Saat: ${act.examDate} ${act.examTime}\n`
+            + `🛑 Devreden: ${act.fromStaff.name} (${act.fromStaff.oldScore} ➔ ${act.fromStaff.newScore} P.)\n`
+            + `🟢 Devralan: ${act.toStaff.name} (${act.toStaff.oldScore} ➔ ${act.toStaff.newScore} P.)\n`
+            + `⚖️ İkili Puan Farkı: ${act.gapBefore} ➔ ${act.gapAfter} P. (-${act.gapReduction} P. kapanır)\n\n`
+            + `Bu adımı onaylayıp sınav takvimine ve personele işlemek istiyor musunuz?`;
+    } else {
+        confirmMsg = `⚠️ [Adım ${index + 1} • Karşılıklı Görev Takası Onayı]\n\n`
+            + `🛑 ${act.staffA.name} Verir: ${act.examFromA.name} (${act.examFromA.score} P.)\n`
+            + `🟢 ${act.staffB.name} Verir: ${act.examFromB.name} (${act.examFromB.score} P.)\n`
+            + `⚖️ Net Fark Geçişi: +${act.netShift} Puan\n`
+            + `📉 İkili Fark: ${act.gapBefore} ➔ ${act.gapAfter} P. (-${act.gapReduction} P. kapanır)\n\n`
+            + `Bu karşılıklı takası onaylayıp sınav takvimine ve personele işlemek istiyor musunuz?`;
+    }
+
+    if (!confirm(confirmMsg)) return;
+
+    await window.executeFairnessActions([act], false);
+};
+
+window.applySelectedFairnessActions = async function() {
+    if (sessionStorage.getItem('isAdmin') !== 'true') {
+        alert("⚠️ Dengeleme adımlarını onaylamak ve takvime işlemek için Yönetici (Admin) olarak giriş yapmış olmalısınız.");
+        return;
+    }
+    const actions = (window._lastFairnessSimResult && (window._lastFairnessSimResult.suggestedActions || window._lastFairnessSimResult.proposedSwaps)) || [];
+    const checkboxes = document.querySelectorAll('.fairness-step-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert("Lütfen onaylamak için en az bir dengeleme adımı seçin.");
+        return;
+    }
+
+    const selectedActions = [];
+    checkboxes.forEach(cb => {
+        const idx = parseInt(cb.getAttribute('data-index'), 10);
+        if (!isNaN(idx) && actions[idx]) {
+            selectedActions.push(actions[idx]);
+        }
+    });
+
+    if (selectedActions.length === 0) {
+        alert("Seçilen geçerli bir öneri bulunamadı.");
+        return;
+    }
+
+    if (!confirm(`⚠️ Seçtiğiniz ${selectedActions.length} adet dengeleme adımı onaylanarak sınav takvimine işlenecektir.\n\nOnaylıyor musunuz?`)) {
+        return;
+    }
+
+    await window.executeFairnessActions(selectedActions, true);
+};
+
+window.applyFairnessSimulationResults = async function() {
+    if (sessionStorage.getItem('isAdmin') !== 'true') {
+        alert("⚠️ Dengeleme adımlarını onaylamak ve takvime işlemek için Yönetici (Admin) olarak giriş yapmış olmalısınız.");
+        return;
+    }
+    const actions = (window._lastFairnessSimResult && (window._lastFairnessSimResult.suggestedActions || window._lastFairnessSimResult.proposedSwaps)) || [];
+    if (actions.length === 0) {
+        alert("Uygulanacak transfer önerisi bulunmuyor.");
+        return;
+    }
+
+    if (!confirm(`⚠️ Önerilen ${actions.length} adet görev devir/takas işleminin TAMAMI topluca onaylanarak sınav programına işlenecektir.\n\nOnaylıyor musunuz?`)) {
+        return;
+    }
+
+    await window.executeFairnessActions(actions, true);
+};
+
+
 //  ⚡ VİZE / FİNAL SİHİRBAZI — Toplu Sinav Dönemi Planlayici
 //  Katalogdaki 127 dersi filtreleyip toplu sinav oluşturur.
 // =============================================================

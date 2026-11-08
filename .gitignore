@@ -12,6 +12,7 @@ GitHuba_Yukle.bat
 
 # Geçici ve Yerel Yedek Klasörleri
 backup_before_fix/
+backup_pre_*/
 Yedekler/
 *.bak
 *.tmp

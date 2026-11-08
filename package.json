@@ -1,0 +1,11 @@
+{
+  "name": "gtu-gozetmenlik-sistemi",
+  "private": true,
+  "description": "GTÜ Matematik Bölümü Gözetmenlik Takip ve Atama Sistemi",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

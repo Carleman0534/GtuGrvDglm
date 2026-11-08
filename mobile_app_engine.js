@@ -508,8 +508,11 @@
     // Tercih cihazda saklanır (localStorage), sayfa yenilense de öyle kalır.
     const COLLAPSIBLE_PANELS = [
         { key: 'next_duty', selector: '#profile-next-duty-card', header: '.next-duty-head' },
+        { key: 'final_forecast', selector: '#profile-final-forecast-card', header: ':scope > .forecast-card-head' },
         { key: 'smart_swaps', selector: '#profile-smart-swaps', header: ':scope > div:first-child' },
         { key: 'kpi', selector: '#profile-main-content .profile-bento-kpi-grid', label: '📊 Puan ve Görev Özeti' },
+        { key: 'task_hub', selector: '#profile-main-content .profile-main-column', label: '📋 Görevlerim, Takvim ve Puan Karnesi' },
+        { key: 'password', find: () => document.querySelector('#profile-password-section > div'), header: ':scope > div:first-child' },
         { key: 'calendar', selector: '.sidebar-widget.personal-calendar-card', header: ':scope > .sidebar-widget-header' },
         { key: 'checklist', find: () => { const c = document.getElementById('profile-checklist-container'); return c && c.closest('.sidebar-widget'); }, header: ':scope > .sidebar-widget-header' },
         { key: 'journal', selector: '#profile-joke-section', header: ':scope > .sidebar-widget-header' }
@@ -562,6 +565,9 @@
             setPanelState(panel, btn, cfg.key, isPanelCollapsed(cfg.key));
         });
     }
+
+    // Kendi içeriğini yeniden çizen paneller (ör. tahmin kartı) düğmeyi yeniden bağlayabilsin
+    window.applyProfileCollapsiblePanels = applyCollapsiblePanels;
 
     function hookProfileRender() {
         if (typeof window.renderProfile !== 'function' || window.renderProfile.__nextDutyHooked) return;
