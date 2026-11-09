@@ -52,15 +52,8 @@ const now = process.env.NOW ? Date.parse(process.env.NOW) : Date.now();
 
 // Duyurunun hedeflediği gözetmen kimlikleri (sitedeki checkIncomingBroadcastNotifications ile aynı kurallar)
 function broadcastTargets(db, bc) {
-    const t = bc.target;
-    if (!t || t === 'all') return Object.keys(db.pushAbonelikleri || {});
-    if (t === 'tomorrow_only') {
-        const tomorrow = K.trTarih((Date.parse(bc.createdAt) || bc.timestamp) + 24 * 60 * 60 * 1000);
-        const ids = new Set();
-        for (const ex of db.exams || []) if (ex && ex.date === tomorrow) K.gozetmenler(ex).forEach(id => ids.add(id));
-        return [...ids];
-    }
-    return (Array.isArray(t) ? t : [t]).map(String);
+    const hedef = K.duyuruHedefleri(db, bc);
+    return hedef === null ? Object.keys(db.pushAbonelikleri || {}) : hedef;
 }
 
 async function loadDB() {

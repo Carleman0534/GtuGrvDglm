@@ -836,43 +836,12 @@
         const myStaffId = window.getDeviceStaffId();
         const now = Date.now();
 
-        // Yarın sınavı olanların kimliklerini hesapla (tomorrow_only hedefi için)
-        // Tarih Türkiye saatine göre alınır; toISOString UTC olduğundan gece 00:00-03:00 arası "yarın" yanlış çıkıyordu.
-        let tomorrowStaffIds = null;
-        function getTomorrowProctorIds() {
-            if (tomorrowStaffIds !== null) return tomorrowStaffIds;
-            tomorrowStaffIds = new Set();
-            if (Array.isArray(DB.exams)) {
-                const tomorrowStr = new Date(Date.now() + 86400000 + 3 * 3600000).toISOString().split('T')[0];
-                DB.exams.forEach(ex => {
-                    if (ex.date === tomorrowStr) {
-                        const ids = (ex.proctorIds || [ex.proctorId]).map(String);
-                        ids.forEach(id => tomorrowStaffIds.add(id));
-                    }
-                });
-            }
-            return tomorrowStaffIds;
-        }
-
         DB.adminBroadcasts.forEach(bc => {
             if (!bc || !bc.id || !bc.message) return;
 
             // 1. Hedef Kontrolü
-            let isTarget = false;
-            if (!bc.target || bc.target === 'all') {
-                // GENEL DUYURU: Kullanıcı sisteme hiç giriş yapmamış veya isim seçmemiş olsa bile alır!
-                isTarget = true;
-            } else if (bc.target === 'tomorrow_only') {
-                if (myStaffId && getTomorrowProctorIds().has(String(myStaffId))) {
-                    isTarget = true;
-                }
-            } else if (typeof bc.target === 'string' && myStaffId && String(bc.target) === String(myStaffId)) {
-                isTarget = true;
-            } else if (Array.isArray(bc.target) && myStaffId && bc.target.map(String).includes(String(myStaffId))) {
-                isTarget = true;
-            }
-
-            if (!isTarget) return;
+            // Genel duyuru herkese; kişiye özel duyuru yalnızca bu cihazın sahibine (ortak kural: bildirim_kurallari.js)
+            if (!window.BildirimKurallari.duyuruHedefMi(DB, bc, myStaffId)) return;
 
             // 2. Bu cihaza daha önce teslim edildi mi?
             const deliveryKey = `gtu_bc_delivered_${bc.id}`;

@@ -242,6 +242,33 @@
             data: { tur: TUR.SURE_SORU, action: 'verify_duration', url: siteUrl || './index.html', examId: first.id, step: 'question' }
         };
     }
+    /**
+     * Yönetici duyurusunun hedeflediği gözetmen kimlikleri.
+     * null → herkes. 'tomorrow_only' gönderim anında dondurulan listeyi (hedefIdleri) kullanır;
+     * eski kayıtlarda gönderim gününün ertesi günü sınavı olanlar hesaplanır (bakıldığı günün değil).
+     * Site, servis çalışanı ve GitHub iş akışı aynı kuralı kullanır.
+     */
+    function duyuruHedefleri(db, bc) {
+        if (!bc) return [];
+        const t = bc.target;
+        if (!t || t === 'all') return null;
+        if (Array.isArray(bc.hedefIdleri)) return bc.hedefIdleri.map(String);
+        if (t === 'tomorrow_only') {
+            const at = Date.parse(bc.createdAt) || bc.timestamp || 0;
+            if (!at) return [];
+            const yarin = trTarih(at + 24 * 60 * 60 * 1000);
+            const ids = new Set();
+            for (const ex of (db && db.exams) || []) if (ex && ex.date === yarin) gozetmenler(ex).forEach(id => ids.add(id));
+            return [...ids];
+        }
+        const list = Array.isArray(t) ? t : (typeof t === 'object' ? Object.values(t) : [t]);
+        return list.filter(x => x !== null && x !== undefined && x !== '').map(String);
+    }
+    function duyuruHedefMi(db, bc, pid) {
+        const hedef = duyuruHedefleri(db, bc);
+        if (hedef === null) return true;
+        return pid !== null && pid !== undefined && pid !== '' && hedef.includes(String(pid));
+    }
     function duyuru(bc, siteUrl) {
         return {
             title: bc.title || '📢 GTÜ Gözetmenlik Yönetici Bildirimi',
@@ -370,7 +397,7 @@
         gozetmenler, gozetmeniMi, sureOnaylandi, bittiMi, sureTeyidiBekliyor, gunHatirlatmaSaatiMi, saatHatirlatmasiZamani,
         SURE_ALANI, sureAlani, gozetmenSureKaydi, satirOnayli, gozetmenSuresi, gozetmenBaslangicSaati,
         DERSLIK_ALANI, derslikAlani, derslikAnahtari, derslikler, gozetmenDersligi, ayniDerslikGozetmenleri,
-        gunHatirlatmasi, saatHatirlatmasi, sureTeyidi, duyuru,
+        gunHatirlatmasi, saatHatirlatmasi, sureTeyidi, duyuru, duyuruHedefleri, duyuruHedefMi,
         tiklamaHedefi, planla, kaydet
     };
 });

@@ -194,7 +194,7 @@
                         <span id="cloud-status-text">Eşitlendi</span>
                     </div>
 
-                    <button id="btn-header-admin-broadcast" type="button" class="admin-only" onclick="openAdminBroadcastModal()" title="Yönetici Duyurusu / Herkese Bildirim Gönder" style="padding: 0.42rem 0.85rem; font-size: 0.82rem; font-weight: 700; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 10px; box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35); display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <button id="btn-header-admin-broadcast" type="button" class="admin-only" onclick="openAdminBroadcastModal()" title="Yönetici Duyurusu / Seçilen Kişilere veya Herkese Bildirim Gönder" style="padding: 0.42rem 0.85rem; font-size: 0.82rem; font-weight: 700; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 10px; box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35); display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
                         <span style="font-size: 1rem;">📢</span>
                         <span class="btn-broadcast-label">Bildirim Gönder</span>
                     </button>
@@ -265,7 +265,7 @@
                     <button id="btn-nav-dekanlik-report" class="admin-tool-pill tool-report" onclick="openDekanlikReportModal()" title="Dönem Sonu Dekanlık İcmal Raporu">
                         <span class="icon" style="margin:0; margin-right:4px;">🏛️</span>Dekanlık İcmali
                     </button>
-                    <button id="btn-nav-broadcast-notif" class="admin-tool-pill tool-broadcast" onclick="openAdminBroadcastModal()" title="Tüm Asistan ve Hocalara Anlık Bildirim Gönder" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(249, 115, 22, 0.2)); border-color: rgba(239, 68, 68, 0.45); color: #fca5a5;">
+                    <button id="btn-nav-broadcast-notif" class="admin-tool-pill tool-broadcast" onclick="openAdminBroadcastModal()" title="Seçilen Kişilere veya Herkese Anlık Bildirim Gönder" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(249, 115, 22, 0.2)); border-color: rgba(239, 68, 68, 0.45); color: #fca5a5;">
                         <span class="icon" style="margin:0; margin-right:4px;">📢</span>Herkese Bildirim Gönder
                     </button>
                     <button id="btn-nav-reminder-tomorrow" class="admin-tool-pill tool-reminder" onclick="openTomorrowReminderModal()" title="Yarınki Sınav Görevlilerine 24 Saat Öncesi Hatırlatma Gönder">
@@ -3287,17 +3287,17 @@
         </div>
     </div>
 
-    <script src="bildirim_kurallari.js?v=20261109d"></script>
+    <script src="bildirim_kurallari.js?v=20261109e"></script>
     <script src="atama_destek.js?v=20261108m"></script>
     <script src="logic.js?v=20261109d"></script>
-    <script src="app.js?v=20261109d"></script>
+    <script src="app.js?v=20261109e"></script>
     <script src="auth_google.js"></script>
     <script src="swap_email.js?v=20261108m"></script>
     <script src="swap_market.js?v=20261108m"></script>
     <script src="smart_doc_parser.js?v=20261108m"></script>
     <script src="final_forecast_engine.js?v=20261109d"></script>
 
-    <script src="notification_engine.js?v=20261109d"></script>
+    <script src="notification_engine.js?v=20261109e"></script>
 
     <script src="mobile_app_engine.js?v=20261108i"></script>
 
@@ -3615,10 +3615,10 @@
                         </label>
                         <select id="broadcast-target-select" onchange="handleBroadcastTargetChange()"
                             style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 10px; color: white; font-size: 0.85rem;">
-                            <option value="all" selected>🌐 Uygulamayı İndiren & Açan HERKESE Gönder</option>
-                            <option value="manual_multi">👥 Manuel Çoklu Kişi Seçimi (Listeden İşaretle)</option>
-                            <option value="single">👤 Tek Bir Personel Seç</option>
-                            <option value="tomorrow_only">📅 Sadece Yarın Sınavı Olanlar</option>
+                            <option value="manual_multi" selected>👥 Seçtiğim Kişilere (listeden işaretle)</option>
+                            <option value="single">👤 Tek Bir Kişiye</option>
+                            <option value="tomorrow_only">📅 Yarın Sınavı Olanlara</option>
+                            <option value="all">🌐 HERKESE (tüm kullanıcılar)</option>
                         </select>
                     </div>
 
@@ -3637,7 +3637,7 @@
 
                 <!-- Herkese Gönderilirken Güvence Açıklaması -->
                 <div id="broadcast-hint-all" style="background: rgba(2, 132, 199, 0.12); border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 0.65rem 0.9rem; font-size: 0.76rem; color: #bae6fd; line-height: 1.4;">
-                    💡 <b>Profil veya Giriş Şartı Yoktur:</b> Bu seçenekle bildirim gönderdiğinizde, kullanıcıların sisteme giriş yapmasına veya Profil sekmesine girmesine <u>gerek kalmaz</u>. Uygulaması açık olan herkes duyuruyu hemen görür. Uygulaması kapalı olanlardan giriş yapıp bildirim izni vermiş gözetmenlere birkaç dakika içinde telefon bildirimi gider; diğerleri uygulamayı açtıklarında görür.
+                    ⚠️ <b>Herkese gönderiyorsunuz:</b> Uygulamayı kullanan <u>tüm kişiler</u> bu bildirimi görür. Yalnızca belirli kişilere göndermek için yukarıdan "Seçtiğim Kişilere" seçeneğini kullanın.
                 </div>
 
                 <!-- Manuel Çoklu Seçim Grubu (Checkbox Listesi) -->

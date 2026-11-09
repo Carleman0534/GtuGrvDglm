@@ -12550,40 +12550,14 @@ function getNotifications() {
 
     // 0. Yönetici Tarafından Manuel Yayınlanan Bildirimler (Admin Broadcasts)
     if (window.DB && Array.isArray(DB.adminBroadcasts)) {
-        let tomorrowStaffIds = null;
-        function getTomorrowProctorIds() {
-            if (tomorrowStaffIds !== null) return tomorrowStaffIds;
-            tomorrowStaffIds = new Set();
-            if (Array.isArray(DB.exams)) {
-                // Türkiye saatine göre yarın (toISOString UTC'dir; gece 00:00-03:00 arası yanlış gün çıkıyordu)
-                const tomorrowStr = new Date(Date.now() + 86400000 + 3 * 3600000).toISOString().split('T')[0];
-                DB.exams.forEach(ex => {
-                    if (ex.date === tomorrowStr) {
-                        const ids = (ex.proctorIds || [ex.proctorId]).map(String);
-                        ids.forEach(id => tomorrowStaffIds.add(id));
-                    }
-                });
-            }
-            return tomorrowStaffIds;
-        }
-
+        // Duyurular cihazın sahibine göre süzülür (yönetici başka birinin profiline bakarken
+        // o kişiye özel duyuruları kendi panelinde görmesin); kural: bildirim_kurallari.js
+        const deviceStaffId = typeof getDeviceStaffId === 'function' ? getDeviceStaffId() : myStaffId;
+        const BK = window.BildirimKurallari;
         DB.adminBroadcasts.forEach(bc => {
             if (!bc || !bc.id || !bc.message) return;
 
-            let isTarget = false;
-            if (!bc.target || bc.target === 'all') {
-                isTarget = true;
-            } else if (bc.target === 'tomorrow_only') {
-                if (myStaffId && getTomorrowProctorIds().has(String(myStaffId))) {
-                    isTarget = true;
-                }
-            } else if (typeof bc.target === 'string' && myStaffId && String(bc.target) === String(myStaffId)) {
-                isTarget = true;
-            } else if (Array.isArray(bc.target) && myStaffId && bc.target.map(String).includes(String(myStaffId))) {
-                isTarget = true;
-            }
-
-            if (isTarget) {
+            if (BK.duyuruHedefMi(DB, bc, deviceStaffId)) {
                 let icon = '📢';
                 if (bc.priority === 'urgent') icon = '🚨';
                 else if (bc.priority === 'info') icon = 'ℹ️';
@@ -16194,11 +16168,18 @@ window.sendAdminBroadcastNotification = async function () {
     }
 
     let targetValue = 'all';
-    let targetLabel = 'Uygulamayı İndiren & Açan Herkes (Profil & Giriş Şartı Yok)';
+    let targetLabel = 'HERKES (uygulamayı kullanan tüm kişiler)';
+    let frozenIds = null;
 
     if (targetType === 'tomorrow_only') {
+        // Hedef, gönderim anında dondurulur: duyuru sonraki günlerde başka kişilere kaymasın
         targetValue = 'tomorrow_only';
-        targetLabel = 'Sadece Yarın Sınavı Olanlar';
+        frozenIds = window.BildirimKurallari.duyuruHedefleri(DB, { target: 'tomorrow_only', createdAt: new Date().toISOString() });
+        if (!frozenIds.length) {
+            alert('Yarın sınavı olan gözetmen bulunamadı. Bildirim gönderilmedi.');
+            return;
+        }
+        targetLabel = `Yarın sınavı olan ${frozenIds.length} kişi`;
     } else if (targetType === 'single') {
         const staffId = document.getElementById('broadcast-staff-select')?.value;
         if (!staffId) {
@@ -16216,17 +16197,23 @@ window.sendAdminBroadcastNotification = async function () {
             return;
         }
         targetValue = selectedIds;
-        targetLabel = `Manuel Seçilen ${selectedIds.length} Personel`;
+        targetLabel = `Seçilen ${selectedIds.length} kişi`;
     }
 
+    const draft = { target: targetValue, hedefIdleri: frozenIds || undefined, createdAt: new Date().toISOString() };
+    const ozet = window.broadcastTargetSummary(draft);
+    const kisiSatiri = ozet.ids ? `\nKişiler: ${ozet.names.join(', ')}` : '';
+    const cihazSatiri = ozet.ids
+        ? `\n📱 Telefonu kapalıyken bildirim alabilecek: ${ozet.withDevice}/${ozet.ids.length} kişi (diğerleri uygulamayı açınca görür)`
+        : '\n⚠️ Bu bildirim uygulamayı kullanan HERKESE gider.';
     const confirmMsg = `📢 BİLDİRİM GÖNDERİM ONAYI
 
 Başlık: "${title}"
-Hedef: ${targetLabel}
+Hedef: ${targetLabel}${kisiSatiri}
 Öncelik: ${priority.toUpperCase()}
-Cihaz Bildirimi: ${pushEnabled ? 'Açık' : 'Kapalı'}
+Cihaz Bildirimi: ${pushEnabled ? 'Açık' : 'Kapalı'}${cihazSatiri}
 
-Uygulaması açık olanlar bildirimi hemen görür. Uygulaması kapalı olup bildirim izni vermiş gözetmenlere birkaç dakika içinde telefon bildirimi gider; diğerleri uygulamayı açtıklarında görür. Devam etmek istiyor musunuz?`;
+Yalnızca hedefteki kişiler görür. Devam edilsin mi?`;
     if (!confirm(confirmMsg)) return;
 
     // Yeni broadcast nesnesi oluştur
@@ -16239,9 +16226,10 @@ Uygulaması açık olanlar bildirimi hemen görür. Uygulaması kapalı olup bil
         pushToDevice: pushEnabled,
         senderName: 'Yönetici',
         senderRole: 'admin',
-        createdAt: new Date().toISOString(),
+        createdAt: draft.createdAt,
         timestamp: Date.now()
     };
+    if (frozenIds) newBroadcast.hedefIdleri = frozenIds;
 
     if (!DB.adminBroadcasts) DB.adminBroadcasts = [];
     DB.adminBroadcasts.unshift(newBroadcast);
@@ -16249,8 +16237,11 @@ Uygulaması açık olanlar bildirimi hemen görür. Uygulaması kapalı olup bil
     // Kendi cihazında mükerrer tetiklenmemesi için teslim edildi mühürü vur
     localStorage.setItem(`gtu_bc_delivered_${newBroadcast.id}`, Date.now().toString());
 
-    // Cihaz bildirimi gönder (Kendi telefonunda da anında görsün)
-    if (pushEnabled && typeof window.dispatchLocalNotification === 'function') {
+    // Gönderenin telefonunda yalnızca kendisi de hedefteyse göster. Önceden her gönderimde
+    // yöneticinin kendi telefonunda da çıkıyordu; bu, bildirimin herkese gittiği izlenimini veriyordu.
+    const senderDeviceId = typeof getDeviceStaffId === 'function' ? getDeviceStaffId() : null;
+    const senderIsTarget = window.BildirimKurallari.duyuruHedefMi(DB, newBroadcast, senderDeviceId);
+    if (pushEnabled && senderIsTarget && typeof window.dispatchLocalNotification === 'function') {
         window.dispatchLocalNotification(
             title,
             msg,
@@ -16275,7 +16266,9 @@ Uygulaması açık olanlar bildirimi hemen görür. Uygulaması kapalı olup bil
     window.renderAdminBroadcastHistory();
 
     if (typeof showToast === 'function') {
-        showToast('🚀 Bildirim yayınlandı. Açık uygulamalara hemen, kapalı olanlara birkaç dakika içinde ulaşacak.', 'success');
+        showToast(ozet.ids
+            ? `🚀 Bildirim yalnızca ${ozet.ids.length} kişiye gönderildi: ${ozet.names.slice(0, 4).join(', ')}${ozet.names.length > 4 ? '…' : ''}`
+            : '🚀 Bildirim herkese yayınlandı.', 'success');
     }
 
     // Inputları sıfırla ve modalı kapat
@@ -16313,6 +16306,17 @@ window.deleteAdminBroadcast = async function (broadcastId) {
     }
 };
 
+/** Duyurunun kime gideceği: {ids|null(herkes), names, withDevice(telefonu kayıtlı kişi sayısı)} */
+window.broadcastTargetSummary = function (bc) {
+    const ids = window.BildirimKurallari.duyuruHedefleri(DB, bc);
+    if (ids === null) return { ids: null, names: [], withDevice: 0 };
+    const staff = DB.staff || [];
+    const names = ids.map(id => { const s = staff.find(x => String(x.id) === String(id)); return s ? s.name : `#${id}`; });
+    const subs = DB.pushAbonelikleri || {};
+    const withDevice = ids.filter(id => { const l = subs[id]; return Array.isArray(l) ? l.length > 0 : !!(l && Object.keys(l).length); }).length;
+    return { ids, names, withDevice };
+};
+
 window.renderAdminBroadcastHistory = function () {
     const list = document.getElementById('broadcast-history-list');
     const countSpan = document.getElementById('broadcast-history-count');
@@ -16326,13 +16330,15 @@ window.renderAdminBroadcastHistory = function () {
         return;
     }
 
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     list.innerHTML = broadcasts.map(bc => {
         const timeStr = new Date(bc.createdAt || bc.timestamp).toLocaleString('tr-TR');
+        const ozet = window.broadcastTargetSummary(bc);
         let targetText = '👥 Herkes';
-        if (bc.target === 'tomorrow_only') targetText = '📅 Sadece Yarın Sınavı Olanlar';
-        else if (bc.target && bc.target !== 'all') {
-            const staff = (DB.staff || []).find(s => String(s.id) === String(bc.target));
-            targetText = `🎯 ${staff ? staff.name : 'Belirli Kişi'}`;
+        if (ozet.ids) {
+            const onek = bc.target === 'tomorrow_only' ? '📅 Yarın sınavı olanlar: ' : '🎯 ';
+            const adlar = ozet.names.length > 3 ? `${ozet.names.slice(0, 3).join(', ')} +${ozet.names.length - 3}` : ozet.names.join(', ');
+            targetText = `<span title="${esc(ozet.names.join(', '))}">${onek}${esc(adlar || 'kimse')}</span>`;
         }
 
         const prioBadge = bc.priority === 'urgent' ? 
@@ -16343,11 +16349,11 @@ window.renderAdminBroadcastHistory = function () {
             <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:0.75rem 0.9rem; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
                 <div style="flex:1; min-width:0;">
                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap;">
-                        <span style="font-weight:800; font-size:0.86rem; color:#fff;">${bc.title}</span>
+                        <span style="font-weight:800; font-size:0.86rem; color:#fff;">${esc(bc.title)}</span>
                         ${prioBadge}
                         <span style="font-size:0.72rem; color:#94a3b8;">${targetText}</span>
                     </div>
-                    <div style="font-size:0.8rem; color:#cbd5e1; line-height:1.35; margin-bottom:4px;">${bc.message}</div>
+                    <div style="font-size:0.8rem; color:#cbd5e1; line-height:1.35; margin-bottom:4px;">${esc(bc.message)}</div>
                     <div style="font-size:0.68rem; color:var(--text-muted);">🕒 Gönderilme: ${timeStr}</div>
                 </div>
                 <button type="button" onclick="deleteAdminBroadcast('${bc.id}')" title="Bu bildirimi sil / yayından kaldır" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#f87171; border-radius:8px; padding:4px 8px; font-size:0.78rem; cursor:pointer;">
