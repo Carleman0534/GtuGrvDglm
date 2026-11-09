@@ -6364,3 +6364,36 @@ body.dark-theme .ffc-scope {
     .ffc-scope .ffc-tile-value { font-size: 1.2rem; }
     .ffc-scope .ffc-head-title h3 { font-size: 0.95rem; }
 }
+
+/* ===== MODAL BAŞLIĞI VE KAPATMA DÜĞMESİ =====
+   .modal-header / .close-modal için stil yoktu: telefonda × düğmesi başlığın altına düşüp
+   44px dokunma kuralıyla uzun beyaz bir şerit gibi görünüyordu. */
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.modal-header > h2, .modal-header > h3 { flex: 1 1 auto; min-width: 0; }
+.close-modal {
+    flex: 0 0 auto;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.14) !important;
+    color: var(--text-muted, #94a3b8) !important;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.close-modal:hover { background: rgba(239, 68, 68, 0.18) !important; color: #ef4444 !important; }
+@media (max-width: 768px) {
+    .close-modal { width: 40px !important; height: 40px !important; min-height: 40px !important; }
+}

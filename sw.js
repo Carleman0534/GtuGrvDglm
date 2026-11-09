@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gozetmenlik-ai-v53';
+const CACHE_NAME = 'gozetmenlik-ai-v54';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -77,17 +77,21 @@ self.addEventListener('notificationclick', event => {
     event.notification.close();
     const data = event.notification.data || {};
     const examId = data.examId;
+    // Süre teyidi penceresi YALNIZCA süre teyidi bildirimlerinde açılır.
+    // "Yarın göreviniz var", "3 gün sonra", "2 saat kaldı" hatırlatmaları da sınav kimliği taşır;
+    // eskiden bunlara dokununca da (sınav henüz yapılmadan) "Sınavınız tamamlandı" penceresi açılıyordu.
+    const isDurationAction = data.action === 'verify_duration' || data.action === 'input_duration';
     const step = data.step || (data.action === 'input_duration' ? 'input' : 'question');
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-            // Açık sekme varsa odaklan ve mesaj ilet
+            // Açık sekme varsa odaklan; süre teyidi bildirimiyse pencereyi açması için mesaj ilet
             for (let client of windowClients) {
-                if (client.url.includes('index.html') && 'focus' in client) {
-                    if (examId && 'postMessage' in client) {
+                if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
+                    if (isDurationAction && examId && 'postMessage' in client) {
                         client.postMessage({
                             type: 'NOTIFICATION_ACTION',
-                            action: data.action || 'verify_duration',
+                            action: data.action,
                             examId: examId,
                             step: step
                         });
@@ -96,7 +100,7 @@ self.addEventListener('notificationclick', event => {
                 }
             }
             // Açık sekme yoksa hedef url ile aç
-            const targetUrl = examId
+            const targetUrl = (isDurationAction && examId)
                 ? `./index.html?verifyDurationExamId=${encodeURIComponent(examId)}&step=${encodeURIComponent(step)}`
                 : (data.url || './index.html');
             if (clients.openWindow) {

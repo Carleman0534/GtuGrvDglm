@@ -1012,7 +1012,10 @@
         // Service Worker Bildirim Tıklama Dinleyicisi
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.addEventListener('message', event => {
-                if (event.data && (event.data.type === 'NOTIFICATION_ACTION' || event.data.action === 'verify_duration' || event.data.action === 'input_duration')) {
+                // Yalnızca süre teyidi bildirimleri pencereyi açar (eski service worker hatırlatmalarda da
+                // NOTIFICATION_ACTION gönderiyordu; action alanı yoksa yok sayılır)
+                if (event.data && event.data.type === 'NOTIFICATION_ACTION' &&
+                    (event.data.action === 'verify_duration' || event.data.action === 'input_duration')) {
                     const examId = event.data.examId;
                     const step = event.data.step || (event.data.action === 'input_duration' ? 'input' : 'question');
                     if (examId && typeof window.openLecturerDurationPromptModal === 'function') {

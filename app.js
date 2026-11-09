@@ -9369,6 +9369,21 @@ window.openLecturerDurationPromptModal = function(examId, step = 'question') {
             return;
         }
 
+        // Sınav henüz bitmediyse "Sınavınız tamamlandı" penceresi açılmaz
+        // (eski sürüm bildirimlerinde "Yarın göreviniz var" hatırlatmasına dokununca da açılıyordu)
+        const exStart = getSafeDate(ex.date, ex.time);
+        const exEnd = exStart.getTime() + (parseInt(ex.duration, 10) || 60) * 60000;
+        if (!isNaN(exEnd) && Date.now() < exEnd) {
+            const startsIn = exStart.getTime() - Date.now();
+            const when = startsIn > 0
+                ? `${ex.date.split('-').reverse().join('.')} ${ex.time}`
+                : 'şu an devam ediyor';
+            if (typeof showToast === 'function') {
+                showToast(`📅 ${ex.name} — ${when}. Süre onayı sınav bittikten sonra istenecek.`, 'info');
+            }
+            return;
+        }
+
         const modal = document.getElementById('modal-lecturer-duration-prompt');
         const idInput = document.getElementById('ldp-exam-id');
         const durText = document.getElementById('ldp-current-duration-text');
