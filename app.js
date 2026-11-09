@@ -7507,12 +7507,13 @@ window.renderProfile = function() {
         }
 
         // Gelen Takas Tekliflerini Göster
-        const incomingSwaps = (DB.requests || []).filter(r => 
+        const incomingSwaps = (DB.requests || []).filter(r =>
+            !(String(r.type || '').startsWith('p2p_fairness') && typeof fairnessProposalExpired === 'function' && fairnessProposalExpired(r, DB)) && (
             (r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id)) ||
             (r.type === 'smart_swap' && r.status === 'pending' && String(r.receiverId) === String(staff.id)) ||
             (r.type === 'p2p_fairness_swap' && (r.status === 'pending_peers' || r.status === 'pending_other') && 
                 ((String(r.toStaffId) === String(staff.id) && !r.toApproved) || (String(r.fromStaffId) === String(staff.id) && !r.fromApproved))) ||
-            (r.type === 'p2p_fairness_transfer' && r.status === 'pending_receiver' && String(r.toStaffId) === String(staff.id) && !r.toApproved)
+            (r.type === 'p2p_fairness_transfer' && r.status === 'pending_receiver' && String(r.toStaffId) === String(staff.id) && !r.toApproved))
         );
 
         const swapNotice = document.getElementById('profile-swap-proposals');
@@ -17573,16 +17574,10 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
         return;
     }
 
-    // 1. Geri dönüş için Snapshot al
-    if (typeof createSimulationSnapshot === 'function') {
-        createSimulationSnapshot({
-            mode: window._currentFairnessMode || 'exam',
-            stepCount: actionsToApply.length
-        });
-        if (typeof window.checkFairnessUndoSnapshot === 'function') {
-            window.checkFairnessUndoSnapshot();
-        }
-    }
+    // 1. Geri dönüş için görevli durumunu sakla (uygulamadan sonra değişenler işaretlenir)
+    const undoSnapshot = (typeof createSimulationSnapshot === 'function')
+        ? createSimulationSnapshot({ mode: window._currentFairnessMode || 'exam', stepCount: actionsToApply.length })
+        : null;
     if (typeof saveAutoSnapshot === 'function') {
         const snapTitle = isBulk 
             ? `Toplu Adalet Dengelemesi (${actionsToApply.length} Adım)` 
@@ -17599,41 +17594,11 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
     const getPids = (ex) => (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) ? ex.proctorIds : (ex.proctorId ? [ex.proctorId] : []);
     const hasProctor = (ex, sid) => getPids(ex).map(String).includes(String(sid));
 
-    // Alıcı gözetmen için müsaitlik + 15 dk tamponlu çakışma kontrolü (güncel DB üzerinde)
-    const canReceive = (staffId, exam, ignoreExamId, leavingId) => {
-        const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
-        if (!staff || hasProctor(exam, staffId)) return false;
-        if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) return false;
-        if (window.AtamaDestek && !window.AtamaDestek.uygunMu(staff, exam, { ayrilan: leavingId != null ? [leavingId] : [], haric: ignoreExamId != null ? [ignoreExamId] : [] })) return false;
-        const start = getSafeDate(exam.date, exam.time);
-        const end = new Date(start.getTime() + ((parseInt(exam.duration, 10) || 60) + 15) * 60000);
-        return !(DB.exams || []).some(o => {
-            if (String(o.id) === String(exam.id) || (ignoreExamId && String(o.id) === String(ignoreExamId))) return false;
-            if (o.date !== exam.date || !hasProctor(o, staffId)) return false;
-            const os = getSafeDate(o.date, o.time);
-            const oe = new Date(os.getTime() + ((parseInt(o.duration, 10) || 60) + 15) * 60000);
-            return start < oe && end > os;
-        });
-    };
+    // Alıcı gözetmen için müsaitlik, atama kuralları ve 15 dk tamponlu çakışma kontrolü (ortak: logic.js)
+    const canReceive = (staffId, exam, ignoreExamId, leavingId) => fairnessCanReceive(DB, staffId, exam, ignoreExamId, leavingId);
 
-    const moveProctor = (ex, fromStaff, toStaff) => {
-        if (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) {
-            ex.proctorIds = ex.proctorIds.map(pid => String(pid) === String(fromStaff.id) ? toStaff.id : pid);
-        } else {
-            ex.proctorIds = [toStaff.id];
-        }
-        // Birincil gözetmen yalnızca devreden kişiyse (veya tanımsızsa) değişir;
-        // çok gözetmenli sınavlarda diğer gözetmenin adı ezilmez.
-        if (!ex.proctorId || String(ex.proctorId) === String(fromStaff.id)) {
-            ex.proctorId = toStaff.id;
-        }
-        // Görünen ad: çok gözetmenli sınavlarda tüm gözetmenlerin birleşik listesi
-        const names = ex.proctorIds
-            .map(pid => (DB.staff || []).find(s => String(s.id) === String(pid)))
-            .filter(Boolean)
-            .map(s => s.name);
-        ex.proctorName = names.length > 0 ? names.join(', ') : toStaff.name;
-    };
+    // Görev devri: liste, birincil gözetmen, görünen ad ve derslik/süre alanları birlikte taşınır (ortak: logic.js)
+    const moveProctor = (ex, fromStaff, toStaff) => moveExamProctor(DB, ex, fromStaff.id, toStaff.id);
 
     const applied = [];
     const skipped = [];
@@ -17675,6 +17640,12 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
         window.renderFairnessMetricsUI();
         window.runFairnessRebalanceSimulation();
         return;
+    }
+
+    // Geri al: yalnızca bu adımların değiştirdiği sınavlar işaretlenir
+    if (undoSnapshot && typeof markSimulationApplied === 'function') {
+        markSimulationApplied(undoSnapshot, { stepCount: applied.length });
+        if (typeof window.checkFairnessUndoSnapshot === 'function') window.checkFairnessUndoSnapshot();
     }
 
     if (logger && applied.length > 1) {
@@ -17837,7 +17808,7 @@ window.checkFairnessUndoSnapshot = function() {
         } catch(e) {}
     }
 
-    if (snap && Array.isArray(snap.exams)) {
+    if (snap && snap.after && Object.keys(snap.after).length > 0) {
         undoCont.classList.remove('hidden');
         if (undoText) {
             const timeStr = snap.timestamp ? new Date(snap.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -17849,7 +17820,7 @@ window.checkFairnessUndoSnapshot = function() {
 };
 
 window.rollbackFairnessSimulationUI = async function() {
-    if (!confirm("⚠️ Son uygulanan simülasyon adımları geri alınacak ve sınav görevleri önceki sahiplerine iade edilecektir.\n\nOnaylıyor musunuz?")) {
+    if (!confirm("⚠️ Son uygulanan simülasyon adımları geri alınacak ve bu adımlarda el değiştiren görevler önceki sahiplerine iade edilecektir.\n\nSüre girişleri, yeni sınavlar ve diğer düzenlemeler korunur. Simülasyondan sonra yeniden değiştirilmiş sınavlar atlanır.\n\nOnaylıyor musunuz?")) {
         return;
     }
 
@@ -17870,7 +17841,7 @@ window.rollbackFairnessSimulationUI = async function() {
     }
 
     if (typeof logAction === 'function') {
-        logAction('admin', 'Simülasyon Geri Alma', `Son uygulanan ${res.restoredSteps || ''} simülasyon adımı geri alındı, veriler önceki haline döndürüldü.`);
+        logAction('admin', 'Simülasyon Geri Alma', `Son simülasyon geri alındı: ${res.restoredExams.length} sınavın görevlisi önceki haline döndü.${res.skippedExams.length ? ` Sonradan değiştiği için atlanan: ${res.skippedExams.join(', ')}` : ''}`);
     }
 
     if (typeof renderExams === 'function') renderExams();
@@ -17882,7 +17853,7 @@ window.rollbackFairnessSimulationUI = async function() {
     window.checkFairnessUndoSnapshot();
 
     if (typeof showToast === 'function') {
-        showToast("↩️ Simülasyon adımları başarıyla geri alındı!", "info");
+        showToast(`↩️ ${res.restoredExams.length} sınavın görevlisi önceki haline döndü.${res.skippedExams.length ? ` ⚠️ Sonradan değiştiği için atlanan: ${res.skippedExams.join(', ')}` : ''}`, res.skippedExams.length ? "warning" : "info");
     } else {
         alert("Simülasyon adımları geri alındı.");
     }
@@ -18178,16 +18149,41 @@ window.publishAllFairnessProposalsToStaff = function() {
     }
 };
 
+/**
+ * Takas teklifini yalnızca teklifin muhatabı kendi cihazından onaylayabilir/reddedebilir.
+ * Yönetici başkasının profiline bakarken ya da başka birinin adı seçiliyken onay verilemez.
+ */
+window.canActOnFairnessProposal = function(staffId) {
+    const device = (typeof getDeviceStaffId === 'function') ? getDeviceStaffId() : null;
+    if (device && String(device) === String(staffId)) return true;
+    const staff = (DB.staff || []).find(s => String(s.id) === String(staffId));
+    alert(`Bu teklifi yalnızca ${staff ? staff.name : 'teklifin sahibi'} kendi cihazından onaylayabilir veya reddedebilir.`);
+    return false;
+};
+
 window.acceptP2PFairnessSwap = async function(proposalId, staffId) {
     if (typeof acceptFairnessProposal !== 'function') {
         alert("Takas kabul fonksiyonu yüklenemedi.");
         return;
     }
 
+    if (!window.canActOnFairnessProposal(staffId)) return;
+
     const res = acceptFairnessProposal(proposalId, staffId);
     if (!res || !res.success) {
         alert(res && res.error ? res.error : "İşlem yapılamadı.");
+        // Süresi dolan / geçersizleşen teklif kapatıldıysa bunu da kaydet
+        saveToLocalStorage();
+        if (typeof saveToBackend === 'function') { try { await saveToBackend(); } catch (e) {} }
+        if (typeof renderProfile === 'function') renderProfile();
         return;
+    }
+    if (typeof logAction === 'function') {
+        const p = (DB.requests || []).find(r => String(r.id) === String(proposalId));
+        if (p) logAction('user', res.status === 'completed' ? 'Adalet Takası Tamamlandı' : 'Adalet Takası Onayı',
+            res.status === 'completed'
+                ? `${p.fromStaffName}: ${p.fromExamName}${p.toExamName ? ` ⇄ ${p.toStaffName}: ${p.toExamName}` : ` → ${p.toStaffName}`} (iki taraf onayladı)`
+                : `${p.fromExamName}${p.toExamName ? ` ⇄ ${p.toExamName}` : ''} teklifine onay verildi, karşı taraf bekleniyor.`);
     }
 
     saveToLocalStorage();
@@ -18212,6 +18208,8 @@ window.rejectP2PFairnessSwap = async function(proposalId, staffId) {
         alert("Takas red fonksiyonu yüklenemedi.");
         return;
     }
+
+    if (!window.canActOnFairnessProposal(staffId)) return;
 
     const res = rejectFairnessProposal(proposalId, staffId);
     if (!res || !res.success) {

@@ -4667,49 +4667,131 @@ function createFairnessSwapProposal(action, metadata = {}) {
     return proposal;
 }
 
+// ---------------------------------------------------------------- Görev el değiştirme ortak yardımcıları
+function _fairnessDB() {
+    if (typeof window !== 'undefined' && window.DB) return window.DB;
+    if (typeof DB !== 'undefined') return DB;
+    if (typeof global !== 'undefined' && global.DB) return global.DB;
+    return null;
+}
+function _examPids(ex) {
+    return (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) ? ex.proctorIds : (ex.proctorId ? [ex.proctorId] : []);
+}
+function _examHasProctor(ex, sid) { return _examPids(ex).map(String).includes(String(sid)); }
+
 /**
- * 🤝 P2P Takas Pazarı: Asistan teklifi onayladığında karşılıklı durumu denetler, iki taraf da onaylayınca takası yürütür
+ * Bir gözetmen bu sınavı (güncel takvime göre) üstlenebilir mi?
+ * Zaten görevli olmamalı, kısıtı olmamalı, ek atama kurallarına uymalı ve
+ * aynı gün 15 dk tamponla çakışan başka görevi olmamalı.
+ * ignoreExamId: takasta kişinin bırakacağı sınav; leavingId: bu sınavı bırakan kişi.
+ */
+function fairnessCanReceive(dbObj, staffId, exam, ignoreExamId = null, leavingId = null) {
+    const staff = (dbObj.staff || []).find(s => s && String(s.id) === String(staffId));
+    if (!staff || !exam || _examHasProctor(exam, staffId)) return false;
+    if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) return false;
+    if (typeof window !== 'undefined' && window.AtamaDestek &&
+        !window.AtamaDestek.uygunMu(staff, exam, { exams: dbObj.exams, ayrilan: leavingId != null ? [leavingId] : [], haric: ignoreExamId != null ? [ignoreExamId] : [] })) return false;
+    const start = getSafeDate(exam.date, exam.time);
+    const end = new Date(start.getTime() + ((parseInt(exam.duration, 10) || 60) + 15) * 60000);
+    return !(dbObj.exams || []).some(o => {
+        if (!o || String(o.id) === String(exam.id) || (ignoreExamId != null && String(o.id) === String(ignoreExamId))) return false;
+        if (o.date !== exam.date || !_examHasProctor(o, staffId)) return false;
+        const os = getSafeDate(o.date, o.time);
+        const oe = new Date(os.getTime() + ((parseInt(o.duration, 10) || 60) + 15) * 60000);
+        return start < oe && end > os;
+    });
+}
+
+/**
+ * Gözetmene bağlı düz alanları (derslik eşleştirmesi, kişisel süre kaydı) görevi devralana taşır.
+ * Devreden kişinin alanları null yapılır (alan bazlı birleştirmede silinme olarak yayılır).
+ */
+function moveProctorPersonalFields(ex, fromId, toId) {
+    const room = ex['gozetmenDersligi_' + fromId];
+    if (room) ex['gozetmenDersligi_' + toId] = room;
+    if (ex['gozetmenDersligi_' + fromId] !== undefined) ex['gozetmenDersligi_' + fromId] = null;
+    // Süre kaydı kişiseldir; devralan kişi kendi süresini girer
+    if (ex['gozetmenSuresi_' + fromId] !== undefined) ex['gozetmenSuresi_' + fromId] = null;
+}
+
+/** Görevi fromId'den toId'ye taşır (liste, birincil gözetmen, görünen ad ve kişisel alanlar) */
+function moveExamProctor(dbObj, ex, fromId, toId) {
+    const fromStr = String(fromId);
+    // Kimlik, personel kaydındaki türüyle yazılır (sayı/metin karışmasın)
+    const toStaff = (dbObj.staff || []).find(s => s && String(s.id) === String(toId));
+    const toVal = toStaff ? toStaff.id : toId;
+    if (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) {
+        ex.proctorIds = ex.proctorIds.map(p => (String(p) === fromStr ? toVal : p));
+    } else {
+        ex.proctorIds = [toVal];
+    }
+    if (!ex.proctorId || String(ex.proctorId) === fromStr) ex.proctorId = toVal;
+    const names = ex.proctorIds
+        .map(pid => (dbObj.staff || []).find(s => s && String(s.id) === String(pid)))
+        .filter(Boolean).map(s => s.name);
+    if (names.length) ex.proctorName = names.join(', ');
+    moveProctorPersonalFields(ex, fromId, toId);
+}
+
+/** Teklifteki sınavlardan biri başladıysa / geçtiyse teklif süresi dolmuştur */
+function fairnessProposalExpired(prop, dbObj, nowMs) {
+    dbObj = dbObj || _fairnessDB();
+    const now = nowMs || Date.now();
+    const ids = [prop.fromExamId, prop.toExamId].filter(x => x !== null && x !== undefined);
+    return ids.some(id => {
+        const ex = ((dbObj && dbObj.exams) || []).find(e => String(e.id) === String(id));
+        return !ex || getSafeDate(ex.date, ex.time).getTime() <= now;
+    });
+}
+
+/**
+ * 🤝 P2P Takas Pazarı: Asistan teklifi onayladığında karşılıklı durumu denetler, iki taraf da onaylayınca takası yürütür.
+ * Takas, onay anındaki GÜNCEL takvime göre yeniden doğrulanır (teklif günlerce beklemiş olabilir).
  */
 function acceptFairnessProposal(proposalId, staffId) {
-    let dbObj = null;
-    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
-    else if (typeof DB !== 'undefined') dbObj = DB;
-    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
-
+    const dbObj = _fairnessDB();
     if (!dbObj || !Array.isArray(dbObj.requests)) return { success: false, error: 'Veritabanı veya talep bulunamadı.' };
 
     const prop = dbObj.requests.find(r => String(r.id) === String(proposalId));
     if (!prop) return { success: false, error: 'Talep bulunamadı.' };
     if (prop.status === 'completed') return { success: false, error: 'Bu takas zaten uygulanmış.' };
     if (prop.status === 'rejected') return { success: false, error: 'Bu talep reddedilmiş.' };
+    if (prop.status === 'expired' || prop.status === 'invalid') return { success: false, error: 'Bu teklif artık geçerli değil.' };
 
     const sid = String(staffId);
+    if (String(prop.fromStaffId) !== sid && String(prop.toStaffId) !== sid) {
+        return { success: false, error: 'Bu teklif size ait değil.' };
+    }
+
+    if (fairnessProposalExpired(prop, dbObj)) {
+        prop.status = 'expired';
+        prop.closedAt = new Date().toISOString();
+        return { success: false, error: 'Sınav başladığı veya kaldırıldığı için bu teklifin süresi doldu.' };
+    }
+
     if (String(prop.fromStaffId) === sid) prop.fromApproved = true;
     if (String(prop.toStaffId) === sid) prop.toApproved = true;
 
     const isReady = (prop.type === 'p2p_fairness_transfer' && prop.toApproved) || (prop.fromApproved && prop.toApproved);
 
     if (isReady) {
-        const moveProctor = (examId, fromId, toId) => {
-            const ex = dbObj.exams.find(e => String(e.id) === String(examId));
-            if (!ex) return false;
-            const fromStr = String(fromId);
-            const toNum = Number(toId) || toId;
-            if (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) {
-                ex.proctorIds = ex.proctorIds.map(p => (String(p) === fromStr ? toNum : p));
-            }
-            if (String(ex.proctorId) === fromStr) {
-                ex.proctorId = toNum;
-            }
-            return true;
-        };
+        const exFrom = (dbObj.exams || []).find(e => String(e.id) === String(prop.fromExamId));
+        const exTo = prop.type === 'p2p_fairness_swap' ? (dbObj.exams || []).find(e => String(e.id) === String(prop.toExamId)) : null;
+        let reason = null;
+        if (!exFrom || !_examHasProctor(exFrom, prop.fromStaffId)) reason = `${prop.fromExamName || 'Sınav'} görevi artık ${prop.fromStaffName || 'teklif sahibinde'} değil.`;
+        else if (prop.type === 'p2p_fairness_swap' && (!exTo || !_examHasProctor(exTo, prop.toStaffId))) reason = `${prop.toExamName || 'Sınav'} görevi artık ${prop.toStaffName || 'karşı tarafta'} değil.`;
+        else if (!fairnessCanReceive(dbObj, prop.toStaffId, exFrom, exTo ? exTo.id : null, prop.fromStaffId)) reason = `${prop.toStaffName || 'Alıcı'} bu sınavı artık alamıyor (çakışma, kısıt veya atama kuralı).`;
+        else if (exTo && !fairnessCanReceive(dbObj, prop.fromStaffId, exTo, exFrom.id, prop.toStaffId)) reason = `${prop.fromStaffName || 'Teklif sahibi'} karşı sınavı artık alamıyor (çakışma, kısıt veya atama kuralı).`;
 
-        if (prop.type === 'p2p_fairness_transfer') {
-            moveProctor(prop.fromExamId, prop.fromStaffId, prop.toStaffId);
-        } else {
-            moveProctor(prop.fromExamId, prop.fromStaffId, prop.toStaffId);
-            moveProctor(prop.toExamId, prop.toStaffId, prop.fromStaffId);
+        if (reason) {
+            prop.status = 'invalid';
+            prop.invalidReason = reason;
+            prop.closedAt = new Date().toISOString();
+            return { success: false, error: `Takas uygulanamadı: ${reason} Teklif kapatıldı.` };
         }
+
+        moveExamProctor(dbObj, exFrom, prop.fromStaffId, prop.toStaffId);
+        if (exTo) moveExamProctor(dbObj, exTo, prop.toStaffId, prop.fromStaffId);
 
         prop.status = 'completed';
         prop.completedAt = new Date().toISOString();
@@ -4748,56 +4830,89 @@ function rejectFairnessProposal(proposalId, staffId, reason = '') {
 /**
  * ↩️ Karar Güvencesi: Simülasyon uygulanmadan hemen önce anlık yedek (snapshot) oluşturur
  */
-function createSimulationSnapshot(meta = {}) {
-    let dbObj = null;
-    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
-    else if (typeof DB !== 'undefined') dbObj = DB;
-    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+/**
+ * Bir sınavın görevli durumu: yalnızca gözetmen listesi, birincil gözetmen, görünen ad ve
+ * gözetmene bağlı derslik/süre alanları. Geri alma yalnızca bunlara dokunur.
+ */
+function _proctorState(ex) {
+    const st = { proctorIds: Array.isArray(ex.proctorIds) ? ex.proctorIds.slice() : [], proctorId: ex.proctorId == null ? null : ex.proctorId, proctorName: ex.proctorName == null ? null : ex.proctorName, alanlar: {} };
+    Object.keys(ex).forEach(k => {
+        if ((k.startsWith('gozetmenDersligi_') || k.startsWith('gozetmenSuresi_')) && ex[k] != null) st.alanlar[k] = JSON.parse(JSON.stringify(ex[k]));
+    });
+    return st;
+}
+function _sameProctorState(a, b) {
+    const norm = (s) => JSON.stringify({ p: (s.proctorIds || []).map(String), b: s.proctorId == null ? null : String(s.proctorId), a: Object.keys(s.alanlar || {}).sort().map(k => [k, s.alanlar[k]]) });
+    return norm(a) === norm(b);
+}
+function _storeSnapshot(snapshot) {
+    if (typeof window === 'undefined') return;
+    try {
+        window._lastFairnessSnapshot = snapshot;
+        if (window.localStorage) window.localStorage.setItem('fairness_last_snapshot', JSON.stringify(snapshot));
+    } catch (e) {
+        console.warn("Snapshot localStorage'a yazılamadı:", e);
+    }
+}
 
+/**
+ * ↩️ Karar Güvencesi: Simülasyon uygulanmadan hemen önce sınavların görevli durumunu saklar.
+ * Uygulamadan sonra markSimulationApplied(snapshot) çağrılır; geri alma yalnızca o adımların
+ * değiştirdiği sınavları ve yalnızca o andan beri başka değişiklik olmadıysa geri çevirir.
+ */
+function createSimulationSnapshot(meta = {}) {
+    const dbObj = _fairnessDB();
     if (!dbObj) return null;
+
+    const before = {};
+    (dbObj.exams || []).forEach(ex => { if (ex && ex.id != null) before[String(ex.id)] = _proctorState(ex); });
 
     const snapshot = {
         id: 'snap_' + Date.now(),
         timestamp: new Date().toISOString(),
         mode: meta.mode || 'exam',
         stepCount: meta.stepCount || 0,
-        exams: JSON.parse(JSON.stringify(dbObj.exams || [])),
-        staff: JSON.parse(JSON.stringify(dbObj.staff || []))
+        before,
+        after: null
     };
-
-    if (typeof window !== 'undefined') {
-        try {
-            window._lastFairnessSnapshot = snapshot;
-            if (window.localStorage) {
-                window.localStorage.setItem('fairness_last_snapshot', JSON.stringify({
-                    id: snapshot.id,
-                    timestamp: snapshot.timestamp,
-                    mode: snapshot.mode,
-                    stepCount: snapshot.stepCount,
-                    exams: snapshot.exams,
-                    staff: snapshot.staff
-                }));
-            }
-        } catch (e) {
-            console.warn("Snapshot localStorage'a yazılamadı:", e);
-        }
-    }
-
+    // Henüz saklanmaz: hiçbir adım uygulanamazsa önceki geri alma kaydı ezilmesin (markSimulationApplied saklar)
     return snapshot;
 }
 
+/** Simülasyon adımları uygulandıktan sonra: değişen sınavların yeni durumunu kaydeder */
+function markSimulationApplied(snapshotObj, meta = {}) {
+    const dbObj = _fairnessDB();
+    const snap = snapshotObj || (typeof window !== 'undefined' ? window._lastFairnessSnapshot : null);
+    if (!dbObj || !snap || !snap.before) return null;
+    const after = {};
+    const before = {};
+    (dbObj.exams || []).forEach(ex => {
+        if (!ex || ex.id == null) return;
+        const key = String(ex.id);
+        const prev = snap.before[key];
+        const cur = _proctorState(ex);
+        if (prev && !_sameProctorState(prev, cur)) { after[key] = cur; before[key] = prev; }
+    });
+    // Yalnızca değişen sınavlar saklanır (yerel depolama şişmesin)
+    snap.before = before;
+    snap.after = after;
+    if (meta.stepCount != null) snap.stepCount = meta.stepCount;
+    _storeSnapshot(snap);
+    return snap;
+}
+
 /**
- * ↩️ Karar Güvencesi: Son uygulanan simülasyonu tek tıkla geri alır
+ * ↩️ Karar Güvencesi: Son uygulanan simülasyonu geri alır.
+ * Yalnızca simülasyonun değiştirdiği sınavların görevli bilgisi eski haline döner; süre girişleri,
+ * yeni eklenen sınavlar ve sonradan yapılan diğer düzenlemeler korunur. Simülasyondan sonra
+ * başka biri tarafından yeniden değiştirilmiş sınavlar atlanır ve raporlanır.
  */
 function rollbackSimulationSnapshot(snapshotObj) {
-    let dbObj = null;
-    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
-    else if (typeof DB !== 'undefined') dbObj = DB;
-    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
-
+    const dbObj = _fairnessDB();
     if (!dbObj) return { success: false, error: 'Veritabanı nesnesi bulunamadı.' };
 
     let snap = snapshotObj;
+    if (!snap && typeof window !== 'undefined') snap = window._lastFairnessSnapshot || null;
     if (!snap && typeof window !== 'undefined' && window.localStorage) {
         try {
             const raw = window.localStorage.getItem('fairness_last_snapshot');
@@ -4805,14 +4920,27 @@ function rollbackSimulationSnapshot(snapshotObj) {
         } catch (e) {}
     }
 
-    if (!snap || !Array.isArray(snap.exams)) {
-        return { success: false, error: 'Geri yüklenecek geçerli bir anlık görüntü (snapshot) bulunamadı.' };
+    if (!snap || !snap.before || !snap.after) {
+        return { success: false, error: 'Geri alınacak simülasyon kaydı bulunamadı.' };
     }
 
-    dbObj.exams = JSON.parse(JSON.stringify(snap.exams));
-    if (Array.isArray(snap.staff) && snap.staff.length > 0) {
-        dbObj.staff = JSON.parse(JSON.stringify(snap.staff));
-    }
+    const restored = [];
+    const skipped = [];
+    Object.keys(snap.after).forEach(id => {
+        const ex = (dbObj.exams || []).find(e => e && String(e.id) === id);
+        const prev = snap.before[id];
+        if (!ex || !prev) { skipped.push(ex ? ex.name : `#${id}`); return; }
+        if (!_sameProctorState(_proctorState(ex), snap.after[id])) { skipped.push(ex.name || `#${id}`); return; }
+        ex.proctorIds = prev.proctorIds.slice();
+        ex.proctorId = prev.proctorId;
+        if (prev.proctorName != null) ex.proctorName = prev.proctorName;
+        // Gözetmen alanları: önceki değerler geri yazılır, sonradan eklenenler silinir (null)
+        Object.keys(ex).forEach(k => {
+            if ((k.startsWith('gozetmenDersligi_') || k.startsWith('gozetmenSuresi_')) && !(k in prev.alanlar) && ex[k] != null) ex[k] = null;
+        });
+        Object.keys(prev.alanlar).forEach(k => { ex[k] = JSON.parse(JSON.stringify(prev.alanlar[k])); });
+        restored.push(ex.name || `#${id}`);
+    });
 
     if (typeof recalculateAllScores === 'function') {
         recalculateAllScores();
@@ -4825,7 +4953,7 @@ function rollbackSimulationSnapshot(snapshotObj) {
         } catch (e) {}
     }
 
-    return { success: true, restoredSteps: snap.stepCount, timestamp: snap.timestamp };
+    return { success: true, restoredSteps: snap.stepCount, restoredExams: restored, skippedExams: skipped, timestamp: snap.timestamp };
 }
 
 if (_targetGlobal) {
@@ -4838,6 +4966,11 @@ if (_targetGlobal) {
     _targetGlobal.acceptFairnessProposal = acceptFairnessProposal;
     _targetGlobal.rejectFairnessProposal = rejectFairnessProposal;
     _targetGlobal.createSimulationSnapshot = createSimulationSnapshot;
+    _targetGlobal.markSimulationApplied = markSimulationApplied;
     _targetGlobal.rollbackSimulationSnapshot = rollbackSimulationSnapshot;
+    _targetGlobal.fairnessCanReceive = fairnessCanReceive;
+    _targetGlobal.moveExamProctor = moveExamProctor;
+    _targetGlobal.moveProctorPersonalFields = moveProctorPersonalFields;
+    _targetGlobal.fairnessProposalExpired = fairnessProposalExpired;
 }
 

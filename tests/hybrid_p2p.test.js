@@ -118,22 +118,103 @@ test('rejectFairnessProposal: teklif reddedildiğinde sınavlar değişmez', () 
 });
 
 // ---------------------------------------------------------------- Karar Güvencesi: Snapshot & Rollback
-test('createSimulationSnapshot & rollbackSimulationSnapshot: simülasyon tek tıkla geri alınır', () => {
-    const app = freshApp();
-    const originalExamCount = app.run('DB.exams.length');
-    const firstExamBefore = app.run('DB.exams[0]');
+test('Geri al: yalnızca simülasyonun değiştirdiği görevler döner; sonradan girilen süreler ve yeni sınavlar korunur', () => {
+    const app = freshApp(fx => {
+        fx.exams.push({ id: 801, name: 'Sim A', date: '2026-12-10', time: '10:00', duration: 90, location: 'Derslik 1 / Derslik 3', proctorIds: [1, 2], proctorId: 1, gozetmenDersligi_1: 'Derslik 1', gozetmenDersligi_2: 'Derslik 3' });
+        fx.exams.push({ id: 802, name: 'Sim B', date: '2026-12-11', time: '10:00', duration: 90, proctorIds: [4], proctorId: 4 });
+    });
+    const examCount = app.run('DB.exams.length');
 
-    // Snapshot al
-    const snap = app.run("createSimulationSnapshot({ mode: 'exam', stepCount: 5 })");
-    assert.ok(snap && snap.id);
+    // Simülasyon: 801'de 1 → 3 devri
+    app.raw(`window.__snap = createSimulationSnapshot({ mode: 'exam', stepCount: 1 });
+             moveExamProctor(DB, DB.exams.find(e => e.id === 801), 1, 3);
+             markSimulationApplied(window.__snap, { stepCount: 1 });`);
+    assert.equal(app.run('DB.exams.find(e => e.id === 801).gozetmenDersligi_3'), 'Derslik 1', 'derslik yeni gözetmene geçer');
+    assert.equal(app.run('DB.exams.find(e => e.id === 801).gozetmenDersligi_1'), null);
 
-    // Takvimi değiştir (ör. gözetmenini 999 yap veya bir sınav sil)
-    app.raw('DB.exams[0].proctorId = 9999; DB.exams.pop(); recalculateAllScores();');
-    assert.notEqual(app.run('DB.exams.length'), originalExamCount);
+    // Simülasyondan sonra: başka sınava süre girildi, yeni sınav eklendi
+    app.raw(`DB.exams.find(e => e.id === 802).gozetmenSuresi_4 = { sure: 75, onaylayan: 'G4' };
+             DB.exams.push({ id: 803, name: 'Yeni', date: '2026-12-12', time: '10:00', duration: 60, proctorIds: [5] });`);
 
-    // Geri al
-    const roll = app.run(`rollbackSimulationSnapshot(${JSON.stringify(snap)})`);
+    const roll = app.run('rollbackSimulationSnapshot()');
     assert.equal(roll.success, true);
-    assert.equal(app.run('DB.exams.length'), originalExamCount, 'Sınav sayısı geri gelmeli');
-    assert.equal(app.run('DB.exams[0].proctorId'), firstExamBefore.proctorId, 'İlk sınav gözetmeni orijinal haline dönmeli');
+    assert.deepEqual(roll.restoredExams, ['Sim A']);
+    const a = app.run('DB.exams.find(e => e.id === 801)');
+    assert.deepEqual(a.proctorIds.map(String), ['1', '2']);
+    assert.equal(a.gozetmenDersligi_1, 'Derslik 1');
+    assert.equal(a.gozetmenDersligi_3, null);
+    assert.equal(app.run('DB.exams.find(e => e.id === 802).gozetmenSuresi_4.sure'), 75, 'sonradan girilen süre korunur');
+    assert.equal(app.run('DB.exams.length'), examCount + 1, 'yeni eklenen sınav silinmez');
+});
+
+test('Geri al: simülasyondan sonra yeniden değiştirilmiş sınav atlanır', () => {
+    const app = freshApp(fx => {
+        fx.exams.push({ id: 811, name: 'Sim C', date: '2026-12-10', time: '10:00', duration: 90, proctorIds: [1], proctorId: 1 });
+    });
+    app.raw(`window.__snap = createSimulationSnapshot({});
+             moveExamProctor(DB, DB.exams.find(e => e.id === 811), 1, 2);
+             markSimulationApplied(window.__snap, { stepCount: 1 });
+             moveExamProctor(DB, DB.exams.find(e => e.id === 811), 2, 5);`); // başka yönetici sonradan değiştirdi
+    const roll = app.run('rollbackSimulationSnapshot()');
+    assert.deepEqual(roll.skippedExams, ['Sim C']);
+    assert.deepEqual(app.run('DB.exams.find(e => e.id === 811).proctorIds').map(String), ['5'], 'sonraki değişiklik ezilmez');
+});
+
+test('Geri al: hiçbir adım uygulanmadıysa önceki geri alma kaydı korunur', () => {
+    const app = freshApp(fx => { fx.exams.push({ id: 821, name: 'Sim D', date: '2026-12-10', time: '10:00', duration: 90, proctorIds: [1], proctorId: 1 }); });
+    app.raw(`const s = createSimulationSnapshot({}); moveExamProctor(DB, DB.exams.find(e => e.id === 821), 1, 2); markSimulationApplied(s, { stepCount: 1 });
+             createSimulationSnapshot({});`); // ikinci simülasyon hiçbir adım uygulayamadı
+    const roll = app.run('rollbackSimulationSnapshot()');
+    assert.deepEqual(roll.restoredExams, ['Sim D']);
+});
+
+// ---------------------------------------------------------------- Onay anında yeniden doğrulama
+function p2pApp(extra) {
+    return freshApp(fx => {
+        fx.exams.push({ id: 901, name: 'Takas A', date: '2026-12-10', time: '10:00', duration: 90, proctorIds: [1], proctorId: 1, location: 'Derslik 1 / Derslik 3', gozetmenDersligi_1: 'Derslik 3' });
+        fx.exams.push({ id: 902, name: 'Takas B', date: '2026-12-11', time: '14:00', duration: 90, proctorIds: [2], proctorId: 2 });
+        if (extra) extra(fx);
+    });
+}
+const swapAction = { type: 'bilateral_swap', staffA: { id: 1, name: 'A' }, staffB: { id: 2, name: 'B' }, examFromA: { id: 901, name: 'Takas A' }, examFromB: { id: 902, name: 'Takas B' } };
+
+test('P2P: derslik eşleştirmesi takasla yeni gözetmene geçer', () => {
+    const app = p2pApp();
+    const prop = app.run(`createFairnessSwapProposal(${JSON.stringify(swapAction)})`);
+    app.run(`acceptFairnessProposal('${prop.id}', 1)`);
+    assert.equal(app.run(`acceptFairnessProposal('${prop.id}', 2)`).status, 'completed');
+    const ex = app.run('DB.exams.find(e => e.id === 901)');
+    assert.equal(ex.gozetmenDersligi_2, 'Derslik 3');
+    assert.equal(ex.gozetmenDersligi_1, null);
+});
+
+test('P2P: onay beklerken görev başkasına geçtiyse takas uygulanmaz', () => {
+    const app = p2pApp();
+    const prop = app.run(`createFairnessSwapProposal(${JSON.stringify(swapAction)})`);
+    app.run(`acceptFairnessProposal('${prop.id}', 1)`);
+    app.raw(`moveExamProctor(DB, DB.exams.find(e => e.id === 901), 1, 7);`);
+    const res = app.run(`acceptFairnessProposal('${prop.id}', 2)`);
+    assert.equal(res.success, false);
+    assert.equal(app.run(`DB.requests.find(r => r.id === '${prop.id}').status`), 'invalid');
+    assert.deepEqual(app.run('DB.exams.find(e => e.id === 902).proctorIds').map(String), ['2'], 'karşı sınav değişmez');
+});
+
+test('P2P: onay anında çakışma oluşuyorsa takas uygulanmaz', () => {
+    // B, Takas A ile aynı saatte yeni bir görev aldı
+    const app = p2pApp(fx => fx.exams.push({ id: 903, name: 'Çakışan', date: '2026-12-10', time: '10:30', duration: 60, proctorIds: [2], proctorId: 2 }));
+    const prop = app.run(`createFairnessSwapProposal(${JSON.stringify(swapAction)})`);
+    app.run(`acceptFairnessProposal('${prop.id}', 1)`);
+    const res = app.run(`acceptFairnessProposal('${prop.id}', 2)`);
+    assert.equal(res.success, false);
+    assert.deepEqual(app.run('DB.exams.find(e => e.id === 901).proctorIds').map(String), ['1']);
+});
+
+test('P2P: sınav geçtiyse teklifin süresi dolar; taraf olmayan onay veremez', () => {
+    const app = p2pApp(fx => { fx.exams.find(e => e.id === 901).date = '2026-01-05'; });
+    const prop = app.run(`createFairnessSwapProposal(${JSON.stringify(swapAction)})`);
+    assert.equal(app.run(`acceptFairnessProposal('${prop.id}', 9)`).success, false, 'taraf olmayan');
+    const res = app.run(`acceptFairnessProposal('${prop.id}', 1)`);
+    assert.equal(res.success, false);
+    assert.equal(app.run(`DB.requests.find(r => r.id === '${prop.id}').status`), 'expired');
+    assert.equal(app.run(`fairnessProposalExpired(DB.requests.find(r => r.id === '${prop.id}'), DB)`), true);
 });
