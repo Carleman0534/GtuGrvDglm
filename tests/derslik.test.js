@@ -114,3 +114,12 @@ test('İşlem geçmişi: rol, kaydı yazan kodun kategorisinden değil oturumdan
     assert.equal(l.rol, 'sistem', 'oturumsuz → sistem');
     assert.equal(l.category, 'user', 'eski kategori alanı korunur');
 });
+
+
+test('Derslik teyidi ve değişikliği: süre kaydında derslik güncellenir ve onaylanır', () => {
+    const ex = satir({ proctorIds: [1, 2], location: 'D-101 / D-102', gozetmenDersligi_1: 'D-101' });
+    assert.equal(K.gozetmenDersligi(ex, 1), 'D-101', 'atanan derslik');
+    // Gözetmen dersliğini D-102 olarak güncelledi
+    ex[K.derslikAlani(1)] = 'D-102';
+    assert.equal(K.gozetmenDersligi(ex, 1), 'D-102', 'değiştirilen derslik geçerli');
+});

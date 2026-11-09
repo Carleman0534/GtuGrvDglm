@@ -2861,7 +2861,7 @@ window.showExamDetail = function(examName, date, time, location) {
 
     tbody.innerHTML = '';
     if (relatedExams.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamiş.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Gözetmen atanmamiş.</td></tr>';
     } else {
         const now = new Date();
         // Tüm gözetmenleri (proctorIds içindeki her hoca için) tek tek listele
@@ -2882,10 +2882,18 @@ window.showExamDetail = function(examName, date, time, location) {
                     ? `<span class="badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:600;">📧 Gönderildi</span>`
                     : `<span class="badge" style="background:rgba(148,163,184,0.15); color:#cbd5e1; border:1px solid rgba(148,163,184,0.3); font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:600;">✉️ Bekliyor</span>`;
 
+                const BK = window.BildirimKurallari;
+                const oda = BK ? BK.gozetmenDersligi(ex, staff.id) : null;
+                const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+                const roomBadge = oda
+                    ? `<span style="background:rgba(56,189,248,0.18); border:1px solid #38bdf8; color:#38bdf8; padding:3px 8px; border-radius:6px; font-weight:800; font-size:0.78rem;" title="Size/Hocaya atanan derslik">🚪 ${esc(oda)}</span>`
+                    : `<span style="color:var(--text-muted); font-size:0.75rem;">${esc(ex.location || '-')}</span>`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${globalIdx++}</td>
                     <td><span class="clickable-name" onclick="showStaffSchedule('${staff.name}')">${staff.name}</span></td>
+                    <td>${roomBadge}</td>
                     <td>${staff.totalScore.toFixed(1)}</td>
                     <td>${staff.taskCount}</td>
                     <td>${statusBadge}</td>
@@ -8298,7 +8306,13 @@ function updateProfileDashboard(staffId) {
                             <span class="live-pulse-dot"></span> 🔴 BUGÜN SINAV GÖREVİNİZ BULUNMAKTADIR (${nextToday.time})
                         </div>
                         <div style="font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">
-                            📚 ${nextToday.name} &bull; 📍 Derslik: <span style="color: #fbbf24;">${nextToday.location || 'Derslik Belirtilmedi'}</span> &bull; ⌛ ${nextToday.duration || 60} dk &bull; <span style="color:#38bdf8;">+${nextToday.score} Puan</span>
+                            📚 ${nextToday.name} &bull; ${(() => {
+                            const BK = window.BildirimKurallari;
+                            const r = BK ? BK.gozetmenDersligi(nextToday, staffId) : null;
+                            return r 
+                                ? `📍 Dersliğiniz: <span style="color:#38bdf8; font-weight:800; background:rgba(56,189,248,0.18); border:1px solid #38bdf8; padding:2px 7px; border-radius:6px;">🚪 ${r}</span> <span style="font-size:0.75rem; color:#94a3b8;">(${nextToday.location || '-'})</span>`
+                                : `📍 Derslik: <span style="color:#fbbf24; font-weight:700;">${nextToday.location || 'Derslik Belirtilmedi'}</span>`;
+                        })()} &bull; ⌛ ${nextToday.duration || 60} dk &bull; <span style="color:#38bdf8;">+${nextToday.score} Puan</span>
                         </div>
                         <div style="font-size: 0.8rem; color: #cbd5e1;">
                             👤 Sorumlu Hoca: <strong>${nextToday.lecturer || '-'}</strong> ${partners ? `&nbsp;|&nbsp; 🤝 Görev Partneriniz: <strong style="color:#a5b4fc;">${partners}</strong>` : ''}
@@ -8336,7 +8350,13 @@ function updateProfileDashboard(staffId) {
                             <span class="live-pulse-dot tomorrow"></span> 🟡 YARIN SINAV GÖREVİNİZ VAR (${nextTomorrow.time})
                         </div>
                         <div style="font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">
-                            📚 ${nextTomorrow.name} &bull; 📍 Derslik: <span style="color: #38bdf8;">${nextTomorrow.location || 'Derslik Belirtilmedi'}</span> &bull; ⌛ ${nextTomorrow.duration || 60} dk &bull; <span style="color:#38bdf8;">+${nextTomorrow.score} Puan</span>
+                            📚 ${nextTomorrow.name} &bull; ${(() => {
+                            const BK = window.BildirimKurallari;
+                            const r = BK ? BK.gozetmenDersligi(nextTomorrow, staffId) : null;
+                            return r 
+                                ? `📍 Dersliğiniz: <span style="color:#38bdf8; font-weight:800; background:rgba(56,189,248,0.18); border:1px solid #38bdf8; padding:2px 7px; border-radius:6px;">🚪 ${r}</span> <span style="font-size:0.75rem; color:#94a3b8;">(${nextTomorrow.location || '-'})</span>`
+                                : `📍 Derslik: <span style="color:#38bdf8; font-weight:700;">${nextTomorrow.location || 'Derslik Belirtilmedi'}</span>`;
+                        })()} &bull; ⌛ ${nextTomorrow.duration || 60} dk &bull; <span style="color:#38bdf8;">+${nextTomorrow.score} Puan</span>
                         </div>
                         <div style="font-size: 0.8rem; color: #cbd5e1;">
                             👤 Sorumlu Hoca: <strong>${nextTomorrow.lecturer || '-'}</strong> ${partners ? `&nbsp;|&nbsp; 🤝 Görev Partneriniz: <strong style="color:#a5b4fc;">${partners}</strong>` : ''}
@@ -8963,11 +8983,11 @@ function myRoomCellHtml(ex, pid) {
     const BK = window.BildirimKurallari;
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const multi = BK && pid != null && BK.derslikler(ex).length > 1;
-    if (!multi) return `<span class="badge-location">${esc(ex.location || '-')}</span>`;
+    if (!multi) return `<span style="font-weight:600; color:#e2e8f0; font-size:0.8rem;">📍 ${esc(ex.location || '-')}</span>`;
     const oda = BK.gozetmenDersligi(ex, pid);
     return oda
-        ? `<span class="badge-location" title="Size atanan derslik">🚪 ${esc(oda)}</span><div style="font-size:0.65rem; color:var(--text-muted);">${esc(ex.location)}</div>`
-        : `<span class="badge-location">${esc(ex.location)}</span><div style="font-size:0.65rem; color:#f59e0b;">Dersliğiniz atanmadı</div>`;
+        ? `<div style="display:inline-flex; align-items:center; gap:5px; background:rgba(14,165,233,0.18); border:1.5px solid #38bdf8; border-radius:6px; padding:3px 9px; font-weight:800; color:#38bdf8; font-size:0.82rem;" title="Size Atanan Derslik">🚪 ${esc(oda)}</div><div style="font-size:0.68rem; color:#94a3b8; margin-top:2px;" title="Sınavın tüm derslikleri">Tüm: ${esc(ex.location)}</div>`
+        : `<div style="display:inline-flex; align-items:center; gap:4px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); border-radius:6px; padding:2px 7px; color:#fbbf24; font-size:0.75rem; font-weight:600;" title="Dersliğiniz henüz seçilmedi">⚠️ Atanmadı</div><div style="font-size:0.68rem; color:#94a3b8; margin-top:2px;">Tüm: ${esc(ex.location)}</div>`;
 }
 
 function getDurationTargets(ex, pid, derslik) {
@@ -9049,26 +9069,64 @@ function independentDurationNoteHtml(ex, pid, selectId) {
     const rooms = BK.derslikler(ex);
     const myRoom = BK.gozetmenDersligi(ex, pid);
     const noteId = (selectId || 'dur-room') + '-note';
-    const select = rooms.length >= 2 ? `
-        <div style="margin-top:8px; font-size:0.76rem; color: var(--text-secondary, #cbd5e1);">
-            ${myRoom
-                ? `🚪 Size atanan derslik: <strong>${myRoom}</strong>. Doğruysa olduğu gibi bırakın; farklı derslikteydiyseniz değiştirin.`
-                : `🚪 Bu sınav birden fazla derslikte yapıldı ve size derslik atanmamış. <strong>Lütfen dersliğinizi seçin.</strong>`}
+
+    if (rooms.length < 2) {
+        return `
+            <div style="margin-top:10px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem;">
+                <span style="color: #94a3b8; font-weight: 600;">🚪 Sınav Salonu:</span>
+                <span style="color: #38bdf8; font-weight: 700; background: rgba(56, 189, 248, 0.15); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                    ${rooms[0] || ex.location || '-'}
+                </span>
+            </div>
+            <div id="${noteId}"></div>
+        `;
+    }
+
+    const cardHtml = `
+        <div class="room-confirm-box" style="margin-top: 12px; margin-bottom: 10px; background: #0f172a; border: 2px solid #38bdf8; border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid rgba(56, 189, 248, 0.25); padding-bottom: 6px;">
+                <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
+                    <span style="font-size: 1.15rem;">🚪</span> Hangi Derslikteydiniz?
+                </div>
+                ${myRoom 
+                    ? `<span style="font-size: 0.78rem; font-weight: 800; color: #38bdf8; background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 6px;">
+                        ✓ Size Atanan: <strong>${myRoom}</strong>
+                       </span>` 
+                    : `<span style="font-size: 0.78rem; font-weight: 800; color: #fbbf24; background: rgba(245, 158, 11, 0.2); border: 1px solid #fbbf24; padding: 2px 8px; border-radius: 6px;">
+                        ⚠️ Dersliğiniz Atanmamış
+                       </span>`
+                }
+            </div>
+
+            <p style="margin: 0 0 10px 0; font-size: 0.83rem; color: #f1f5f9; line-height: 1.45; font-weight: 500;">
+                ${myRoom
+                    ? `Sistemde bu sınav için size atanan derslik <strong>${myRoom}</strong> olarak kayıtlıdır. <u>Doğruysa teyit edin</u>; farklı bir salonda görev yaptıysanız listeden <u>değiştirin</u>:`
+                    : `Bu sınav birden fazla salonda (<strong>${rooms.join(', ')}</strong>) yapılmıştır. Lütfen görev yaptığınız salonu seçin:`}
+            </p>
+
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label for="${selectId}" style="font-size: 0.88rem; font-weight: 800; color: #ffffff; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
+                    <span>📍 Görev Salonunuz:</span>
+                </label>
+                <select id="${selectId}" onchange="updateDurationRoomNote('${ex.id}', '${pid}', this.value, '${noteId}')"
+                    style="flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; background: #1e293b; color: #ffffff; font-size: 0.92rem; font-weight: 700; border: 2px solid #38bdf8; outline: none; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    <option value="" style="background: #1e293b; color: #94a3b8;">Salon Seçiniz…</option>
+                    ${rooms.map(r => `
+                        <option value="${r.replace(/"/g, '&quot;')}" ${myRoom === r ? 'selected' : ''} style="background: #1e293b; color: #ffffff; font-weight: 700; padding: 6px;">
+                            🚪 ${r} ${myRoom === r ? '(Size Atanan Derslik - Teyitli)' : ''}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
         </div>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:0.8rem; color: var(--text-secondary, #cbd5e1);">
-            🚪 <strong>${myRoom ? 'Dersliğinizi teyit edin:' : 'Hangi derslikteydiniz?'}</strong>
-            <select id="${selectId}" onchange="updateDurationRoomNote('${ex.id}', '${pid}', this.value, '${noteId}')"
-                style="flex:1; min-width:0; padding:4px 8px; border-radius:6px; background: rgba(0,0,0,0.3); color: inherit; border: 1px solid rgba(56,189,248,0.4);">
-                <option value="">Seçiniz…</option>
-                ${rooms.map(r => `<option value="${r.replace(/"/g, '&quot;')}" ${myRoom === r ? 'selected' : ''}>${r}</option>`).join('')}
-            </select>
-        </label>` : '';
-    return `${select}<div id="${noteId}">${durationRoomNoteInner(ex, pid, myRoom)}</div>`;
+    `;
+
+    return `${cardHtml}<div id="${noteId}">${durationRoomNoteInner(ex, pid, myRoom)}</div>`;
 }
 
 function durationRoomNoteInner(ex, pid, derslik) {
     const t = getDurationTargets(ex, pid, derslik || null);
-    const box = (html) => `<div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 0.78rem; color: #7dd3fc;">${html}</div>`;
+    const box = (html) => `<div style="background: rgba(15, 23, 42, 0.75); border: 1.5px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 0.82rem; color: #e0f2fe; line-height: 1.45;">${html}</div>`;
     if (t.birlikte.length === 0 && t.ayri.length === 0) return '';
     let html = '';
     if (t.birlikte.length) html += `👥 <strong>Aynı derslikte${t.oda ? ' (' + t.oda + ')' : ''}:</strong> <em>${t.birlikte.join(', ')}</em> — girdiğiniz süre onlar için de kaydedilir (birinin girmesi yeterli).`;
@@ -9445,7 +9503,13 @@ window.openUpdateDurationModal = function(examId) {
                 <div>
                     <h3 style="margin:0; font-size:1.05rem; color:#fff;">${ex.name}</h3>
                     <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; 📍 ${ex.location || '-'}
+                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; ${(() => {
+                            const BK = window.BildirimKurallari;
+                            const r = (durCtx.pid && BK) ? BK.gozetmenDersligi(ex, durCtx.pid) : null;
+                            return r 
+                                ? `📍 Atanan Dersliğiniz: <strong style="color:#38bdf8;">🚪 ${r}</strong> <span style="font-size:0.75rem; color:#94a3b8;">(Tüm: ${ex.location || '-'})</span>`
+                                : `📍 ${ex.location || '-'}`;
+                        })()}
                     </div>
                 </div>
                 <span class="score-tag" style="font-size:0.85rem; padding: 0.25rem 0.55rem;">+${currentScore} puan</span>
@@ -9809,7 +9873,13 @@ window.openLecturerDurationPromptModal = function(examId, step = 'question') {
                 <div>
                     <h3 style="margin:0; font-size:1.05rem; color:#fff; font-weight:700;">${ex.name}</h3>
                     <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:3px;">
-                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; 📍 ${ex.location || '-'}
+                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; ${(() => {
+                            const BK = window.BildirimKurallari;
+                            const r = (ldpCtx.pid && BK) ? BK.gozetmenDersligi(ex, ldpCtx.pid) : null;
+                            return r 
+                                ? `📍 Atanan Dersliğiniz: <strong style="color:#38bdf8;">🚪 ${r}</strong> <span style="font-size:0.75rem; color:#94a3b8;">(Tüm: ${ex.location || '-'})</span>`
+                                : `📍 ${ex.location || '-'}`;
+                        })()}
                     </div>
                 </div>
                 <span class="score-tag" style="font-size:0.82rem; padding: 0.25rem 0.55rem; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">⏱️ ${currentDur} dk</span>
