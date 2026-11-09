@@ -230,6 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
         appWrapper.style.display = 'none';
     }
 
+    // Giriş Yap'tan sonra doğrudan ana ekran (Panel) açılır
+    const goToDashboardAfterLogin = () => {
+        window.scrollTo(0, 0);
+        const btnDashboard = document.getElementById('btn-dashboard');
+        if (btnDashboard) btnDashboard.click();
+    };
+    window.goToDashboardAfterLogin = goToDashboardAfterLogin;
+
     const handleLogin = async () => {
         try {
             const password = loginPassInput.value.trim();
@@ -266,11 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 logAction('system', 'Giriş', 'Gözetmen girişi yapildi (Genel Şifre: Gtu2026).');
                 if (loginError) loginError.classList.add('hidden');
                 await finishLogin(false);
-                setTimeout(() => {
-                    const btnProfile = document.getElementById('btn-profile');
-                    if (btnProfile) btnProfile.click();
-                    if (typeof renderProfile === 'function') renderProfile();
-                }, 100);
+                goToDashboardAfterLogin();
                 return;
             }
 
@@ -301,11 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle doğrudan kendi profiline giriş yaptı.`);
                 if (loginError) loginError.classList.add('hidden');
                 await finishLogin(false);
-                setTimeout(() => {
-                    const btnProfile = document.getElementById('btn-profile');
-                    if (btnProfile) btnProfile.click();
-                    if (typeof renderProfile === 'function') renderProfile();
-                }, 100);
+                goToDashboardAfterLogin();
                 return;
             }
 

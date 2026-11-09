@@ -145,11 +145,8 @@
                 if (typeof showToast === 'function') {
                     showToast(`👋 Hoş geldiniz, ${matchedStaff.name}`, 'success');
                 }
-                setTimeout(() => {
-                    const btnProfile = document.getElementById('btn-profile');
-                    if (btnProfile) btnProfile.click();
-                    if (typeof renderProfile === 'function') renderProfile();
-                }, 150);
+                // Giriş butonlarıyla aynı: doğrudan ana ekran (Panel)
+                if (typeof window.goToDashboardAfterLogin === 'function') window.goToDashboardAfterLogin();
                 return;
             }
 
