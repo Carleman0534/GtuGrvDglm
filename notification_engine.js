@@ -219,10 +219,12 @@
                     icon: './icon-192.png',
                     badge: './icon-192.png',
                     vibrate: [200, 100, 200],
-                    tag: `gtu_exam_${tag}`,
+                    // Ortak kuralların ürettiği etiketler zaten "gtu_exam_" ile başlar
+                    tag: String(tag).startsWith('gtu_exam_') ? tag : `gtu_exam_${tag}`,
                     renotify: true,
                     requireInteraction: (tag.includes('3h') || tag.includes('6h') || tag.includes('bc_')),
-                    data: Object.assign({ url: './index.html' }, extraData)
+                    // Türü ve eylemi belirtilmemiş bildirim "genel" sayılır (dokununca yalnızca uygulama açılır)
+                    data: Object.assign({ url: './index.html' }, (extraData && (extraData.tur || extraData.action)) ? {} : { tur: 'genel' }, extraData)
                 });
             }).catch(err => {
                 console.warn('SW bildirim hatası, normal bildirime dönülüyor:', err);
@@ -260,45 +262,36 @@
         }
     };
 
+    // --- Ortak bildirim kuralları (bildirim_kurallari.js) ---
+    // NE ZAMAN / HANGİ METİN kararları GitHub'daki zamanlanmış görevle (.github/scripts/sure-hatirlatma.mjs)
+    // aynı dosyadan gelir; metin ve etiket aynı olduğu için aynı cihazda ikisi birden gelirse biri diğerinin yerini alır.
+    const K = window.BildirimKurallari;
+
+    // Cihazda "bu bildirim gönderildi" kayıtları: ortak planlayıcının anahtarları eski localStorage anahtarlarına
+    // eşlenir (güncellemeden önce gönderilmiş hatırlatmalar tekrar gitmesin)
+    function cihazDurumu(staffId) {
+        const eslestir = (key) => {
+            let m = key.match(/^gun:([^:]+):(\d+):(.+)$/);
+            if (m) return `gtu_gun_${staffId}_${m[2]}_${m[3]}`;
+            m = key.match(/^saat(\d+):([^:]+):(.+)$/);
+            if (m) return `gtu_notif_fired_${m[3]}_${m[1]}h`;
+            return `gtu_bildirim_${key}`;
+        };
+        return {
+            durum: new Proxy({}, { get: (_, key) => (typeof key === 'string' && localStorage.getItem(eslestir(key))) ? { count: 1, last: localStorage.getItem(eslestir(key)) } : undefined }),
+            isaretle: (item) => item.anahtarlar.forEach(k => localStorage.setItem(eslestir(k), new Date().toISOString()))
+        };
+    }
+
     // --- "Sıradaki göreviniz 3 gün sonra / yarın" hatırlatmaları ---
-    // Zamanlanmış görev (.github/scripts/sure-hatirlatma.mjs) uygulama kapalıyken aynısını gönderir;
-    // metin ve etiket aynı olduğu için aynı cihazda ikisi birden gelirse biri diğerinin yerini alır.
-    const REMINDER_DAYS = [3, 1]; // 3 gün önce ve yarın
-    const REMINDER_FROM_HOUR = 9, REMINDER_UNTIL_HOUR = 21; // Türkiye saati
-
-    function checkUpcomingDayReminders(staffId, exams) {
-        const trNow = new Date(Date.now() + 3 * 3600000);
-        const hour = trNow.getUTCHours();
-        if (hour < REMINDER_FROM_HOUR || hour >= REMINDER_UNTIL_HOUR) return;
-        const today = trNow.toISOString().slice(0, 10);
-
-        const groups = new Map(); // `${days}|${date}` -> exams
-        exams.forEach(ex => {
-            const days = Math.round((Date.parse(ex.date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
-            if (!REMINDER_DAYS.includes(days)) return;
-            const k = `${days}|${ex.date}`;
-            if (!groups.has(k)) groups.set(k, []);
-            groups.get(k).push(ex);
-        });
-
-        groups.forEach((list, k) => {
-            const [days, date] = [parseInt(k.split('|')[0], 10), k.split('|')[1]];
-            const storageKey = `gtu_gun_${staffId}_${days}_${date}`;
-            if (localStorage.getItem(storageKey)) return;
-            localStorage.setItem(storageKey, new Date().toISOString());
-
-            const sorted = list.slice().sort((a, b) => String(a.time).localeCompare(String(b.time)));
-            const dayName = new Date(date + 'T12:00:00+03:00').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' });
-            const title = days === 1 ? '📅 Yarın göreviniz var' : `📅 Sıradaki göreviniz ${days} gün sonra`;
-            const body = sorted.length === 1
-                ? `${sorted[0].name} — ${dayName} ${sorted[0].time}, ${sorted[0].location || 'derslik belirtilmedi'} (${parseInt(sorted[0].duration, 10) || 60} dk)`
-                : `${dayName}: ${sorted.length} görev — ` + sorted.map(e => `${e.time} ${e.name}`).join(' · ');
-
-            if (getPermissionState() === 'granted') {
-                // dispatchLocalNotification etikete "gtu_exam_" ekler: zamanlanmış görevdeki etiketle aynı olur
-                window.dispatchLocalNotification(title, body, `gun_${staffId}_${days}_${date}`, { examId: sorted[0].id });
-            }
-            if (typeof showToast === 'function') showToast(`${title}: ${body}`, days === 1 ? 'warning' : 'info');
+    function checkUpcomingDayReminders(staffId) {
+        if (!K) return;
+        const cihaz = cihazDurumu(staffId);
+        K.planla(DB, Date.now(), { kisiler: [staffId], durum: cihaz.durum, turler: [K.TUR.GUN] }).forEach(item => {
+            cihaz.isaretle(item);
+            const p = item.payload;
+            if (getPermissionState() === 'granted') window.dispatchLocalNotification(p.title, p.body, p.tag, p.data);
+            if (typeof showToast === 'function') showToast(`${p.title}: ${p.body}`, item.gun === 1 ? 'warning' : 'info');
         });
     }
 
@@ -314,74 +307,48 @@
 
         const now = new Date();
 
-        // Asistanın veya yöneticinin sınavlarını belirle
-        const targetExams = DB.exams.filter(ex => {
-            if (!ex.date || !ex.time) return false;
-            if (typeof isStaffProctorById === 'function') {
-                return isStaffProctorById(ex, myStaffId);
+        checkUpcomingDayReminders(myStaffId);
+
+        // Sınavdan önceki son hatırlatma (ortak planlayıcı; "09:00-11:00" gibi saat yazımları da tanınır)
+        const cihaz = cihazDurumu(myStaffId);
+        const saatPlani = K ? K.planla(DB, now.getTime(), { kisiler: [myStaffId], durum: cihaz.durum, turler: [K.TUR.SAAT] }) : [];
+        saatPlani.forEach(item => {
+            const ex = item.sinavlar[0];
+            const m = MILESTONES[0];
+            cihaz.isaretle(item);
+            const title = item.payload.title;
+            const message = item.payload.body;
+
+            // 1. Cihaz / Push Bildirimi Gönder
+            if (getPermissionState() === 'granted') {
+                window.dispatchLocalNotification(title, message, item.payload.tag, item.payload.data);
             }
-            const ids = (ex.proctorIds || [ex.proctorId]).map(String);
-            return ids.includes(String(myStaffId));
-        });
 
-        checkUpcomingDayReminders(myStaffId, targetExams);
+            // 2. Uygulama İçi Bildirim Kutusu (DB.notifications)
+            if (myStaffId && window.DB) {
+                if (!DB.notifications) DB.notifications = {};
+                if (!Array.isArray(DB.notifications[myStaffId])) DB.notifications[myStaffId] = [];
 
-        targetExams.forEach(ex => {
-            const examDateTimeStr = `${ex.date}T${ex.time.length === 5 ? ex.time : ex.time.padStart(5, '0')}:00`;
-            const examDate = new Date(examDateTimeStr);
-            if (isNaN(examDate.getTime())) return;
+                DB.notifications[myStaffId].unshift({
+                    id: Date.now(),
+                    title: title,
+                    message: message,
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    type: 'exam_reminder',
+                    examId: ex.id,
+                    hoursBefore: m.hours
+                });
 
-            const diffMs = examDate.getTime() - now.getTime();
-            const diffHours = diffMs / (1000 * 60 * 60);
+                if (typeof updateNotificationBadge === 'function') updateNotificationBadge();
+                if (typeof renderNotifications === 'function') renderNotifications();
+                if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            }
 
-            // Sınav geçmişte kaldıysa atla
-            if (diffHours < 0) return;
-
-            MILESTONES.forEach(m => {
-                const storageKey = `gtu_notif_fired_${ex.id}_${m.hours}h`;
-                const alreadySent = localStorage.getItem(storageKey);
-
-                if (!alreadySent && diffHours <= m.hours && diffHours > 0) {
-                    localStorage.setItem(storageKey, new Date().toISOString());
-
-                    const loc = ex.location ? `Salon: ${ex.location}` : 'Derslik henüz belirtilmedi';
-                    const dur = ex.duration ? `(${ex.duration} dk)` : '';
-
-                    const title = `⏰ ${ex.name} 2 saat sonra başlıyor`;
-                    const message = `Saat ${ex.time}'da başlayacak sınav görevi. ${loc} ${dur}`.trim();
-
-                    // 1. Cihaz / Push Bildirimi Gönder
-                    if (getPermissionState() === 'granted') {
-                        window.dispatchLocalNotification(title, message, `${ex.id}_${m.tagPrefix}`, { examId: ex.id });
-                    }
-
-                    // 2. Uygulama İçi Bildirim Kutusu (DB.notifications)
-                    if (myStaffId && window.DB) {
-                        if (!DB.notifications) DB.notifications = {};
-                        if (!Array.isArray(DB.notifications[myStaffId])) DB.notifications[myStaffId] = [];
-
-                        DB.notifications[myStaffId].unshift({
-                            id: Date.now(),
-                            title: title,
-                            message: message,
-                            date: new Date().toISOString(),
-                            isRead: false,
-                            type: 'exam_reminder',
-                            examId: ex.id,
-                            hoursBefore: m.hours
-                        });
-
-                        if (typeof updateNotificationBadge === 'function') updateNotificationBadge();
-                        if (typeof renderNotifications === 'function') renderNotifications();
-                        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-                    }
-
-                    // 3. Ekranda açıksa Toast Bildirimi
-                    if (typeof showToast === 'function') {
-                        showToast(`${m.icon} ${title}: ${message}`, m.hours <= 6 ? 'warning' : 'info');
-                    }
-                }
-            });
+            // 3. Ekranda açıksa Toast Bildirimi
+            if (typeof showToast === 'function') {
+                showToast(`${m.icon} ${title}: ${message}`, 'warning');
+            }
         });
     }
 
@@ -409,24 +376,11 @@
         // Biten ve henüz süresi onaylanmamış sınavları kontrol et
         DB.exams.forEach(ex => {
             if (!ex.date || !ex.time) return;
-            // Zaten onaylanmış veya hoca tarafından teyit edilmişse atla
-            if (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved) return;
             if (!isMine(ex)) return;
-
-            let safeStart = null;
-            if (typeof getSafeDate === 'function') {
-                safeStart = getSafeDate(ex.date, ex.time);
-            } else {
-                const tClean = ex.time.length === 5 ? ex.time : ex.time.padStart(5, '0');
-                safeStart = new Date(`${ex.date}T${tClean}:00`);
-            }
-            if (!safeStart || isNaN(safeStart.getTime())) return;
-
-            const durMins = parseInt(ex.duration, 10) || 60;
-            const examEnd = new Date(safeStart.getTime() + durMins * 60000);
-
-            // Sınav henüz bitmediyse atla
-            if (now.getTime() < examEnd.getTime()) return;
+            // Ortak kural: bitmiş, 31 Ekim sınırından sonra ve henüz onaylanmamış sınav
+            // (henüz bitmemiş sınav için süre teyidi ASLA sorulmaz)
+            if (K ? !K.sureTeyidiBekliyor(ex, now.getTime()) : true) return;
+            const durMins = K.sinavSuresi(ex);
 
             // Bu sınavın bitiş bildirimi bu cihazda daha önce gönderildi mi?
             const storageKey = `gtu_post_exam_dur_notif_${ex.id}`;
@@ -445,6 +399,7 @@
                         message,
                         `post_exam_${ex.id}`,
                         {
+                            tur: K.TUR.SURE_SORU,
                             action: 'verify_duration',
                             examId: ex.id,
                             step: 'question',
@@ -505,27 +460,17 @@
     };
 
     function isMyProctorExam(ex, staffId) {
-        const sid = String(staffId);
-        if (String(ex.proctorId) === sid) return true;
-        return Array.isArray(ex.proctorIds) && ex.proctorIds.map(String).includes(sid);
+        return K ? K.gozetmeniMi(ex, staffId) : false;
     }
 
-    // 31 Ekim 2026 öncesi sınavlar peşinen kabul edildi (app.js ile aynı sınır)
-    const DURATION_CUTOFF = new Date('2026-10-31T21:48:45+03:00');
-
-    // Gözetmenin bitmiş ve süresi onaylanmamış sınavları
+    // Gözetmenin bitmiş ve süresi onaylanmamış sınavları (ortak kural: sınır tarihi, bitiş, onay durumu)
     function getMyPendingDurationExams() {
         const myStaffId = window.getDeviceStaffId();
-        if (!myStaffId || !window.DB || !Array.isArray(DB.exams)) return [];
+        if (!K || !myStaffId || !window.DB || !Array.isArray(DB.exams)) return [];
         const now = Date.now();
-        return DB.exams.filter(ex => {
-            if (!ex.date || !ex.time || !isMyProctorExam(ex, myStaffId)) return false;
-            if (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved || ex.actualDuration) return false;
-            const start = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}:00`);
-            if (!start || isNaN(start.getTime()) || start < DURATION_CUTOFF) return false;
-            const end = start.getTime() + (parseInt(ex.duration, 10) || 60) * 60000;
-            return now >= end;
-        }).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+        return DB.exams
+            .filter(ex => K.gozetmeniMi(ex, myStaffId) && K.sureTeyidiBekliyor(ex, now))
+            .sort((a, b) => K.sinavBaslangic(a) - K.sinavBaslangic(b));
     }
 
     function escapeHtml(s) {

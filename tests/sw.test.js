@@ -28,7 +28,13 @@ function loadSW({ openClients = [] } = {}) {
         addEventListener: (type, fn) => { listeners[type] = fn; },
         skipWaiting: () => {}
     };
-    const ctx = vm.createContext({
+    let ctx = null;
+    ctx = vm.createContext({
+        // sw.js ortak kuralları importScripts ile yükler; testte aynı dosyayı diskten çalıştır
+        importScripts: (...urls) => urls.forEach(u => {
+            const rel = String(u).replace(/^\.\//, '').split('?')[0];
+            vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), ctx);
+        }),
         self,
         clients: { matchAll: async () => clientsList, openWindow: async (u) => { opened.push(u); }, claim: () => {} },
         caches: { open: async () => ({ addAll: async () => {} }), keys: async () => [], delete: async () => true, match: async () => null },
@@ -76,6 +82,16 @@ test('Uygulama açıkken: hatırlatma yalnızca odaklar, süre teyidi mesaj gön
     assert.equal(sw.posted.length, 1);
     assert.equal(sw.posted[0].action, 'verify_duration');
     assert.equal(sw.posted[0].examId, 123);
+});
+
+test('Ortak kurallar service worker\'a yükleniyor', async () => {
+    const sw = loadSW();
+    await sw.click({ tur: 'sure_teyidi', examId: 9, url: SCOPE });
+    assert.match(sw.opened[0], /verifyDurationExamId=9&step=question/, 'tur alanıyla (action olmadan) da açılmalı');
+    await sw.click({ tur: 'hatirlatma_gun', examId: 9, action: 'verify_duration', url: SCOPE });
+    assert.equal(sw.opened[1], SCOPE, 'tür hatırlatma ise eski action alanı yok sayılır');
+    await sw.click({ tur: 'bilinmeyen', examId: 9, url: SCOPE });
+    assert.equal(sw.opened[2], SCOPE, 'tanınmayan tür → yalnızca uygulama');
 });
 
 test('Duyuru bildirimi kendi adresini açar', async () => {

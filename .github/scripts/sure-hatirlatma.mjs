@@ -12,6 +12,9 @@
  *     "Sıradaki göreviniz 3 gün sonra" ve "Yarın göreviniz var" (o günün sabahı, TR 09:00-21:00 arası;
  *     aynı gündeki görevler tek bildirimde birleşir) ve sınav saatinden 2 saat önce "2 saat sonra başlıyor".
  *
+ * NE ZAMAN / KİME / HANGİ METİN kararları sitedeki bildirimlerle ortak dosyadadır: bildirim_kurallari.js
+ * (burada kopyası tutulmaz). Bu betik yalnızca veriyi okur, ortak planlayıcıyı çağırır ve gönderir.
+ *
  * Neyin gönderildiği STATE_FILE'da tutulur (iş akışı bunu "durum" dalında saklar).
  * Depo herkese açık olduğu için kayıtlara isim / e-posta / cihaz adresi yazılmaz.
  *
@@ -21,22 +24,24 @@
  *   DRY_RUN=1                            Göndermeden yalnızca neler gönderileceğini say
  *   DB_FILE                              (test) Firebase yerine bu JSON dosyasını oku
  *   NOW                                  (test) Şimdiki zamanı değiştir, ör. 2026-11-03T12:00:00+03:00
+ *   PLAN_JSON=1                          (test) Deneme modunda planı tek satır JSON olarak da yazdır
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const K = require('../../bildirim_kurallari.js');
 
 const DB_URL = 'https://gtumath-db-default-rtdb.europe-west1.firebasedatabase.app/gizli_yol_gtu_admin_data.json';
 const SITE_URL = 'https://carleman0534.github.io/GtuGrvDglm/';
-const CUTOFF = Date.parse('2026-10-31T21:48:45+03:00'); // app.js ile aynı sınır
-const GRACE_MS = 15 * 60 * 1000;
-const REMIND_AFTER_MS = 24 * 60 * 60 * 1000;
-const LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
-const MAX_SENDS = 2;
 const BROADCAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000; // sitedeki duyuru süre sınırıyla aynı
-// "Sıradaki göreviniz 3 gün sonra / yarın" hatırlatmaları (notification_engine.js ile aynı)
-const REMINDER_DAYS = [3, 1];
-const REMINDER_HOURS_BEFORE = 2; // sınav saatinden 2 saat önce son hatırlatma (sitedeki MILESTONES ile aynı)
-const REMINDER_FROM_HOUR = 9;   // Türkiye saatiyle 09:00'dan önce gönderme
-const REMINDER_UNTIL_HOUR = 21; // 21:00'den sonra gönderme (ertesi sabaha kalırsa bir sonraki gün aşamasına geçer)
+
+// Bildirim ömürleri (cihaz kapalıysa en fazla bu kadar bekletilir)
+const TTL = {
+    [K.TUR.SURE_SORU]: 24 * 60 * 60,
+    [K.TUR.GUN]: 12 * 60 * 60,
+    [K.TUR.SAAT]: K.AYAR.SAAT_ONCE * 60 * 60
+};
 
 const STATE_FILE = process.env.STATE_FILE || 'hatirlatma.json';
 const vapidPublic = (process.env.VAPID_PUBLIC_KEY || '').trim();
@@ -45,50 +50,17 @@ const pushEnabled = !!(vapidPublic && vapidPrivate);
 const dryRun = process.env.DRY_RUN === '1' || !pushEnabled;
 const now = process.env.NOW ? Date.parse(process.env.NOW) : Date.now();
 
-// Sınav saatleri Türkiye saatidir (UTC+3, yaz saati yok)
-function examStart(ex) {
-    if (!ex.date || !ex.time) return NaN;
-    const [h, m] = String(ex.time).split(':');
-    return Date.parse(`${ex.date}T${String(h).padStart(2, '0')}:${String(m || '0').padStart(2, '0')}:00+03:00`);
-}
-
-// Türkiye saatine göre YYYY-MM-DD
-function trDate(ms) {
-    return new Date(ms + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-function proctorIds(ex) {
-    if (Array.isArray(ex.proctorIds) && ex.proctorIds.length) return ex.proctorIds.filter(p => p != null).map(String);
-    return ex.proctorId ? [String(ex.proctorId)] : [];
-}
-
 // Duyurunun hedeflediği gözetmen kimlikleri (sitedeki checkIncomingBroadcastNotifications ile aynı kurallar)
 function broadcastTargets(db, bc) {
     const t = bc.target;
     if (!t || t === 'all') return Object.keys(db.pushAbonelikleri || {});
     if (t === 'tomorrow_only') {
-        const tomorrow = trDate((Date.parse(bc.createdAt) || bc.timestamp) + 24 * 60 * 60 * 1000);
+        const tomorrow = K.trTarih((Date.parse(bc.createdAt) || bc.timestamp) + 24 * 60 * 60 * 1000);
         const ids = new Set();
-        for (const ex of db.exams || []) if (ex && ex.date === tomorrow) proctorIds(ex).forEach(id => ids.add(id));
+        for (const ex of db.exams || []) if (ex && ex.date === tomorrow) K.gozetmenler(ex).forEach(id => ids.add(id));
         return [...ids];
     }
     return (Array.isArray(t) ? t : [t]).map(String);
-}
-
-// Sitedeki bildirimle aynı metin ve etiket (aynı cihazda ikisi birden gelirse biri diğerinin yerini alır)
-function upcomingPayload({ pid, days, date, exams }) {
-    const dayName = new Date(date + 'T12:00:00+03:00').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' });
-    const sorted = [...exams].sort((a, b) => String(a.time).localeCompare(String(b.time)));
-    const title = days === 1 ? '📅 Yarın göreviniz var' : `📅 Sıradaki göreviniz ${days} gün sonra`;
-    const body = sorted.length === 1
-        ? `${sorted[0].name} — ${dayName} ${sorted[0].time}, ${sorted[0].location || 'derslik belirtilmedi'} (${parseInt(sorted[0].duration, 10) || 60} dk)`
-        : `${dayName}: ${sorted.length} görev — ` + sorted.map(e => `${e.time} ${e.name}`).join(' · ');
-    return {
-        title,
-        body: body.slice(0, 300),
-        tag: `gtu_exam_gun_${pid}_${days}_${date}`,
-        data: { url: SITE_URL, examId: sorted[0].id }
-    };
 }
 
 async function loadDB() {
@@ -97,6 +69,12 @@ async function loadDB() {
     if (!res.ok) throw new Error('Firebase okunamadı: HTTP ' + res.status);
     return res.json();
 }
+
+const ETIKET = {
+    [K.TUR.SURE_SORU]: 'Süre hatırlatması',
+    [K.TUR.GUN]: 'Sıradaki görev',
+    [K.TUR.SAAT]: `${K.AYAR.SAAT_ONCE} saat kala`
+};
 
 async function main() {
     const db = await loadDB();
@@ -113,24 +91,9 @@ async function main() {
         return list.filter(s => s && s.endpoint && s.keys && s.keys.p256dh && s.keys.auth && !dead[s.id]);
     };
 
-    // Gözetmen başına hatırlatılacak sınavlar: yalnızca sınavın kendi gözetmenleri
-    const due = new Map();
-    let pendingCount = 0;
-    for (const ex of db.exams) {
-        if (!ex || ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved || ex.actualDuration) continue;
-        const start = examStart(ex);
-        if (isNaN(start) || start < CUTOFF) continue;
-        const end = start + (parseInt(ex.duration, 10) || 60) * 60000;
-        if (now < end + GRACE_MS || now - end > LOOKBACK_MS) continue;
-        pendingCount++;
-        for (const pid of proctorIds(ex)) {
-            const key = `${ex.id}:${pid}`;
-            const sent = state[key];
-            if (sent && (sent.count >= MAX_SENDS || now - Date.parse(sent.last) < REMIND_AFTER_MS)) continue;
-            if (!due.has(pid)) due.set(pid, []);
-            due.get(pid).push(ex);
-        }
-    }
+    // Ortak planlayıcı: süre teyidi, gün ve saat hatırlatmaları
+    const plan = K.planla(db, now, { durum: state, siteUrl: SITE_URL });
+    const pendingCount = db.exams.filter(ex => K.sureTeyidiBekliyor(ex, now)).length;
 
     // Panelden gönderilen yönetici duyuruları (son 3 gün, cihaz bildirimi açık, henüz gönderilmemiş)
     const sentBroadcasts = state._duyurular || {};
@@ -141,40 +104,12 @@ async function main() {
             return at && now - at <= BROADCAST_MAX_AGE_MS && at <= now;
         });
 
-    // Yaklaşan görev hatırlatmaları: sınava 3 gün ve 1 gün (yarın) kala, o günün sabahı.
-    // Gözetmen başına ve gün başına tek bildirim (aynı gün birden fazla görevi varsa birleşir).
-    const upcomingDue = new Map(); // `${pid}|${days}|${date}` -> { pid, days, date, exams }
-    const trHour = new Date(now + 3 * 60 * 60 * 1000).getUTCHours();
-    if (trHour >= REMINDER_FROM_HOUR && trHour < REMINDER_UNTIL_HOUR) {
-        const today = trDate(now);
-        for (const ex of db.exams) {
-            if (!ex || !ex.date || !ex.time) continue;
-            const days = Math.round((Date.parse(ex.date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
-            if (!REMINDER_DAYS.includes(days)) continue;
-            for (const pid of proctorIds(ex)) {
-                const key = `gun:${pid}:${days}:${ex.date}`;
-                if (state[key]) continue;
-                const k = `${pid}|${days}|${ex.date}`;
-                if (!upcomingDue.has(k)) upcomingDue.set(k, { pid, days, date: ex.date, key, exams: [] });
-                upcomingDue.get(k).exams.push(ex);
-            }
-        }
-    }
-
-    // Sınava 2 saat kala son hatırlatma (gözetmen ve sınav başına bir kez; saat kısıtı yok)
-    const hourDue = [];
-    for (const ex of db.exams) {
-        if (!ex) continue;
-        const start = examStart(ex);
-        if (isNaN(start) || start <= now || start - now > REMINDER_HOURS_BEFORE * 3600000) continue;
-        for (const pid of proctorIds(ex)) {
-            const key = `saat${REMINDER_HOURS_BEFORE}:${pid}:${ex.id}`;
-            if (!state[key]) hourDue.push({ pid, ex, key });
-        }
+    if (process.env.PLAN_JSON === '1') {
+        console.log('PLAN ' + JSON.stringify(plan.map(p => ({ tur: p.tur, pid: p.pid, sinavlar: p.sinavlar.map(e => e.id), tag: p.payload.tag, data: p.payload.data }))));
     }
 
     let webpush = null;
-    if (!dryRun && (due.size || broadcastsDue.length || upcomingDue.size || hourDue.length)) {
+    if (!dryRun && (plan.length || broadcastsDue.length)) {
         webpush = (await import('web-push')).default;
         webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL.replace(/\/GtuGrvDglm\/$/, ''), vapidPublic, vapidPrivate);
     }
@@ -197,80 +132,22 @@ async function main() {
         }
     };
 
-    // --- Süre onayı hatırlatmaları ---
-    let pushed = 0, noDevice = 0;
-    for (const [pid, exams] of due) {
-        const subs = staffIds.has(pid) ? subsOf(pid) : [];
-        if (!subs.length) { noDevice++; continue; }
-        if (dryRun) {
-            console.log(`[Deneme] gözetmen #${pid} → ${exams.length} sınav (${exams.map(e => e.id).join(', ')}), ${subs.length} cihaz`);
-            continue;
-        }
-        const first = exams[0];
-        const payload = JSON.stringify({
-            title: '⏱️ Sınav sürenizi onaylayın',
-            body: exams.length === 1
-                ? `${first.name} (${first.date} ${first.time}) — ${parseInt(first.scheduledDuration || first.duration, 10) || 60} dk sürdü mü?`
-                : `${exams.length} sınavın süresi onay bekliyor. Dokunun ve onaylayın.`,
-            tag: 'sure_onay',
-            data: { url: SITE_URL, action: 'verify_duration', examId: first.id, step: 'question' }
-        });
-        let delivered = false;
-        for (const s of subs) {
-            if (await send(pid, s, payload, { TTL: 24 * 60 * 60 })) { delivered = true; pushed++; }
-        }
-        if (delivered) {
-            const stamp = new Date(now).toISOString();
-            for (const ex of exams) {
-                const key = `${ex.id}:${pid}`;
-                state[key] = { count: ((state[key] && state[key].count) || 0) + 1, last: stamp };
-            }
-        }
-        console.log(`Süre hatırlatması: gözetmen #${pid}, ${exams.length} sınav, ${subs.length} cihaz`);
-    }
-
-    // --- Yaklaşan görev hatırlatmaları ---
-    let upcomingPushed = 0;
-    for (const item of upcomingDue.values()) {
+    // --- Süre teyidi, gün ve saat hatırlatmaları ---
+    const sayac = { [K.TUR.SURE_SORU]: 0, [K.TUR.GUN]: 0, [K.TUR.SAAT]: 0 };
+    let noDevice = 0;
+    for (const item of plan) {
         const subs = staffIds.has(item.pid) ? subsOf(item.pid) : [];
-        if (!subs.length) continue;
-        if (dryRun) {
-            console.log(`[Deneme] Sıradaki görev: gözetmen #${item.pid}, ${item.days} gün sonra (${item.date}), ${item.exams.length} sınav, ${subs.length} cihaz`);
-            continue;
-        }
-        const payload = JSON.stringify(upcomingPayload(item));
+        if (!subs.length) { if (item.tur === K.TUR.SURE_SORU) noDevice++; continue; }
+        const gunBilgisi = item.tur === K.TUR.GUN ? `${item.gun} gün sonra (${item.sinavlar[0].date}), ` : '';
+        const what = `${ETIKET[item.tur]}: gözetmen #${item.pid}, ${gunBilgisi}${item.sinavlar.length} sınav (${item.sinavlar.map(e => e.id).join(', ')}), ${subs.length} cihaz`;
+        if (dryRun) { console.log(`[Deneme] ${what}`); continue; }
+        const payload = JSON.stringify(item.payload);
         let delivered = false;
         for (const s of subs) {
-            if (await send(item.pid, s, payload, { TTL: 12 * 60 * 60 })) { delivered = true; upcomingPushed++; }
+            if (await send(item.pid, s, payload, { TTL: TTL[item.tur] })) { delivered = true; sayac[item.tur]++; }
         }
-        if (delivered) state[item.key] = { count: 1, last: new Date(now).toISOString() };
-        console.log(`Sıradaki görev: gözetmen #${item.pid}, ${item.days} gün sonra, ${subs.length} cihaz`);
-    }
-
-    // --- 2 saat kala hatırlatmaları ---
-    for (const item of hourDue) {
-        const subs = staffIds.has(item.pid) ? subsOf(item.pid) : [];
-        if (!subs.length) continue;
-        if (dryRun) {
-            console.log(`[Deneme] ${REMINDER_HOURS_BEFORE} saat kala: gözetmen #${item.pid}, sınav ${item.ex.id} (${item.ex.date} ${item.ex.time}), ${subs.length} cihaz`);
-            continue;
-        }
-        const ex = item.ex;
-        const loc = ex.location ? `Salon: ${ex.location}` : 'Derslik henüz belirtilmedi';
-        const dur = ex.duration ? `(${ex.duration} dk)` : '';
-        // Sitedeki bildirimle aynı metin ve etiket (aynı cihazda ikisi birden gelirse biri diğerinin yerini alır)
-        const payload = JSON.stringify({
-            title: `⏰ ${ex.name} 2 saat sonra başlıyor`,
-            body: `Saat ${ex.time}'da başlayacak sınav görevi. ${loc} ${dur}`.trim().slice(0, 300),
-            tag: `gtu_exam_${ex.id}_2h`,
-            data: { url: SITE_URL, examId: ex.id }
-        });
-        let delivered = false;
-        for (const s of subs) {
-            if (await send(item.pid, s, payload, { TTL: 2 * 60 * 60 })) { delivered = true; upcomingPushed++; }
-        }
-        if (delivered) state[item.key] = { count: 1, last: new Date(now).toISOString() };
-        console.log(`${REMINDER_HOURS_BEFORE} saat kala: gözetmen #${item.pid}, ${subs.length} cihaz`);
+        if (delivered) K.kaydet(state, item, now);
+        console.log(what);
     }
 
     // --- Yönetici duyuruları ---
@@ -283,13 +160,7 @@ async function main() {
             console.log(`[Deneme] Duyuru ${bc.id} → hedef ${targetIds.length} kişi, ${subs.size} cihaz`);
             continue;
         }
-        const payload = JSON.stringify({
-            title: bc.title || '📢 GTÜ Gözetmenlik Yönetici Bildirimi',
-            body: String(bc.message).slice(0, 300),
-            // Uygulama açıkken sitenin gösterdiği bildirimle aynı etiket: aynı cihazda ikinci kez çıkmaz, yerini alır
-            tag: `gtu_exam_bc_${bc.id}`,
-            data: { url: SITE_URL, broadcastId: bc.id, priority: bc.priority || 'normal' }
-        });
+        const payload = JSON.stringify(K.duyuru(bc, SITE_URL));
         let ok = 0;
         for (const { pid, s } of subs.values()) {
             if (await send(pid, s, payload, { TTL: 24 * 60 * 60, urgency: bc.priority === 'urgent' ? 'high' : 'normal' })) ok++;
@@ -310,7 +181,12 @@ async function main() {
     }
     if (!dryRun) writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 
-    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, hatırlatılacak gözetmen: ${due.size} (kayıtlı cihazı olmayan: ${noDevice}), telefon bildirimi: ${pushed}, sıradaki görev hatırlatması: ${upcomingPushed}, yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), hata: ${failed}`);
+    const planSayisi = (tur) => plan.filter(p => p.tur === tur).length;
+    console.log(`${dryRun ? '[Deneme modu] ' : ''}Onay bekleyen sınav: ${pendingCount}, ` +
+        `planlanan → süre teyidi: ${planSayisi(K.TUR.SURE_SORU)} (kayıtlı cihazı olmayan: ${noDevice}), ` +
+        `gün hatırlatması: ${planSayisi(K.TUR.GUN)}, ${K.AYAR.SAAT_ONCE} saat kala: ${planSayisi(K.TUR.SAAT)}; ` +
+        `gönderilen bildirim → süre: ${sayac[K.TUR.SURE_SORU]}, gün: ${sayac[K.TUR.GUN]}, saat: ${sayac[K.TUR.SAAT]}; ` +
+        `yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), hata: ${failed}`);
     if (!pushEnabled) console.log('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY tanımlı değil: telefon bildirimi gönderilmiyor (deneme modu).');
     if (failed) process.exitCode = 1;
 }

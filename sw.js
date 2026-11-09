@@ -1,7 +1,12 @@
-const CACHE_NAME = 'gozetmenlik-ai-v54';
+const CACHE_NAME = 'gozetmenlik-ai-v55';
+
+// Ortak bildirim kuralları (dokunma davranışı sitedeki ve sunucudaki bildirimlerle aynı dosyadan)
+try { importScripts('./bildirim_kurallari.js?v=20261109b'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
+
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
+    './bildirim_kurallari.js',
     './style.css',
     './mobil.css',
     './tema_uyum.css',
@@ -76,12 +81,20 @@ self.addEventListener('fetch', event => {
 self.addEventListener('notificationclick', event => {
     event.notification.close();
     const data = event.notification.data || {};
-    const examId = data.examId;
-    // Süre teyidi penceresi YALNIZCA süre teyidi bildirimlerinde açılır.
-    // "Yarın göreviniz var", "3 gün sonra", "2 saat kaldı" hatırlatmaları da sınav kimliği taşır;
-    // eskiden bunlara dokununca da (sınav henüz yapılmadan) "Sınavınız tamamlandı" penceresi açılıyordu.
-    const isDurationAction = data.action === 'verify_duration' || data.action === 'input_duration';
-    const step = data.step || (data.action === 'input_duration' ? 'input' : 'question');
+    // Ne yapılacağına ortak kural karar verir: süre teyidi penceresi YALNIZCA süre teyidi türünde açılır.
+    // Kurallar yüklenemediyse güvenli yedek: yalnızca açık süre türü/eylemi pencere açar, varsayılan yoktur.
+    const hedef = (self.BildirimKurallari && self.BildirimKurallari.tiklamaHedefi)
+        ? self.BildirimKurallari.tiklamaHedefi(data)
+        : (() => {
+            const sure = data.tur ? (data.tur === 'sure_teyidi' || data.tur === 'sure_girisi')
+                : (data.action === 'verify_duration' || data.action === 'input_duration');
+            return (sure && data.examId)
+                ? { sureEkrani: true, examId: data.examId, step: data.step || ((data.tur === 'sure_girisi' || data.action === 'input_duration') ? 'input' : 'question'), url: data.url || './index.html' }
+                : { sureEkrani: false, url: data.url || './index.html' };
+        })();
+    const isDurationAction = hedef.sureEkrani;
+    const examId = hedef.examId;
+    const step = hedef.step;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
@@ -91,7 +104,8 @@ self.addEventListener('notificationclick', event => {
                     if (isDurationAction && examId && 'postMessage' in client) {
                         client.postMessage({
                             type: 'NOTIFICATION_ACTION',
-                            action: data.action,
+                            tur: data.tur || null,
+                            action: step === 'input' ? 'input_duration' : 'verify_duration',
                             examId: examId,
                             step: step
                         });
@@ -102,7 +116,7 @@ self.addEventListener('notificationclick', event => {
             // Açık sekme yoksa hedef url ile aç
             const targetUrl = (isDurationAction && examId)
                 ? `./index.html?verifyDurationExamId=${encodeURIComponent(examId)}&step=${encodeURIComponent(step)}`
-                : (data.url || './index.html');
+                : hedef.url;
             if (clients.openWindow) {
                 return clients.openWindow(targetUrl);
             }

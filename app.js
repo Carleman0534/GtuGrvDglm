@@ -8769,7 +8769,8 @@ function getExamHistoricalDurationStats(examName, currentExamId = null) {
  */
 function autoAcceptPastExamDurations() {
     if (!DB || !DB.exams) return;
-    const CUTOFF_DATE = new Date('2026-10-31T21:48:45+03:00');
+    // Sınır tarihi ortak bildirim kurallarından (bildirim_kurallari.js)
+    const CUTOFF_DATE = new Date(window.BildirimKurallari ? window.BildirimKurallari.AYAR.SURE_SINIRI : Date.parse('2026-10-31T21:48:45+03:00'));
     let hasChanges = false;
 
     DB.exams.forEach(e => {
@@ -8798,13 +8799,13 @@ function renderProfileDurationAlerts(myStaffId, staff) {
 
     // 31 Ekim 2026 21:48 öncesindeki tüm geçmiş sınavlar peşinen kabul edildi.
     // Artık yalnızca bu tarihten sonra gerçekleşecek yeni sınavlar için süre teyidi sorulur.
-    const CUTOFF_DATE = new Date('2026-10-31T21:48:45+03:00');
-
+    // Ortak kural (bildirim_kurallari.js): bitmiş, sınır tarihinden sonra ve henüz onaylanmamış
+    const BK = window.BildirimKurallari;
     const pendingExams = myExams.filter(e => {
+        if (BK) return BK.sureTeyidiBekliyor(e, now.getTime());
         const examDate = getSafeDate(e.date, e.time);
-        // Sınav bittikten sonra (başlangıç + süre) onay istenir; eskiden sınav başlar başlamaz "tamamlandı" diyordu
         const examEnd = new Date(examDate.getTime() + (parseInt(e.duration, 10) || 60) * 60000);
-        return examDate >= CUTOFF_DATE && now >= examEnd && !e.durationConfirmed && !e.actualDuration;
+        return examDate >= new Date('2026-10-31T21:48:45+03:00') && now >= examEnd && !e.durationConfirmed && !e.actualDuration;
     }).sort((a, b) => (b.date + 'T' + b.time).localeCompare(a.date + 'T' + a.time));
 
     if (pendingExams.length === 0) {
@@ -9371,10 +9372,11 @@ window.openLecturerDurationPromptModal = function(examId, step = 'question') {
 
         // Sınav henüz bitmediyse "Sınavınız tamamlandı" penceresi açılmaz
         // (eski sürüm bildirimlerinde "Yarın göreviniz var" hatırlatmasına dokununca da açılıyordu)
-        const exStart = getSafeDate(ex.date, ex.time);
-        const exEnd = exStart.getTime() + (parseInt(ex.duration, 10) || 60) * 60000;
+        const BK = window.BildirimKurallari;
+        const exStartMs = BK ? BK.sinavBaslangic(ex) : getSafeDate(ex.date, ex.time).getTime();
+        const exEnd = BK ? BK.sinavBitis(ex) : exStartMs + (parseInt(ex.duration, 10) || 60) * 60000;
         if (!isNaN(exEnd) && Date.now() < exEnd) {
-            const startsIn = exStart.getTime() - Date.now();
+            const startsIn = exStartMs - Date.now();
             const when = startsIn > 0
                 ? `${ex.date.split('-').reverse().join('.')} ${ex.time}`
                 : 'şu an devam ediyor';
@@ -9609,7 +9611,7 @@ window.rejectLecturerExamDuration = function(examId = null) {
                 title,
                 message,
                 `dur_input_${baseExam.id}`,
-                { action: 'input_duration', examId: baseExam.id, step: 'input', url: `./index.html?verifyDurationExamId=${encodeURIComponent(baseExam.id)}&step=input` }
+                { tur: 'sure_girisi', action: 'input_duration', examId: baseExam.id, step: 'input', url: `./index.html?verifyDurationExamId=${encodeURIComponent(baseExam.id)}&step=input` }
             );
         }
 
