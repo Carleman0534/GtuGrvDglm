@@ -91,7 +91,12 @@ function createApp(opts = {}) {
     const sandbox = {
         Date: FakeDate,
         console: { log() {}, info() {}, warn() {}, error: console.error, debug() {} },
-        setTimeout, clearTimeout,
+        setTimeout: (fn, ms, ...args) => {
+            const t = setTimeout(fn, ms, ...args);
+            if (t && typeof t.unref === 'function') t.unref();
+            return t;
+        },
+        clearTimeout,
         setInterval: () => 0, clearInterval: () => {},
         localStorage: makeStorage(),
         sessionStorage: makeStorage(),
@@ -125,6 +130,16 @@ function createApp(opts = {}) {
         const file = path.join(ROOT, f);
         vm.runInContext(fs.readFileSync(file, 'utf8'), ctx, { filename: file });
     }
+
+    // Test ortamında arka plan ağ kayıtlarını etkisizleştir (asenkron döngü kalmasın)
+    vm.runInContext(`
+        if (typeof saveToBackend !== 'undefined') saveToBackend = async function() {};
+        if (typeof debouncedSaveToBackend !== 'undefined') debouncedSaveToBackend = function() {};
+        if (typeof window !== 'undefined') {
+            window.saveToBackend = async function() {};
+            window.debouncedSaveToBackend = function() {};
+        }
+    `, ctx);
 
     const api = {
         ctx,

@@ -15973,6 +15973,8 @@ window.openAdminBroadcastModal = function () {
         }
     }
 
+    window.renderPushStatusPanel();
+
     // İlk açılışta hedef durumunu ve canlı önizlemeyi güncelle
     window.handleBroadcastTargetChange();
     window.updateBroadcastPreview();
@@ -16304,6 +16306,72 @@ window.deleteAdminBroadcast = async function (broadcastId) {
     if (typeof showToast === 'function') {
         showToast('🗑️ Bildirim yayından kaldırıldı.', 'info');
     }
+};
+
+/**
+ * Telefon bildirimi (Web Push) durumu: kimin telefonu kayıtlı, kimin değil.
+ * Kayıt, kişi uygulamada kendi adını seçip bildirim izni verdiğinde DB.pushAbonelikleri[id] altına yazılır.
+ */
+window.getPushStatusList = function () {
+    const subs = (DB && DB.pushAbonelikleri) || {};
+    const listOf = (id) => { const l = subs[id]; return (Array.isArray(l) ? l : (l && typeof l === 'object' ? Object.values(l) : [])).filter(s => s && s.endpoint); };
+    const acik = [], kapali = [];
+    (DB.staff || []).filter(Boolean).forEach(s => {
+        const cihazlar = listOf(s.id);
+        if (cihazlar.length) {
+            const son = cihazlar.map(c => Date.parse(c.eklendi) || 0).reduce((a, b) => Math.max(a, b), 0);
+            acik.push({ id: String(s.id), name: s.name, cihazlar: [...new Set(cihazlar.map(c => c.cihaz || 'Cihaz'))], son });
+        } else {
+            kapali.push({ id: String(s.id), name: s.name });
+        }
+    });
+    const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'tr');
+    return { acik: acik.sort(byName), kapali: kapali.sort(byName) };
+};
+
+window.renderPushStatusPanel = function () {
+    const body = document.getElementById('push-status-body');
+    const summary = document.getElementById('push-status-summary');
+    if (!body) return;
+    const { acik, kapali } = window.getPushStatusList();
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    if (summary) summary.innerHTML = `<b class="push-ok">${acik.length} açık</b> · <b class="push-off">${kapali.length} kapalı</b>`;
+    const tarih = (ms) => ms ? new Date(ms).toLocaleDateString('tr-TR') : '';
+    body.innerHTML = `
+        <p class="push-status-note">Kapalı olanlar bildirimleri ancak uygulamayı açtıklarında görür; telefonlarına anlık bildirim gitmez.
+        Açmak için kişinin uygulamada kendi adını seçip <b>🔔 Bildirimleri Aç</b> ile izin vermesi gerekir.</p>
+        <div class="push-status-cols">
+            <div>
+                <div class="push-status-head push-off">🔕 Kapalı (${kapali.length})</div>
+                <ul class="push-status-list">${kapali.map(p => `<li>${esc(p.name)}</li>`).join('') || '<li class="muted">Herkesin telefonu kayıtlı 🎉</li>'}</ul>
+            </div>
+            <div>
+                <div class="push-status-head push-ok">🔔 Açık (${acik.length})</div>
+                <ul class="push-status-list">${acik.map(p => `<li>${esc(p.name)} <span class="muted">${esc(p.cihazlar.join(', '))}${p.son ? ' · ' + tarih(p.son) : ''}</span></li>`).join('') || '<li class="muted">Henüz kimse yok</li>'}</ul>
+            </div>
+        </div>
+        ${kapali.length ? `<button type="button" class="push-status-btn" onclick="selectPushOffStaff()">👥 Kapalı olanları alıcı olarak seç</button>
+        <button type="button" class="push-status-btn" onclick="fillPushReminderTemplate()">✍️ İzin açma hatırlatması yaz</button>` : ''}
+    `;
+};
+
+/** Bildirimi kapalı olanları "Seçtiğim Kişilere" listesinde işaretler */
+window.selectPushOffStaff = function () {
+    const off = new Set(window.getPushStatusList().kapali.map(p => p.id));
+    const sel = document.getElementById('broadcast-target-select');
+    if (sel) { sel.value = 'manual_multi'; window.handleBroadcastTargetChange(); }
+    document.querySelectorAll('.broadcast-staff-cb').forEach(cb => { cb.checked = off.has(String(cb.value)); });
+    window.updateBroadcastMultiCount();
+    if (typeof showToast === 'function') showToast(`👥 Telefon bildirimi kapalı ${off.size} kişi seçildi.`, 'info');
+};
+
+window.fillPushReminderTemplate = function () {
+    const t = document.getElementById('broadcast-title-input');
+    const m = document.getElementById('broadcast-message-input');
+    if (t) t.value = '🔔 Telefon bildirimlerini açın';
+    if (m) m.value = 'Sınav görevleriniz ve süre onayları için telefon bildirimlerini açmanız gerekiyor. Uygulamada kendi adınızı seçip "🔔 Bildirimleri Aç" düğmesine dokunun ve izin verin. iPhone kullanıyorsanız önce siteyi Ana Ekrana ekleyin.';
+    window.updateBroadcastPreview();
+    window.selectPushOffStaff();
 };
 
 /** Duyurunun kime gideceği: {ids|null(herkes), names, withDevice(telefonu kayıtlı kişi sayısı)} */

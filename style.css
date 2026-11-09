@@ -6417,3 +6417,16 @@ body.dark-theme .ffc-scope {
     border: 1px solid var(--glass-border, #e2e8f0); background: var(--glass-bg, #fff); color: var(--text-primary, #0f172a);
 }
 @media (max-width: 600px) { .audit-tab { font-size: 0.76rem; padding: 5px 10px; } }
+/* ---- Telefon bildirimi durumu (yönetici bildirim penceresi) ---- */
+.push-status-panel { background: rgba(15, 23, 42, 0.45); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.6rem 0.9rem; }
+.push-status-panel summary { cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--text-main, #f1f5f9); }
+.push-status-panel .push-ok { color: #22c55e; }
+.push-status-panel .push-off { color: #f59e0b; }
+.push-status-panel .muted { color: var(--text-muted); font-size: 0.72rem; }
+.push-status-note { font-size: 0.74rem; color: var(--text-muted); margin: 0.6rem 0; line-height: 1.4; }
+.push-status-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.push-status-head { font-weight: 700; font-size: 0.78rem; margin-bottom: 4px; }
+.push-status-list { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; font-size: 0.78rem; color: var(--text-main, #e2e8f0); }
+.push-status-list li { padding: 3px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.12); }
+.push-status-btn { margin-top: 8px; margin-right: 6px; font-size: 0.75rem; padding: 5px 10px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+@media (max-width: 520px) { .push-status-cols { grid-template-columns: 1fr; } }

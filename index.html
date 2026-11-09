@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=20261109d">
+    <link rel="stylesheet" href="style.css?v=20261109f">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -3290,7 +3290,7 @@
     <script src="bildirim_kurallari.js?v=20261109e"></script>
     <script src="atama_destek.js?v=20261108m"></script>
     <script src="logic.js?v=20261109d"></script>
-    <script src="app.js?v=20261109e"></script>
+    <script src="app.js?v=20261109f"></script>
     <script src="auth_google.js"></script>
     <script src="swap_email.js?v=20261108m"></script>
     <script src="swap_market.js?v=20261108m"></script>
@@ -3664,6 +3664,12 @@
                     </label>
                     <select id="broadcast-staff-select" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; color: white; font-size: 0.85rem;"></select>
                 </div>
+
+                <!-- Telefon bildirimi açık / kapalı olanlar -->
+                <details id="push-status-panel" class="push-status-panel">
+                    <summary>📱 Telefon bildirimi durumu: <span id="push-status-summary">—</span></summary>
+                    <div id="push-status-body"></div>
+                </details>
 
                 <!-- Telefon Cihaz / Push Bildirimi Onayı -->
                 <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
