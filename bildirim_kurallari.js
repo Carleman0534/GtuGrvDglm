@@ -207,12 +207,22 @@
     }
     const saatSirasi = (a, b) => String(a.time).localeCompare(String(b.time));
 
+    /**
+     * Gözetmenin göreceği konum: çok derslikli sınavda kendisine atanmış derslik,
+     * değilse sınavın konumu. Atama yoksa tüm konum.
+     */
+    function gozetmenKonumu(ex, pid) {
+        if (!ex) return '';
+        const oda = pid != null && derslikler(ex).length > 1 ? gozetmenDersligi(ex, pid) : null;
+        return oda || ex.location || '';
+    }
+
     function gunHatirlatmasi({ pid, gun, tarih, sinavlar }, siteUrl) {
         const sorted = [...sinavlar].sort(saatSirasi);
         const ad = gunAdi(tarih);
         const title = gun === 1 ? '📅 Yarın göreviniz var' : `📅 Sıradaki göreviniz ${gun} gün sonra`;
         const body = sorted.length === 1
-            ? `${sorted[0].name} — ${ad} ${sorted[0].time}, ${sorted[0].location || 'derslik belirtilmedi'} (${sinavSuresi(sorted[0])} dk)`
+            ? `${sorted[0].name} — ${ad} ${sorted[0].time}, ${gozetmenKonumu(sorted[0], pid) || 'derslik belirtilmedi'} (${sinavSuresi(sorted[0])} dk)`
             : `${ad}: ${sorted.length} görev — ` + sorted.map(e => `${e.time} ${e.name}`).join(' · ');
         return {
             title, body: body.slice(0, 300),
@@ -220,8 +230,9 @@
             data: { tur: TUR.GUN, url: siteUrl || './index.html', examId: sorted[0].id }
         };
     }
-    function saatHatirlatmasi(ex, siteUrl) {
-        const loc = ex.location ? `Salon: ${ex.location}` : 'Derslik henüz belirtilmedi';
+    function saatHatirlatmasi(ex, siteUrl, pid) {
+        const konum = gozetmenKonumu(ex, pid);
+        const loc = konum ? `Salon: ${konum}` : 'Derslik henüz belirtilmedi';
         const dur = ex.duration ? `(${ex.duration} dk)` : '';
         return {
             title: `⏰ ${ex.name} ${AYAR.SAAT_ONCE} saat sonra başlıyor`,
@@ -374,7 +385,7 @@
                 for (const pid of kimin(ex)) {
                     const key = `saat${AYAR.SAAT_ONCE}:${pid}:${ex.id}`;
                     if (durum[key]) continue;
-                    out.push({ tur: TUR.SAAT, pid, sinavlar: [ex], anahtarlar: [key], payload: saatHatirlatmasi(ex, o.siteUrl) });
+                    out.push({ tur: TUR.SAAT, pid, sinavlar: [ex], anahtarlar: [key], payload: saatHatirlatmasi(ex, o.siteUrl, pid) });
                 }
             }
         }
@@ -397,7 +408,7 @@
         gozetmenler, gozetmeniMi, sureOnaylandi, bittiMi, sureTeyidiBekliyor, gunHatirlatmaSaatiMi, saatHatirlatmasiZamani,
         SURE_ALANI, sureAlani, gozetmenSureKaydi, satirOnayli, gozetmenSuresi, gozetmenBaslangicSaati,
         DERSLIK_ALANI, derslikAlani, derslikAnahtari, derslikler, gozetmenDersligi, ayniDerslikGozetmenleri,
-        gunHatirlatmasi, saatHatirlatmasi, sureTeyidi, duyuru, duyuruHedefleri, duyuruHedefMi,
+        gunHatirlatmasi, saatHatirlatmasi, sureTeyidi, duyuru, duyuruHedefleri, duyuruHedefMi, gozetmenKonumu,
         tiklamaHedefi, planla, kaydet
     };
 });

@@ -66,6 +66,27 @@ test('Süre bildirimi: aynı derslikteki gözetmene yazılan süre onu da onayl�
     assert.deepEqual(plan.map(p => p.pid), ['3']);
 });
 
+test('Gözetmen konumu: atanmış derslik gösterilir; tek derslikte veya atanmamışsa sınav konumu', () => {
+    const ex = satir({ proctorIds: [1, 2], gozetmenDersligi_1: 'Derslik 3' });
+    assert.equal(K.gozetmenKonumu(ex, 1), 'Derslik 3');
+    assert.equal(K.gozetmenKonumu(ex, 2), 'Derslik 1 / Derslik 3', 'atanmamış → tüm konum');
+    assert.equal(K.gozetmenKonumu(satir({ location: 'Amfi 2' }), 1), 'Amfi 2');
+});
+
+test('Hatırlatmalar gözetmenin kendi dersliğini söyler', () => {
+    const ex = satir({ proctorIds: [1, 2], gozetmenDersligi_1: 'Derslik 3', gozetmenDersligi_2: 'Derslik 1' });
+    const gun1 = K.gunHatirlatmasi({ pid: '1', gun: 1, tarih: ex.date, sinavlar: [ex] });
+    const gun2 = K.gunHatirlatmasi({ pid: '2', gun: 1, tarih: ex.date, sinavlar: [ex] });
+    assert.match(gun1.body, /Derslik 3/);
+    assert.doesNotMatch(gun1.body, /Derslik 1/);
+    assert.match(gun2.body, /Derslik 1/);
+    assert.match(K.saatHatirlatmasi(ex, '', '1').body, /Salon: Derslik 3/);
+    const now = Date.parse('2026-11-10T13:30:00+03:00') - K.AYAR.SAAT_ONCE * 3600000 + 5 * 60000; // hatırlatma penceresinde
+    const saat = K.planla({ exams: [ex] }, now, { durum: {} }).filter(p => p.tur === K.TUR.SAAT);
+    assert.equal(saat.find(p => p.pid === '1').payload.body.includes('Derslik 3'), true);
+    assert.equal(saat.find(p => p.pid === '2').payload.body.includes('Salon: Derslik 1'), true);
+});
+
 // ---------------------------------------------------------------- işlem geçmişi
 function appWith(session) {
     const app = createApp({ now: NOW });

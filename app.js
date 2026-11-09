@@ -7775,7 +7775,7 @@ window.renderProfile = function() {
                 activeBody.innerHTML += `
                     <tr>
                         <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
-                        <td><span class="badge-location">${ex.location || '-'}</span></td>
+                        <td>${myRoomCellHtml(ex, myStaffId)}</td>
                         <td>${ex.lecturer || '-'}</td>
                         <td>${ex.date}</td>
                         <td>${ex.time}</td>
@@ -7824,12 +7824,10 @@ window.renderProfile = function() {
                 ? `<div style="font-size: 0.65rem; color: #34d399; font-weight: 600;" title="Süreyi kendiniz girdiniz${myRec.onayZamani ? ' (' + new Date(myRec.onayZamani).toLocaleString('tr-TR') + ')' : ''}">✓ Sizin girdiğiniz süre</div>`
                 : (ex.durationConfirmed ? `<div style="font-size: 0.65rem; color: #34d399; font-weight: 600;" title="${ex.durationConfirmedBy ? ex.durationConfirmedBy + ' tarafından teyit edildi' : 'Teyit edildi'}">✓ ${ex.durationConfirmedBy ? ex.durationConfirmedBy.split(' ')[0] + ' teyit etti' : 'Teyitli'}</div>` : '');
             const myNote = myRec ? (myRec.not || '') : (ex.durationNote || '');
-            const myRoom = window.BildirimKurallari ? BildirimKurallari.gozetmenDersligi(ex, myStaffId) : null;
-            const multiRoom = window.BildirimKurallari && BildirimKurallari.derslikler(ex).length > 1;
             archiveBody.innerHTML += `
                 <tr>
                     <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
-                    <td>${multiRoom && myRoom ? `<strong>${myRoom}</strong><div style="font-size:0.65rem; color:var(--text-muted);">${ex.location}</div>` : (ex.location || '-')}</td>
+                    <td>${myRoomCellHtml(ex, myStaffId)}</td>
                     <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
                     <td>${myTime}${myTime !== ex.time ? `<div style="font-size:0.65rem; color:#38bdf8;" title="Planlanan başlangıç">Plan: ${ex.time}</div>` : ''}</td>
@@ -8007,7 +8005,7 @@ window.showMyTimelineDayDetail = function(dateStr) {
             <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:1rem; margin-bottom:10px;">
                 <div>
                     <div style="font-weight:700; margin-bottom:4px;">${ex.name}</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">${ex.time} &bull; ${ex.duration} dk &bull; ${ex.location || '-'}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">${ex.time} &bull; ${ex.duration} dk &bull; ${isProc ? myRoomText(ex, myStaffId) : (ex.location || '-')}</div>
                 </div>
                 ${role}
             </div>
@@ -8174,7 +8172,7 @@ window.showProfileCalDayDetail = function(dateStr) {
                     </div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 10px;">
                         <span>🕒 ${ex.time} (${ex.duration} dk)</span>
-                        <span>📍 ${ex.location || '-'}</span>
+                        <span>📍 ${isProc ? myRoomText(ex, myStaffId) : (ex.location || '-')}</span>
                     </div>
                 </div>
             `;
@@ -8421,7 +8419,7 @@ function startProfileCountdown(staffId) {
 
     const next = upcoming[0];
     const targetDate = getSafeDate(next.date, next.time);
-    countTarget.textContent = `${next.time} - ${next.name} (${next.location || 'Salon'})`;
+    countTarget.textContent = `${next.time} - ${next.name} (${myRoomText(next, staffId).replace(/ \(atanmadı\)$/, '') || 'Salon'})`;
 
     const update = () => {
         const diff = targetDate - new Date();
@@ -8951,6 +8949,27 @@ function proctorRoomFields(kind, previousIds) {
  * Farklı derslikteki gözetmenler bağımsızdır. Derslik bilinmiyorsa yalnızca kendisi.
  * @param derslik  pencerede seçilen derslik (eşleştirme yoksa); verilirse eşleştirme olarak da kaydedilir
  */
+function myRoomText(ex, pid) {
+    // Gözetmenin kendi dersliği: çok derslikli sınavda atanmış derslik; atanmamışsa tüm konum + "(atanmadı)"
+    const BK = window.BildirimKurallari;
+    if (!ex) return '-';
+    if (!BK || pid == null || BK.derslikler(ex).length < 2) return ex.location || '-';
+    const oda = BK.gozetmenDersligi(ex, pid);
+    return oda || `${ex.location} (atanmadı)`;
+}
+window.myRoomText = myRoomText;
+
+function myRoomCellHtml(ex, pid) {
+    const BK = window.BildirimKurallari;
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const multi = BK && pid != null && BK.derslikler(ex).length > 1;
+    if (!multi) return `<span class="badge-location">${esc(ex.location || '-')}</span>`;
+    const oda = BK.gozetmenDersligi(ex, pid);
+    return oda
+        ? `<span class="badge-location" title="Size atanan derslik">🚪 ${esc(oda)}</span><div style="font-size:0.65rem; color:var(--text-muted);">${esc(ex.location)}</div>`
+        : `<span class="badge-location">${esc(ex.location)}</span><div style="font-size:0.65rem; color:#f59e0b;">Dersliğiniz atanmadı</div>`;
+}
+
 function getDurationTargets(ex, pid, derslik) {
     const BK = window.BildirimKurallari;
     const exView = derslik ? Object.assign({}, ex, { [BK.derslikAlani(pid)]: derslik }) : ex;
@@ -8965,12 +8984,50 @@ function getDurationTargets(ex, pid, derslik) {
     };
 }
 
+/** Çok derslikli sınavda bu gözetmenin dersliği henüz atanmamış mı? (süre girerken seçmesi gerekir) */
+function needsRoomChoice(ex, pid) {
+    const BK = window.BildirimKurallari;
+    return !!(BK && pid && BK.derslikler(ex).length >= 2 && !BK.gozetmenDersligi(ex, pid));
+}
+
+/** Tek tıkla onay düğmesi metni: çok derslikli sınavda derslik de teyit edilir */
+function quickConfirmLabel(ex, pid, mins) {
+    const BK = window.BildirimKurallari;
+    const multi = BK && pid && BK.derslikler(ex).length >= 2;
+    if (!multi) return `${ex.time}'da başladı, ${mins} dk sürdü`;
+    const oda = BK.gozetmenDersligi(ex, pid);
+    return oda ? `Dersliğim ${oda} · ${ex.time}'da başladı, ${mins} dk sürdü` : `Dersliğimi seçip onayla`;
+}
+window.quickConfirmLabel = quickConfirmLabel;
+window.needsRoomChoice = needsRoomChoice;
+
+/** Süre penceresinde derslik seçimi zorunluysa ve seçilmediyse uyarır */
+function roomChoiceMissing(ex, pid, selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel || !pid) return false;
+    if (window.BildirimKurallari.derslikler(ex).length >= 2 && !sel.value) {
+        alert('🚪 Lütfen sınavda bulunduğunuz dersliği seçin. Süre, aynı derslikteki gözetmenler için de kaydedilir.');
+        sel.focus();
+        return true;
+    }
+    return false;
+}
+
 /** Gözetmenin süresini yazar: kendisine ve aynı derslikteki gözetmenlere (farklı derslikleri etkilemez) */
 function saveProctorDurationRecord(ex, pid, { sure, saat, not, derslik }, actor) {
     const BK = window.BildirimKurallari;
     const nowIso = new Date().toISOString();
-    // Pencerede derslik seçildiyse eşleştirmeyi de kaydet (sonraki girişlerde tekrar sorulmaz)
-    if (derslik && BK.gozetmenDersligi(ex, pid) !== derslik) updateExam(ex.id, { [BK.derslikAlani(pid)]: derslik });
+    // Pencerede derslik seçildiyse/değiştirildiyse eşleştirmeyi de kaydet (sonraki girişlerde tekrar sorulmaz)
+    const oncekiOda = BK.gozetmenDersligi(ex, pid);
+    if (derslik && oncekiOda !== derslik) {
+        updateExam(ex.id, { [BK.derslikAlani(pid)]: derslik });
+        if (typeof logAction === 'function') {
+            logAction('user', oncekiOda ? 'Derslik Düzeltme' : 'Derslik Bildirimi',
+                oncekiOda
+                    ? `${actor}: "${ex.name}" (${ex.date} ${ex.time}) sınavındaki dersliğini ${oncekiOda} → ${derslik} olarak düzeltti.`
+                    : `${actor}: "${ex.name}" (${ex.date} ${ex.time}) sınavında ${derslik} dersliğinde olduğunu bildirdi.`);
+        }
+    }
     const t = getDurationTargets(DB.exams.find(e => String(e.id) === String(ex.id)) || ex, pid, derslik);
     t.hedefler.forEach(({ ex: target, pid: q }) => {
         if (!target) return;
@@ -8993,8 +9050,13 @@ function independentDurationNoteHtml(ex, pid, selectId) {
     const myRoom = BK.gozetmenDersligi(ex, pid);
     const noteId = (selectId || 'dur-room') + '-note';
     const select = rooms.length >= 2 ? `
-        <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:0.8rem; color: var(--text-secondary, #cbd5e1);">
-            🚪 <strong>Hangi derslikteydiniz?</strong>
+        <div style="margin-top:8px; font-size:0.76rem; color: var(--text-secondary, #cbd5e1);">
+            ${myRoom
+                ? `🚪 Size atanan derslik: <strong>${myRoom}</strong>. Doğruysa olduğu gibi bırakın; farklı derslikteydiyseniz değiştirin.`
+                : `🚪 Bu sınav birden fazla derslikte yapıldı ve size derslik atanmamış. <strong>Lütfen dersliğinizi seçin.</strong>`}
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:0.8rem; color: var(--text-secondary, #cbd5e1);">
+            🚪 <strong>${myRoom ? 'Dersliğinizi teyit edin:' : 'Hangi derslikteydiniz?'}</strong>
             <select id="${selectId}" onchange="updateDurationRoomNote('${ex.id}', '${pid}', this.value, '${noteId}')"
                 style="flex:1; min-width:0; padding:4px 8px; border-radius:6px; background: rgba(0,0,0,0.3); color: inherit; border: 1px solid rgba(56,189,248,0.4);">
                 <option value="">Seçiniz…</option>
@@ -9226,7 +9288,7 @@ function renderProfileDurationAlerts(myStaffId, staff) {
                                 <span class="badge" style="background: rgba(245,158,11,0.25); color: #fbbf24; font-size: 0.7rem; padding: 1px 7px; border-radius: 4px;">Sıfır Sürtünmeli Onay</span>
                             </div>
                             <div style="font-size: 0.88rem; color: #f8fafc; margin-top: 4px;">
-                                <strong>${ex.name}</strong> &nbsp;•&nbsp; 📍 <strong>${ex.location || '-'}</strong> &nbsp;•&nbsp; 📅 ${ex.date} (${ex.time})
+                                <strong>${ex.name}</strong> &nbsp;•&nbsp; 📍 <strong>${myRoomText(ex, myStaffId)}</strong> &nbsp;•&nbsp; 📅 ${ex.date} (${ex.time})
                             </div>
                             <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
                                 Planlanan Süre: <strong>${scheduled} dk</strong> &nbsp;|&nbsp; Ders Hocası: ${ex.lecturer || '-'}
@@ -9237,7 +9299,7 @@ function renderProfileDurationAlerts(myStaffId, staff) {
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; padding: 0.65rem 1.15rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 10px rgba(16,185,129,0.35);" onclick="confirmScheduledDuration('${ex.id}', ${scheduled})">
-                            <span>✓</span> ${ex.time}'da başladı, ${scheduled} dk sürdü
+                            <span>✓</span> ${quickConfirmLabel(ex, myStaffId, scheduled)}
                         </button>
                         <button type="button" class="btn-secondary" style="background: rgba(249, 115, 22, 0.15); border: 1.5px solid #f97316; color: #fb923c; padding: 0.65rem 1.15rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" onclick="openUpdateDurationModal('${ex.id}')">
                             <span>⏱️</span> Saat veya süre farklı
@@ -9275,6 +9337,13 @@ window.confirmScheduledDuration = function(examId, durationVal = null) {
         const targetDuration = durationVal !== null ? parseInt(durationVal, 10) : scheduled;
         const { pid, actor } = getDurationEntryContext(baseExam);
         const nowIso = new Date().toISOString();
+
+        // Çok derslikli sınavda dersliği atanmamış gözetmen: tek tıkla onay yerine derslik seçtiren pencere
+        if (pid && needsRoomChoice(baseExam, pid)) {
+            openUpdateDurationModal(baseExam.id);
+            if (typeof showToast === 'function') showToast('🚪 Önce hangi derslikte olduğunuzu seçin.', 'info');
+            return;
+        }
 
         let hedef = null;
         if (pid) {
@@ -9567,6 +9636,7 @@ window.saveExamDurationFromModal = function() {
         // Sınav bittikten sonra gözetmen girişi → yalnızca o gözetmenin kaydı.
         // Sınav bitmeden yapılan değişiklik bir program değişikliğidir → sınavın kendisi güncellenir.
         const perProctor = !!(pid && examEnded);
+        if (perProctor && roomChoiceMissing(ex, pid, 'dur-room-select')) return;
 
         const saveBtn = document.getElementById('btn-save-duration');
         if (saveBtn) {
@@ -9865,6 +9935,8 @@ window.confirmLecturerExamDuration = function(examId = null) {
         const actor = ctx.pid ? ctx.actor : (getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu');
         const nowIso = new Date().toISOString();
 
+        if (ctx.pid && roomChoiceMissing(baseExam, ctx.pid, 'ldp-room-select')) return;
+
         if (ctx.pid) {
             // Gözetmen: kendisi + aynı derslikteki gözetmenler
             saveProctorDurationRecord(baseExam, ctx.pid, { sure: dur, saat: getProctorExamTime(baseExam, ctx.pid), derslik: document.getElementById('ldp-room-select')?.value || null }, actor);
@@ -9983,6 +10055,7 @@ window.submitLecturerActualDuration = function(examId = null, customMins = null,
         const actor = ctx.pid ? ctx.actor : (getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu');
         const nowIso = new Date().toISOString();
         const prevDur = ctx.pid ? getProctorExamDuration(baseExam, ctx.pid) : baseExam.duration;
+        if (ctx.pid && roomChoiceMissing(baseExam, ctx.pid, 'ldp-room-select')) return;
 
         const btnSubmit = document.getElementById('btn-ldp-submit');
         if (btnSubmit) {

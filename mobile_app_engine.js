@@ -461,7 +461,7 @@
                 <span>📅 ${escapeHtml(dayName)}</span>
                 <span>⏰ ${escapeHtml(ex.time)}</span>
                 <span>⏱️ ${parseInt(ex.duration, 10) || 60} dk</span>
-                <span>📍 ${escapeHtml(ex.location || '-')}</span>
+                <span>📍 ${escapeHtml(typeof window.myRoomText === 'function' ? window.myRoomText(ex, staffId) : (ex.location || '-'))}</span>
             </div>
             <div class="next-duty-actions">
                 <button type="button" onclick="openUpdateDurationModal('${id}')">⏱️ Saat / Süre</button>
