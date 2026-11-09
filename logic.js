@@ -1735,18 +1735,22 @@ function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null,
     const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName, ctx));
     if (available.length === 0) return [];
 
+    // Sıralama dönem sonu beklenen puana göre (sınav dışı görevlerde bugünkü puana göre)
+    const fut = isNonExam ? null : getFutureBalanceMap();
+    const key = (s) => fut ? projectedTermScore(s, fut) : (s.totalScore || 0);
+    const avgScore = DB.staff.reduce((a, b) => a + (b.totalScore || 0), 0) / (DB.staff.length || 1);
     return available.map(s => {
         const score = s.totalScore || 0;
         const tasks = s.taskCount || 0;
         const minReached = tasks >= GLOBAL_LIMITS.MIN_TASKS;
-        const avgScore = DB.staff.reduce((a, b) => a + (b.totalScore || 0), 0) / (DB.staff.length || 1);
-        
+
         let reason = "✅ Müsait";
         if (!minReached) reason = "🌟 Görev Sayısı Az";
+        else if (fut && fut[String(s.id)] && fut[String(s.id)].kisitli) reason = "📅 Kalan dönemde az müsait";
         else if (score < avgScore) reason = "⚖️ Düşük Puanlı";
 
-        return { ...s, reason };
-    }).sort((a,b) => a.totalScore - b.totalScore).slice(0, 5);
+        return { ...s, reason, _key: key(s) };
+    }).sort((a, b) => a._key - b._key).slice(0, 5);
 }
 window.getRecommendedProctors = getRecommendedProctors;
 
@@ -1772,9 +1776,12 @@ function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null, isNonE
 
     if (available.length === 0) return null;
 
-    // SIRALAMA STRATEJİSİ: 
+    // SIRALAMA STRATEJİSİ:
     // 1. Önce minimum görev sayısına (0) ulaşmamış olanlara öncelik ver
-    // 2. Kendi aralarında en düşük puanlı olanı seç
+    // 2. Kendi aralarında dönem sonu beklenen puanı en düşük olanı seç
+    //    (sınav dışı görevlerde bugünkü puan kullanılır)
+    const fut = isNonExam ? null : getFutureBalanceMap();
+    const key = (s) => fut ? projectedTermScore(s, fut) : (s.totalScore || 0);
     return available.sort((a, b) => {
         const aMinReached = (a.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
         const bMinReached = (b.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
@@ -1782,8 +1789,263 @@ function findBestProctor(dateStr, timeStr, duration, ignoreExamId = null, isNonE
         if (aMinReached !== bMinReached) {
             return aMinReached ? 1 : -1; // Ulaşmayan öne (üstte)
         }
-        return a.totalScore - b.totalScore;
+        return key(a) - key(b);
     })[0];
+}
+
+// =====================================================================
+// ⚖️ PARÇA PARÇA GELEN SINAVLAR İÇİN DÖNEM SONU HEDEFLİ DENGELEME
+// =====================================================================
+// Sorun: Sınavlar paketler halinde geliyor. Sadece bugünkü puana bakarak atama yapınca,
+// kısıtı çok olan kişiler (kalan dönemde az sınava girebilecek olanlar) hep geride kalıyor
+// ve denge sonradan takaslarla düzeltilmek zorunda kalıyor.
+// Çözüm: Her kişinin "dönem sonu beklenen puanı" = bugünkü puan + kalan dönemde (güncel dönem,
+// ör. Güz: tahmini finaller, mazeretler, D sınavları) müsaitliği oranında alması beklenen pay.
+// Atamalar bu beklenen puana göre sıralanır. Herkes eşit müsaitse sıralama eskisiyle aynıdır;
+// müsaitliği az olan kişi müsait olduğu sınavlarda öne geçer.
+
+const _futureBalanceCache = { key: null, at: 0, value: null };
+
+/** Güncel dönemde kalan, henüz açılmamış sınav yükü (puan): tahmin motorundan */
+function _forecastRemainingLoad() {
+    let finals = 0, mazeret = 0, dSlots = 0, finalDur = 100, mazeretDur = 90, dDur = 110;
+    const engine = (typeof window !== 'undefined' && window.FinalForecastEngine)
+        || (typeof FinalForecastEngine !== 'undefined' ? FinalForecastEngine : null);
+    if (engine && typeof engine.calculateForecastData === 'function') {
+        try {
+            const fc = engine.calculateForecastData();
+            const fs = fc && fc.forecastSummary;
+            if (fs) {
+                finals = Math.max(0, fs.remainingFinalSlots || 0);
+                mazeret = Math.max(0, (fs.remainingMazeretSlots != null ? fs.remainingMazeretSlots : fs.remainingMazeretToDistribute) || 0);
+                dSlots = Math.max(0, fs.remainingDSlots || 0);
+                if (fs.finalSlotDuration) finalDur = fs.finalSlotDuration;
+                if (fs.mazeretAvgDuration) mazeretDur = fs.mazeretAvgDuration;
+                if (fs.dAvgDuration) dDur = fs.dAvgDuration;
+            }
+        } catch (e) { /* tahmin yoksa yalnızca bilinen sınavlar kullanılır */ }
+    }
+    return { slots: finals + mazeret + dSlots, points: (finals * finalDur + mazeret * mazeretDur + dSlots * dDur) * 1.25 };
+}
+
+/** Müsaitlik oranı için örnek sınav saatleri: takvimdeki gelecek sınavlar (+ az ise tipik saatler) */
+function _futureSampleSlots(nowMs) {
+    const today = new Date(nowMs);
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const seen = new Set();
+    const slots = [];
+    (DB.exams || []).forEach(e => {
+        if (!e || !e.date || !e.time || e.date < todayStr) return;
+        const k = `${e.date} ${e.time}`;
+        if (seen.has(k)) return;
+        seen.add(k);
+        slots.push({ date: e.date, time: e.time, duration: parseInt(e.duration, 10) || 90 });
+    });
+    if (slots.length < 10) {
+        // Takvimde yeterli gelecek sınav yoksa önümüzdeki 4 haftanın hafta içi tipik saatleri
+        for (let d = 1; d <= 28; d++) {
+            const dt = new Date(nowMs + d * 86400000);
+            const wd = dt.getDay();
+            if (wd === 0 || wd === 6) continue;
+            const ds = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+            ['09:30', '13:30', '17:00'].forEach(t => slots.push({ date: ds, time: t, duration: 90 }));
+        }
+    }
+    return slots;
+}
+
+/**
+ * Her aktif gözetmen için kalan dönemde beklenen pay.
+ * Döner: { [staffId]: { oran (0-1 müsaitlik), beklenen (puan), kisitli (bool) } }
+ */
+function getFutureBalanceMap() {
+    const pool = getActiveProctorStaff(DB.staff || []);
+    const cons = DB.constraints ? JSON.stringify(DB.constraints).length : 0;
+    const key = `${(DB.exams || []).length}|${cons}|${pool.length}`;
+    const nowMs = Date.now();
+    if (_futureBalanceCache.key === key && nowMs - _futureBalanceCache.at < 5000) return _futureBalanceCache.value;
+
+    const slots = _futureSampleSlots(nowMs);
+    const load = _forecastRemainingLoad();
+    const ids = pool.map(s => String(s.id));
+    const ratios = {};
+    pool.forEach(s => {
+        const ok = slots.length ? slots.filter(sl => isAvailable(s.name, sl.date, sl.time, sl.duration)).length : 1;
+        ratios[String(s.id)] = slots.length ? ok / slots.length : 1;
+    });
+
+    // Kalan görevler eşit paylaştırılır; ancak bir kişi müsait olduğu oturumların en fazla yarısını
+    // alabilir varsayılır (kapasite). Kapasitesi adil payın altında kalanın eksiği diğerlerine dağılır.
+    // Böylece kısıtlar gerçekten sınırlayıcı değilse herkesin beklentisi eşittir (eski sıralama korunur).
+    const T = load.slots;
+    const avgPts = T > 0 ? load.points / T : 0;
+    const sessions = Math.max(1, T / 1.5); // oturum başına ortalama ~1,5 gözetmen
+    const cap = {}, alloc = {};
+    ids.forEach(id => { cap[id] = ratios[id] * sessions * 0.5; alloc[id] = 0; });
+    let remaining = T, active = ids.slice();
+    while (remaining > 1e-9 && active.length) {
+        const share = remaining / active.length;
+        const capped = active.filter(id => cap[id] - alloc[id] <= share);
+        if (!capped.length) { active.forEach(id => { alloc[id] += share; }); remaining = 0; break; }
+        capped.forEach(id => { remaining -= (cap[id] - alloc[id]); alloc[id] = cap[id]; });
+        active = active.filter(id => !capped.includes(id));
+    }
+    const fair = ids.length ? T / ids.length : 0;
+    const out = {};
+    ids.forEach(id => {
+        out[id] = {
+            oran: ratios[id],
+            beklenen: alloc[id] * avgPts,
+            kisitli: fair > 0 && alloc[id] < fair * 0.9
+        };
+    });
+    _futureBalanceCache.key = key; _futureBalanceCache.at = nowMs; _futureBalanceCache.value = out;
+    return out;
+}
+
+/** Atama sırası anahtarı: dönem sonu beklenen puan (küçük olan önce görev almalı) */
+function projectedTermScore(staff, futureMap) {
+    const m = (futureMap || getFutureBalanceMap())[String(staff.id)];
+    return (staff.totalScore || 0) + (m ? m.beklenen : 0);
+}
+
+/**
+ * Taslak paketin denge özeti.
+ * Her kişi için: paketten önceki ve sonraki dönem sonu sapması, paketin getirdiği puan/görev,
+ * yüksek katsayılı (akşam/hafta sonu) sınav sayısı ve paketin kişiyi hedefe yaklaştırıp yaklaştırmadığı.
+ */
+/** Paket: yalnızca henüz başlamamış taslak sınavlar (geçmişte kalmış taslak işaretleri pakete dahil değildir) */
+function _pendingDrafts() {
+    const now = Date.now();
+    return (DB.exams || []).filter(e => e && e.isDraft && !shouldCountAsNonExam(e) && getSafeDate(e.date, e.time).getTime() > now);
+}
+function _staleDraftCount() {
+    const now = Date.now();
+    return (DB.exams || []).filter(e => e && e.isDraft && getSafeDate(e.date, e.time).getTime() <= now).length;
+}
+
+function analyzeDraftBatch() {
+    const pool = getActiveProctorStaff(DB.staff || []);
+    const fut = getFutureBalanceMap();
+    const drafts = _pendingDrafts();
+    const batch = {};
+    pool.forEach(s => { batch[String(s.id)] = { puan: 0, gorev: 0, yuksek: 0 }; });
+    let unassigned = 0;
+    drafts.forEach(e => {
+        const pids = _examPids(e);
+        if (!pids.length) { unassigned++; return; }
+        pids.forEach(pid => {
+            const b = batch[String(pid)];
+            if (!b) return;
+            b.puan += parseFloat(e.score) || 0;
+            b.gorev += 1;
+            if ((parseFloat(e.katsayi) || 1) >= 1.5) b.yuksek += 1;
+        });
+    });
+
+    const rows = pool.map(s => {
+        const b = batch[String(s.id)];
+        const f = fut[String(s.id)] || { beklenen: 0, oran: 1, kisitli: false };
+        const after = (s.totalScore || 0) + f.beklenen;
+        return { id: s.id, name: s.name, oncesi: after - b.puan, sonrasi: after, paketPuan: b.puan, paketGorev: b.gorev, yuksek: b.yuksek, oran: f.oran, kisitli: f.kisitli };
+    });
+    const mean = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const mOnce = mean(rows.map(r => r.oncesi));
+    const mSonra = mean(rows.map(r => r.sonrasi));
+    rows.forEach(r => {
+        r.sapmaOnce = r.oncesi - mOnce;
+        r.sapmaSonra = r.sonrasi - mSonra;
+        r.yon = Math.abs(r.sapmaSonra) < Math.abs(r.sapmaOnce) - 1 ? 'yaklasti' : (Math.abs(r.sapmaSonra) > Math.abs(r.sapmaOnce) + 1 ? 'uzaklasti' : 'ayni');
+    });
+    const spread = (key) => rows.length ? Math.max(...rows.map(r => r[key])) - Math.min(...rows.map(r => r[key])) : 0;
+
+    // Yüksek katsayılı sınavların yığılması: kişi başına adil payın 2 katından fazlası
+    const totalHigh = rows.reduce((a, r) => a + r.yuksek, 0);
+    const fairHigh = rows.length ? totalHigh / rows.length : 0;
+    const yigilma = rows.filter(r => r.yuksek >= 2 && r.yuksek > Math.max(1, fairHigh * 2)).map(r => ({ name: r.name, yuksek: r.yuksek }));
+
+    rows.sort((a, b) => b.sapmaSonra - a.sapmaSonra);
+    return { taslakSayisi: drafts.length, eskiTaslak: _staleDraftCount(), atanmamis: unassigned, farkOnce: spread('oncesi'), farkSonra: spread('sonrasi'), yigilma, rows };
+}
+
+/**
+ * Yalnızca taslak sınavlar içinde dengeleme: devir ve ikili takaslarla dönem sonu beklenen
+ * puanların ortalamadan sapmalarının kareleri toplamını küçültür. Yayınlanmış görevlere dokunmaz.
+ * Her adım fairnessCanReceive ile (çakışma, kısıt, atama kuralları) doğrulanır.
+ */
+function balanceDraftBatch(opts = {}) {
+    const maxSteps = opts.maxSteps || 25;
+    const minGain = opts.minGain || 25;
+    const minMove = opts.minMove || 20; // 20 puandan küçük kaydırmalar için görev oynatılmaz
+    const pool = getActiveProctorStaff(DB.staff || []);
+    const poolIds = new Set(pool.map(s => String(s.id)));
+    const fut = getFutureBalanceMap();
+    const drafts = _pendingDrafts().filter(e => _examPids(e).length > 0);
+
+    const proj = {};
+    pool.forEach(s => { proj[String(s.id)] = (s.totalScore || 0) + ((fut[String(s.id)] || {}).beklenen || 0); });
+    const spread = () => { const v = Object.values(proj); return v.length ? Math.max(...v) - Math.min(...v) : 0; };
+    const farkOnce = spread();
+    if (!drafts.length) return { steps: [], farkOnce, farkSonra: farkOnce };
+    const staffName = (id) => ((DB.staff || []).find(s => String(s.id) === String(id)) || {}).name || `#${id}`;
+    const steps = [];
+
+    for (let step = 0; step < maxSteps; step++) {
+        const ids = Object.keys(proj);
+        const mean = ids.reduce((a, k) => a + proj[k], 0) / (ids.length || 1);
+        const dev = (id) => proj[id] - mean;
+        let best = null;
+
+        // 1) Devir: p'nin taslak görevi q'ya (kareler toplamındaki azalma = 2s(dev p − dev q) − 2s²)
+        drafts.forEach(e => {
+            const s = parseFloat(e.score) || 0;
+            if (s < minMove) return;
+            _examPids(e).map(String).filter(p => poolIds.has(p)).forEach(p => {
+                pool.forEach(q => {
+                    const qid = String(q.id);
+                    if (qid === p) return;
+                    const gain = 2 * s * (dev(p) - dev(qid)) - 2 * s * s;
+                    if (gain <= minGain || (best && gain <= best.gain)) return;
+                    if (!fairnessCanReceive(DB, qid, e, null, p)) return;
+                    best = { tur: 'devir', gain, e, p, q: qid, s };
+                });
+            });
+        });
+
+        // 2) İkili takas: p'nin e1'i ⇄ q'nun e2'si (görev sayıları değişmez)
+        for (let i = 0; i < drafts.length; i++) {
+            for (let j = 0; j < drafts.length; j++) {
+                if (i === j) continue;
+                const e1 = drafts[i], e2 = drafts[j];
+                const d = (parseFloat(e1.score) || 0) - (parseFloat(e2.score) || 0);
+                if (d < minMove) continue;
+                _examPids(e1).map(String).filter(p => poolIds.has(p)).forEach(p => {
+                    _examPids(e2).map(String).filter(q => poolIds.has(q) && q !== p).forEach(q => {
+                        const gain = 2 * d * (dev(p) - dev(q)) - 2 * d * d;
+                        if (gain <= minGain || (best && gain <= best.gain)) return;
+                        if (_examHasProctor(e1, q) || _examHasProctor(e2, p)) return;
+                        if (!fairnessCanReceive(DB, q, e1, e2.id, p) || !fairnessCanReceive(DB, p, e2, e1.id, q)) return;
+                        best = { tur: 'takas', gain, e1, e2, p, q, d };
+                    });
+                });
+            }
+        }
+
+        if (!best) break;
+        if (best.tur === 'devir') {
+            moveExamProctor(DB, best.e, best.p, best.q);
+            proj[best.p] -= best.s; proj[best.q] += best.s;
+            steps.push({ tur: 'devir', sinav: best.e.name, tarih: best.e.date, kimden: staffName(best.p), kime: staffName(best.q), puan: best.s });
+        } else {
+            moveExamProctor(DB, best.e1, best.p, best.q);
+            moveExamProctor(DB, best.e2, best.q, best.p);
+            proj[best.p] -= best.d; proj[best.q] += best.d;
+            steps.push({ tur: 'takas', sinav: `${best.e1.name} ⇄ ${best.e2.name}`, tarih: `${best.e1.date} / ${best.e2.date}`, kimden: staffName(best.p), kime: staffName(best.q), puan: best.d });
+        }
+    }
+
+    if (steps.length && typeof recalculateAllScores === 'function') recalculateAllScores();
+    return { steps, farkOnce, farkSonra: spread() };
 }
 
 /**
@@ -1897,6 +2159,9 @@ function runGlobalOptimization() {
         return scoreB - scoreA;
     });
 
+    // Dönem sonu beklenen pay (kalan dönemde az müsait olanlar öne geçer)
+    const fut = getFutureBalanceMap();
+
     // Her sınavı sırayla yerleştir
     sortedExams.forEach(ex => {
         const date = ex.date;
@@ -1905,7 +2170,7 @@ function runGlobalOptimization() {
 
         // Her personel için bir "Ceza Puanı" (Penalty Score) hesapla
         const candidates = DB.staff.map(s => {
-            let penalty = s.totalScore;
+            let penalty = shouldCountAsNonExam(ex) ? (s.totalScore || 0) : projectedTermScore(s, fut);
 
             // Kısıt kontrolü (Ağır ceza)
             if (!isAvailable(s.name, date, time, duration)) {
@@ -4523,8 +4788,10 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
 
     let remainingFinals = 43;
     let remainingMazeret = 11;
+    let remainingD = 13;
     let avgFinalDur = 100;
     let avgMazeretDur = 90;
+    let avgDDur = 110;
 
     const engine = (typeof window !== 'undefined' && window.FinalForecastEngine) 
         || (typeof FinalForecastEngine !== 'undefined' ? FinalForecastEngine : null)
@@ -4539,15 +4806,18 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
                 if (rm != null) remainingMazeret = Math.max(0, rm);
                 if (fc.forecastSummary.finalSlotDuration) avgFinalDur = fc.forecastSummary.finalSlotDuration;
                 if (fc.forecastSummary.mazeretAvgDuration) avgMazeretDur = fc.forecastSummary.mazeretAvgDuration;
+                if (fc.forecastSummary.remainingDSlots != null) remainingD = Math.max(0, fc.forecastSummary.remainingDSlots);
+                if (fc.forecastSummary.dAvgDuration) avgDDur = fc.forecastSummary.dAvgDuration;
             }
         } catch (e) {
             console.warn("Hibrit tahmin hesaplanırken forecast motoru okunamadı:", e);
         }
     }
 
-    const totalUpcomingSlots = remainingFinals + remainingMazeret;
+    const totalUpcomingSlots = remainingFinals + remainingMazeret + remainingD;
     const avgFinalPoints = Math.round(avgFinalDur * 1.25);
     const avgMazeretPoints = Math.round(avgMazeretDur * 1.25);
+    const avgDPoints = Math.round(avgDDur * 1.25);
 
     const currentMetrics = calculateFairnessMetrics(staffPool, mode);
     const staffPlans = staffPool.map(s => {
@@ -4562,6 +4832,7 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
             currentTasks: s.taskCount || 0,
             finalQuota: 0,
             mazeretQuota: 0,
+            dQuota: 0,
             totalUpcomingQuota: 0,
             projectedScore: score,
             projectedTasks: s.taskCount || 0,
@@ -4571,7 +4842,7 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
     });
 
     const currentTotalScore = staffPlans.reduce((sum, s) => sum + s.currentScore, 0);
-    const upcomingTotalScore = (remainingFinals * avgFinalPoints) + (remainingMazeret * avgMazeretPoints);
+    const upcomingTotalScore = (remainingFinals * avgFinalPoints) + (remainingMazeret * avgMazeretPoints) + (remainingD * avgDPoints);
     const hybridTargetAverage = parseFloat(((currentTotalScore + upcomingTotalScore) / staffPool.length).toFixed(2));
 
     for (let m = 0; m < remainingMazeret; m++) {
@@ -4590,6 +4861,13 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
         staffPlans[0].projectedTasks += 1;
     }
 
+    for (let d = 0; d < remainingD; d++) {
+        staffPlans.sort((a, b) => a.projectedScore - b.projectedScore || a.currentTasks - b.currentTasks);
+        staffPlans[0].dQuota += 1;
+        staffPlans[0].totalUpcomingQuota += 1;
+        staffPlans[0].projectedScore = parseFloat((staffPlans[0].projectedScore + avgDPoints).toFixed(2));
+        staffPlans[0].projectedTasks += 1;
+    }
     const projectedScores = staffPlans.map(s => s.projectedScore);
     const projectedFinalGini = calculateGiniCoefficient(projectedScores);
 
@@ -4619,6 +4897,7 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
         hybridTargetAverage,
         remainingFinalSlots: remainingFinals,
         remainingMazeretSlots: remainingMazeret,
+        remainingDSlots: remainingD,
         totalUpcomingSlots,
         currentGini: currentMetrics.gini,
         projectedFinalGini,
@@ -4972,5 +5251,9 @@ if (_targetGlobal) {
     _targetGlobal.moveExamProctor = moveExamProctor;
     _targetGlobal.moveProctorPersonalFields = moveProctorPersonalFields;
     _targetGlobal.fairnessProposalExpired = fairnessProposalExpired;
+    _targetGlobal.getFutureBalanceMap = getFutureBalanceMap;
+    _targetGlobal.projectedTermScore = projectedTermScore;
+    _targetGlobal.analyzeDraftBatch = analyzeDraftBatch;
+    _targetGlobal.balanceDraftBatch = balanceDraftBatch;
 }
 

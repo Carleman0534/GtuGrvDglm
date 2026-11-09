@@ -1157,6 +1157,7 @@ function updateDraftBanner() {
         </div>
         <div style="display:flex; gap:10px;">
             <button onclick="handleAIButtonClick()" class="btn-primary" style="background:#8b5cf6; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(139, 92, 246, 0.4);">✨ AI Optimizasyon</button>
+            <button onclick="openBatchBalanceModal(false)" class="btn-primary" style="background:#0ea5e9; border:1px solid rgba(255,255,255,0.2);">📦 Paket Dengesi</button>
             <button onclick="handlePublishDraft()" class="btn-primary" style="background:#10b981; border:1px solid rgba(255,255,255,0.2); box-shadow:0 0 15px rgba(16, 185, 129, 0.4);">🚀 Taslaği Yayinla</button>
         </div>
     `;
@@ -1178,8 +1179,15 @@ window.handlePublishDraft = function() {
         alert("Yayina alinacak taslak sinav bulunamadi.");
         return;
     }
+    // Yayınlamadan önce paketin dönem sonu dengesine etkisini göster
+    window.openBatchBalanceModal(true);
+};
 
+window.confirmPublishDraft = function() {
+    const draftCount = DB.exams.filter(e => e.isDraft).length;
+    if (draftCount === 0) return;
     if (confirm(`${draftCount} adet sinav yayina alinacak ve ilgili gözetmenlere bildirim gönderilecektir. Devam edilsin mi?`)) {
+        window.closeBatchBalanceModal();
         const res = publishDraft();
         alert(`🚀 Başarili!\n\n${res.examCount} sinav yayina alindi.\n${res.proctorCount} gözetmene bildirim gönderildi.`);
         updateDraftBanner();
@@ -1189,6 +1197,124 @@ window.handlePublishDraft = function() {
     }
 };
 
+
+/**
+ * 📦 PAKET DENGESİ: Taslak sınav paketinin dönem sonu dengesine etkisi ve paket içi dengeleme
+ */
+window.closeBatchBalanceModal = function() {
+    const m = document.getElementById('modal-batch-balance');
+    if (m) m.remove();
+};
+
+window.openBatchBalanceModal = function(publishMode) {
+    window._batchPublishMode = !!publishMode;
+    window.closeBatchBalanceModal();
+    const m = document.createElement('div');
+    m.id = 'modal-batch-balance';
+    m.className = 'batch-modal-backdrop';
+    m.innerHTML = `<div class="batch-modal" role="dialog" aria-label="Paket dengesi"><div id="batch-balance-body"></div></div>`;
+    m.addEventListener('click', (ev) => { if (ev.target === m) window.closeBatchBalanceModal(); });
+    document.body.appendChild(m);
+    window.renderBatchBalance();
+};
+
+window.renderBatchBalance = function(lastResult) {
+    const body = document.getElementById('batch-balance-body');
+    if (!body) return;
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const r = analyzeDraftBatch();
+    const p = (n) => `${n > 0 ? '+' : ''}${Math.round(n)}`;
+    const yon = { yaklasti: '<span class="bb-ok">▲ hedefe yaklaştı</span>', uzaklasti: '<span class="bb-bad">▼ hedeften uzaklaştı</span>', ayni: '<span class="bb-muted">—</span>' };
+    const donem = (window.FinalForecastEngine && typeof FinalForecastEngine.getAcademicTerm === 'function')
+        ? FinalForecastEngine.getAcademicTerm(FinalForecastEngine.localDateStr ? FinalForecastEngine.localDateStr(new Date()) : new Date().toISOString().slice(0, 10)).name : 'güncel dönem';
+
+    const head = `
+        <div class="bb-head">
+            <h3>📦 Paket Dengesi <span class="bb-muted" style="font-size:0.8rem; font-weight:500;">· ${esc(donem)}</span></h3>
+            <button type="button" class="bb-x" onclick="closeBatchBalanceModal()" aria-label="Kapat">✕</button>
+        </div>
+        <p class="bb-note">Sınavlar parça parça geldiği için her paket tek başına mükemmel dengelenmeye çalışılmaz. Hesap, herkesin <b>dönem sonu beklenen puanına</b> göre yapılır:
+        bugünkü puan + dönemin kalanında (tahmini finaller, mazeretler, D sınavları) müsaitliği oranında alması beklenen pay. Kalan dönemde az müsait olan kişi, müsait olduğu sınavlarda öne geçer.</p>`;
+
+    const eskiUyari = r.eskiTaslak ? `<div class="bb-warn">ℹ️ Tarihi geçmiş ${r.eskiTaslak} sınav hâlâ "taslak" işaretli. Bunlar pakete dahil edilmez ve dengelemede değiştirilmez.</div>` : '';
+    if (!r.taslakSayisi) {
+        body.innerHTML = head + eskiUyari + `<div class="bb-empty">Henüz yapılmamış taslak (yayınlanmamış) sınav yok. Yeni paketi taslak olarak ekleyince burada etkisini görebilir ve yayınlamadan önce dengeleyebilirsiniz.</div>`;
+        return;
+    }
+
+    const sonuc = lastResult ? (lastResult.steps.length
+        ? `<div class="bb-result">⚖️ ${lastResult.steps.length} değişiklik yapıldı. En yüksek–en düşük fark: <b>${Math.round(lastResult.farkOnce)}</b> → <b>${Math.round(lastResult.farkSonra)}</b> puan.
+            <ul>${lastResult.steps.map(s => `<li>${s.tur === 'devir' ? '➡️' : '⇄'} ${esc(s.sinav)} <span class="bb-muted">(${esc(s.tarih)})</span>: ${esc(s.kimden)} → ${esc(s.kime)}</li>`).join('')}</ul>
+            <button type="button" class="bb-btn" onclick="undoBatchBalance()">↩️ Bu dengelemeyi geri al</button></div>`
+        : `<div class="bb-result">Paket içinde daha iyi bir dağılım bulunamadı (çakışma, kısıt ve atama kuralları içinde mevcut dağılım zaten en iyisi).</div>`) : '';
+
+    body.innerHTML = head + `
+        <div class="bb-kpis">
+            <div><span>Taslak sınav</span><b>${r.taslakSayisi}</b></div>
+            <div><span>Atanmamış</span><b class="${r.atanmamis ? 'bb-bad' : ''}">${r.atanmamis}</b></div>
+            <div><span>Fark (paketten önce)</span><b>${Math.round(r.farkOnce)}</b></div>
+            <div><span>Fark (paketten sonra)</span><b class="${r.farkSonra > r.farkOnce + 1 ? 'bb-bad' : 'bb-ok'}">${Math.round(r.farkSonra)}</b></div>
+        </div>
+        ${eskiUyari}
+        ${r.yigilma.length ? `<div class="bb-warn">⚠️ Akşam / hafta sonu sınavları yığılmış: ${r.yigilma.map(y => `${esc(y.name)} (${y.yuksek})`).join(', ')}</div>` : ''}
+        ${sonuc}
+        <div class="bb-table-wrap"><table class="bb-table">
+            <thead><tr><th>Kişi</th><th>Paketten</th><th>Dönem sonu sapma</th><th>Etki</th></tr></thead>
+            <tbody>${r.rows.map(x => `<tr>
+                <td>${esc(x.name)}${x.kisitli ? ' <span class="bb-tag" title="Kalan dönemde müsaitliği %' + Math.round(x.oran * 100) + '">📅 az müsait</span>' : ''}</td>
+                <td>${x.paketGorev ? `${x.paketGorev} görev · ${Math.round(x.paketPuan)} P${x.yuksek ? ` · ${x.yuksek} akşam/h.sonu` : ''}` : '<span class="bb-muted">—</span>'}</td>
+                <td><span class="bb-muted">${p(x.sapmaOnce)}</span> → <b class="${Math.abs(x.sapmaSonra) > 300 ? 'bb-bad' : ''}">${p(x.sapmaSonra)}</b></td>
+                <td>${yon[x.yon]}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>
+        <p class="bb-note">Sapma: kişinin dönem sonu beklenen puanının ortalamadan farkı (+ fazla, − eksik). Dengeleme yalnızca henüz yapılmamış <b>taslak</b> sınavların gözetmenlerini değiştirir; yayınlanmış görevlere ve takas tekliflerine dokunmaz. Önce önerilen değişiklikler gösterilir, onayınızla uygulanır.</p>
+        <div class="bb-actions">
+            <button type="button" class="bb-btn bb-primary" onclick="runBatchBalance()">⚖️ Paketi dengele</button>
+            ${window._batchPublishMode ? `<button type="button" class="bb-btn bb-go" onclick="confirmPublishDraft()">🚀 Yayınla</button>` : ''}
+            <button type="button" class="bb-btn" onclick="closeBatchBalanceModal()">Kapat</button>
+        </div>`;
+};
+
+window.runBatchBalance = async function() {
+    // 1) Önizleme: değişiklikler kopya üzerinde hesaplanır, veri değişmez
+    const saved = JSON.parse(JSON.stringify(DB.exams));
+    const preview = balanceDraftBatch();
+    DB.exams = saved;
+    if (typeof recalculateAllScores === 'function') recalculateAllScores();
+    if (!preview.steps.length) { window.renderBatchBalance(preview); return; }
+
+    const list = preview.steps.map(s => `• ${s.sinav} (${s.tarih}): ${s.kimden} → ${s.kime}`).join('\n');
+    if (!confirm(`⚖️ Önerilen ${preview.steps.length} değişiklik (fark ${Math.round(preview.farkOnce)} → ${Math.round(preview.farkSonra)} puan):\n\n${list}\n\n⚠️ Taslak sınavlar gözetmenlerin profilinde görünür; bu görevler değişirse ilgili kişilere haber verilmesi gerekir.\n\nUygulansın mı?`)) {
+        return;
+    }
+
+    // 2) Uygula (geri alınabilir)
+    const snap = typeof createSimulationSnapshot === 'function' ? createSimulationSnapshot({ mode: 'paket' }) : null;
+    const res = balanceDraftBatch();
+    if (res.steps.length) {
+        if (snap && typeof markSimulationApplied === 'function') markSimulationApplied(snap, { stepCount: res.steps.length });
+        saveToLocalStorage();
+        if (typeof saveToBackend === 'function') { try { await saveToBackend(); } catch (e) {} }
+        if (typeof logAction === 'function') logAction('admin', 'Paket Dengeleme', `Taslak pakette ${res.steps.length} değişiklik: ${res.steps.map(s => `${s.sinav} (${s.kimden} → ${s.kime})`).join('; ')}. Fark ${Math.round(res.farkOnce)} → ${Math.round(res.farkSonra)} puan.`);
+        if (typeof renderExams === 'function') renderExams();
+        if (typeof renderSchedule === 'function') renderSchedule();
+        if (typeof renderDashboard === 'function') renderDashboard();
+    }
+    window.renderBatchBalance(res);
+};
+
+window.undoBatchBalance = async function() {
+    if (typeof rollbackSimulationSnapshot !== 'function') return;
+    const res = rollbackSimulationSnapshot();
+    if (!res || !res.success) { alert(res && res.error ? res.error : 'Geri alınamadı.'); return; }
+    saveToLocalStorage();
+    if (typeof saveToBackend === 'function') { try { await saveToBackend(); } catch (e) {} }
+    if (typeof logAction === 'function') logAction('admin', 'Paket Dengeleme Geri Alındı', `${res.restoredExams.length} taslak sınavın gözetmeni önceki haline döndü.${res.skippedExams.length ? ` Atlanan: ${res.skippedExams.join(', ')}` : ''}`);
+    if (typeof renderExams === 'function') renderExams();
+    if (typeof renderSchedule === 'function') renderSchedule();
+    if (typeof showToast === 'function') showToast(`↩️ ${res.restoredExams.length} sınavın gözetmeni önceki haline döndü.`, 'info');
+    window.renderBatchBalance();
+};
 
 /**
  * Takas onayi için şifre doğrulama yardimcisi.
@@ -13803,12 +13929,14 @@ function processExcelRows(rows) {
             }
             
             if (available.length > 0) {
-                // Minimum görev kotası ve en düşük puan sıralaması
+                // Minimum görev kotası, sonra dönem sonu beklenen puan (kalan dönemde az müsait olan öne)
+                const fut = typeof getFutureBalanceMap === 'function' ? getFutureBalanceMap() : null;
+                const key = (s) => fut ? projectedTermScore(s, fut) : (s.totalScore || 0);
                 available.sort((a, b) => {
                     const aMin = (a.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
                     const bMin = (b.taskCount || 0) >= GLOBAL_LIMITS.MIN_TASKS;
                     if (aMin !== bMin) return aMin ? 1 : -1;
-                    return (a.totalScore || 0) - (b.totalScore || 0);
+                    return key(a) - key(b);
                 });
                 
                 const chosen = available[0];
@@ -18012,7 +18140,7 @@ window.renderFairnessHybridPlan = function(hybridResult) {
         : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 
     let html = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px;">
             <div style="background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; padding: 8px; text-align: center;">
                 <div style="font-size: 0.68rem; color: #d8b4fe; text-transform: uppercase;">Açılacak Finaller</div>
                 <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.remainingFinalSlots} Slot</div>
@@ -18020,6 +18148,10 @@ window.renderFairnessHybridPlan = function(hybridResult) {
             <div style="background: rgba(236,72,153,0.15); border: 1px solid rgba(236,72,153,0.3); border-radius: 8px; padding: 8px; text-align: center;">
                 <div style="font-size: 0.68rem; color: #f472b6; text-transform: uppercase;">Açılacak Mazeretler</div>
                 <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.remainingMazeretSlots} Slot</div>
+            </div>
+            <div style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 0.68rem; color: #fcd34d; text-transform: uppercase;">Açılacak D / Büt</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.remainingDSlots || 0} Slot</div>
             </div>
             <div style="background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.3); border-radius: 8px; padding: 8px; text-align: center;">
                 <div style="font-size: 0.68rem; color: #7dd3fc; text-transform: uppercase;">Dönem Sonu Hedef Ort.</div>
@@ -18033,7 +18165,7 @@ window.renderFairnessHybridPlan = function(hybridResult) {
 
         <div style="background: rgba(147,51,234,0.1); border-left: 3px solid #a855f7; border-radius: 6px; padding: 8px 12px; font-size: 0.76rem; color: #e9d5ff; margin-bottom: 12px; line-height: 1.45;">
             <strong>🔮 Proaktif Adil Ön-Atama Kılavuzu:</strong><br>
-            Tahmin motorunun öngördüğü <strong>${hybridResult.totalUpcomingSlots} adet yeni sınav görevi</strong> (Final + Mazeret) sisteme girildiğinde, aşağıdaki kotalara göre atanırsa dönem sonunda herhangi bir takas/devir yapmaya gerek kalmadan tüm personel <strong>${hybridResult.hybridTargetAverage.toFixed(1)} Puan</strong> civarında eşitlenecektir.
+            Tahmin motorunun öngördüğü <strong>${hybridResult.totalUpcomingSlots} adet yeni sınav görevi</strong> (Final + Mazeret + D Sınavı/Büt) sisteme girildiğinde, aşağıdaki kotalara göre atanırsa dönem sonunda herhangi bir takas/devir yapmaya gerek kalmadan tüm personel <strong>${hybridResult.hybridTargetAverage.toFixed(1)} Puan</strong> civarında eşitlenecektir.
         </div>
 
         <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
@@ -18045,6 +18177,7 @@ window.renderFairnessHybridPlan = function(hybridResult) {
                         <th style="padding: 7px 10px;">Mevcut Puan</th>
                         <th style="padding: 7px 10px; color:#f472b6;">Mazeret Kotası</th>
                         <th style="padding: 7px 10px; color:#c084fc;">Final Kotası</th>
+                        <th style="padding: 7px 10px; color:#fbbf24;">D Sınavı Kotası</th>
                         <th style="padding: 7px 10px; color:#38bdf8;">Toplam Yeni Görev</th>
                         <th style="padding: 7px 10px;">Sezon Sonu Tahmini</th>
                         <th style="padding: 7px 10px;">Denge Durumu</th>
@@ -18065,6 +18198,7 @@ window.renderFairnessHybridPlan = function(hybridResult) {
                 <td style="padding: 6px 10px; color: #cbd5e1;">${s.currentScore.toFixed(1)} P. <small style="color:#94a3b8;">(${s.currentTasks} Görev)</small></td>
                 <td style="padding: 6px 10px; font-weight: 700; color: #f472b6;">${s.mazeretQuota > 0 ? `+${s.mazeretQuota} Mazeret` : '-'}</td>
                 <td style="padding: 6px 10px; font-weight: 700; color: #c084fc;">+${s.finalQuota} Final</td>
+                <td style="padding: 6px 10px; font-weight: 700; color: #fbbf24;">${s.dQuota > 0 ? `+${s.dQuota} D Sınavı` : '-'}</td>
                 <td style="padding: 6px 10px; font-weight: 800; color: #38bdf8;">+${s.totalUpcomingQuota} Görev</td>
                 <td style="padding: 6px 10px; font-weight: 700; color: #67e8f9;">${s.projectedScore.toFixed(1)} P. <small style="color:#94a3b8;">(${s.projectedTasks} Görev)</small></td>
                 <td style="padding: 6px 10px; color: #34d399; font-weight: 600;">${s.status}</td>
