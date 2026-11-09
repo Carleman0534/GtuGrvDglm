@@ -423,8 +423,11 @@
                 });
 
                 const pastExamCount = myPastExams.length;
-                const pastExamDuration = myPastExams.reduce((sum, e) => sum + (parseInt(e.duration, 10) || 60), 0);
-                const pastExamScore = myPastExams.reduce((sum, e) => sum + (parseFloat(e.score) || 0), 0);
+                // Tamamlanan sınavlarda gözetmenin KENDİ girdiği süre/puan kullanılır (farklı derslikte farklı sürmüş olabilir)
+                const ownDur = (e) => (typeof window.getProctorExamDuration === 'function') ? window.getProctorExamDuration(e, staff.id) : (parseInt(e.duration, 10) || 60);
+                const ownScore = (e) => (typeof window.getProctorExamScore === 'function') ? window.getProctorExamScore(e, staff.id) : (parseFloat(e.score) || 0);
+                const pastExamDuration = myPastExams.reduce((sum, e) => sum + ownDur(e), 0);
+                const pastExamScore = myPastExams.reduce((sum, e) => sum + ownScore(e), 0);
 
                 const remainingConfirmedCount = myRemainingExams.length;
                 const remainingConfirmedDuration = myRemainingExams.reduce((sum, e) => sum + (parseInt(e.duration, 10) || 60), 0);

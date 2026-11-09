@@ -6397,3 +6397,23 @@ body.dark-theme .ffc-scope {
 @media (max-width: 768px) {
     .close-modal { width: 40px !important; height: 40px !important; min-height: 40px !important; }
 }
+/* ===== İŞLEM GEÇMİŞİ: rol sekmeleri, arama, dönem ===== */
+.audit-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.audit-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.audit-tab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--glass-border, #e2e8f0); background: transparent;
+    color: var(--text-secondary, #475569); font-weight: 600; font-size: 0.82rem;
+}
+.audit-tab:hover { border-color: var(--primary); color: var(--text-primary, #0f172a); }
+.audit-tab.active { background: var(--primary); border-color: var(--primary); color: #fff !important; }
+.audit-count { font-size: 0.72rem; padding: 0 7px; border-radius: 999px; background: rgba(100, 116, 139, 0.18); }
+.audit-tab.active .audit-count { background: rgba(255, 255, 255, 0.25); }
+.audit-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.audit-tools input[type="search"] { flex: 1 1 240px; min-width: 0; }
+.audit-tools input, .audit-tools select {
+    padding: 8px 10px; border-radius: 8px; font-size: 0.85rem;
+    border: 1px solid var(--glass-border, #e2e8f0); background: var(--glass-bg, #fff); color: var(--text-primary, #0f172a);
+}
+@media (max-width: 600px) { .audit-tab { font-size: 0.76rem; padding: 5px 10px; } }

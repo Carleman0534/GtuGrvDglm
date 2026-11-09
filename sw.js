@@ -1,7 +1,7 @@
-const CACHE_NAME = 'gozetmenlik-ai-v55';
+const CACHE_NAME = 'gozetmenlik-ai-v57';
 
 // Ortak bildirim kuralları (dokunma davranışı sitedeki ve sunucudaki bildirimlerle aynı dosyadan)
-try { importScripts('./bildirim_kurallari.js?v=20261109b'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
+try { importScripts('./bildirim_kurallari.js?v=20261109d'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
 
 const ASSETS_TO_CACHE = [
     './',

@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=20261109a">
+    <link rel="stylesheet" href="style.css?v=20261109d">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1515,12 +1515,15 @@
                     <button id="btn-clear-audit" class="btn-secondary admin-only" style="color: var(--accent-red);">Geçmişi Temizle</button>
                 </div>
                 <div class="card-large">
+                    <!-- Rol sekmeleri, arama ve dönem filtresi (renderAuditLogs doldurur) -->
+                    <div id="audit-filters" class="audit-filters"></div>
                     <div class="table-container">
                         <table id="table-audit">
                             <thead>
                                 <tr>
                                     <th>Zaman</th>
-                                    <th>Kategori</th>
+                                    <th>Rol</th>
+                                    <th>Kişi</th>
                                     <th>İşlem</th>
                                     <th>Detaylar</th>
                                 </tr>
@@ -3195,9 +3198,15 @@
             <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; flex: 1; overflow-y: auto; margin-bottom: 14px;">
                 <!-- Sol: Yük Dağılım Grafiği -->
                 <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column;">
-                    <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #22d3ee; display: flex; justify-content: space-between;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #22d3ee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
                         <span id="fairness-bars-title">🎓 Sınav Gözetmenliği Yük Dağılımı</span>
-                        <span id="fairness-benchmark-avg" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">Hedef Ort: 0.0 P.</span>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <div style="display: inline-flex; background: rgba(255,255,255,0.06); padding: 2px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                                <button type="button" id="btn-bars-mode-current" class="bars-view-btn" onclick="window.switchBarsViewMode('current')" style="padding: 2px 8px; font-size: 0.7rem; border-radius: 4px; border: none; background: #0284c7; color: white; cursor: pointer; font-weight: 700;">Mevcut</button>
+                                <button type="button" id="btn-bars-mode-target" class="bars-view-btn" onclick="window.switchBarsViewMode('target')" style="padding: 2px 8px; font-size: 0.7rem; border-radius: 4px; border: none; background: transparent; color: #94a3b8; cursor: pointer; font-weight: 600;">🌟 En İyi Senaryo</button>
+                            </div>
+                            <span id="fairness-benchmark-avg" style="font-size: 0.72rem; color: #67e8f9; font-weight: 600;">Hedef Ort: 0.0 P.</span>
+                        </div>
                     </h4>
                     <div id="fairness-bars-container" style="flex: 1; overflow-y: auto; max-height: 42vh; padding-right: 6px; display: flex; flex-direction: column; gap: 8px;">
                         <!-- JS ile doldurulacak -->
@@ -3238,11 +3247,26 @@
                         </div>
                     </div>
 
-                    <!-- Önerilen Transferler Tablosu -->
+                    <!-- Görünüm Seçici Sekmeleri: Önerilen Adımlar vs En İyi Senaryo Tablosu -->
+                    <div style="display: flex; gap: 6px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        <button type="button" id="btn-view-fairness-actions" class="fairness-view-tab" onclick="window.switchFairnessView('actions')" style="background: rgba(14,165,233,0.25); color: #38bdf8; border: 1px solid rgba(14,165,233,0.45); padding: 5px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                            <span>📋</span> <span>Önerilen Devir & Takas Adımları</span> <span id="fairness-actions-count-badge" style="background: rgba(14,165,233,0.3); padding: 1px 6px; border-radius: 10px; font-size: 0.7rem;">0</span>
+                        </button>
+                        <button type="button" id="btn-view-fairness-scenario" class="fairness-view-tab" onclick="window.switchFairnessView('scenario')" style="background: transparent; color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                            <span>🌟</span> <span>En İyi Senaryo (Olması Gerekenler)</span> <span id="fairness-scenario-count-badge" style="background: rgba(16,185,129,0.2); color:#6ee7b7; padding: 1px 6px; border-radius: 10px; font-size: 0.7rem;">12</span>
+                        </button>
+                    </div>
+
+                    <!-- 1. Görünüm: Önerilen Transferler Tablosu -->
                     <div id="fairness-swaps-container" style="flex: 1; overflow-y: auto; max-height: 34vh;">
                         <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 30px 10px;">
                             Simülasyon çalıştırarak kısıt ve çakışma kurallarını bozmadan adaleti en üst seviyeye çıkaracak akıllı görev transferi önerilerini görüntüleyebilirsiniz.
                         </div>
+                    </div>
+
+                    <!-- 2. Görünüm: En İyi Senaryo - Olması Gerekenler Tablosu (Hedef Durum) -->
+                    <div id="fairness-target-scenario-container" class="hidden" style="flex: 1; overflow-y: auto; max-height: 34vh;">
+                        <!-- JS ile doldurulacak -->
                     </div>
                 </div>
             </div>
@@ -3263,17 +3287,17 @@
         </div>
     </div>
 
-    <script src="bildirim_kurallari.js?v=20261109b"></script>
+    <script src="bildirim_kurallari.js?v=20261109d"></script>
     <script src="atama_destek.js?v=20261108m"></script>
-    <script src="logic.js?v=20261108m"></script>
-    <script src="app.js?v=20261109b"></script>
+    <script src="logic.js?v=20261109d"></script>
+    <script src="app.js?v=20261109d"></script>
     <script src="auth_google.js"></script>
     <script src="swap_email.js?v=20261108m"></script>
     <script src="swap_market.js?v=20261108m"></script>
     <script src="smart_doc_parser.js?v=20261108m"></script>
-    <script src="final_forecast_engine.js?v=20261108j"></script>
+    <script src="final_forecast_engine.js?v=20261109d"></script>
 
-    <script src="notification_engine.js?v=20261109b"></script>
+    <script src="notification_engine.js?v=20261109d"></script>
 
     <script src="mobile_app_engine.js?v=20261108i"></script>
 

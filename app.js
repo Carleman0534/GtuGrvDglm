@@ -4052,6 +4052,8 @@ function showAddExamModal() {
             duration: durationVal,
             proctorIds: window.tempSelectedProctors || []
         };
+        // Çok derslikli sınavda gözetmen–derslik eşleştirmeleri
+        Object.entries(proctorRoomFields('add')).forEach(([k, v]) => { if (v) examData[k] = v; });
 
         // Müsaitlik kontrolü (Seçili tüm hocalar için)
         for (const pid of examData.proctorIds) {
@@ -4071,7 +4073,8 @@ function showAddExamModal() {
         }
         
         window.tempSelectedProctors = [];
-        
+        window.tempAddRooms = {};
+
         hideModal();
         renderExams();
         renderSchedule();
@@ -4125,16 +4128,20 @@ function showAddExamModal() {
 
     const renderTempProctorList = () => {
         const list = document.getElementById('add-proctor-list');
-        list.innerHTML = window.tempSelectedProctors.map(id => {
+        list.innerHTML = (window.tempSelectedProctors.map(id => {
             const staff = DB.staff.find(s => String(s.id) === String(id));
             return `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
-                    <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
+                    <span style="font-size:0.85rem; flex:1; min-width:0;">${staff ? staff.name : '???'}</span>
+                    ${proctorRoomSelectHtml('add', id)}
                     <button type="button" class="btn-icon" onclick="removeProctorFromAddList(${id})" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2);">🗑️</button>
                 </div>
             `;
-        }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>';
+        }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>') + proctorRoomSummaryHtml('add');
     };
+    window.renderTempProctorList = renderTempProctorList;
+    // Konum değişince (ör. "Derslik 1 / Derslik 3" yazılınca) derslik seçimleri görünsün
+    document.getElementById('exam-location')?.addEventListener('input', () => renderTempProctorList());
 
     updateProctorSelect();
     renderTempProctorList();
@@ -4759,6 +4766,20 @@ window.showEditExamModal = (id) => {
 
     // Initialize tempEditProctors with existing proctors
     window.tempEditProctors = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
+    // Çok derslikli sınavda mevcut gözetmen–derslik eşleştirmeleri
+    window.tempEditRooms = {};
+    window._editOriginalProctors = window.tempEditProctors.slice();
+    if (window.BildirimKurallari) {
+        window.tempEditProctors.forEach(pid => {
+            const r = ex[BildirimKurallari.derslikAlani(pid)];
+            if (r) window.tempEditRooms[pid] = BildirimKurallari.gozetmenDersligi(ex, pid) || r;
+        });
+    }
+    const editLocEl = document.getElementById('edit-exam-location');
+    if (editLocEl && !editLocEl._roomHandler) {
+        editLocEl._roomHandler = () => { if (typeof window.renderEditProctorList === 'function') window.renderEditProctorList(); };
+        editLocEl.addEventListener('input', editLocEl._roomHandler);
+    }
     
     const updateEditAvailabilityStatus = () => {
         const d = document.getElementById('edit-exam-date')?.value;
@@ -4841,18 +4862,19 @@ window.showEditExamModal = (id) => {
 
     window.renderEditProctorList = () => {
         const list = document.getElementById('edit-proctor-list');
-        list.innerHTML = window.tempEditProctors.map(id => {
+        list.innerHTML = (window.tempEditProctors.map(id => {
             const staff = DB.staff.find(s => String(s.id) === String(id));
             return `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
-                    <span style="font-size:0.85rem;">${staff ? staff.name : '???'}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; border:1px solid var(--glass-border);">
+                    <span style="font-size:0.85rem; flex:1; min-width:0;">${staff ? staff.name : '???'}</span>
+                    ${proctorRoomSelectHtml('edit', id)}
                     <div style="display:flex; gap:10px; align-items:center;">
                         <button type="button" class="btn-icon" onclick="removeProctorAndSendCancelMail(${id})" title="Gözetmenliği İptal Et ve Mail Gönder" style="color:#38bdf8; font-size:1.1rem; cursor:pointer; background:none; border:none; padding:0;">📧</button>
                         <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" title="Sadece Listeden Çikar" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2); cursor:pointer; background:none; border:none; padding:0;">🗑️</button>
                     </div>
                 </div>
             `;
-        }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>';
+        }).join('') || '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; padding:10px;">Henüz hoca seçilmedi</div>') + proctorRoomSummaryHtml('edit');
     };
 
     window.addProctorToEditList = () => {
@@ -5027,6 +5049,8 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
         proctorIds: proctorIds,
         lecturerNote: document.getElementById('edit-exam-note')?.value || ''
     };
+    // Çok derslikli sınavda gözetmen–derslik eşleştirmeleri (çıkarılan gözetmenlerinki temizlenir)
+    Object.assign(data, proctorRoomFields('edit', window._editOriginalProctors || []));
 
     // Müsaitlik kontrolü
     for (const pid of data.proctorIds) {
@@ -7619,20 +7643,32 @@ window.renderProfile = function() {
         const archiveBody = document.querySelector('#profile-table-archive tbody');
         archiveBody.innerHTML = '';
         archiveExams.forEach(ex => {
+            // Gözetmenin KENDİ süresi / saati / puanı (aynı sınavda başka derslikteki gözetmenden farklı olabilir)
+            const myRec = getProctorDurationRecord(ex, myStaffId);
+            const myDur = getProctorExamDuration(ex, myStaffId);
+            const myTime = getProctorExamTime(ex, myStaffId);
+            const myScore = parseFloat(getProctorExamScore(ex, myStaffId).toFixed(2));
+            const planned = ex.scheduledDuration || ex.duration;
+            const confirmedHtml = myRec
+                ? `<div style="font-size: 0.65rem; color: #34d399; font-weight: 600;" title="Süreyi kendiniz girdiniz${myRec.onayZamani ? ' (' + new Date(myRec.onayZamani).toLocaleString('tr-TR') + ')' : ''}">✓ Sizin girdiğiniz süre</div>`
+                : (ex.durationConfirmed ? `<div style="font-size: 0.65rem; color: #34d399; font-weight: 600;" title="${ex.durationConfirmedBy ? ex.durationConfirmedBy + ' tarafından teyit edildi' : 'Teyit edildi'}">✓ ${ex.durationConfirmedBy ? ex.durationConfirmedBy.split(' ')[0] + ' teyit etti' : 'Teyitli'}</div>` : '');
+            const myNote = myRec ? (myRec.not || '') : (ex.durationNote || '');
+            const myRoom = window.BildirimKurallari ? BildirimKurallari.gozetmenDersligi(ex, myStaffId) : null;
+            const multiRoom = window.BildirimKurallari && BildirimKurallari.derslikler(ex).length > 1;
             archiveBody.innerHTML += `
                 <tr>
                     <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
-                    <td>${ex.location || '-'}</td>
+                    <td>${multiRoom && myRoom ? `<strong>${myRoom}</strong><div style="font-size:0.65rem; color:var(--text-muted);">${ex.location}</div>` : (ex.location || '-')}</td>
                     <td>${ex.lecturer || '-'}</td>
                     <td>${ex.date}</td>
-                    <td>${ex.time}</td>
+                    <td>${myTime}${myTime !== ex.time ? `<div style="font-size:0.65rem; color:#38bdf8;" title="Planlanan başlangıç">Plan: ${ex.time}</div>` : ''}</td>
                     <td>
-                        <strong>${ex.duration || '-'} dk</strong>
-                        ${ex.actualDuration && ex.actualDuration !== ex.scheduledDuration ? `<div style="font-size: 0.68rem; color: #38bdf8; font-weight: 600;" title="Planlanan: ${ex.scheduledDuration} dk${ex.durationNote ? ' - ' + ex.durationNote.replace(/"/g, '&quot;') : ''}">⚡ Planlanan: ${ex.scheduledDuration} dk</div>` : ''}
-                        ${ex.durationConfirmed ? `<div style="font-size: 0.65rem; color: #34d399; font-weight: 600;" title="${ex.durationConfirmedBy ? ex.durationConfirmedBy + ' tarafından teyit edildi' : 'Teyit edildi'}">✓ ${ex.durationConfirmedBy ? ex.durationConfirmedBy.split(' ')[0] + ' teyit etti' : 'Teyitli'}</div>` : ''}
-                        ${ex.durationNote ? `<div style="font-size: 0.65rem; color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${ex.durationNote.replace(/"/g, '&quot;')}">📝 ${ex.durationNote}</div>` : ''}
+                        <strong>${myDur || '-'} dk</strong>
+                        ${planned && myDur !== planned ? `<div style="font-size: 0.68rem; color: #38bdf8; font-weight: 600;" title="Planlanan süre">⚡ Planlanan: ${planned} dk</div>` : ''}
+                        ${confirmedHtml}
+                        ${myNote ? `<div style="font-size: 0.65rem; color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${myNote.replace(/"/g, '&quot;')}">📝 ${myNote}</div>` : ''}
                     </td>
-                    <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${ex.score}</span></td>
+                    <td><span class="score-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">+${myScore}</span></td>
                     <td style="text-align:right;">
                         <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Sınavın başlangıç saatini ve süresini güncelle" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.75rem; border-color:var(--accent-orange); color:var(--accent-orange); cursor:pointer;">⏱️ Saat / Süre</button>
                     </td>
@@ -8650,6 +8686,171 @@ function getSameClassroomRelatedExams(baseExam) {
 }
 
 /**
+ * GÖZETMEN BAZINDA SÜRE GİRİŞİ
+ * Aynı sınavda farklı dersliklerde görev yapan gözetmenlerin süreleri farklı olabilir; bir gözetmenin
+ * girdiği süre diğerlerini değiştirmez. Süreyi giren kişi sınavın gözetmeniyse kayıt yalnızca onundur.
+ * Ders hocası / yönetici girerse sınav satırının süresi güncellenir (kendi süresini girmiş gözetmenler korunur).
+ */
+function getDurationEntryContext(ex) {
+    const myStaffId = localStorage.getItem('myStaffId');
+    const BK = window.BildirimKurallari;
+    const isProctor = !!(myStaffId && ex && (BK ? BK.gozetmeniMi(ex, myStaffId) : isStaffProctorById(ex, myStaffId)));
+    let actor = 'Gözetmen';
+    const me = myStaffId && DB.staff ? DB.staff.find(s => String(s.id) === String(myStaffId)) : null;
+    if (me) actor = me.name;
+    else if (sessionStorage.getItem('isAdmin') === 'true' || sessionStorage.getItem('isAdminLoggedIn') === 'true') actor = 'Yönetici';
+    return { pid: isProctor ? String(myStaffId) : null, actor };
+}
+
+/** Sınavdaki diğer gözetmenlerin adları (bilgi notu için) */
+function getOtherProctorNames(ex, pid) {
+    const ids = (window.BildirimKurallari ? window.BildirimKurallari.gozetmenler(ex) : (ex.proctorIds || [ex.proctorId]).map(String));
+    return ids.filter(id => String(id) !== String(pid))
+        .map(id => (DB.staff || []).find(s => String(s.id) === String(id)))
+        .filter(Boolean).map(s => s.name);
+}
+
+/**
+ * ATAMA EKRANI: ÇOK DERSLİKLİ SINAVLARDA GÖZETMEN–DERSLİK EŞLEŞTİRMESİ
+ * Konum "Derslik 1 / Derslik 3" gibi birden çok derslik içeriyorsa her gözetmene derslik seçilir.
+ * Aynı derslikteki gözetmenlerin süresi birlikte girilir; farklı derslikler bağımsızdır.
+ * kind: 'add' (yeni sınav formu) | 'edit' (düzenleme formu)
+ */
+window.tempAddRooms = window.tempAddRooms || {};
+window.tempEditRooms = window.tempEditRooms || {};
+function proctorRoomState(kind) {
+    return {
+        ids: (kind === 'edit' ? window.tempEditProctors : window.tempSelectedProctors) || [],
+        map: kind === 'edit' ? window.tempEditRooms : window.tempAddRooms,
+        rooms: window.BildirimKurallari ? BildirimKurallari.derslikler(document.getElementById(kind === 'edit' ? 'edit-exam-location' : 'exam-location')?.value || '') : []
+    };
+}
+function proctorRoomSelectHtml(kind, id) {
+    const st = proctorRoomState(kind);
+    if (st.rooms.length < 2) return '';
+    const cur = st.map[id] || '';
+    return `<select onchange="setProctorRoom('${kind}', ${id}, this.value)" title="Gözetmenin dersliği"
+        style="max-width:150px; padding:3px 6px; border-radius:6px; font-size:0.78rem; background:rgba(0,0,0,0.25); color:inherit; border:1px solid ${cur ? 'rgba(56,189,248,0.5)' : 'rgba(245,158,11,0.6)'};">
+        <option value="">🚪 Derslik…</option>
+        ${st.rooms.map(r => `<option value="${r.replace(/"/g, '&quot;')}" ${cur === r ? 'selected' : ''}>${r}</option>`).join('')}
+    </select>`;
+}
+function proctorRoomSummaryHtml(kind) {
+    const st = proctorRoomState(kind);
+    if (st.rooms.length < 2 || st.ids.length === 0) return '';
+    const name = (id) => ((DB.staff || []).find(s => String(s.id) === String(id)) || {}).name || '?';
+    const groups = st.rooms.map(r => `<strong>${r}:</strong> ${st.ids.filter(id => st.map[id] === r).map(name).join(', ') || '<em>—</em>'}`);
+    const missing = st.ids.filter(id => !st.map[id] || !st.rooms.includes(st.map[id]));
+    return `<div style="margin-top:6px; padding:6px 10px; border-radius:6px; font-size:0.76rem; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>🚪 ${groups.join(' &nbsp;·&nbsp; ')}</span>
+            <button type="button" onclick="distributeProctorRooms('${kind}')" style="font-size:0.72rem; padding:2px 8px; border-radius:6px; cursor:pointer; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4); color:inherit;">🔀 Dersliklere eşit dağıt</button>
+        </div>
+        ${missing.length ? `<div style="margin-top:3px; color:#f59e0b;">⚠️ Dersliği seçilmeyen: ${missing.map(name).join(', ')} — süreleri ayrı ayrı sorulur.</div>` : `<div style="margin-top:3px; opacity:0.85;">Aynı derslikteki gözetmenlerden birinin süre girmesi yeterli olur.</div>`}
+    </div>`;
+}
+function rerenderProctorList(kind) {
+    if (kind === 'edit') { if (typeof window.renderEditProctorList === 'function') window.renderEditProctorList(); }
+    else if (typeof window.renderTempProctorList === 'function') window.renderTempProctorList();
+}
+window.setProctorRoom = function(kind, id, room) {
+    const st = proctorRoomState(kind);
+    if (room) st.map[id] = room; else delete st.map[id];
+    rerenderProctorList(kind);
+};
+window.distributeProctorRooms = function(kind) {
+    const st = proctorRoomState(kind);
+    if (st.rooms.length < 2) return;
+    st.ids.forEach((id, i) => { st.map[id] = st.rooms[i % st.rooms.length]; });
+    rerenderProctorList(kind);
+};
+/** Kaydederken sınav verisine eklenecek derslik alanları (kaldırılan / geçersiz eşleştirmeler temizlenir) */
+function proctorRoomFields(kind, previousIds) {
+    const st = proctorRoomState(kind);
+    const BK = window.BildirimKurallari;
+    const out = {};
+    if (!BK) return out;
+    st.ids.forEach(id => { out[BK.derslikAlani(id)] = (st.rooms.length >= 2 && st.rooms.includes(st.map[id])) ? st.map[id] : null; });
+    (previousIds || []).filter(id => !st.ids.map(String).includes(String(id))).forEach(id => { out[BK.derslikAlani(id)] = null; });
+    return out;
+}
+
+/**
+ * Süre girişinin yazılacağı gözetmenler: kendisi + AYNI DERSLİKTEKİ gözetmenler (birinin girmesi yeterli).
+ * Farklı derslikteki gözetmenler bağımsızdır. Derslik bilinmiyorsa yalnızca kendisi.
+ * @param derslik  pencerede seçilen derslik (eşleştirme yoksa); verilirse eşleştirme olarak da kaydedilir
+ */
+function getDurationTargets(ex, pid, derslik) {
+    const BK = window.BildirimKurallari;
+    const exView = derslik ? Object.assign({}, ex, { [BK.derslikAlani(pid)]: derslik }) : ex;
+    const exams = (DB.exams || []).map(e => (String(e.id) === String(ex.id) ? exView : e));
+    const mates = BK.ayniDerslikGozetmenleri(exView, pid, exams);
+    return {
+        oda: BK.gozetmenDersligi(exView, pid),
+        hedefler: [{ ex, pid: String(pid) }].concat(mates.map(m => ({ ex: DB.exams.find(e => String(e.id) === String(m.ex.id)), pid: m.pid }))),
+        birlikte: mates.map(m => (DB.staff.find(s => String(s.id) === String(m.pid)) || {}).name).filter(Boolean),
+        ayri: BK.gozetmenler(ex).filter(q => q !== String(pid) && !mates.some(m => String(m.ex.id) === String(ex.id) && m.pid === q))
+            .map(q => (DB.staff.find(s => String(s.id) === String(q)) || {}).name).filter(Boolean)
+    };
+}
+
+/** Gözetmenin süresini yazar: kendisine ve aynı derslikteki gözetmenlere (farklı derslikleri etkilemez) */
+function saveProctorDurationRecord(ex, pid, { sure, saat, not, derslik }, actor) {
+    const BK = window.BildirimKurallari;
+    const nowIso = new Date().toISOString();
+    // Pencerede derslik seçildiyse eşleştirmeyi de kaydet (sonraki girişlerde tekrar sorulmaz)
+    if (derslik && BK.gozetmenDersligi(ex, pid) !== derslik) updateExam(ex.id, { [BK.derslikAlani(pid)]: derslik });
+    const t = getDurationTargets(DB.exams.find(e => String(e.id) === String(ex.id)) || ex, pid, derslik);
+    t.hedefler.forEach(({ ex: target, pid: q }) => {
+        if (!target) return;
+        const rec = { sure: parseInt(sure, 10), onaylayan: actor, onayZamani: nowIso };
+        if (saat && saat !== target.time) rec.saat = saat;
+        if (not) rec.not = not;
+        if (t.oda) rec.derslik = t.oda;
+        if (q !== String(pid)) rec.ortakGiris = true;   // aynı derslikteki başka bir gözetmen girdi
+        updateExam(target.id, { [BK.sureAlani(q)]: rec });
+    });
+    if (typeof recalculateAllScores === 'function') recalculateAllScores();
+    return t;
+}
+
+/** Süre penceresindeki derslik seçimi + kimin için kaydedileceği notu (HTML) */
+function independentDurationNoteHtml(ex, pid, selectId) {
+    if (!pid) return '';
+    const BK = window.BildirimKurallari;
+    const rooms = BK.derslikler(ex);
+    const myRoom = BK.gozetmenDersligi(ex, pid);
+    const noteId = (selectId || 'dur-room') + '-note';
+    const select = rooms.length >= 2 ? `
+        <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:0.8rem; color: var(--text-secondary, #cbd5e1);">
+            🚪 <strong>Hangi derslikteydiniz?</strong>
+            <select id="${selectId}" onchange="updateDurationRoomNote('${ex.id}', '${pid}', this.value, '${noteId}')"
+                style="flex:1; min-width:0; padding:4px 8px; border-radius:6px; background: rgba(0,0,0,0.3); color: inherit; border: 1px solid rgba(56,189,248,0.4);">
+                <option value="">Seçiniz…</option>
+                ${rooms.map(r => `<option value="${r.replace(/"/g, '&quot;')}" ${myRoom === r ? 'selected' : ''}>${r}</option>`).join('')}
+            </select>
+        </label>` : '';
+    return `${select}<div id="${noteId}">${durationRoomNoteInner(ex, pid, myRoom)}</div>`;
+}
+
+function durationRoomNoteInner(ex, pid, derslik) {
+    const t = getDurationTargets(ex, pid, derslik || null);
+    const box = (html) => `<div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 0.78rem; color: #7dd3fc;">${html}</div>`;
+    if (t.birlikte.length === 0 && t.ayri.length === 0) return '';
+    let html = '';
+    if (t.birlikte.length) html += `👥 <strong>Aynı derslikte${t.oda ? ' (' + t.oda + ')' : ''}:</strong> <em>${t.birlikte.join(', ')}</em> — girdiğiniz süre onlar için de kaydedilir (birinin girmesi yeterli).`;
+    if (t.ayri.length) html += `${html ? '<br>' : ''}👤 <strong>${t.oda ? 'Farklı derslikte' : 'Dersliği belirsiz'}:</strong> <em>${t.ayri.join(', ')}</em> — kendi süresini ayrıca girer.`;
+    if (!t.oda && BildirimKurallari.derslikler(ex).length >= 2) html += '<br><span style="opacity:0.85">Derslik seçerseniz aynı derslikteki gözetmenlere de uygulanır.</span>';
+    return box(html);
+}
+
+window.updateDurationRoomNote = function(examId, pid, derslik, noteId) {
+    const ex = (DB.exams || []).find(e => String(e.id) === String(examId));
+    const el = document.getElementById(noteId);
+    if (ex && el) el.innerHTML = durationRoomNoteInner(ex, pid, derslik || null);
+};
+
+/**
  * Ders adından geçmiş sınav sürelerini analiz eder ve akıllı önerilen süreyi hesaplar.
  */
 function getExamHistoricalDurationStats(examName, currentExamId = null) {
@@ -8802,7 +9003,8 @@ function renderProfileDurationAlerts(myStaffId, staff) {
     // Ortak kural (bildirim_kurallari.js): bitmiş, sınır tarihinden sonra ve henüz onaylanmamış
     const BK = window.BildirimKurallari;
     const pendingExams = myExams.filter(e => {
-        if (BK) return BK.sureTeyidiBekliyor(e, now.getTime());
+        // Gözetmen bazında: başka bir gözetmenin onayı bu gözetmenin teyidini kapatmaz
+        if (BK) return BK.sureTeyidiBekliyor(e, now.getTime(), myStaffId);
         const examDate = getSafeDate(e.date, e.time);
         const examEnd = new Date(examDate.getTime() + (parseInt(e.duration, 10) || 60) * 60000);
         return examDate >= new Date('2026-10-31T21:48:45+03:00') && now >= examEnd && !e.durationConfirmed && !e.actualDuration;
@@ -8821,13 +9023,7 @@ function renderProfileDurationAlerts(myStaffId, staff) {
 
     displayExams.forEach(ex => {
         const scheduled = ex.scheduledDuration || ex.duration || 60;
-        const sameRoomExams = getSameClassroomRelatedExams(ex);
-        
-        const partners = sameRoomExams
-            .filter(e => String(e.id) !== String(ex.id))
-            .map(e => e.proctorName)
-            .filter(Boolean);
-        const uniquePartners = Array.from(new Set(partners));
+        const roomNote = durationRoomNoteInner(ex, myStaffId, null);
 
         const stats = getExamHistoricalDurationStats(ex.name, ex.id);
 
@@ -8846,14 +9042,7 @@ function renderProfileDurationAlerts(myStaffId, staff) {
             `;
         }
 
-        let partnerHtml = '';
-        if (uniquePartners.length > 0) {
-            partnerHtml = `
-                <div style="font-size: 0.76rem; color: #a78bfa; margin-top: 4px;">
-                    👥 <strong>Salon Ortaklığı (${ex.location || '-'}):</strong> <em>${uniquePartners.join(', ')}</em> ile aynı dersliktesiniz. Tek tıkla onayladığınızda onların süresi ve puanı da anında eşitlenecektir.
-                </div>
-            `;
-        }
+        const partnerHtml = roomNote;
 
         html += `
             <div class="pending-duration-card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(249, 115, 22, 0.08)); border: 1.5px solid rgba(245, 158, 11, 0.5); border-radius: 12px; padding: 1.1rem 1.3rem; margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
@@ -8913,48 +9102,33 @@ window.confirmScheduledDuration = function(examId, durationVal = null) {
 
         const scheduled = baseExam.scheduledDuration || baseExam.duration || 60;
         const targetDuration = durationVal !== null ? parseInt(durationVal, 10) : scheduled;
-
-        let actor = 'Gözetmen';
-        const myStaffId = localStorage.getItem('myStaffId');
-        if (myStaffId && DB.staff) {
-            const currentStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
-            if (currentStaff) actor = currentStaff.name;
-        } else if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
-            actor = 'Yönetici';
-        }
-
-        // Salon Ortaklığı: Aynı derslikteki tüm sınav kayıtlarını bul
-        const sameRoomExams = getSameClassroomRelatedExams(baseExam);
-        const partnerNames = Array.from(new Set(
-            sameRoomExams.filter(e => String(e.id) !== String(baseExam.id))
-                         .map(e => e.proctorName)
-                         .filter(Boolean)
-        ));
-
+        const { pid, actor } = getDurationEntryContext(baseExam);
         const nowIso = new Date().toISOString();
-        sameRoomExams.forEach(ex => {
-            updateExam(ex.id, {
+
+        let hedef = null;
+        if (pid) {
+            // Gözetmen: kendisi + aynı derslikteki gözetmenler (farklı derslikleri etkilemez)
+            hedef = saveProctorDurationRecord(baseExam, pid, { sure: targetDuration }, actor);
+        } else {
+            // Ders hocası / yönetici: sınav satırının süresi (kendi süresini girmiş gözetmenler korunur)
+            updateExam(baseExam.id, {
                 duration: targetDuration,
                 actualDuration: targetDuration,
-                scheduledDuration: ex.scheduledDuration || ex.duration || scheduled,
+                scheduledDuration: baseExam.scheduledDuration || baseExam.duration || scheduled,
                 durationConfirmed: true,
                 durationConfirmedBy: actor,
                 durationConfirmedAt: nowIso,
                 durationUpdatedBy: actor,
                 durationUpdatedAt: nowIso
             });
-        });
-
-        if (typeof recalculateAllScores === 'function') {
-            recalculateAllScores();
+            if (typeof recalculateAllScores === 'function') recalculateAllScores();
         }
 
         if (typeof logAction === 'function') {
-            const partnerInfo = partnerNames.length > 0 ? ` [Aynı derslikteki ortaklar: ${partnerNames.join(', ')}]` : '';
             logAction(
                 'user',
                 'Sınav Süresi Teyidi',
-                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${targetDuration} dk olarak teyit edildi.${partnerInfo}`
+                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${targetDuration} dk olarak teyit edildi${pid ? ' (yalnızca kendi görevi için)' : ''}.`
             );
         }
 
@@ -8964,10 +9138,9 @@ window.confirmScheduledDuration = function(examId, durationVal = null) {
             saveToLocalStorage();
         }
 
-        let msg = `✓ "${baseExam.name}" süresi ${targetDuration} dk olarak onaylandı.`;
-        if (partnerNames.length > 0) {
-            msg += ` Aynı derslikteki (${baseExam.location || '-'}) ortak gözetmenler (${partnerNames.join(', ')}) için de puanlar otomatik eşitlendi!`;
-        }
+        let msg = `✓ "${baseExam.name}" süreniz ${targetDuration} dk olarak onaylandı.`;
+        if (hedef && hedef.birlikte.length) msg += ` Aynı derslikteki ${hedef.birlikte.join(', ')} için de kaydedildi.`;
+        if (hedef && hedef.ayri.length) msg += ` ${hedef.ayri.join(', ')} kendi süresini ayrıca girecek.`;
         if (typeof showToast === 'function') showToast(msg, 'success');
         else alert(msg);
 
@@ -9004,10 +9177,13 @@ window.openUpdateDurationModal = function(examId) {
         if (!modal || !idInput || !durInput || !card) return;
 
         idInput.value = ex.id;
-        durInput.value = ex.duration || 60;
-        if (noteInput) noteInput.value = ex.durationNote || '';
+        // Gözetmense kendi kaydı (varsa) ile açılır
+        const durCtx = getDurationEntryContext(ex);
+        const myRec = durCtx.pid ? getProctorDurationRecord(ex, durCtx.pid) : null;
+        durInput.value = myRec ? myRec.sure : (ex.duration || 60);
+        if (noteInput) noteInput.value = myRec ? (myRec.not || '') : (ex.durationNote || '');
         const startInput = document.getElementById('duration-modal-start');
-        if (startInput) startInput.value = ex.time || '';
+        if (startInput) startInput.value = (myRec && myRec.saat) || ex.time || '';
         const startHint = document.getElementById('duration-modal-start-hint');
         if (startHint) {
             startHint.textContent = (ex.scheduledTime && ex.scheduledTime !== ex.time)
@@ -9016,27 +9192,13 @@ window.openUpdateDurationModal = function(examId) {
         }
 
         const scheduled = ex.scheduledDuration || ex.duration || 60;
-        const currentScore = parseFloat(ex.score) || 0;
+        const currentScore = durCtx.pid ? getProctorExamScore(ex, durCtx.pid) : (parseFloat(ex.score) || 0);
         const proctors = (ex.proctorIds && ex.proctorIds.length > 0)
             ? DB.staff.filter(s => ex.proctorIds.map(String).includes(String(s.id))).map(s => s.name).join(', ')
             : (ex.proctorName || 'Atanmadı');
 
-        // Salon Ortaklığı Bilgisi
-        const sameRoomExams = getSameClassroomRelatedExams(ex);
-        const partnerNames = Array.from(new Set(
-            sameRoomExams.filter(e => String(e.id) !== String(ex.id))
-                         .map(e => e.proctorName)
-                         .filter(Boolean)
-        ));
-
-        let partnerBadge = '';
-        if (partnerNames.length > 0) {
-            partnerBadge = `
-                <div style="background: rgba(167, 139, 250, 0.12); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 0.78rem; color: #c4b5fd;">
-                    👥 <strong>Salon Ortaklığı (${ex.location || '-'}):</strong> <em>${partnerNames.join(', ')}</em> ile aynı dersliktesiniz. Kaydettiğinizde onların süresi ve puanı da otomatik güncellenecektir.
-                </div>
-            `;
-        }
+        // Aynı derslikteki gözetmenlere de yazılır; farklı derslikteki gözetmenler bağımsızdır
+        const partnerBadge = independentDurationNoteHtml(ex, durCtx.pid, 'dur-room-select');
 
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
@@ -9098,7 +9260,7 @@ window.openUpdateDurationModal = function(examId) {
             }
         }
 
-        updateDurationModalScorePreview(ex.duration || 60);
+        updateDurationModalScorePreview(durInput.value || ex.duration || 60);
 
         modal.classList.remove('hidden');
         setTimeout(() => {
@@ -9144,7 +9306,9 @@ window.updateDurationModalScorePreview = function(val) {
     // Başlangıç saati değiştirildiyse puan yeni saate göre (akşam / hafta sonu katsayısı) hesaplanır
     const startVal = document.getElementById('duration-modal-start')?.value || ex.time;
     const testDate = getSafeDate(ex.date, startVal);
-    const oldScore = parseFloat(ex.score) || 0;
+    const prevCtx = getDurationEntryContext(ex);
+    const oldScore = prevCtx.pid ? getProctorExamScore(ex, prevCtx.pid) : (parseFloat(ex.score) || 0);
+    const oldDur = prevCtx.pid ? getProctorExamDuration(ex, prevCtx.pid) : (ex.duration || 60);
     const newScore = calculateScore(testDate, numVal, ex.id);
     const diff = parseFloat((newScore - oldScore).toFixed(2));
     const plannedDur = ex.scheduledDuration || ex.duration || 60;
@@ -9168,7 +9332,7 @@ window.updateDurationModalScorePreview = function(val) {
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.8rem;">
             <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
                 <div style="color:var(--text-muted); font-size:0.72rem;">Mevcut Kayıt:</div>
-                <div><strong>${ex.duration || 60} dk</strong> &nbsp;→&nbsp; <span style="color:#38bdf8;">+${oldScore} puan</span></div>
+                <div><strong>${oldDur} dk</strong> &nbsp;→&nbsp; <span style="color:#38bdf8;">+${oldScore} puan</span></div>
             </div>
             <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
                 <div style="color:var(--text-muted); font-size:0.72rem;">Yeni Gerçekleşen:</div>
@@ -9227,14 +9391,11 @@ window.saveExamDurationFromModal = function() {
         const newEnd = getSafeDate(ex.date, newTime).getTime() + val * 60000;
         const examEnded = Date.now() >= newEnd;
 
-        let actor = 'Gözetmen';
+        const { pid, actor } = getDurationEntryContext(ex);
         const myStaffId = localStorage.getItem('myStaffId');
-        if (myStaffId && DB.staff) {
-            const currentStaff = DB.staff.find(s => String(s.id) === String(myStaffId));
-            if (currentStaff) actor = currentStaff.name;
-        } else if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
-            actor = 'Yönetici';
-        }
+        // Sınav bittikten sonra gözetmen girişi → yalnızca o gözetmenin kaydı.
+        // Sınav bitmeden yapılan değişiklik bir program değişikliğidir → sınavın kendisi güncellenir.
+        const perProctor = !!(pid && examEnded);
 
         const saveBtn = document.getElementById('btn-save-duration');
         if (saveBtn) {
@@ -9242,19 +9403,14 @@ window.saveExamDurationFromModal = function() {
             saveBtn.textContent = 'Kaydediliyor...';
         }
 
-        // Salon Ortaklığı: Aynı derslikteki tüm sınav kayıtlarını bul
-        const sameRoomExams = getSameClassroomRelatedExams(ex);
-        const partnerNames = Array.from(new Set(
-            sameRoomExams.filter(e => String(e.id) !== String(ex.id))
-                         .map(e => e.proctorName)
-                         .filter(Boolean)
-        ));
-
         const nowIso = new Date().toISOString();
-        sameRoomExams.forEach(item => {
+        let hedef = null;
+        if (perProctor) {
+            hedef = saveProctorDurationRecord(ex, pid, { sure: val, saat: newTime, not: note, derslik: document.getElementById('dur-room-select')?.value || null }, actor);
+        } else {
             const data = {
                 duration: val,
-                scheduledDuration: item.scheduledDuration || item.duration || scheduledDur,
+                scheduledDuration: ex.scheduledDuration || ex.duration || scheduledDur,
                 durationNote: note,
                 durationUpdatedBy: actor,
                 durationUpdatedAt: nowIso
@@ -9262,7 +9418,7 @@ window.saveExamDurationFromModal = function() {
             if (timeChanged) {
                 Object.assign(data, {
                     time: newTime,
-                    scheduledTime: item.scheduledTime || item.time,
+                    scheduledTime: ex.scheduledTime || ex.time,
                     timeUpdatedBy: actor,
                     timeUpdatedAt: nowIso
                 });
@@ -9275,19 +9431,15 @@ window.saveExamDurationFromModal = function() {
                     durationConfirmedAt: nowIso
                 });
             }
-            updateExam(item.id, data);
-        });
-
-        if (typeof recalculateAllScores === 'function') {
-            recalculateAllScores();
+            updateExam(ex.id, data);
+            if (typeof recalculateAllScores === 'function') recalculateAllScores();
         }
 
         if (typeof logAction === 'function') {
-            const partnerInfo = partnerNames.length > 0 ? ` [Aynı derslikteki ortaklar: ${partnerNames.join(', ')}]` : '';
             logAction(
                 'user',
                 'Sınav Süresi Güncelleme',
-                `${actor} tarafından "${ex.name}" (${ex.date} ${oldTime}, Salon: ${ex.location || '-'})${timeChanged ? ` başlangıç saati ${oldTime} -> ${newTime},` : ''} süresi ${scheduledDur} dk -> ${val} dk yapıldı${examEnded ? ' ve onaylandı' : ''}.${note ? ' Not: ' + note : ''}${partnerInfo}`
+                `${actor} tarafından "${ex.name}" (${ex.date} ${oldTime}, Salon: ${ex.location || '-'})${timeChanged ? ` başlangıç saati ${oldTime} -> ${newTime},` : ''} süresi ${scheduledDur} dk -> ${val} dk yapıldı${examEnded ? ' ve onaylandı' : ''}${perProctor ? ' (yalnızca kendi görevi için)' : ''}.${note ? ' Not: ' + note : ''}`
             );
         }
 
@@ -9305,9 +9457,8 @@ window.saveExamDurationFromModal = function() {
         }
 
         let msg = `${ex.name}: ${timeChanged ? `başlangıç ${newTime}, ` : ''}süre ${val} dk olarak ${examEnded ? 'onaylandı' : 'güncellendi'}; puanlar yeniden hesaplandı.`;
-        if (partnerNames.length > 0) {
-            msg += ` Aynı derslikteki (${ex.location || '-'}) ortak gözetmenler (${partnerNames.join(', ')}) için de eşitlendi!`;
-        }
+        if (hedef && hedef.birlikte.length) msg += ` Aynı derslikteki ${hedef.birlikte.join(', ')} için de kaydedildi.`;
+        if (hedef && hedef.ayri.length) msg += ` ${hedef.ayri.join(', ')} kendi süresini ayrıca girecek.`;
         if (typeof showToast === 'function') showToast(msg, 'success');
         else alert(msg);
 
@@ -9398,28 +9549,19 @@ window.openLecturerDurationPromptModal = function(examId, step = 'question') {
         if (!modal || !idInput || !card) return;
 
         idInput.value = ex.id;
-        const currentDur = parseInt(ex.duration, 10) || 60;
+        // Gözetmense kendi süresi (girdiyse) gösterilir; aynı sınavdaki diğer gözetmenlerden bağımsızdır
+        const ldpCtx = getDurationEntryContext(ex);
+        const myRec = ldpCtx.pid ? getProctorDurationRecord(ex, ldpCtx.pid) : null;
+        const currentDur = myRec ? parseInt(myRec.sure, 10) : (parseInt(ex.duration, 10) || 60);
         if (durText) durText.textContent = currentDur;
         if (durInput) durInput.value = currentDur;
-        if (noteInput) noteInput.value = ex.durationNote || '';
+        if (noteInput) noteInput.value = myRec ? (myRec.not || '') : (ex.durationNote || '');
 
         const proctors = (ex.proctorIds && ex.proctorIds.length > 0)
             ? DB.staff.filter(s => ex.proctorIds.map(String).includes(String(s.id))).map(s => s.name).join(', ')
             : (ex.proctorName || 'Atanmadı');
 
-        const sameRoomExams = typeof getSameClassroomRelatedExams === 'function' ? getSameClassroomRelatedExams(ex) : [];
-        const partnerNames = Array.from(new Set(
-            sameRoomExams.filter(e => String(e.id) !== String(ex.id)).map(e => e.proctorName).filter(Boolean)
-        ));
-
-        let partnerBadge = '';
-        if (partnerNames.length > 0) {
-            partnerBadge = `
-                <div style="background: rgba(167, 139, 250, 0.12); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 0.78rem; color: #c4b5fd;">
-                    👥 <strong>Salon Ortaklığı (${ex.location || '-'}):</strong> <em>${partnerNames.join(', ')}</em> ile aynı dersliktesiniz. Kaydettiğinizde onların süresi ve puanı da otomatik güncellenecektir.
-                </div>
-            `;
-        }
+        const partnerBadge = independentDurationNoteHtml(ex, ldpCtx.pid, 'ldp-room-select');
 
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
@@ -9502,8 +9644,10 @@ window.updateLdpScorePreview = function(val) {
         return;
     }
 
-    const testDate = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ex.time) : new Date(`${ex.date}T${ex.time}`);
-    const oldScore = parseFloat(ex.score) || 0;
+    const ldpPid = getDurationEntryContext(ex).pid;
+    const testDate = typeof getSafeDate === 'function' ? getSafeDate(ex.date, ldpPid ? getProctorExamTime(ex, ldpPid) : ex.time) : new Date(`${ex.date}T${ex.time}`);
+    const oldScore = ldpPid ? getProctorExamScore(ex, ldpPid) : (parseFloat(ex.score) || 0);
+    const oldDurLdp = ldpPid ? getProctorExamDuration(ex, ldpPid) : (ex.duration || 60);
     const newScore = typeof calculateScore === 'function' ? calculateScore(testDate, numVal, ex.id) : oldScore;
     const diff = parseFloat((newScore - oldScore).toFixed(2));
 
@@ -9524,7 +9668,7 @@ window.updateLdpScorePreview = function(val) {
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.8rem;">
             <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
                 <div style="color:var(--text-muted); font-size:0.72rem;">Önceki Süre:</div>
-                <div><strong>${ex.duration || 60} dk</strong> &nbsp;→&nbsp; <span style="color:#38bdf8;">+${oldScore} puan</span></div>
+                <div><strong>${oldDurLdp} dk</strong> &nbsp;→&nbsp; <span style="color:#38bdf8;">+${oldScore} puan</span></div>
             </div>
             <div style="background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
                 <div style="color:var(--text-muted); font-size:0.72rem;">Yeni Gerçekleşen:</div>
@@ -9545,20 +9689,20 @@ window.confirmLecturerExamDuration = function(examId = null) {
             return;
         }
 
-        const dur = parseInt(baseExam.duration, 10) || 60;
-        const actor = getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu';
+        const ctx = getDurationEntryContext(baseExam);
+        const dur = ctx.pid ? getProctorExamDuration(baseExam, ctx.pid) : (parseInt(baseExam.duration, 10) || 60);
+        const actor = ctx.pid ? ctx.actor : (getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu');
         const nowIso = new Date().toISOString();
 
-        const sameRoomExams = typeof getSameClassroomRelatedExams === 'function' ? getSameClassroomRelatedExams(baseExam) : [baseExam];
-        const partnerNames = Array.from(new Set(
-            sameRoomExams.filter(e => String(e.id) !== String(baseExam.id)).map(e => e.proctorName).filter(Boolean)
-        ));
-
-        sameRoomExams.forEach(ex => {
-            updateExam(ex.id, {
+        if (ctx.pid) {
+            // Gözetmen: kendisi + aynı derslikteki gözetmenler
+            saveProctorDurationRecord(baseExam, ctx.pid, { sure: dur, saat: getProctorExamTime(baseExam, ctx.pid), derslik: document.getElementById('ldp-room-select')?.value || null }, actor);
+        } else {
+            // Ders hocası: sınavın süresi (kendi süresini girmiş gözetmenler korunur)
+            updateExam(baseExam.id, {
                 duration: dur,
                 actualDuration: dur,
-                scheduledDuration: ex.scheduledDuration || ex.duration || dur,
+                scheduledDuration: baseExam.scheduledDuration || baseExam.duration || dur,
                 durationConfirmed: true,
                 durationApproved: true,
                 lecturerVerified: true,
@@ -9567,12 +9711,10 @@ window.confirmLecturerExamDuration = function(examId = null) {
                 durationUpdatedBy: actor,
                 durationUpdatedAt: nowIso
             });
-        });
-
-        if (typeof recalculateAllScores === 'function') recalculateAllScores();
+            if (typeof recalculateAllScores === 'function') recalculateAllScores();
+        }
         if (typeof logAction === 'function') {
-            const partnerInfo = partnerNames.length > 0 ? ` [Aynı derslikteki ortaklar: ${partnerNames.join(', ')}]` : '';
-            logAction('user', 'Hoca Sınav Süresi Onayı', `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}) süresi ${dur} dk olarak onaylandı.${partnerInfo}`);
+            logAction('user', ctx.pid ? 'Sınav Süresi Teyidi' : 'Hoca Sınav Süresi Onayı', `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}) süresi ${dur} dk olarak onaylandı${ctx.pid ? ' (yalnızca kendi görevi için)' : ''}.`);
         }
 
         if (typeof saveToBackend === 'function') saveToBackend();
@@ -9666,8 +9808,10 @@ window.submitLecturerActualDuration = function(examId = null, customMins = null,
 
         const note = customNote !== null ? customNote : (document.getElementById('ldp-input-note')?.value.trim() || '');
         const scheduledDur = baseExam.scheduledDuration || baseExam.duration || 60;
-        const actor = getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu';
+        const ctx = getDurationEntryContext(baseExam);
+        const actor = ctx.pid ? ctx.actor : (getLecturerActorName() || baseExam.lecturer || 'Ders Sorumlusu');
         const nowIso = new Date().toISOString();
+        const prevDur = ctx.pid ? getProctorExamDuration(baseExam, ctx.pid) : baseExam.duration;
 
         const btnSubmit = document.getElementById('btn-ldp-submit');
         if (btnSubmit) {
@@ -9675,17 +9819,16 @@ window.submitLecturerActualDuration = function(examId = null, customMins = null,
             btnSubmit.textContent = 'İşleniyor...';
         }
 
-        // Salon Ortaklığı: Aynı derslikteki tüm sınav kayıtlarını bul
-        const sameRoomExams = typeof getSameClassroomRelatedExams === 'function' ? getSameClassroomRelatedExams(baseExam) : [baseExam];
-        const partnerNames = Array.from(new Set(
-            sameRoomExams.filter(e => String(e.id) !== String(baseExam.id)).map(e => e.proctorName).filter(Boolean)
-        ));
-
-        sameRoomExams.forEach(item => {
-            updateExam(item.id, {
+        let hedef = null;
+        if (ctx.pid) {
+            // Gözetmen: kendisi + aynı derslikteki gözetmenler (farklı derslikteki gözetmenler etkilenmez)
+            hedef = saveProctorDurationRecord(baseExam, ctx.pid, { sure: val, saat: getProctorExamTime(baseExam, ctx.pid), not: note, derslik: document.getElementById('ldp-room-select')?.value || null }, actor);
+        } else {
+            // Ders hocası: sınavın gerçekleşen süresi (kendi süresini girmiş gözetmenler korunur)
+            updateExam(baseExam.id, {
                 duration: val,
                 actualDuration: val,
-                scheduledDuration: item.scheduledDuration || item.duration || scheduledDur,
+                scheduledDuration: baseExam.scheduledDuration || baseExam.duration || scheduledDur,
                 durationNote: note || 'Ders hocası tarafından sınav bitiminde girilen gerçek süre',
                 durationConfirmed: true,
                 durationApproved: true,
@@ -9695,18 +9838,14 @@ window.submitLecturerActualDuration = function(examId = null, customMins = null,
                 durationUpdatedBy: actor,
                 durationUpdatedAt: nowIso
             });
-        });
-
-        if (typeof recalculateAllScores === 'function') {
-            recalculateAllScores();
+            if (typeof recalculateAllScores === 'function') recalculateAllScores();
         }
 
         if (typeof logAction === 'function') {
-            const partnerInfo = partnerNames.length > 0 ? ` [Aynı derslikteki ortaklar: ${partnerNames.join(', ')}]` : '';
             logAction(
                 'user',
-                'Hoca Gerçekleşen Sınav Süresi Girişi',
-                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${baseExam.duration} dk -> ${val} dk olarak sisteme işlendi.${note ? ' Not: ' + note : ''}${partnerInfo}`
+                ctx.pid ? 'Gözetmen Gerçekleşen Sınav Süresi Girişi' : 'Hoca Gerçekleşen Sınav Süresi Girişi',
+                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${prevDur} dk -> ${val} dk olarak sisteme işlendi${ctx.pid ? ' (yalnızca kendi görevi için)' : ''}.${note ? ' Not: ' + note : ''}`
             );
         }
 
@@ -9732,10 +9871,9 @@ window.submitLecturerActualDuration = function(examId = null, customMins = null,
             );
         }
 
-        let msg = `💾 Gerçekleşen sınav süresi (${val} dk) sisteme işlendi ve gözetmen puanları güncellendi!`;
-        if (partnerNames.length > 0) {
-            msg += ` Aynı derslikteki (${baseExam.location || '-'}) ortak gözetmenler (${partnerNames.join(', ')}) için de süre eşitlendi.`;
-        }
+        let msg = `💾 Gerçekleşen sınav süresi (${val} dk) sisteme işlendi ve puan${ctx.pid ? 'ınız' : 'lar'} güncellendi!`;
+        if (hedef && hedef.birlikte.length) msg += ` Aynı derslikteki ${hedef.birlikte.join(', ')} için de kaydedildi.`;
+        if (hedef && hedef.ayri.length) msg += ` ${hedef.ayri.join(', ')} kendi süresini ayrıca girecek.`;
         if (typeof showToast === 'function') showToast(msg, 'success');
         else alert(msg);
 
@@ -11856,33 +11994,103 @@ window.renderDashboard = function() {
 /**
  * Audit Log Arayüzünü Render Etme
  */
+/**
+ * İŞLEM GEÇMİŞİ — rol bazında ayrılmış görünüm
+ * Sekmeler: Tümü · Yönetici · Gözetmen · Ders Hocası · Sistem (+ arama ve dönem filtresi)
+ */
+const AUDIT_ROLLER = {
+    admin:    { etiket: 'Yönetici',     ikon: '👑', renk: '#6366f1' },
+    gozetmen: { etiket: 'Gözetmen',     ikon: '👤', renk: '#10b981' },
+    hoca:     { etiket: 'Ders Hocası',  ikon: '👨‍🏫', renk: '#f59e0b' },
+    sistem:   { etiket: 'Sistem',       ikon: '⚙️', renk: '#64748b' }
+};
+window._auditFilter = window._auditFilter || { rol: 'all', q: '', donem: 'all' };
+
+/** Eski kayıtlarda (rol alanı yok) rol, kayıt kategorisinden çıkarılır */
+function auditRoleOf(log) {
+    if (log.rol && AUDIT_ROLLER[log.rol]) return log.rol;
+    if (log.category === 'admin') return 'admin';
+    if (log.category === 'user') return 'gozetmen';
+    return 'sistem';
+}
+/** Kişi: yeni kayıtlarda alan; eski kayıtlarda detaydaki "X tarafından" ifadesinden */
+function auditPersonOf(log) {
+    if (log.kisi) return log.kisi;
+    const m = String(log.details || '').match(/^\s*([^"(\[]{3,60}?)\s+tarafından\b/);
+    if (m) return m[1].trim();
+    return auditRoleOf(log) === 'sistem' ? 'Sistem' : '—';
+}
+function auditTimeOf(log) {
+    const n = Number(log.id);
+    if (n > 1e12) return n;
+    const m = String(log.timestamp || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})/);
+    return m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]).getTime() : 0;
+}
+const auditEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+window.setAuditFilter = function(patch) {
+    Object.assign(window._auditFilter, patch);
+    renderAuditLogs();
+};
+
 function renderAuditLogs() {
     const tbody = document.querySelector('#table-audit tbody');
     if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (!DB.auditLogs || DB.auditLogs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Henüz işlem kaydi bulunmuyor.</td></tr>';
+    const logs = Array.isArray(DB.auditLogs) ? DB.auditLogs : [];
+    const f = window._auditFilter;
+    const now = Date.now();
+    const DONEM = { all: Infinity, bugun: 24 * 3600e3, hafta: 7 * 24 * 3600e3, ay: 30 * 24 * 3600e3 };
+
+    // Dönem + arama filtresi (sekme sayıları bu filtrelere göre)
+    const q = (f.q || '').toLocaleLowerCase('tr-TR').trim();
+    const base = logs.filter(log => {
+        if (f.donem !== 'all' && now - auditTimeOf(log) > DONEM[f.donem]) return false;
+        if (q && !`${auditPersonOf(log)} ${log.action || ''} ${log.details || ''}`.toLocaleLowerCase('tr-TR').includes(q)) return false;
+        return true;
+    });
+    const counts = { all: base.length };
+    Object.keys(AUDIT_ROLLER).forEach(r => { counts[r] = base.filter(l => auditRoleOf(l) === r).length; });
+
+    // Filtre çubuğu
+    const bar = document.getElementById('audit-filters');
+    if (bar) {
+        const tab = (key, label) => `<button type="button" class="audit-tab${f.rol === key ? ' active' : ''}" onclick="setAuditFilter({ rol: '${key}' })">${label} <span class="audit-count">${counts[key] || 0}</span></button>`;
+        if (!bar.dataset.ready) {
+            bar.innerHTML = `
+                <div class="audit-tabs" id="audit-tabs"></div>
+                <div class="audit-tools">
+                    <input type="search" id="audit-search" placeholder="🔍 Kişi, işlem veya detay ara…" oninput="setAuditFilter({ q: this.value })">
+                    <select id="audit-period" onchange="setAuditFilter({ donem: this.value })">
+                        <option value="all">Tüm zamanlar</option>
+                        <option value="bugun">Son 24 saat</option>
+                        <option value="hafta">Son 7 gün</option>
+                        <option value="ay">Son 30 gün</option>
+                    </select>
+                </div>`;
+            bar.dataset.ready = '1';
+        }
+        document.getElementById('audit-tabs').innerHTML = tab('all', '📋 Tümü') +
+            Object.entries(AUDIT_ROLLER).map(([k, r]) => tab(k, `${r.ikon} ${r.etiket}`)).join('');
+        const s = document.getElementById('audit-search'); if (s && s.value !== f.q) s.value = f.q;
+        const p = document.getElementById('audit-period'); if (p) p.value = f.donem;
+    }
+
+    const rows = base.filter(l => f.rol === 'all' || auditRoleOf(l) === f.rol);
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">${logs.length ? 'Bu filtreye uyan kayıt yok.' : 'Henüz işlem kaydı bulunmuyor.'}</td></tr>`;
         return;
     }
-    
-    DB.auditLogs.forEach(log => {
-        const tr = document.createElement('tr');
-        
-        // Kategoriye göre renk atama
-        let catColor = 'var(--text-muted)';
-        if (log.category === 'admin') catColor = 'var(--primary)';
-        if (log.category === 'user') catColor = 'var(--accent-green)';
-        
-        tr.innerHTML = `
-            <td style="font-size: 0.8rem; white-space: nowrap;">${log.timestamp}</td>
-            <td><span class="badge" style="background: rgba(255,255,255,0.05); color: ${catColor}; border: 1px solid ${catColor}44; padding: 2px 8px;">${log.category}</span></td>
-            <td style="font-weight: 700;">${log.action}</td>
-            <td style="color: var(--text-secondary); font-size: 0.85rem;">${log.details}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+    tbody.innerHTML = rows.map(log => {
+        const r = AUDIT_ROLLER[auditRoleOf(log)];
+        return `
+            <tr>
+                <td style="font-size: 0.8rem; white-space: nowrap;">${auditEsc(log.timestamp)}</td>
+                <td><span class="badge" style="background:${r.renk}1f; color:${r.renk}; border:1px solid ${r.renk}55; padding:2px 8px; white-space:nowrap;">${r.ikon} ${r.etiket}</span></td>
+                <td style="font-size:0.85rem; white-space:nowrap;">${auditEsc(auditPersonOf(log))}</td>
+                <td style="font-weight: 700;">${auditEsc(log.action)}</td>
+                <td style="color: var(--text-secondary); font-size: 0.85rem;">${auditEsc(log.details)}</td>
+            </tr>`;
+    }).join('');
 }
 
 /**
@@ -16507,7 +16715,73 @@ window.sendTomorrowRemindersViaWebhook = async function() {
 // 3. YAPAY ZEKA DAĞITIM & ADALET SİMÜLATÖRÜ (GİNİ)
 // ==========================================
 window._currentFairnessMode = 'exam'; // 'exam' | 'non_exam' | 'all'
+window._currentBarsViewMode = 'current'; // 'current' | 'target'
+window._currentFairnessView = 'actions'; // 'actions' | 'scenario'
 window._lastFairnessSimResult = null;
+
+window.switchBarsViewMode = function(viewMode) {
+    window._currentBarsViewMode = viewMode || 'current';
+    const btnCur = document.getElementById('btn-bars-mode-current');
+    const btnTgt = document.getElementById('btn-bars-mode-target');
+    if (btnCur && btnTgt) {
+        if (window._currentBarsViewMode === 'target') {
+            btnTgt.style.background = '#10b981';
+            btnTgt.style.color = '#ffffff';
+            btnTgt.style.fontWeight = '700';
+            btnCur.style.background = 'transparent';
+            btnCur.style.color = '#94a3b8';
+            btnCur.style.fontWeight = '600';
+        } else {
+            btnCur.style.background = '#0284c7';
+            btnCur.style.color = '#ffffff';
+            btnCur.style.fontWeight = '700';
+            btnTgt.style.background = 'transparent';
+            btnTgt.style.color = '#94a3b8';
+            btnTgt.style.fontWeight = '600';
+        }
+    }
+    window.renderFairnessMetricsUI();
+};
+
+window.switchFairnessView = function(view) {
+    window._currentFairnessView = view || 'actions';
+    const tabActions = document.getElementById('btn-view-fairness-actions');
+    const tabScenario = document.getElementById('btn-view-fairness-scenario');
+    const contActions = document.getElementById('fairness-swaps-container');
+    const contScenario = document.getElementById('fairness-target-scenario-container');
+
+    if (view === 'scenario') {
+        if (tabScenario) {
+            tabScenario.style.background = 'rgba(16,185,129,0.25)';
+            tabScenario.style.borderColor = 'rgba(16,185,129,0.45)';
+            tabScenario.style.color = '#34d399';
+            tabScenario.style.fontWeight = '700';
+        }
+        if (tabActions) {
+            tabActions.style.background = 'transparent';
+            tabActions.style.borderColor = 'rgba(255,255,255,0.1)';
+            tabActions.style.color = '#94a3b8';
+            tabActions.style.fontWeight = '600';
+        }
+        if (contActions) contActions.classList.add('hidden');
+        if (contScenario) contScenario.classList.remove('hidden');
+    } else {
+        if (tabActions) {
+            tabActions.style.background = 'rgba(14,165,233,0.25)';
+            tabActions.style.borderColor = 'rgba(14,165,233,0.45)';
+            tabActions.style.color = '#38bdf8';
+            tabActions.style.fontWeight = '700';
+        }
+        if (tabScenario) {
+            tabScenario.style.background = 'transparent';
+            tabScenario.style.borderColor = 'rgba(255,255,255,0.1)';
+            tabScenario.style.color = '#94a3b8';
+            tabScenario.style.fontWeight = '600';
+        }
+        if (contScenario) contScenario.classList.add('hidden');
+        if (contActions) contActions.classList.remove('hidden');
+    }
+};
 
 window.switchFairnessMode = function(mode) {
     window._currentFairnessMode = mode || 'exam';
@@ -16552,6 +16826,8 @@ window.openFairnessSimulatorModal = function() {
     
     // Varsayılan olarak sınav gözetmenliği sekmesini aç ve önerileri derhal hazırla
     window.switchFairnessMode(window._currentFairnessMode || 'exam');
+    window.switchFairnessView('actions');
+    window.switchBarsViewMode('current');
     modal.classList.remove('hidden');
 };
 
@@ -16572,10 +16848,16 @@ window.renderFairnessMetricsUI = function() {
         else scoreTitleEl.textContent = "Sınav Gözetmenliği Adalet Skoru";
     }
 
+    const isTargetMode = (window._currentBarsViewMode === 'target') && window._lastFairnessSimResult && Array.isArray(window._lastFairnessSimResult.simulatedStaff) && window._lastFairnessSimResult.simulatedStaff.length > 0;
+
     if (barsTitleEl) {
-        if (mode === 'non_exam') barsTitleEl.textContent = "📋 Sınav Dışı Görev Yük Dağılımı";
-        else if (mode === 'all') barsTitleEl.textContent = "🔄 Genel Toplam Yük Dağılımı";
-        else barsTitleEl.textContent = "🎓 Sınav Gözetmenliği Yük Dağılımı";
+        if (isTargetMode) {
+            barsTitleEl.textContent = "🌟 En İyi Senaryo (Olması Gereken Yük)";
+        } else {
+            if (mode === 'non_exam') barsTitleEl.textContent = "📋 Sınav Dışı Görev Yük Dağılımı";
+            else if (mode === 'all') barsTitleEl.textContent = "🔄 Genel Toplam Yük Dağılımı";
+            else barsTitleEl.textContent = "🎓 Sınav Gözetmenliği Yük Dağılımı";
+        }
     }
 
     if (simTitleEl) {
@@ -16624,8 +16906,10 @@ window.renderFairnessMetricsUI = function() {
     const barsContainer = document.getElementById('fairness-bars-container');
     if (!barsContainer) return;
 
-    // Aktif gözetmen asistan havuzunu al
-    const pool = typeof getActiveProctorStaff === 'function' ? getActiveProctorStaff(DB.staff || []) : (DB.staff || []);
+    // Aktif gözetmen asistan havuzunu al (Mevcut veya En İyi Senaryo Hedef Durumu)
+    const basePool = typeof getActiveProctorStaff === 'function' ? getActiveProctorStaff(DB.staff || []) : (DB.staff || []);
+    const pool = isTargetMode ? window._lastFairnessSimResult.simulatedStaff : basePool;
+    const effectiveAvg = isTargetMode ? window._lastFairnessSimResult.after.avg : stats.avg;
     
     function getScore(s) {
         if (mode === 'non_exam') return parseFloat((s.nonExamScore || 0).toFixed(2));
@@ -16642,37 +16926,48 @@ window.renderFairnessMetricsUI = function() {
     const staffList = pool.slice().sort((a, b) => getScore(b) - getScore(a));
     const maxScore = Math.max(...staffList.map(s => getScore(s)), 1);
 
+    const safeEsc = (typeof window.escapeHtml === 'function') 
+        ? window.escapeHtml 
+        : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
     let barsHtml = '';
     staffList.forEach(s => {
         const score = getScore(s);
         const taskCount = getTaskCount(s);
-        const diff = score - stats.avg;
+        const diff = score - effectiveAvg;
         const pct = Math.min(100, Math.max(5, (score / maxScore) * 100));
         
         let barColor = 'linear-gradient(90deg, #0284c7, #38bdf8)';
         let badgeColor = '#38bdf8';
         let diffLabel = `±0.0`;
 
-        if (diff > 1.5) {
-            barColor = 'linear-gradient(90deg, #ea580c, #f97316)';
-            badgeColor = '#fb923c';
-            diffLabel = `+${diff.toFixed(1)} P.`;
-        } else if (diff < -1.5) {
-            barColor = 'linear-gradient(90deg, #6366f1, #818cf8)';
-            badgeColor = '#a5b4fc';
-            diffLabel = `${diff.toFixed(1)} P.`;
-        } else {
+        if (isTargetMode) {
             barColor = 'linear-gradient(90deg, #059669, #10b981)';
             badgeColor = '#34d399';
-            diffLabel = diff >= 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`;
+            diffLabel = diff >= 0 ? `+${diff.toFixed(1)} P.` : `${diff.toFixed(1)} P.`;
+        } else {
+            if (diff > 1.5) {
+                barColor = 'linear-gradient(90deg, #ea580c, #f97316)';
+                badgeColor = '#fb923c';
+                diffLabel = `+${diff.toFixed(1)} P.`;
+            } else if (diff < -1.5) {
+                barColor = 'linear-gradient(90deg, #6366f1, #818cf8)';
+                badgeColor = '#a5b4fc';
+                diffLabel = `${diff.toFixed(1)} P.`;
+            } else {
+                barColor = 'linear-gradient(90deg, #059669, #10b981)';
+                badgeColor = '#34d399';
+                diffLabel = diff >= 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`;
+            }
         }
 
         let taskLabel = mode === 'non_exam' ? `${taskCount} Görev` : (mode === 'exam' ? `${taskCount} Sınav` : `${taskCount} Toplam`);
+        if (isTargetMode) taskLabel += ' (Hedef)';
 
         barsHtml += `
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 6px 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.8rem;">
-                    <span style="font-weight: 600; color: #f1f5f9;">${String(s.name || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))} <span style="font-size:0.7rem; color:#94a3b8;">(${taskLabel})</span></span>
+                    <span style="font-weight: 600; color: #f1f5f9;">${safeEsc(s.name)} <span style="font-size:0.7rem; color:#94a3b8;">(${taskLabel})</span></span>
                     <span style="font-weight: 700; color: ${badgeColor};">${score.toFixed(1)} P. <small style="font-weight:normal; opacity:0.8;">(${diffLabel})</small></span>
                 </div>
                 <div style="height: 6px; background: rgba(0,0,0,0.4); border-radius: 3px; overflow: hidden;">
@@ -16784,33 +17079,37 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                 : 'background:rgba(99,102,241,0.2); color:#818cf8; border:1px solid rgba(99,102,241,0.4);';
             const badgeIcon = act.isNonExam ? '📋 Sınav Dışı' : '🎓 Sınav';
 
+            const safeEsc = (typeof window.escapeHtml === 'function') 
+                ? window.escapeHtml 
+                : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
             swapsHtml += `
                 <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span style="background:rgba(2,132,199,0.3); color:#38bdf8; padding:1px 6px; border-radius:4px; font-size:0.7rem;">Adım ${idx + 1} • ➡️ Görev Devri</span>
-                            <span>📚 ${act.examName}</span>
+                            <span>📚 ${safeEsc(act.examName)}</span>
                             <span style="font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; ${badgeStyle}">${badgeIcon}</span>
                         </div>
                         <span style="color: #38bdf8; font-weight: 800;">+${act.examScore} Puan</span>
                     </div>
 
                     <div style="font-size: 0.74rem; color: #94a3b8; margin-bottom: 8px; display:flex; gap:12px; flex-wrap:wrap;">
-                        <span>📅 ${act.examDate}</span>
-                        <span>🕐 ${act.examTime} (${act.examDuration || 60} dk)</span>
-                        <span>📍 ${act.examLocation || '-'}</span>
+                        <span>📅 ${safeEsc(act.examDate)}</span>
+                        <span>🕐 ${safeEsc(act.examTime)} (${act.examDuration || 60} dk)</span>
+                        <span>📍 ${safeEsc(act.examLocation || '-')}</span>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; margin-bottom: 6px;">
                         <div style="color: #fca5a5;">
                             <div style="font-size:0.7rem; color:#f87171; text-transform:uppercase;">Devreden (Yüksek Puan)</div>
-                            <strong>🛑 ${act.fromStaff.name}</strong><br>
+                            <strong>🛑 ${safeEsc(act.fromStaff.name)}</strong><br>
                             <span style="font-size:0.74rem; color:#cbd5e1;">${act.fromStaff.oldScore} ➔ <b>${act.fromStaff.newScore} P.</b> <small>(${act.fromStaff.oldTasks} ➔ ${act.fromStaff.newTasks} Görev)</small></span>
                         </div>
                         <div style="color: #10b981; font-size: 1.2rem; font-weight: bold; text-align:center;">➔</div>
                         <div style="color: #86efac; text-align:right;">
                             <div style="font-size:0.7rem; color:#4ade80; text-transform:uppercase;">Devralan (Düşük Puan)</div>
-                            <strong>🟢 ${act.toStaff.name}</strong><br>
+                            <strong>🟢 ${safeEsc(act.toStaff.name)}</strong><br>
                             <span style="font-size:0.74rem; color:#cbd5e1;">${act.toStaff.oldScore} ➔ <b>${act.toStaff.newScore} P.</b> <small>(${act.toStaff.oldTasks} ➔ ${act.toStaff.newTasks} Görev)</small></span>
                         </div>
                     </div>
@@ -16820,7 +17119,7 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                         <span style="color:#34d399; font-weight:700;">📉 Fark ${act.gapReduction} Puan Kapandı</span>
                     </div>
                     <div style="margin-top:6px; font-size:0.72rem; color:#93c5fd; background:rgba(2,132,199,0.1); border-left:3px solid #38bdf8; padding:5px 8px; border-radius:4px;">
-                        💡 <b>Öneri Nedeni:</b> ${act.rationale}
+                        💡 <b>Öneri Nedeni:</b> ${safeEsc(act.rationale)}
                     </div>
 
                     <!-- Tekil Onay & Seçim Aksiyon Çubuğu -->
@@ -16836,6 +17135,10 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                 </div>
             `;
         } else if (act.type === 'bilateral_swap') {
+            const safeEsc = (typeof window.escapeHtml === 'function') 
+                ? window.escapeHtml 
+                : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
             swapsHtml += `
                 <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(192,132,252,0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">
@@ -16849,29 +17152,29 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                     <!-- Takas Edilen Sınavlar -->
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                         <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-size: 0.75rem; border-left: 3px solid #f87171;">
-                            <div style="font-size:0.68rem; color:#fca5a5; font-weight:700;">🛑 ${act.staffA.name} Tarafından Verilen:</div>
-                            <div style="font-weight:600; color:white; margin:2px 0;">📚 ${act.examFromA.name}</div>
-                            <div style="color:#94a3b8; font-size:0.7rem;">📅 ${act.examFromA.date} ${act.examFromA.time} (${act.examFromA.duration} dk)</div>
-                            <div style="color:#38bdf8; font-weight:700; margin-top:2px;">${act.examFromA.score} Puan ➔ ${act.staffB.name}'a</div>
+                            <div style="font-size:0.68rem; color:#fca5a5; font-weight:700;">🛑 ${safeEsc(act.staffA.name)} Tarafından Verilen:</div>
+                            <div style="font-weight:600; color:white; margin:2px 0;">📚 ${safeEsc(act.examFromA.name)}</div>
+                            <div style="color:#94a3b8; font-size:0.7rem;">📅 ${safeEsc(act.examFromA.date)} ${safeEsc(act.examFromA.time)} (${act.examFromA.duration} dk)</div>
+                            <div style="color:#38bdf8; font-weight:700; margin-top:2px;">${act.examFromA.score} Puan ➔ ${safeEsc(act.staffB.name)}'a</div>
                         </div>
 
                         <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-size: 0.75rem; border-left: 3px solid #34d399;">
-                            <div style="font-size:0.68rem; color:#86efac; font-weight:700;">🟢 ${act.staffB.name} Tarafından Verilen:</div>
-                            <div style="font-weight:600; color:white; margin:2px 0;">📚 ${act.examFromB.name}</div>
-                            <div style="color:#94a3b8; font-size:0.7rem;">📅 ${act.examFromB.date} ${act.examFromB.time} (${act.examFromB.duration} dk)</div>
-                            <div style="color:#38bdf8; font-weight:700; margin-top:2px;">${act.examFromB.score} Puan ➔ ${act.staffA.name}'a</div>
+                            <div style="font-size:0.68rem; color:#86efac; font-weight:700;">🟢 ${safeEsc(act.staffB.name)} Tarafından Verilen:</div>
+                            <div style="font-weight:600; color:white; margin:2px 0;">📚 ${safeEsc(act.examFromB.name)}</div>
+                            <div style="color:#94a3b8; font-size:0.7rem;">📅 ${safeEsc(act.examFromB.date)} ${safeEsc(act.examFromB.time)} (${act.examFromB.duration} dk)</div>
+                            <div style="color:#38bdf8; font-weight:700; margin-top:2px;">${act.examFromB.score} Puan ➔ ${safeEsc(act.staffA.name)}'a</div>
                         </div>
                     </div>
 
                     <!-- Puan ve Görev Sayısı Değişimi -->
                     <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; margin-bottom: 6px;">
                         <div style="color: #fca5a5;">
-                            <strong>🛑 ${act.staffA.name}</strong><br>
+                            <strong>🛑 ${safeEsc(act.staffA.name)}</strong><br>
                             <span style="font-size:0.74rem; color:#cbd5e1;">${act.staffA.oldScore} ➔ <b>${act.staffA.newScore} P.</b> <small>(${act.staffA.tasks} Görev Sabit)</small></span>
                         </div>
                         <div style="color: #c084fc; font-size: 1.1rem; font-weight: bold; text-align:center;">⇄</div>
                         <div style="color: #86efac; text-align:right;">
-                            <strong>🟢 ${act.staffB.name}</strong><br>
+                            <strong>🟢 ${safeEsc(act.staffB.name)}</strong><br>
                             <span style="font-size:0.74rem; color:#cbd5e1;">${act.staffB.oldScore} ➔ <b>${act.staffB.newScore} P.</b> <small>(${act.staffB.tasks} Görev Sabit)</small></span>
                         </div>
                     </div>
@@ -16881,7 +17184,7 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                         <span style="color:#34d399; font-weight:700;">📉 Fark ${act.gapReduction} Puan Kapandı</span>
                     </div>
                     <div style="margin-top:6px; font-size:0.72rem; color:#d8b4fe; background:rgba(147,51,234,0.1); border-left:3px solid #c084fc; padding:5px 8px; border-radius:4px;">
-                        💡 <b>Öneri Nedeni:</b> ${act.rationale}
+                        💡 <b>Öneri Nedeni:</b> ${safeEsc(act.rationale)}
                     </div>
 
                     <!-- Tekil Onay & Seçim Aksiyon Çubuğu -->
@@ -16905,6 +17208,15 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
     }
     if (applyNote) applyNote.classList.remove('hidden');
 
+    // En İyi Senaryo (Olması Gerekenler) Tablosunu da hesaplanan simResult ile oluştur
+    if (typeof window.renderFairnessTargetScenarioTable === 'function') {
+        window.renderFairnessTargetScenarioTable(simResult, mode);
+    }
+    const scenarioBadge = document.getElementById('fairness-scenario-count-badge');
+    if (scenarioBadge) scenarioBadge.textContent = `${(simResult.simulatedStaff || []).length} Personel`;
+    const actionsBadge = document.getElementById('fairness-actions-count-badge');
+    if (actionsBadge) actionsBadge.textContent = `${actions.length}`;
+
     // Manuel tıklama geri bildirimi ve görsel efekt
     if (runBtn && isManual) {
         setTimeout(() => {
@@ -16925,6 +17237,122 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
             swapsCont.style.boxShadow = 'none';
         }, 600);
     }
+};
+
+window.renderFairnessTargetScenarioTable = function(simResult, mode = 'exam') {
+    const targetCont = document.getElementById('fairness-target-scenario-container');
+    if (!targetCont) return;
+
+    if (!simResult || !Array.isArray(simResult.simulatedStaff) || simResult.simulatedStaff.length === 0) {
+        targetCont.innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 30px 10px;">
+                Simülasyon çalıştırarak en iyi senaryoda gözetmenlerin ulaşması gereken hedef puan ve görev dağılım tablosunu görüntüleyebilirsiniz.
+            </div>
+        `;
+        return;
+    }
+
+    const safeEsc = (typeof window.escapeHtml === 'function') 
+        ? window.escapeHtml 
+        : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+    function getScore(s) {
+        if (mode === 'non_exam') return parseFloat((s.nonExamScore || 0).toFixed(2));
+        if (mode === 'exam') return parseFloat((s.totalScore || 0).toFixed(2));
+        return parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2));
+    }
+
+    function getTaskCount(s) {
+        if (mode === 'non_exam') return s.nonExamTaskCount || 0;
+        if (mode === 'exam') return s.taskCount || 0;
+        return (s.taskCount || 0) + (s.nonExamTaskCount || 0);
+    }
+
+    const sortedStaff = simResult.simulatedStaff.slice().sort((a, b) => getScore(b) - getScore(a));
+    const targetAvg = simResult.after.avg;
+    const catName = mode === 'non_exam' ? 'Sınav Dışı Görev' : (mode === 'exam' ? 'Sınav Gözetmenliği' : 'Genel Toplam');
+
+    let tableHtml = `
+        <div style="margin-bottom: 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 10px 12px; font-size: 0.78rem; color: #a7f3d0; line-height: 1.45;">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #34d399; margin-bottom: 4px;">
+                <span style="font-size: 1rem;">🎯</span>
+                <span>En İyi Senaryo Hedef Durumu (${catName}):</span>
+            </div>
+            Önerilen dengeleme adımları uygulandığında tüm personel <strong>${targetAvg.toFixed(1)} Puan</strong> hedef ortalaması etrafında dengelenir.
+            Puan makası <strong>${simResult.before.scoreRange} P. ➔ ${simResult.after.scoreRange} P.</strong> seviyesine iner (${(simResult.before.scoreRange - simResult.after.scoreRange).toFixed(1)} Puan kapanış), standart sapma <strong>±${simResult.after.stdDev} P.</strong> ile adil dağılım sağlanır.
+        </div>
+
+        <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem; text-align: left;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.06); color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 8px 10px; font-weight: 700;">#</th>
+                        <th style="padding: 8px 10px; font-weight: 700;">Personel Adı</th>
+                        <th style="padding: 8px 10px; font-weight: 700;">Mevcut ➔ Hedef Puan</th>
+                        <th style="padding: 8px 10px; font-weight: 700;">Değişim (Net)</th>
+                        <th style="padding: 8px 10px; font-weight: 700;">Görev Sayısı</th>
+                        <th style="padding: 8px 10px; font-weight: 700;">Denge Durumu</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    sortedStaff.forEach((s, idx) => {
+        const orig = (DB.staff || []).find(x => String(x.id) === String(s.id)) || s;
+        const curScore = getScore(orig);
+        const tgtScore = getScore(s);
+        const diffScore = parseFloat((tgtScore - curScore).toFixed(2));
+        
+        const curTasks = getTaskCount(orig);
+        const tgtTasks = getTaskCount(s);
+        const diffTasks = tgtTasks - curTasks;
+
+        const distFromAvg = parseFloat((tgtScore - targetAvg).toFixed(2));
+
+        let diffBadge = '';
+        if (diffScore > 0.05) {
+            diffBadge = `<span style="background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.4); padding: 2px 6px; border-radius: 4px; font-weight: 700;">+${diffScore.toFixed(1)} P.</span>`;
+        } else if (diffScore < -0.05) {
+            diffBadge = `<span style="background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); padding: 2px 6px; border-radius: 4px; font-weight: 700;">${diffScore.toFixed(1)} P.</span>`;
+        } else {
+            diffBadge = `<span style="background: rgba(100,116,139,0.2); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); padding: 2px 6px; border-radius: 4px;">Sabit (0.0)</span>`;
+        }
+
+        let taskText = `${curTasks} ➔ <b>${tgtTasks}</b>`;
+        if (diffTasks > 0) taskText += ` <span style="color:#34d399;">(+${diffTasks})</span>`;
+        else if (diffTasks < 0) taskText += ` <span style="color:#fbbf24;">(${diffTasks})</span>`;
+        else taskText += ` <span style="color:#94a3b8;">(±0)</span>`;
+
+        let statusText = '';
+        if (Math.abs(distFromAvg) <= 15) {
+            statusText = `<span style="color:#34d399; font-weight:700;">🌟 Mükemmel Denge</span> <small style="color:#94a3b8;">(${distFromAvg >= 0 ? '+' : ''}${distFromAvg.toFixed(1)} P.)</small>`;
+        } else if (distFromAvg > 15) {
+            statusText = `<span style="color:#fbbf24; font-weight:600;">⚖️ Dengeli (+${distFromAvg.toFixed(1)} P.)</span>`;
+        } else {
+            statusText = `<span style="color:#38bdf8; font-weight:600;">⚖️ Dengeli (${distFromAvg.toFixed(1)} P.)</span>`;
+        }
+
+        const rowBg = idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent';
+
+        tableHtml += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 7px 10px; color: #94a3b8;">${idx + 1}</td>
+                <td style="padding: 7px 10px; font-weight: 600; color: #f1f5f9;">${safeEsc(s.name)}</td>
+                <td style="padding: 7px 10px; color: #cbd5e1;">${curScore.toFixed(1)} ➔ <b style="color: #67e8f9;">${tgtScore.toFixed(1)} P.</b></td>
+                <td style="padding: 7px 10px;">${diffBadge}</td>
+                <td style="padding: 7px 10px; color: #cbd5e1;">${taskText}</td>
+                <td style="padding: 7px 10px;">${statusText}</td>
+            </tr>
+        `;
+    });
+
+    tableHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    targetCont.innerHTML = tableHtml;
 };
 
 window.updateFairnessSelectedCount = function() {

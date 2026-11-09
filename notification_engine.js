@@ -378,8 +378,10 @@
             if (!ex.date || !ex.time) return;
             if (!isMine(ex)) return;
             // Ortak kural: bitmiş, 31 Ekim sınırından sonra ve henüz onaylanmamış sınav
-            // (henüz bitmemiş sınav için süre teyidi ASLA sorulmaz)
-            if (K ? !K.sureTeyidiBekliyor(ex, now.getTime()) : true) return;
+            // (henüz bitmemiş sınav için süre teyidi ASLA sorulmaz). Gözetmense KENDİ onayına bakılır:
+            // aynı sınavdaki başka bir gözetmenin girdiği süre bu gözetmenin teyidini kapatmaz.
+            const benimGozetmenligim = myStaffId && K && K.gozetmeniMi(ex, myStaffId);
+            if (K ? !K.sureTeyidiBekliyor(ex, now.getTime(), benimGozetmenligim ? myStaffId : null) : true) return;
             const durMins = K.sinavSuresi(ex);
 
             // Bu sınavın bitiş bildirimi bu cihazda daha önce gönderildi mi?
@@ -469,7 +471,7 @@
         if (!K || !myStaffId || !window.DB || !Array.isArray(DB.exams)) return [];
         const now = Date.now();
         return DB.exams
-            .filter(ex => K.gozetmeniMi(ex, myStaffId) && K.sureTeyidiBekliyor(ex, now))
+            .filter(ex => K.gozetmeniMi(ex, myStaffId) && K.sureTeyidiBekliyor(ex, now, myStaffId))
             .sort((a, b) => K.sinavBaslangic(a) - K.sinavBaslangic(b));
     }
 

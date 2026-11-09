@@ -86,12 +86,105 @@
         return [...new Set(out)];
     }
     function gozetmeniMi(ex, staffId) { return staffId != null && gozetmenler(ex).includes(String(staffId)); }
-    function sureOnaylandi(ex) { return !!(ex && (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved || ex.actualDuration)); }
+
+    // ------------------------------------------------------------------ Gözetmen bazında süre
+    // Aynı sınavda farklı dersliklerde görev yapan gözetmenlerin süreleri farklı olabilir; her gözetmen
+    // kendi süresini girer. Kayıt sınavın üzerinde gözetmen başına AYRI bir alanda tutulur
+    // (ör. ex.gozetmenSuresi_12) — veri birleştirme alan alan yapıldığı için iki gözetmenin aynı anda
+    // farklı cihazlardan girdiği süreler birbirini ezmez.
+    //   { sure: dakika, saat?: "HH:MM" (gerçek başlangıç), not?, onaylayan, onayZamani }
+    const SURE_ALANI = 'gozetmenSuresi_';
+    function sureAlani(pid) { return SURE_ALANI + String(pid); }
+    function gozetmenSureKaydi(ex, pid) {
+        if (!ex || pid == null || pid === '') return null;
+        const k = ex[sureAlani(pid)];
+        return (k && typeof k === 'object' && parseInt(k.sure, 10) > 0) ? k : null;
+    }
+    /** Sınav satırının tamamı için verilmiş onay (ders hocası / yönetici / eski kayıtlar) */
+    function satirOnayli(ex) { return !!(ex && (ex.durationConfirmed || ex.lecturerVerified || ex.durationApproved || ex.actualDuration)); }
+    /** Gözetmenin geçerli süresi: kendi kaydı → satırın gerçekleşen süresi → planlanan süre */
+    function gozetmenSuresi(ex, pid) {
+        const k = gozetmenSureKaydi(ex, pid);
+        if (k) return parseInt(k.sure, 10);
+        return parseInt(ex && (ex.actualDuration || ex.duration), 10) || AYAR.VARSAYILAN_SURE_DK;
+    }
+    /** Gözetmenin geçerli başlangıç saati (kendi kaydında farklı saat bildirdiyse o) */
+    function gozetmenBaslangicSaati(ex, pid) {
+        const k = gozetmenSureKaydi(ex, pid);
+        return (k && k.saat) ? k.saat : (ex && ex.time);
+    }
+
+    // ------------------------------------------------------------------ Derslik eşleştirmesi
+    // Bir sınav satırında birden çok derslik olabilir ("Derslik 1 / Derslik 3"). Gözetmenin hangi
+    // derslikte olduğu ayrı bir alanda tutulur (ex.gozetmenDersligi_12 = "Derslik 3").
+    // Aynı derslikteki gözetmenlerin süresi aynıdır: biri girince hepsine yazılır.
+    // Farklı derslikteki gözetmenler bağımsızdır.
+    const DERSLIK_ALANI = 'gozetmenDersligi_';
+    function derslikAlani(pid) { return DERSLIK_ALANI + String(pid); }
+    function derslikAnahtari(s) {
+        return String(s == null ? '' : s).toLocaleUpperCase('tr-TR')
+            .replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C')
+            .replace(/[^A-Z0-9]/g, '');
+    }
+    /** "Derslik 1 / Derslik 3" → ["Derslik 1", "Derslik 3"] (boş / "-" / "Belirtilmedi" yok sayılır) */
+    function derslikler(exOrLocation) {
+        const loc = (exOrLocation && typeof exOrLocation === 'object') ? exOrLocation.location : exOrLocation;
+        const seen = new Set();
+        return String(loc == null ? '' : loc).split(/\s*[\/;,|]\s*/).map(s => s.trim())
+            .filter(s => { const k = derslikAnahtari(s); if (!k || k === 'BELIRTILMEDI' || seen.has(k)) return false; seen.add(k); return true; });
+    }
+    /** Gözetmenin dersliği: atanmışsa o; sınavda tek derslik varsa o; aksi halde bilinmiyor (null) */
+    function gozetmenDersligi(ex, pid) {
+        const list = derslikler(ex);
+        const atanan = ex && pid != null ? ex[derslikAlani(pid)] : null;
+        if (atanan) {
+            const hit = list.find(d => derslikAnahtari(d) === derslikAnahtari(atanan));
+            if (hit) return hit;
+            if (list.length === 0) return String(atanan);
+        }
+        return list.length === 1 ? list[0] : null;
+    }
+    function ayniSinavOturumu(a, b) {
+        if (!a || !b || a.date !== b.date) return false;
+        const ta = saatParcala(a.time), tb = saatParcala(b.time);
+        if (!ta || !tb || ta.h !== tb.h || ta.m !== tb.m) return false;
+        return derslikAnahtari(a.name) === derslikAnahtari(b.name);
+    }
+    /**
+     * Aynı derslikte görev yapan gözetmenler (aynı satırda ve aynı sınavın aynı saatteki diğer satırlarında).
+     * Gözetmenin dersliği bilinmiyorsa boş döner (yalnızca kendisi için kaydedilir).
+     * @returns [{ ex, pid }]  (gözetmenin kendisi hariç)
+     */
+    function ayniDerslikGozetmenleri(ex, pid, exams) {
+        const oda = gozetmenDersligi(ex, pid);
+        if (!oda) return [];
+        const k = derslikAnahtari(oda);
+        const out = [];
+        const list = (exams && exams.length ? exams : [ex]).filter(Boolean);
+        for (const e of list) {
+            if (e !== ex && String(e.id) !== String(ex.id) && !ayniSinavOturumu(e, ex)) continue;
+            for (const q of gozetmenler(e)) {
+                if (String(e.id) === String(ex.id) && q === String(pid)) continue;
+                const o = gozetmenDersligi(e, q);
+                if (o && derslikAnahtari(o) === k) out.push({ ex: e, pid: q });
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Süre onaylandı mı? pid verilirse o gözetmen için: kendi kaydı varsa ya da satır bütünüyle onaylıysa.
+     * pid verilmezse yalnızca satır onayı (ders hocası görünümü).
+     */
+    function sureOnaylandi(ex, pid) {
+        if (pid != null && pid !== '' && gozetmenSureKaydi(ex, pid)) return true;
+        return satirOnayli(ex);
+    }
     /** Sınav bitti mi? (henüz bitmemiş sınav için süre teyidi ASLA sorulmaz) */
     function bittiMi(ex, now) { const e = sinavBitis(ex); return !isNaN(e) && now >= e; }
-    /** Süre teyidi bekleniyor mu? (bitmiş, sınırdan sonra, onaylanmamış) */
-    function sureTeyidiBekliyor(ex, now) {
-        if (!ex || sureOnaylandi(ex)) return false;
+    /** Süre teyidi bekleniyor mu? (bitmiş, sınırdan sonra, onaylanmamış; pid verilirse o gözetmen için) */
+    function sureTeyidiBekliyor(ex, now, pid) {
+        if (!ex || sureOnaylandi(ex, pid)) return false;
         const s = sinavBaslangic(ex);
         if (isNaN(s) || s < AYAR.SURE_SINIRI) return false;
         return bittiMi(ex, now);
@@ -207,10 +300,14 @@
         if (turler.includes(TUR.SURE_SORU)) {
             const byPid = new Map();
             for (const ex of exams) {
-                if (!sureTeyidiBekliyor(ex, now)) continue;
+                if (satirOnayli(ex)) continue;
+                const s0 = sinavBaslangic(ex);
+                if (isNaN(s0) || s0 < AYAR.SURE_SINIRI || !bittiMi(ex, now)) continue;
                 const end = sinavBitis(ex);
                 if (now < end + gecikme || now - end > geriye) continue;
                 for (const pid of kimin(ex)) {
+                    // Gözetmen kendi süresini girdiyse yalnızca ona sorulmaz; diğer gözetmenlere sorulmaya devam eder
+                    if (gozetmenSureKaydi(ex, pid)) continue;
                     const key = `${ex.id}:${pid}`;
                     const s = durum[key];
                     if (s && ((s.count || 0) >= enFazla || now - Date.parse(s.last) < tekrar)) continue;
@@ -271,6 +368,8 @@
         TUR, AYAR,
         saatParcala, sinavBaslangic, sinavSuresi, sinavBitis, trTarih, trSaat, gunFarki,
         gozetmenler, gozetmeniMi, sureOnaylandi, bittiMi, sureTeyidiBekliyor, gunHatirlatmaSaatiMi, saatHatirlatmasiZamani,
+        SURE_ALANI, sureAlani, gozetmenSureKaydi, satirOnayli, gozetmenSuresi, gozetmenBaslangicSaati,
+        DERSLIK_ALANI, derslikAlani, derslikAnahtari, derslikler, gozetmenDersligi, ayniDerslikGozetmenleri,
         gunHatirlatmasi, saatHatirlatmasi, sureTeyidi, duyuru,
         tiklamaHedefi, planla, kaydet
     };

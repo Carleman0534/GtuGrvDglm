@@ -834,19 +834,29 @@ let DB = {
     ]
 };
 
-if (typeof window !== 'undefined') {
+const _targetGlobal = (typeof window !== 'undefined') ? window : ((typeof global !== 'undefined') ? global : null);
+if (_targetGlobal) {
     // window.DB her zaman güncel `DB` bağlamasını göstermeli.
     // (`DB = data` ile yeniden atamalarda düz `window.DB = DB` eski nesnede kalıyordu;
     //  simülatör, kısıtlar ve işlem günlüğü bu yüzden boş veriyle çalışıyordu.)
-    Object.defineProperty(window, 'DB', {
+    Object.defineProperty(_targetGlobal, 'DB', {
         get: function () { return DB; },
         set: function (v) { DB = v; },
         configurable: true,
         enumerable: true
     });
-    window.getCourseCatalog = getCourseCatalog;
-    window.findCourseInCatalog = findCourseInCatalog;
-    window.DEFAULT_COURSE_CATALOG = DEFAULT_COURSE_CATALOG;
+    _targetGlobal.getCourseCatalog = getCourseCatalog;
+    _targetGlobal.findCourseInCatalog = findCourseInCatalog;
+    _targetGlobal.DEFAULT_COURSE_CATALOG = DEFAULT_COURSE_CATALOG;
+    _targetGlobal.escapeHtml = function(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
 }
 
 /**
@@ -996,17 +1006,41 @@ function undoLastAction() {
 /**
  * İşlem Günlüğü (Logging)
  */
+/**
+ * İşlemi yapanın GERÇEK rolü ve adı (kaydı yazan kodun verdiği kategoriye güvenilmez)
+ * rol: 'admin' (yönetici) | 'gozetmen' | 'hoca' (ders sorumlusu) | 'sistem' (otomatik / oturumsuz)
+ */
+function detectAuditActor(category) {
+    if (category === 'system') return { rol: 'sistem', kisi: 'Sistem' };
+    try {
+        const ss = typeof sessionStorage !== 'undefined' ? sessionStorage : null;
+        const ls = typeof localStorage !== 'undefined' ? localStorage : null;
+        if (ss && ss.getItem('isAdmin') === 'true') return { rol: 'admin', kisi: 'Yönetici' };
+        if (ss && ss.getItem('isLecturer') === 'true') return { rol: 'hoca', kisi: (ls && ls.getItem('myLecturerName')) || 'Ders Sorumlusu' };
+        const sid = ls && ls.getItem('myStaffId');
+        if (sid) {
+            const s = (DB.staff || []).find(x => String(x.id) === String(sid));
+            return { rol: 'gozetmen', kisi: s ? s.name : ('Gözetmen #' + sid) };
+        }
+    } catch (e) {}
+    return { rol: 'sistem', kisi: 'Sistem' };
+}
+window.detectAuditActor = detectAuditActor;
+
 function logAction(category, action, details = "") {
     const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : DB;
     if (!dbObj.auditLogs) dbObj.auditLogs = [];
-    
+
     // Stringify details if it's an object for simple display
     const detailsStr = (typeof details === 'object') ? JSON.stringify(details) : String(details);
+    const actor = detectAuditActor(category);
 
     const logEntry = {
         id: Date.now(),
         timestamp: new Date().toLocaleString('tr-TR'),
-        category: category, // 'admin', 'user', 'system'
+        category: category, // kaydı yazan kodun verdiği kategori (eski uyumluluk)
+        rol: actor.rol,     // işlemi yapanın gerçek rolü: admin | gozetmen | hoca | sistem
+        kisi: actor.kisi,   // işlemi yapanın adı
         action: action,     // 'Takas', 'Atama', 'Düzenleme'
         details: detailsStr
     };
@@ -2209,7 +2243,13 @@ function updateExam(id, newData, skipSave = false) {
 
     if (!skipSave) {
         saveToLocalStorage();
-        logAction('admin', 'Sınav Güncelleme', `${newData.name || oldExam.name} sınav bilgileri güncellendi.`);
+        // Yalnızca gözetmen süre/derslik kaydı değiştiyse ayrı "Sınav Güncelleme" kaydı yazılmaz
+        // (süre girişini yapan fonksiyon kendi anlamlı kaydını zaten yazar)
+        const onlyProctorFields = Object.keys(newData).length > 0 &&
+            Object.keys(newData).every(k => k.startsWith('gozetmenSuresi_') || k.startsWith('gozetmenDersligi_'));
+        if (!onlyProctorFields) {
+            logAction('admin', 'Sınav Güncelleme', `${newData.name || oldExam.name} sınav bilgileri güncellendi.`);
+        }
     }
 }
 
@@ -3464,6 +3504,40 @@ window.requestSmartSwap = requestSmartSwap;
  *   - s.totalScore : baseScore + tüm sınavlardan hesaplanan puan
  *   - s.taskCount  : Sadece sistemdeki sınavlardan gelen görev sayısı
  */
+/**
+ * GÖZETMEN BAZINDA SÜRE VE PUAN
+ * Aynı sınavda farklı dersliklerde görev yapan gözetmenlerin süreleri farklı olabilir.
+ * Gözetmenin kendi kaydı (ex.gozetmenSuresi_<id>) varsa süre/saat/puan ondan, yoksa sınavdan gelir.
+ */
+function getProctorDurationRecord(ex, pid) {
+    const BK = (typeof window !== 'undefined' && window.BildirimKurallari) || null;
+    if (BK) return BK.gozetmenSureKaydi(ex, pid);
+    const k = ex && pid != null ? ex['gozetmenSuresi_' + pid] : null;
+    return (k && parseInt(k.sure, 10) > 0) ? k : null;
+}
+function getProctorExamDuration(ex, pid) {
+    const k = getProctorDurationRecord(ex, pid);
+    return k ? parseInt(k.sure, 10) : (parseInt(ex && (ex.actualDuration || ex.duration), 10) || 60);
+}
+function getProctorExamTime(ex, pid) {
+    const k = getProctorDurationRecord(ex, pid);
+    return (k && k.saat) ? k.saat : (ex && ex.time);
+}
+function getProctorExamScore(ex, pid, rowScore) {
+    const k = getProctorDurationRecord(ex, pid);
+    const base = rowScore !== undefined ? rowScore : (parseFloat(ex && ex.score) || 0);
+    if (!k) return base;
+    const d = getSafeDate(ex.date, k.saat || ex.time);
+    if (isNaN(d.getTime())) return base;
+    return calculateScore(d, parseInt(k.sure, 10), ex.id);
+}
+if (typeof window !== 'undefined') {
+    window.getProctorDurationRecord = getProctorDurationRecord;
+    window.getProctorExamDuration = getProctorExamDuration;
+    window.getProctorExamTime = getProctorExamTime;
+    window.getProctorExamScore = getProctorExamScore;
+}
+
 function recalculateAllScores() {
     const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : (typeof DB !== 'undefined' ? DB : null);
     if (!dbObj || !dbObj.staff || !dbObj.exams) return 0;
@@ -3521,11 +3595,14 @@ function recalculateAllScores() {
         pIds.forEach(pid => {
             const s = dbObj.staff.find(st => String(st.id) === String(pid));
             if (s) {
+                // Gözetmen kendi süresini girdiyse puanı kendi süresinden hesaplanır
+                // (aynı sınavda farklı dersliklerdeki gözetmenlerin süreleri farklı olabilir)
+                const pScore = getProctorExamScore(ex, pid, newScore);
                 if (shouldCountAsNonExam(ex)) {
-                    s.nonExamScore = parseFloat(((s.nonExamScore || 0) + newScore).toFixed(2));
+                    s.nonExamScore = parseFloat(((s.nonExamScore || 0) + pScore).toFixed(2));
                     s.nonExamTaskCount = (s.nonExamTaskCount || 0) + 1;
                 } else {
-                    s.totalScore = parseFloat((s.totalScore + newScore).toFixed(2));
+                    s.totalScore = parseFloat((s.totalScore + pScore).toFixed(2));
                     s.taskCount  = (s.taskCount || 0) + 1;
                 }
             }
@@ -3966,10 +4043,10 @@ function calculateGiniCoefficient(scores) {
  */
 function getActiveProctorStaff(staffList) {
     const list = staffList || (typeof DB !== 'undefined' ? DB.staff : []);
-    const regex = /ara?[sş]\.?\s*g[oö]r/i; // "Arş. Gör.", "Araş.Gör.", "Ars Gor" vb.
+    const regex = /ar(a?[sş])?\.?\s*g[oö]r/i; // "Arş. Gör.", "Araş.Gör.", "Ar. Gör.", "Ars Gor" vb.
     const activeStaff = list.filter(s => {
         if ((s.baseScore || 0) > 0 || (s.totalScore || 0) > 0 || (s.nonExamScore || 0) > 0 || (s.taskCount || 0) > 0 || (s.nonExamTaskCount || 0) > 0) return true;
-        return regex.test(s.name) || s.role === 'proctor' || s.role === 'assistant';
+        return regex.test(s.name || '') || regex.test(s.title || '') || s.role === 'proctor' || s.role === 'assistant' || s.isAssistant;
     });
     return activeStaff.length > 0 ? activeStaff : list;
 }
