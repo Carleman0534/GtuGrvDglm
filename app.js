@@ -7509,7 +7509,10 @@ window.renderProfile = function() {
         // Gelen Takas Tekliflerini Göster
         const incomingSwaps = (DB.requests || []).filter(r => 
             (r.type === 'direct_swap' && r.status === 'pending_peer' && String(r.receiverId) === String(staff.id)) ||
-            (r.type === 'smart_swap' && r.status === 'pending' && String(r.receiverId) === String(staff.id))
+            (r.type === 'smart_swap' && r.status === 'pending' && String(r.receiverId) === String(staff.id)) ||
+            (r.type === 'p2p_fairness_swap' && (r.status === 'pending_peers' || r.status === 'pending_other') && 
+                ((String(r.toStaffId) === String(staff.id) && !r.toApproved) || (String(r.fromStaffId) === String(staff.id) && !r.fromApproved))) ||
+            (r.type === 'p2p_fairness_transfer' && r.status === 'pending_receiver' && String(r.toStaffId) === String(staff.id) && !r.toApproved)
         );
 
         const swapNotice = document.getElementById('profile-swap-proposals');
@@ -7519,12 +7522,53 @@ window.renderProfile = function() {
                 swapNotice.innerHTML = `
                     <div style="background: rgba(139, 92, 246, 0.15); border: 1px solid var(--primary); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
                         <h4 style="color: var(--primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 1.2rem;">🔄</span> Yeni Takas Teklifleri
+                            <span style="font-size: 1.2rem;">🔄</span> Yeni Takas & Görev Teklifleri
                         </h4>
                         ${incomingSwaps.map(r => {
+                            const safeEsc = (typeof window.escapeHtml === 'function') 
+                                ? window.escapeHtml 
+                                : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+                            if (r.type === 'p2p_fairness_swap') {
+                                const isFrom = String(r.fromStaffId) === String(staff.id);
+                                const peerName = isFrom ? r.toStaffName : r.fromStaffName;
+                                const myExamName = isFrom ? r.fromExamName : r.toExamName;
+                                const peerExamName = isFrom ? r.toExamName : r.fromExamName;
+                                return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(147,51,234,0.15); padding: 1rem; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(168,85,247,0.3); flex-wrap:wrap; gap:10px;">
+                                        <div style="font-size: 0.88rem;">
+                                            <span style="background: #a855f7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-right: 8px; font-weight: 700;">⚖️ ADALET SİSTEMİ ÖNERİSİ</span>
+                                            <strong>${safeEsc(peerName)}</strong> ile karşılıklı görev takası önerildi:<br>
+                                            <div style="margin-top:4px; font-size:0.82rem; color:#cbd5e1;">
+                                                Sizin vereceğiniz: <b style="color:#fca5a5;">${safeEsc(myExamName)}</b> ⇄ Alacağınız: <b style="color:#86efac;">${safeEsc(peerExamName)}</b>
+                                                <span style="color:#d8b4fe; font-size:0.75rem; margin-left:6px;">(Net Denge: ±${r.netDelta} P.)</span>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; gap: 8px;">
+                                            <button class="btn-primary" onclick="window.acceptP2PFairnessSwap('${r.id}', ${staff.id})" style="background: var(--accent-green); padding: 0.4rem 0.85rem; font-size: 0.8rem; font-weight:700;">✅ Takası Onayla</button>
+                                            <button class="btn-delete" onclick="window.rejectP2PFairnessSwap('${r.id}', ${staff.id})" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">❌ Reddet</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            if (r.type === 'p2p_fairness_transfer') {
+                                return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(14,165,233,0.15); padding: 1rem; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(14,165,233,0.3); flex-wrap:wrap; gap:10px;">
+                                        <div style="font-size: 0.88rem;">
+                                            <span style="background: #0ea5e9; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-right: 8px; font-weight: 700;">➡️ GÖREV DEVRİ</span>
+                                            <strong>${safeEsc(r.fromStaffName)}</strong>, sınav puanı sizinkinden yüksek olduğu için 
+                                            <b style="color:#38bdf8;">${safeEsc(r.fromExamName)}</b> (+${r.fromPoints} P.) sınav görevini adil dağılım için size devretmek istiyor.
+                                        </div>
+                                        <div style="display: flex; gap: 8px;">
+                                            <button class="btn-primary" onclick="window.acceptP2PFairnessSwap('${r.id}', ${staff.id})" style="background: var(--accent-green); padding: 0.4rem 0.85rem; font-size: 0.8rem; font-weight:700;">✅ Görevi Kabul Et</button>
+                                            <button class="btn-delete" onclick="window.rejectP2PFairnessSwap('${r.id}', ${staff.id})" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">❌ Reddet</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
                             const isSmart = r.type === 'smart_swap';
-                            // direct_swap: receiverExamId, initiatorExamId
-                            // smart_swap: targetExamId, examId
                             const myExamId = isSmart ? r.targetExamId : r.receiverExamId;
                             const hisExamId = isSmart ? r.examId : r.initiatorExamId;
 
@@ -16821,8 +16865,26 @@ window.switchFairnessView = function(view) {
     window._currentFairnessView = view || 'actions';
     const tabActions = document.getElementById('btn-view-fairness-actions');
     const tabScenario = document.getElementById('btn-view-fairness-scenario');
+    const tabHybrid = document.getElementById('btn-view-fairness-hybrid');
     const contActions = document.getElementById('fairness-swaps-container');
     const contScenario = document.getElementById('fairness-target-scenario-container');
+    const contHybrid = document.getElementById('fairness-hybrid-container');
+
+    const resetTab = (tab) => {
+        if (!tab) return;
+        tab.style.background = 'transparent';
+        tab.style.borderColor = 'rgba(255,255,255,0.1)';
+        tab.style.color = '#94a3b8';
+        tab.style.fontWeight = '600';
+    };
+
+    resetTab(tabActions);
+    resetTab(tabScenario);
+    resetTab(tabHybrid);
+
+    if (contActions) contActions.classList.add('hidden');
+    if (contScenario) contScenario.classList.add('hidden');
+    if (contHybrid) contHybrid.classList.add('hidden');
 
     if (view === 'scenario') {
         if (tabScenario) {
@@ -16831,14 +16893,23 @@ window.switchFairnessView = function(view) {
             tabScenario.style.color = '#34d399';
             tabScenario.style.fontWeight = '700';
         }
-        if (tabActions) {
-            tabActions.style.background = 'transparent';
-            tabActions.style.borderColor = 'rgba(255,255,255,0.1)';
-            tabActions.style.color = '#94a3b8';
-            tabActions.style.fontWeight = '600';
-        }
-        if (contActions) contActions.classList.add('hidden');
         if (contScenario) contScenario.classList.remove('hidden');
+    } else if (view === 'hybrid') {
+        if (tabHybrid) {
+            tabHybrid.style.background = 'rgba(168,85,247,0.25)';
+            tabHybrid.style.borderColor = 'rgba(168,85,247,0.45)';
+            tabHybrid.style.color = '#d8b4fe';
+            tabHybrid.style.fontWeight = '700';
+        }
+        if (contHybrid) {
+            contHybrid.classList.remove('hidden');
+            if (typeof simulateHybridFairnessWithForecast === 'function') {
+                const hybridRes = simulateHybridFairnessWithForecast(window._currentFairnessMode || 'exam');
+                if (typeof window.renderFairnessHybridPlan === 'function') {
+                    window.renderFairnessHybridPlan(hybridRes);
+                }
+            }
+        }
     } else {
         if (tabActions) {
             tabActions.style.background = 'rgba(14,165,233,0.25)';
@@ -16846,13 +16917,6 @@ window.switchFairnessView = function(view) {
             tabActions.style.color = '#38bdf8';
             tabActions.style.fontWeight = '700';
         }
-        if (tabScenario) {
-            tabScenario.style.background = 'transparent';
-            tabScenario.style.borderColor = 'rgba(255,255,255,0.1)';
-            tabScenario.style.color = '#94a3b8';
-            tabScenario.style.fontWeight = '600';
-        }
-        if (contScenario) contScenario.classList.add('hidden');
         if (contActions) contActions.classList.remove('hidden');
     }
 };
@@ -16902,6 +16966,9 @@ window.openFairnessSimulatorModal = function() {
     window.switchFairnessMode(window._currentFairnessMode || 'exam');
     window.switchFairnessView('actions');
     window.switchBarsViewMode('current');
+    if (typeof window.checkFairnessUndoSnapshot === 'function') {
+        window.checkFairnessUndoSnapshot();
+    }
     modal.classList.remove('hidden');
 };
 
@@ -17202,9 +17269,14 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                             <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" checked onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
                             <span>Seçime Dahil Et</span>
                         </label>
-                        <button type="button" class="btn-primary admin-only" onclick="window.applySingleFairnessAction(${idx})" style="padding:4px 12px; font-size:0.74rem; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Sadece bu öneriyi takvime işle">
-                            <span>✅</span> Sadece Bu Adımı Onayla & Uygula
-                        </button>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" class="btn-secondary" onclick="window.publishSingleFairnessProposal(${idx})" style="padding:4px 10px; font-size:0.74rem; background:rgba(168,85,247,0.2); border:1px solid #a855f7; color:#d8b4fe; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Bu öneriyi asistanlara P2P takas teklifi olarak gönder">
+                                <span>📤</span> Asistanlara Teklif Et
+                            </button>
+                            <button type="button" class="btn-primary admin-only" onclick="window.applySingleFairnessAction(${idx})" style="padding:4px 12px; font-size:0.74rem; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Sadece bu öneriyi takvime işle">
+                                <span>✅</span> Onayla & Uygula
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -17267,9 +17339,14 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                             <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" checked onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
                             <span>Seçime Dahil Et</span>
                         </label>
-                        <button type="button" class="btn-primary admin-only" onclick="window.applySingleFairnessAction(${idx})" style="padding:4px 12px; font-size:0.74rem; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Sadece bu öneriyi takvime işle">
-                            <span>✅</span> Sadece Bu Adımı Onayla & Uygula
-                        </button>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" class="btn-secondary" onclick="window.publishSingleFairnessProposal(${idx})" style="padding:4px 10px; font-size:0.74rem; background:rgba(168,85,247,0.2); border:1px solid #a855f7; color:#d8b4fe; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Bu öneriyi asistanlara P2P takas teklifi olarak gönder">
+                                <span>📤</span> Asistanlara Teklif Et
+                            </button>
+                            <button type="button" class="btn-primary admin-only" onclick="window.applySingleFairnessAction(${idx})" style="padding:4px 12px; font-size:0.74rem; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:6px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;" title="Sadece bu öneriyi takvime işle">
+                                <span>✅</span> Onayla & Uygula
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -17290,6 +17367,23 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
     if (scenarioBadge) scenarioBadge.textContent = `${(simResult.simulatedStaff || []).length} Personel`;
     const actionsBadge = document.getElementById('fairness-actions-count-badge');
     if (actionsBadge) actionsBadge.textContent = `${actions.length}`;
+
+    // Hibrit Tahmin & Gelecek Planı Verilerini Güncelle
+    if (typeof simulateHybridFairnessWithForecast === 'function') {
+        const hybridRes = simulateHybridFairnessWithForecast(mode);
+        const hybridBadge = document.getElementById('fairness-hybrid-count-badge');
+        if (hybridBadge && hybridRes) hybridBadge.textContent = `${hybridRes.totalUpcomingSlots} Görev`;
+        if (window._currentFairnessView === 'hybrid' && typeof window.renderFairnessHybridPlan === 'function') {
+            window.renderFairnessHybridPlan(hybridRes);
+        }
+    }
+
+    // P2P Toplu Teklif Butonunu Göster/Gizle
+    const broadcastBtn = document.getElementById('btn-broadcast-p2p-proposals');
+    if (broadcastBtn) {
+        if (actions.length > 0) broadcastBtn.classList.remove('hidden');
+        else broadcastBtn.classList.add('hidden');
+    }
 
     // Manuel tıklama geri bildirimi ve görsel efekt
     if (runBtn && isManual) {
@@ -17480,6 +17574,15 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
     }
 
     // 1. Geri dönüş için Snapshot al
+    if (typeof createSimulationSnapshot === 'function') {
+        createSimulationSnapshot({
+            mode: window._currentFairnessMode || 'exam',
+            stepCount: actionsToApply.length
+        });
+        if (typeof window.checkFairnessUndoSnapshot === 'function') {
+            window.checkFairnessUndoSnapshot();
+        }
+    }
     if (typeof saveAutoSnapshot === 'function') {
         const snapTitle = isBulk 
             ? `Toplu Adalet Dengelemesi (${actionsToApply.length} Adım)` 
@@ -17715,6 +17818,416 @@ window.applyFairnessSimulationResults = async function() {
     }
 
     await window.executeFairnessActions(actions, true);
+};
+
+// =============================================================
+//  ↩️ VE 📊 YÖNETİM & KARAR ALMA: GERİ ALMA, EXCEL RAPORU VE HİBRİT TAHMİN
+// =============================================================
+
+window.checkFairnessUndoSnapshot = function() {
+    const undoCont = document.getElementById('fairness-undo-container');
+    const undoText = document.getElementById('fairness-undo-text');
+    if (!undoCont) return;
+
+    let snap = window._lastFairnessSnapshot;
+    if (!snap && typeof localStorage !== 'undefined') {
+        try {
+            const raw = localStorage.getItem('fairness_last_snapshot');
+            if (raw) snap = JSON.parse(raw);
+        } catch(e) {}
+    }
+
+    if (snap && Array.isArray(snap.exams)) {
+        undoCont.classList.remove('hidden');
+        if (undoText) {
+            const timeStr = snap.timestamp ? new Date(snap.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
+            undoText.textContent = `↩️ Son Simülasyon (${snap.stepCount || ''} Adım • ${timeStr})`;
+        }
+    } else {
+        undoCont.classList.add('hidden');
+    }
+};
+
+window.rollbackFairnessSimulationUI = async function() {
+    if (!confirm("⚠️ Son uygulanan simülasyon adımları geri alınacak ve sınav görevleri önceki sahiplerine iade edilecektir.\n\nOnaylıyor musunuz?")) {
+        return;
+    }
+
+    if (typeof rollbackSimulationSnapshot !== 'function') {
+        alert("Geri alma fonksiyonu yüklenemedi.");
+        return;
+    }
+
+    const res = rollbackSimulationSnapshot();
+    if (!res || !res.success) {
+        alert(res && res.error ? res.error : "Geri alma başarısız oldu.");
+        return;
+    }
+
+    saveToLocalStorage();
+    if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
+        try { await saveToBackend(); } catch(e) {}
+    }
+
+    if (typeof logAction === 'function') {
+        logAction('admin', 'Simülasyon Geri Alma', `Son uygulanan ${res.restoredSteps || ''} simülasyon adımı geri alındı, veriler önceki haline döndürüldü.`);
+    }
+
+    if (typeof renderExams === 'function') renderExams();
+    if (typeof renderStaff === 'function') renderStaff();
+    if (typeof renderSchedule === 'function') renderSchedule();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    window.renderFairnessMetricsUI();
+    window.runFairnessRebalanceSimulation();
+    window.checkFairnessUndoSnapshot();
+
+    if (typeof showToast === 'function') {
+        showToast("↩️ Simülasyon adımları başarıyla geri alındı!", "info");
+    } else {
+        alert("Simülasyon adımları geri alındı.");
+    }
+};
+
+window.exportFairnessScenarioExcel = function() {
+    const simResult = window._lastFairnessSimResult || (typeof simulateFairnessOptimization === 'function' ? simulateFairnessOptimization(10, window._currentFairnessMode || 'exam') : null);
+    if (!simResult) {
+        alert("Dışa aktarılacak simülasyon verisi bulunamadı. Lütfen önce simülasyonu çalıştırın.");
+        return;
+    }
+
+    const mode = window._currentFairnessMode || 'exam';
+    const modeName = mode === 'non_exam' ? 'Sinav_Disi' : (mode === 'all' ? 'Genel_Toplam' : 'Sinav_Gozetmenlikleri');
+    const todayStr = new Date().toISOString().split('T')[0];
+    const filename = `GTU_Adalet_Simulasyonu_Senaryo_${modeName}_${todayStr}.xlsx`;
+
+    function getScore(s) {
+        if (mode === 'non_exam') return parseFloat((s.nonExamScore || 0).toFixed(2));
+        if (mode === 'exam') return parseFloat((s.totalScore || 0).toFixed(2));
+        return parseFloat(((s.totalScore || 0) + (s.nonExamScore || 0)).toFixed(2));
+    }
+
+    function getTaskCount(s) {
+        if (mode === 'non_exam') return s.nonExamTaskCount || 0;
+        if (mode === 'exam') return s.taskCount || 0;
+        return (s.taskCount || 0) + (s.nonExamTaskCount || 0);
+    }
+
+    const targetAvg = simResult.after.avg;
+    const sortedStaff = (simResult.simulatedStaff || []).slice().sort((a, b) => getScore(b) - getScore(a));
+
+    const scenarioRows = [
+        ["Sıra", "Gözetmen / Personel Adı", "Mevcut Puan", "Hedef Puan", "Net Değişim (Puan)", "Mevcut Görev", "Hedef Görev", "Görev Farkı", "Ortalamaya Mesafe (Hedef)", "Denge Durumu"]
+    ];
+
+    sortedStaff.forEach((s, idx) => {
+        const orig = (DB.staff || []).find(x => String(x.id) === String(s.id)) || s;
+        const curScore = getScore(orig);
+        const tgtScore = getScore(s);
+        const diffScore = parseFloat((tgtScore - curScore).toFixed(2));
+        const curTasks = getTaskCount(orig);
+        const tgtTasks = getTaskCount(s);
+        const diffTasks = tgtTasks - curTasks;
+        const distFromAvg = parseFloat((tgtScore - targetAvg).toFixed(2));
+        let status = Math.abs(distFromAvg) <= 15 ? 'Mükemmel Denge' : (distFromAvg > 15 ? 'Dengeli (Hafif Üst)' : 'Dengeli (Hafif Alt)');
+
+        scenarioRows.push([
+            idx + 1,
+            s.name,
+            curScore,
+            tgtScore,
+            diffScore >= 0 ? `+${diffScore}` : `${diffScore}`,
+            curTasks,
+            tgtTasks,
+            diffTasks >= 0 ? `+${diffTasks}` : `${diffTasks}`,
+            distFromAvg >= 0 ? `+${distFromAvg}` : `${distFromAvg}`,
+            status
+        ]);
+    });
+
+    scenarioRows.push([]);
+    scenarioRows.push([
+        "HEDEF ÖZETİ",
+        `Gini: ${simResult.before.gini.toFixed(4)} ➔ ${simResult.after.gini.toFixed(4)}`,
+        `Ort: ${simResult.before.avg} P.`,
+        `Hedef Ort: ${simResult.after.avg} P.`,
+        `Makas: ${simResult.before.scoreRange} P. ➔ ${simResult.after.scoreRange} P.`,
+        "",
+        "",
+        `Sapma: ±${simResult.after.stdDev} P.`,
+        "",
+        `Adalet Skoru: %${simResult.after.fairnessScore}`
+    ]);
+
+    const actions = simResult.suggestedActions || simResult.proposedSwaps || [];
+    const actionRows = [
+        ["Adım No", "İşlem Türü", "Devreden / Taraf 1", "Devralan / Taraf 2", "Verilen Sınav(lar)", "Net Puan Etkisi", "Eski Makas", "Yeni Makas", "Kapanan Fark", "Gerekçe"]
+    ];
+
+    actions.forEach((act, idx) => {
+        if (act.type === 'transfer') {
+            actionRows.push([
+                idx + 1,
+                "Görev Devri (Tek Taraflı)",
+                act.fromStaff.name,
+                act.toStaff.name,
+                `${act.examName} (${act.examScore} P.)`,
+                `+${act.examScore} P.`,
+                `${act.gapBefore} P.`,
+                `${act.gapAfter} P.`,
+                `${act.gapReduction} P.`,
+                act.rationale || ''
+            ]);
+        } else if (act.type === 'bilateral_swap') {
+            actionRows.push([
+                idx + 1,
+                "Karşılıklı Görev Takası",
+                act.staffA.name,
+                act.staffB.name,
+                `${act.staffA.name}: ${act.examFromA.name} (${act.examFromA.score} P.) ⇄ ${act.staffB.name}: ${act.examFromB.name} (${act.examFromB.score} P.)`,
+                `+${act.netShift} P.`,
+                `${act.gapBefore} P.`,
+                `${act.gapAfter} P.`,
+                `${act.gapReduction} P.`,
+                act.rationale || ''
+            ]);
+        }
+    });
+
+    if (typeof window.XLSX !== 'undefined') {
+        const wb = XLSX.utils.book_new();
+        const wsScenario = XLSX.utils.aoa_to_sheet(scenarioRows);
+        const wsActions = XLSX.utils.aoa_to_sheet(actionRows);
+        XLSX.utils.book_append_sheet(wb, wsScenario, "En_Iyi_Senaryo");
+        XLSX.utils.book_append_sheet(wb, wsActions, "Onerilen_Adimlar");
+        XLSX.writeFile(wb, filename);
+        if (typeof showToast === 'function') {
+            showToast("📊 En İyi Senaryo ve Dengeleme Adımları Excel olarak indirildi!", "success");
+        }
+    } else {
+        let csvContent = "\uFEFF" + scenarioRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename.replace('.xlsx', '.csv');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (typeof showToast === 'function') {
+            showToast("📊 Senaryo tablosu CSV formatında indirildi!", "success");
+        }
+    }
+};
+
+window.renderFairnessHybridPlan = function(hybridResult) {
+    const cont = document.getElementById('fairness-hybrid-container');
+    if (!cont) return;
+
+    if (!hybridResult || !Array.isArray(hybridResult.staffPlans) || hybridResult.staffPlans.length === 0) {
+        cont.innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 30px 10px;">
+                Hibrit tahmin verisi hesaplanamadı.
+            </div>
+        `;
+        return;
+    }
+
+    const badge = document.getElementById('fairness-hybrid-count-badge');
+    if (badge) badge.textContent = `${hybridResult.totalUpcomingSlots} Görev`;
+
+    const safeEsc = (typeof window.escapeHtml === 'function') 
+        ? window.escapeHtml 
+        : (str => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+    let html = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px;">
+            <div style="background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 0.68rem; color: #d8b4fe; text-transform: uppercase;">Açılacak Finaller</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.remainingFinalSlots} Slot</div>
+            </div>
+            <div style="background: rgba(236,72,153,0.15); border: 1px solid rgba(236,72,153,0.3); border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 0.68rem; color: #f472b6; text-transform: uppercase;">Açılacak Mazeretler</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.remainingMazeretSlots} Slot</div>
+            </div>
+            <div style="background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.3); border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 0.68rem; color: #7dd3fc; text-transform: uppercase;">Dönem Sonu Hedef Ort.</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.hybridTargetAverage.toFixed(1)} P.</div>
+            </div>
+            <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 0.68rem; color: #6ee7b7; text-transform: uppercase;">Hedeflenen Gini</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: white;">${hybridResult.projectedFinalGini.toFixed(4)}</div>
+            </div>
+        </div>
+
+        <div style="background: rgba(147,51,234,0.1); border-left: 3px solid #a855f7; border-radius: 6px; padding: 8px 12px; font-size: 0.76rem; color: #e9d5ff; margin-bottom: 12px; line-height: 1.45;">
+            <strong>🔮 Proaktif Adil Ön-Atama Kılavuzu:</strong><br>
+            Tahmin motorunun öngördüğü <strong>${hybridResult.totalUpcomingSlots} adet yeni sınav görevi</strong> (Final + Mazeret) sisteme girildiğinde, aşağıdaki kotalara göre atanırsa dönem sonunda herhangi bir takas/devir yapmaya gerek kalmadan tüm personel <strong>${hybridResult.hybridTargetAverage.toFixed(1)} Puan</strong> civarında eşitlenecektir.
+        </div>
+
+        <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.06); color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 7px 10px;">#</th>
+                        <th style="padding: 7px 10px;">Personel Adı</th>
+                        <th style="padding: 7px 10px;">Mevcut Puan</th>
+                        <th style="padding: 7px 10px; color:#f472b6;">Mazeret Kotası</th>
+                        <th style="padding: 7px 10px; color:#c084fc;">Final Kotası</th>
+                        <th style="padding: 7px 10px; color:#38bdf8;">Toplam Yeni Görev</th>
+                        <th style="padding: 7px 10px;">Sezon Sonu Tahmini</th>
+                        <th style="padding: 7px 10px;">Denge Durumu</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    hybridResult.staffPlans.forEach((s, idx) => {
+        const rowBg = idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent';
+        const isPriority = s.totalUpcomingQuota >= 5;
+        const priorityBadge = isPriority ? `<span style="background:rgba(236,72,153,0.2); color:#f472b6; border:1px solid rgba(236,72,153,0.4); padding:1px 5px; border-radius:4px; font-size:0.65rem; margin-left:4px;">Öncelikli</span>` : '';
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 6px 10px; color: #94a3b8;">${idx + 1}</td>
+                <td style="padding: 6px 10px; font-weight: 600; color: #f1f5f9;">${safeEsc(s.name)} ${priorityBadge}</td>
+                <td style="padding: 6px 10px; color: #cbd5e1;">${s.currentScore.toFixed(1)} P. <small style="color:#94a3b8;">(${s.currentTasks} Görev)</small></td>
+                <td style="padding: 6px 10px; font-weight: 700; color: #f472b6;">${s.mazeretQuota > 0 ? `+${s.mazeretQuota} Mazeret` : '-'}</td>
+                <td style="padding: 6px 10px; font-weight: 700; color: #c084fc;">+${s.finalQuota} Final</td>
+                <td style="padding: 6px 10px; font-weight: 800; color: #38bdf8;">+${s.totalUpcomingQuota} Görev</td>
+                <td style="padding: 6px 10px; font-weight: 700; color: #67e8f9;">${s.projectedScore.toFixed(1)} P. <small style="color:#94a3b8;">(${s.projectedTasks} Görev)</small></td>
+                <td style="padding: 6px 10px; color: #34d399; font-weight: 600;">${s.status}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    cont.innerHTML = html;
+};
+
+window.publishSingleFairnessProposal = function(actionIndex) {
+    const simResult = window._lastFairnessSimResult;
+    const actions = simResult ? (simResult.suggestedActions || simResult.proposedSwaps || []) : [];
+    const action = actions[actionIndex];
+    if (!action) return;
+
+    if (typeof createFairnessSwapProposal !== 'function') {
+        alert("P2P teklif motoru yüklenemedi.");
+        return;
+    }
+
+    const prop = createFairnessSwapProposal(action);
+    if (!prop) {
+        alert("Teklif oluşturulamadı.");
+        return;
+    }
+
+    saveToLocalStorage();
+    if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
+        saveToBackend();
+    }
+
+    if (typeof logAction === 'function') {
+        logAction('admin', 'P2P Takas Teklifi Gönderildi', `${action.type === 'transfer' ? action.fromStaff.name + ' ➔ ' + action.toStaff.name : action.staffA.name + ' ⇄ ' + action.staffB.name} takas önerisi asistanların onayına sunuldu.`);
+    }
+
+    if (typeof showToast === 'function') {
+        showToast("📤 Teklif ilgili asistanların profiline iletildi!", "success");
+    } else {
+        alert("Teklif asistanların onayına gönderildi.");
+    }
+};
+
+window.publishAllFairnessProposalsToStaff = function() {
+    const simResult = window._lastFairnessSimResult;
+    const actions = simResult ? (simResult.suggestedActions || simResult.proposedSwaps || []) : [];
+    if (actions.length === 0) {
+        alert("İletilecek öneri adımı bulunamadı.");
+        return;
+    }
+
+    if (typeof createFairnessSwapProposal !== 'function') {
+        alert("P2P teklif motoru yüklenemedi.");
+        return;
+    }
+
+    let createdCount = 0;
+    actions.forEach(act => {
+        const prop = createFairnessSwapProposal(act);
+        if (prop) createdCount++;
+    });
+
+    saveToLocalStorage();
+    if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
+        saveToBackend();
+    }
+
+    if (typeof logAction === 'function') {
+        logAction('admin', 'Toplu P2P Takas Teklifi', `${createdCount} adet adalet takası/devri asistanların profiline teklif olarak iletildi.`);
+    }
+
+    if (typeof showToast === 'function') {
+        showToast(`📤 ${createdCount} adet takas teklifi asistanların onayına iletildi!`, "success");
+    } else {
+        alert(`${createdCount} adet takas teklifi asistanlara iletildi.`);
+    }
+};
+
+window.acceptP2PFairnessSwap = async function(proposalId, staffId) {
+    if (typeof acceptFairnessProposal !== 'function') {
+        alert("Takas kabul fonksiyonu yüklenemedi.");
+        return;
+    }
+
+    const res = acceptFairnessProposal(proposalId, staffId);
+    if (!res || !res.success) {
+        alert(res && res.error ? res.error : "İşlem yapılamadı.");
+        return;
+    }
+
+    saveToLocalStorage();
+    if (typeof saveToBackend === 'function') {
+        try { await saveToBackend(); } catch(e) {}
+    }
+
+    if (typeof renderProfile === 'function') renderProfile();
+    if (typeof updateNotificationBadge === 'function') updateNotificationBadge();
+    if (typeof renderExams === 'function') renderExams();
+    if (typeof renderStaff === 'function') renderStaff();
+
+    if (typeof showToast === 'function') {
+        showToast(res.message, res.status === 'completed' ? 'success' : 'info');
+    } else {
+        alert(res.message);
+    }
+};
+
+window.rejectP2PFairnessSwap = async function(proposalId, staffId) {
+    if (typeof rejectFairnessProposal !== 'function') {
+        alert("Takas red fonksiyonu yüklenemedi.");
+        return;
+    }
+
+    const res = rejectFairnessProposal(proposalId, staffId);
+    if (!res || !res.success) {
+        alert(res && res.error ? res.error : "İşlem yapılamadı.");
+        return;
+    }
+
+    saveToLocalStorage();
+    if (typeof saveToBackend === 'function') {
+        try { await saveToBackend(); } catch(e) {}
+    }
+
+    if (typeof renderProfile === 'function') renderProfile();
+    if (typeof showToast === 'function') {
+        showToast("Takas teklifi reddedildi.", "info");
+    }
 };
 
 

@@ -4493,8 +4493,351 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
     };
 }
 
-window.getActiveProctorStaff = getActiveProctorStaff;
-window.calculateGiniCoefficient = calculateGiniCoefficient;
-window.calculateFairnessMetrics = calculateFairnessMetrics;
-window.simulateFairnessOptimization = simulateFairnessOptimization;
+/**
+ * 🔮 Tahmin Motoru (Forecast) ile Adalet Simülatörünün Hibrit Çalışması
+ * Henüz açılmamış muhtemel final ve mazeret görevlerini, personelin hedef ortalamaya olan
+ * mesafesine göre önceden kotalandırarak proaktif adil dağıtım planı üretir.
+ */
+function simulateHybridFairnessWithForecast(mode = 'exam') {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj || !dbObj.staff || dbObj.staff.length === 0) {
+        return {
+            mode,
+            hybridTargetAverage: 0,
+            remainingFinalSlots: 0,
+            remainingMazeretSlots: 0,
+            totalUpcomingSlots: 0,
+            currentGini: 0,
+            projectedFinalGini: 0,
+            staffPlans: [],
+            recommendations: []
+        };
+    }
+
+    const staffPool = getActiveProctorStaff(dbObj.staff);
+    if (staffPool.length === 0) return { mode, staffPlans: [], recommendations: [] };
+
+    let remainingFinals = 43;
+    let remainingMazeret = 11;
+    let avgFinalDur = 100;
+    let avgMazeretDur = 90;
+
+    const engine = (typeof window !== 'undefined' && window.FinalForecastEngine) 
+        || (typeof FinalForecastEngine !== 'undefined' ? FinalForecastEngine : null)
+        || (typeof global !== 'undefined' && global.FinalForecastEngine ? global.FinalForecastEngine : null);
+
+    if (engine && typeof engine.calculateForecastData === 'function') {
+        try {
+            const fc = engine.calculateForecastData();
+            if (fc && fc.forecastSummary) {
+                if (fc.forecastSummary.remainingFinalSlots != null) remainingFinals = Math.max(0, fc.forecastSummary.remainingFinalSlots);
+                const rm = (fc.forecastSummary.remainingMazeretSlots != null) ? fc.forecastSummary.remainingMazeretSlots : fc.forecastSummary.remainingMazeretToDistribute;
+                if (rm != null) remainingMazeret = Math.max(0, rm);
+                if (fc.forecastSummary.finalSlotDuration) avgFinalDur = fc.forecastSummary.finalSlotDuration;
+                if (fc.forecastSummary.mazeretAvgDuration) avgMazeretDur = fc.forecastSummary.mazeretAvgDuration;
+            }
+        } catch (e) {
+            console.warn("Hibrit tahmin hesaplanırken forecast motoru okunamadı:", e);
+        }
+    }
+
+    const totalUpcomingSlots = remainingFinals + remainingMazeret;
+    const avgFinalPoints = Math.round(avgFinalDur * 1.25);
+    const avgMazeretPoints = Math.round(avgMazeretDur * 1.25);
+
+    const currentMetrics = calculateFairnessMetrics(staffPool, mode);
+    const staffPlans = staffPool.map(s => {
+        let score = (mode === 'non_exam') ? (s.nonExamScore || 0) 
+            : (mode === 'all') ? ((s.totalScore || 0) + (s.nonExamScore || 0)) 
+            : (s.totalScore || 0);
+        return {
+            id: s.id,
+            name: s.name,
+            title: s.title || s.role || 'Arş. Gör.',
+            currentScore: score,
+            currentTasks: s.taskCount || 0,
+            finalQuota: 0,
+            mazeretQuota: 0,
+            totalUpcomingQuota: 0,
+            projectedScore: score,
+            projectedTasks: s.taskCount || 0,
+            gapToTarget: 0,
+            status: 'Dengeli'
+        };
+    });
+
+    const currentTotalScore = staffPlans.reduce((sum, s) => sum + s.currentScore, 0);
+    const upcomingTotalScore = (remainingFinals * avgFinalPoints) + (remainingMazeret * avgMazeretPoints);
+    const hybridTargetAverage = parseFloat(((currentTotalScore + upcomingTotalScore) / staffPool.length).toFixed(2));
+
+    for (let m = 0; m < remainingMazeret; m++) {
+        staffPlans.sort((a, b) => a.projectedScore - b.projectedScore || a.currentTasks - b.currentTasks);
+        staffPlans[0].mazeretQuota += 1;
+        staffPlans[0].totalUpcomingQuota += 1;
+        staffPlans[0].projectedScore = parseFloat((staffPlans[0].projectedScore + avgMazeretPoints).toFixed(2));
+        staffPlans[0].projectedTasks += 1;
+    }
+
+    for (let f = 0; f < remainingFinals; f++) {
+        staffPlans.sort((a, b) => a.projectedScore - b.projectedScore || a.currentTasks - b.currentTasks);
+        staffPlans[0].finalQuota += 1;
+        staffPlans[0].totalUpcomingQuota += 1;
+        staffPlans[0].projectedScore = parseFloat((staffPlans[0].projectedScore + avgFinalPoints).toFixed(2));
+        staffPlans[0].projectedTasks += 1;
+    }
+
+    const projectedScores = staffPlans.map(s => s.projectedScore);
+    const projectedFinalGini = calculateGiniCoefficient(projectedScores);
+
+    staffPlans.forEach(s => {
+        s.gapToTarget = parseFloat((s.projectedScore - hybridTargetAverage).toFixed(2));
+        const absGap = Math.abs(s.gapToTarget);
+        if (absGap <= 50) s.status = '🎯 Tam Dengede';
+        else if (s.gapToTarget > 50) s.status = '🟡 Hafif Üstte';
+        else s.status = '🔵 Hafif Altta';
+    });
+
+    staffPlans.sort((a, b) => a.currentScore - b.currentScore);
+
+    const recommendations = [];
+    if (totalUpcomingSlots > 0) {
+        const topNeeders = staffPlans.slice(0, 3).map(s => s.name.split(' ')[0]).join(', ');
+        recommendations.push(`Açılacak ${totalUpcomingSlots} yeni sınav (Final: ${remainingFinals}, Mazeret: ${remainingMazeret}) bu kotalara göre atanırsa dönem sonu Gini katsayısı ${projectedFinalGini.toFixed(4)} seviyesine düşecektir.`);
+        recommendations.push(`Öncelikli görev verilmesi gereken asistanlar: ${topNeeders}.`);
+    } else {
+        recommendations.push("Mevcut dönem için tüm mazeret ve finaller sisteme girilmiş görünüyor.");
+    }
+
+    return {
+        mode,
+        staffPoolCount: staffPool.length,
+        currentAverage: currentMetrics.avg,
+        hybridTargetAverage,
+        remainingFinalSlots: remainingFinals,
+        remainingMazeretSlots: remainingMazeret,
+        totalUpcomingSlots,
+        currentGini: currentMetrics.gini,
+        projectedFinalGini,
+        staffPlans,
+        recommendations
+    };
+}
+
+/**
+ * 🤝 P2P Takas Pazarı: Simülatör önerisinden asistanlara çift taraflı teklif oluşturur
+ */
+function createFairnessSwapProposal(action, metadata = {}) {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj) return null;
+    if (!Array.isArray(dbObj.requests)) dbObj.requests = [];
+
+    const isTransfer = action.type === 'transfer';
+    const id = 'p2p_prop_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+
+    const proposal = {
+        id,
+        type: isTransfer ? 'p2p_fairness_transfer' : 'p2p_fairness_swap',
+        status: isTransfer ? 'pending_receiver' : 'pending_peers',
+        fromStaffId: isTransfer ? action.fromStaff.id : action.staffA.id,
+        fromStaffName: isTransfer ? action.fromStaff.name : action.staffA.name,
+        fromExamId: isTransfer ? action.examId : action.examFromA.id,
+        fromExamName: isTransfer ? action.examName : action.examFromA.name,
+        fromPoints: isTransfer ? action.points : (action.examFromA.points || action.examFromA.score || 0),
+        toStaffId: isTransfer ? action.toStaff.id : action.staffB.id,
+        toStaffName: isTransfer ? action.toStaff.name : action.staffB.name,
+        toExamId: isTransfer ? null : action.examFromB.id,
+        toExamName: isTransfer ? null : action.examFromB.name,
+        toPoints: isTransfer ? null : (action.examFromB.points || action.examFromB.score || 0),
+        netDelta: action.netDelta || action.points || 0,
+        fromApproved: isTransfer ? true : false,
+        toApproved: false,
+        createdAt: new Date().toISOString(),
+        metadata: metadata || {}
+    };
+
+    dbObj.requests.push(proposal);
+    return proposal;
+}
+
+/**
+ * 🤝 P2P Takas Pazarı: Asistan teklifi onayladığında karşılıklı durumu denetler, iki taraf da onaylayınca takası yürütür
+ */
+function acceptFairnessProposal(proposalId, staffId) {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj || !Array.isArray(dbObj.requests)) return { success: false, error: 'Veritabanı veya talep bulunamadı.' };
+
+    const prop = dbObj.requests.find(r => String(r.id) === String(proposalId));
+    if (!prop) return { success: false, error: 'Talep bulunamadı.' };
+    if (prop.status === 'completed') return { success: false, error: 'Bu takas zaten uygulanmış.' };
+    if (prop.status === 'rejected') return { success: false, error: 'Bu talep reddedilmiş.' };
+
+    const sid = String(staffId);
+    if (String(prop.fromStaffId) === sid) prop.fromApproved = true;
+    if (String(prop.toStaffId) === sid) prop.toApproved = true;
+
+    const isReady = (prop.type === 'p2p_fairness_transfer' && prop.toApproved) || (prop.fromApproved && prop.toApproved);
+
+    if (isReady) {
+        const moveProctor = (examId, fromId, toId) => {
+            const ex = dbObj.exams.find(e => String(e.id) === String(examId));
+            if (!ex) return false;
+            const fromStr = String(fromId);
+            const toNum = Number(toId) || toId;
+            if (Array.isArray(ex.proctorIds) && ex.proctorIds.length > 0) {
+                ex.proctorIds = ex.proctorIds.map(p => (String(p) === fromStr ? toNum : p));
+            }
+            if (String(ex.proctorId) === fromStr) {
+                ex.proctorId = toNum;
+            }
+            return true;
+        };
+
+        if (prop.type === 'p2p_fairness_transfer') {
+            moveProctor(prop.fromExamId, prop.fromStaffId, prop.toStaffId);
+        } else {
+            moveProctor(prop.fromExamId, prop.fromStaffId, prop.toStaffId);
+            moveProctor(prop.toExamId, prop.toStaffId, prop.fromStaffId);
+        }
+
+        prop.status = 'completed';
+        prop.completedAt = new Date().toISOString();
+
+        if (typeof recalculateAllScores === 'function') {
+            recalculateAllScores();
+        }
+
+        return { success: true, status: 'completed', message: 'Karşılıklı onay sağlandı ve takas başarıyla sisteme işlendi!' };
+    }
+
+    return { success: true, status: 'pending_other', message: 'Onayınız kaydedildi. Karşı tarafın onayı bekleniyor.' };
+}
+
+/**
+ * 🤝 P2P Takas Pazarı: Talebi reddeder
+ */
+function rejectFairnessProposal(proposalId, staffId, reason = '') {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj || !Array.isArray(dbObj.requests)) return { success: false, error: 'Talep bulunamadı.' };
+    const prop = dbObj.requests.find(r => String(r.id) === String(proposalId));
+    if (!prop) return { success: false, error: 'Talep bulunamadı.' };
+
+    prop.status = 'rejected';
+    prop.rejectedBy = staffId;
+    prop.rejectReason = reason;
+    prop.rejectedAt = new Date().toISOString();
+
+    return { success: true, status: 'rejected', message: 'Talep reddedildi.' };
+}
+
+/**
+ * ↩️ Karar Güvencesi: Simülasyon uygulanmadan hemen önce anlık yedek (snapshot) oluşturur
+ */
+function createSimulationSnapshot(meta = {}) {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj) return null;
+
+    const snapshot = {
+        id: 'snap_' + Date.now(),
+        timestamp: new Date().toISOString(),
+        mode: meta.mode || 'exam',
+        stepCount: meta.stepCount || 0,
+        exams: JSON.parse(JSON.stringify(dbObj.exams || [])),
+        staff: JSON.parse(JSON.stringify(dbObj.staff || []))
+    };
+
+    if (typeof window !== 'undefined') {
+        try {
+            window._lastFairnessSnapshot = snapshot;
+            if (window.localStorage) {
+                window.localStorage.setItem('fairness_last_snapshot', JSON.stringify({
+                    id: snapshot.id,
+                    timestamp: snapshot.timestamp,
+                    mode: snapshot.mode,
+                    stepCount: snapshot.stepCount,
+                    exams: snapshot.exams,
+                    staff: snapshot.staff
+                }));
+            }
+        } catch (e) {
+            console.warn("Snapshot localStorage'a yazılamadı:", e);
+        }
+    }
+
+    return snapshot;
+}
+
+/**
+ * ↩️ Karar Güvencesi: Son uygulanan simülasyonu tek tıkla geri alır
+ */
+function rollbackSimulationSnapshot(snapshotObj) {
+    let dbObj = null;
+    if (typeof window !== 'undefined' && window.DB) dbObj = window.DB;
+    else if (typeof DB !== 'undefined') dbObj = DB;
+    else if (typeof global !== 'undefined' && global.DB) dbObj = global.DB;
+
+    if (!dbObj) return { success: false, error: 'Veritabanı nesnesi bulunamadı.' };
+
+    let snap = snapshotObj;
+    if (!snap && typeof window !== 'undefined' && window.localStorage) {
+        try {
+            const raw = window.localStorage.getItem('fairness_last_snapshot');
+            if (raw) snap = JSON.parse(raw);
+        } catch (e) {}
+    }
+
+    if (!snap || !Array.isArray(snap.exams)) {
+        return { success: false, error: 'Geri yüklenecek geçerli bir anlık görüntü (snapshot) bulunamadı.' };
+    }
+
+    dbObj.exams = JSON.parse(JSON.stringify(snap.exams));
+    if (Array.isArray(snap.staff) && snap.staff.length > 0) {
+        dbObj.staff = JSON.parse(JSON.stringify(snap.staff));
+    }
+
+    if (typeof recalculateAllScores === 'function') {
+        recalculateAllScores();
+    }
+
+    if (typeof window !== 'undefined') {
+        try {
+            window._lastFairnessSnapshot = null;
+            if (window.localStorage) window.localStorage.removeItem('fairness_last_snapshot');
+        } catch (e) {}
+    }
+
+    return { success: true, restoredSteps: snap.stepCount, timestamp: snap.timestamp };
+}
+
+if (_targetGlobal) {
+    _targetGlobal.getActiveProctorStaff = getActiveProctorStaff;
+    _targetGlobal.calculateGiniCoefficient = calculateGiniCoefficient;
+    _targetGlobal.calculateFairnessMetrics = calculateFairnessMetrics;
+    _targetGlobal.simulateFairnessOptimization = simulateFairnessOptimization;
+    _targetGlobal.simulateHybridFairnessWithForecast = simulateHybridFairnessWithForecast;
+    _targetGlobal.createFairnessSwapProposal = createFairnessSwapProposal;
+    _targetGlobal.acceptFairnessProposal = acceptFairnessProposal;
+    _targetGlobal.rejectFairnessProposal = rejectFairnessProposal;
+    _targetGlobal.createSimulationSnapshot = createSimulationSnapshot;
+    _targetGlobal.rollbackSimulationSnapshot = rollbackSimulationSnapshot;
+}
 
