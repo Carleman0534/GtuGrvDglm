@@ -72,16 +72,29 @@ window.getDefaultStaffPassword = function(staffName) {
 window.isStaffPasswordMatch = function(staff, password, inputHash) {
     if (!staff || !password) return false;
     const cleanPass = password.trim();
+    const defaultPass = typeof getDefaultStaffPassword === 'function' ? getDefaultStaffPassword(staff.name) : '';
 
-    // 1. Güncel / Kayıtlı Şifre Kontrolü
+    // Kullanıcıya ait özel/değiştirilmiş bir şifre var mı?
+    const hasCustomPassword = (staff.staffPassword && (!defaultPass || staff.staffPassword.toLowerCase() !== defaultPass.toLowerCase())) || !!staff.passwordHash;
+
+    if (hasCustomPassword) {
+        // Özel şifre belirlendiyse SADECE bu şifre geçerlidir!
+        // Eski veya varsayılan (isim123) şifreler kesinlikle kabul edilmez.
+        if (staff.staffPassword && staff.staffPassword === cleanPass) return true;
+        if (staff.passwordHash && inputHash && staff.passwordHash === inputHash) return true;
+        return false;
+    }
+
+    // Özel şifre belirlenmemişse (varsayılan kullanım):
+    // 1. staffPassword alanı girilen ile eşleşiyorsa
     if (staff.staffPassword && staff.staffPassword === cleanPass) return true;
-    if (staff.passwordHash && inputHash && staff.passwordHash === inputHash) return true;
 
-    // (Eski düz metin şifreler güvenlik gerekçesiyle kaldırılmıştır)
-
-    // 3. Standart isim123 Formatındaki Şifre (Örn: yasin123, cansu123, cagla123...)
-    const defaultPass = getDefaultStaffPassword(staff.name);
+    // 2. Standart isim123 formatındaki varsayılan şifre (örn: yasin123, cansu123...)
     if (defaultPass && defaultPass.toLowerCase() === cleanPass.toLowerCase()) return true;
+
+    // 3. Geçiş dönemi eski düz metin şifreleri (yalnızca özel şifre belirlenmemişse)
+    const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
+    if (oldPass && oldPass === cleanPass) return true;
 
     return false;
 };
@@ -7610,11 +7623,17 @@ window.renderProfile = function() {
         if (annText) {
             const defaultPass = getDefaultStaffPassword(staff.name);
             const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
-            let passInfo = 'Sisteme ilk giriş ekranında genel şifre (<strong>Gtu2026</strong>) yerine doğrudan <strong>' + defaultPass + '</strong>';
-            if (oldPass) {
-                passInfo += ' veya eski şifreniz (<strong>' + oldPass + '</strong>)';
+            const hasCustomPassword = (staff.staffPassword && (!defaultPass || staff.staffPassword.toLowerCase() !== defaultPass.toLowerCase())) || !!staff.passwordHash;
+            let passInfo = '';
+            if (hasCustomPassword) {
+                passInfo = 'Sisteme ilk giriş ekranında genel şifre (<strong>Gtu2026</strong>) yerine doğrudan <strong>belirlediğiniz kişisel şifrenizle</strong> giriş yaparak profilinize ulaşabilirsiniz. <em>(Özel şifreniz aktif olduğundan standart/eski şifreler devre dışıdır).</em> Şifrenizi güncellemek isterseniz <strong>"Şifremi Değiştir"</strong> butonunu veya aşağıdaki paneli kullanabilirsiniz.';
+            } else {
+                passInfo = 'Sisteme ilk giriş ekranında genel şifre (<strong>Gtu2026</strong>) yerine doğrudan <strong>' + defaultPass + '</strong>';
+                if (oldPass) {
+                    passInfo += ' veya eski şifreniz (<strong>' + oldPass + '</strong>)';
+                }
+                passInfo += ' ile giriş yaparak doğrudan profilinize ulaşabilirsiniz. Şifrenizi değiştirmek isterseniz aşağıdaki <strong>"Kişisel Giriş Şifrem"</strong> panelinden dilediğiniz zaman güncelleyebilirsiniz.';
             }
-            passInfo += ' ile giriş yaparak doğrudan profilinize ulaşabilirsiniz. Şifrenizi değiştirmek isterseniz aşağıdaki <strong>"Kişisel Giriş Şifrem"</strong> panelinden dilediğiniz zaman güncelleyebilirsiniz.';
             annText.innerHTML = passInfo;
         }
 
@@ -10720,13 +10739,18 @@ function renderPasswordSection(staff) {
     let container = document.getElementById('profile-password-section');
     if (!container) return;
 
-    const hasCustomPass = !!staff.staffPassword;
     const defaultPass = getDefaultStaffPassword(staff.name);
+    const hasCustomPass = (staff.staffPassword && (!defaultPass || staff.staffPassword.toLowerCase() !== defaultPass.toLowerCase())) || !!staff.passwordHash;
     const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
     
-    let passNote = `Varsayılan giriş şifreniz: <strong>${defaultPass}</strong>`;
-    if (oldPass) {
-        passNote += ` | Eski şifreniz: <strong>${oldPass}</strong>`;
+    let passNote = '';
+    if (hasCustomPass) {
+        passNote = `✓ <strong>Özel şifreniz etkindir.</strong> Standart (${defaultPass}) ve eski şifreler devre dışıdır.`;
+    } else {
+        passNote = `Varsayılan giriş şifreniz: <strong>${defaultPass}</strong>`;
+        if (oldPass) {
+            passNote += ` | Eski şifreniz: <strong>${oldPass}</strong>`;
+        }
     }
 
     container.innerHTML = `
@@ -10775,11 +10799,12 @@ window.saveProfilePassword = async function(staffId) {
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
     staff.staffPassword = newPass;
+    delete staff.passwordHash;
     saveToLocalStorage();
     if (typeof saveToBackend === 'function') {
         await saveToBackend();
     }
-    alert(`✓ Şifreniz başarıyla kaydedildi!\n\nArtık ana giriş ekranında "${newPass}" şifrenizle doğrudan kendi profilinize giriş yapabilirsiniz.`);
+    alert(`✓ Şifreniz başarıyla kaydedildi!\n\nArtık ana giriş ekranında "${newPass}" şifrenizle doğrudan kendi profilinize giriş yapabilirsiniz. (Eski ve varsayılan şifreleriniz devre dışı bırakılmıştır).`);
     renderPasswordSection(staff);
     if (typeof renderProfile === 'function') renderProfile();
 };
@@ -10789,6 +10814,7 @@ window.removeProfilePassword = async function(staffId) {
     const staff = DB.staff.find(s => String(s.id) === String(staffId));
     if (!staff) return;
     delete staff.staffPassword;
+    delete staff.passwordHash;
     saveToLocalStorage();
     if (typeof saveToBackend === 'function') {
         await saveToBackend();
@@ -10821,14 +10847,16 @@ window.openChangePasswordModal = function(staffId) {
     if (infoEl) {
         const defaultPass = getDefaultStaffPassword(staff.name);
         const oldPass = { 4: '159159', 7: '1604', 12: '147258369' }[staff.id] || staff.oldPassword;
+        const hasCustomPass = (staff.staffPassword && (!defaultPass || staff.staffPassword.toLowerCase() !== defaultPass.toLowerCase())) || !!staff.passwordHash;
         let html = `<div><strong>Personel:</strong> ${staff.name}</div>`;
-        html += `<div style="margin-top:4px;"><strong>Varsayılan Şifre:</strong> <code>${defaultPass}</code></div>`;
-        if (oldPass) {
-            html += `<div style="margin-top:2px;"><strong>Eski Şifre:</strong> <code>${oldPass}</code></div>`;
-        }
-        if (staff.staffPassword) {
-            html += `<div style="margin-top:4px; color:var(--accent-green);"><strong>✓ Mevcut Özel Şifreniz:</strong> <code>${staff.staffPassword}</code></div>`;
+        if (hasCustomPass) {
+            html += `<div style="margin-top:4px; color:var(--accent-green);"><strong>✓ Mevcut Özel Şifreniz:</strong> <code>${staff.staffPassword || 'Belirlenmiş'}</code></div>`;
+            html += `<div style="margin-top:3px; font-size:0.78rem; color:#94a3b8;">(Özel şifreniz aktif olduğu için standart "${defaultPass}" veya eski şifreler devre dışıdır).</div>`;
         } else {
+            html += `<div style="margin-top:4px;"><strong>Varsayılan Şifre:</strong> <code>${defaultPass}</code></div>`;
+            if (oldPass) {
+                html += `<div style="margin-top:2px;"><strong>Eski Şifre:</strong> <code>${oldPass}</code></div>`;
+            }
             html += `<div style="margin-top:4px; color:#a5b4fc;"><strong>Durum:</strong> Standart şifre aktif. Yeni bir şifre belirleyebilirsiniz.</div>`;
         }
         infoEl.innerHTML = html;
@@ -10905,6 +10933,7 @@ window.submitChangePasswordModal = async function() {
 
     try {
         staff.staffPassword = newPass;
+        delete staff.passwordHash;
         saveToLocalStorage();
         if (typeof saveToBackend === 'function') {
             await saveToBackend();
@@ -10914,9 +10943,9 @@ window.submitChangePasswordModal = async function() {
         if (typeof renderProfile === 'function') renderProfile();
         if (typeof renderPasswordSection === 'function') renderPasswordSection(staff);
         if (typeof window.showToast === 'function') {
-            window.showToast(`✅ Şifreniz başarıyla "${newPass}" olarak güncellendi!`);
+            window.showToast(`✅ Şifreniz başarıyla "${newPass}" olarak güncellendi! Eski ve varsayılan şifreler devre dışıdır.`);
         } else {
-            alert(`✅ Şifreniz başarıyla kaydedildi!\n\nArtık ana giriş ekranında "${newPass}" şifrenizle doğrudan kendi profilinize giriş yapabilirsiniz.`);
+            alert(`✅ Şifreniz başarıyla kaydedildi!\n\nArtık ana giriş ekranında "${newPass}" şifrenizle doğrudan kendi profilinize giriş yapabilirsiniz. (Eski ve varsayılan şifreleriniz devre dışı bırakılmıştır).`);
         }
     } catch (e) {
         showError("Kayıt sırasında bir hata oluştu: " + e.message);
@@ -10938,6 +10967,7 @@ window.resetToDefaultPasswordModal = async function() {
     }
 
     delete staff.staffPassword;
+    delete staff.passwordHash;
     saveToLocalStorage();
     if (typeof saveToBackend === 'function') {
         await saveToBackend();
@@ -13324,6 +13354,7 @@ window.setStaffPassword = async function() {
 
     if (confirm("Profilinizi bu şifre ile korumak istediğinize emin misiniz? Bir sonraki girişte bu şifre sorulacaktir.")) {
         staff.staffPassword = pass;
+        delete staff.passwordHash;
         saveToLocalStorage();
         renderProfile();
         await saveToBackend();
