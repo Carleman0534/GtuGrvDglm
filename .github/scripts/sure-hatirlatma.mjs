@@ -84,6 +84,13 @@ async function main() {
         return list.filter(s => s && s.endpoint && s.keys && s.keys.p256dh && s.keys.auth && !dead[s.id]);
     };
 
+    // Bildirimler yalnızca 09:00–19:00 (Türkiye saati) arasında gönderilir. Dışında hiçbir şey gönderilmez
+    // ve kayıt da değişmez; bekleyen hatırlatmalar, duyurular ve takas bildirimleri 09:00'dan sonra gider.
+    if (process.env.SAAT_SINIRI_YOK !== '1' && !K.bildirimSaatiMi(now)) {
+        console.log(`Sessiz saat (Türkiye saatiyle ${K.trSaat(now)}:xx): bildirimler yalnızca 0${K.AYAR.BILDIRIM_BAS}:00–${K.AYAR.BILDIRIM_BIT}:00 arasında gönderilir. Hiçbir bildirim gönderilmedi.`);
+        return;
+    }
+
     // Ortak planlayıcı: süre teyidi, gün ve saat hatırlatmaları
     const plan = K.planla(db, now, { durum: state, siteUrl: SITE_URL });
     const pendingCount = db.exams.filter(ex => K.sureTeyidiBekliyor(ex, now)).length;

@@ -39,6 +39,8 @@
         GUN_BASLANGIC_SAATI: 9,           // gün hatırlatmaları TR 09:00 - 21:00 arasında
         GUN_BITIS_SAATI: 21,
         SAAT_ONCE: 2,                     // sınavdan 2 saat önce son hatırlatma
+        BILDIRIM_BAS: 9,                  // bildirimler yalnızca 09:00 ...
+        BILDIRIM_BIT: 19,                 // ... ile 19:00 arasında gönderilir (Türkiye saati)
         SURE_GECIKME_MS: 60 * 60 * 1000,  // sınav bittikten 1 saat sonra süre teyidi (telefon bildirimi)
         SURE_TEKRAR_MS: 24 * 60 * 60 * 1000,
         SURE_GERIYE_MS: 3 * 24 * 60 * 60 * 1000,
@@ -73,6 +75,8 @@
     function trTarih(ms) { return new Date(ms + AYAR.TR_OFSET_MS).toISOString().slice(0, 10); }
     /** Türkiye saatine göre saat (0-23) */
     function trSaat(ms) { return new Date(ms + AYAR.TR_OFSET_MS).getUTCHours(); }
+    /** Bildirim gönderilebilecek saat mi? (Türkiye saatiyle 09:00–19:00; dışında hiçbir bildirim gönderilmez) */
+    function bildirimSaatiMi(ms) { const h = trSaat(ms); return h >= AYAR.BILDIRIM_BAS && h < AYAR.BILDIRIM_BIT; }
     /** Sınav gününe kaç takvim günü kaldı (Türkiye takvimi) */
     function gunFarki(ex, now) {
         if (!ex || !ex.date) return NaN;
@@ -437,7 +441,7 @@
 
     return {
         TUR, AYAR,
-        saatParcala, sinavBaslangic, sinavSuresi, sinavBitis, trTarih, trSaat, gunFarki,
+        saatParcala, sinavBaslangic, sinavSuresi, sinavBitis, trTarih, trSaat, bildirimSaatiMi, gunFarki,
         gozetmenler, gozetmeniMi, sureOnaylandi, bittiMi, sureTeyidiBekliyor, gunHatirlatmaSaatiMi, saatHatirlatmasiZamani,
         SURE_ALANI, sureAlani, gozetmenSureKaydi, satirOnayli, gozetmenSuresi, gozetmenBaslangicSaati,
         DERSLIK_ALANI, derslikAlani, derslikAnahtari, derslikler, gozetmenDersligi, ayniDerslikGozetmenleri,

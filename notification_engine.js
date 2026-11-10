@@ -206,6 +206,14 @@
 
     // Bildirim Gönder (Cihaz / PWA Düzeyinde)
     window.dispatchLocalNotification = function (title, body, tag = 'general', extraData = {}) {
+        // Bildirimler yalnızca 09:00–19:00 (Türkiye saati) arasında. Kullanıcının kendi başlattığı denemeler
+        // (bildirim izni verildi / test bildirimi) hariç, bu saatlerin dışında hiçbir cihaz bildirimi gösterilmez.
+        const kullaniciBaslatti = /^(perm_granted|identity_linked|test_)/.test(String(tag));
+        const BK = window.BildirimKurallari;
+        if (!kullaniciBaslatti && BK && typeof BK.bildirimSaatiMi === 'function' && !BK.bildirimSaatiMi(Date.now())) {
+            console.log('[Bildirim] Sessiz saat, cihaz bildirimi gösterilmedi:', title);
+            return;
+        }
         // Titreşim deseni (200ms titre, 100ms dur, 200ms titre)
         if ('vibrate' in navigator) {
             try { navigator.vibrate([200, 100, 200]); } catch (e) {}
@@ -291,6 +299,8 @@
     // --- "Sıradaki göreviniz 3 gün sonra / yarın" hatırlatmaları ---
     function checkUpcomingDayReminders(staffId) {
         if (!K) return;
+        // Sessiz saatte gönderildi olarak işaretleme; 09:00'dan sonra gösterilsin
+        if (!K.bildirimSaatiMi(Date.now())) return;
         const cihaz = cihazDurumu(staffId);
         K.planla(DB, Date.now(), { kisiler: [staffId], durum: cihaz.durum, turler: [K.TUR.GUN] }).forEach(item => {
             cihaz.isaretle(item);
@@ -316,7 +326,7 @@
 
         // Sınavdan önceki son hatırlatma (ortak planlayıcı; "09:00-11:00" gibi saat yazımları da tanınır)
         const cihaz = cihazDurumu(myStaffId);
-        const saatPlani = K ? K.planla(DB, now.getTime(), { kisiler: [myStaffId], durum: cihaz.durum, turler: [K.TUR.SAAT] }) : [];
+        const saatPlani = (K && K.bildirimSaatiMi(now.getTime())) ? K.planla(DB, now.getTime(), { kisiler: [myStaffId], durum: cihaz.durum, turler: [K.TUR.SAAT] }) : [];
         saatPlani.forEach(item => {
             const ex = item.sinavlar[0];
             const m = MILESTONES[0];
@@ -359,6 +369,8 @@
 
     // --- Sınav Bitimi Hoca Süre Onayı Kontrol Motoru ---
     window.checkPostExamDurationVerifications = function () {
+        // Sessiz saatte (19:00–09:00) bildirim kontrolü yapılmaz; 'gösterildi' işareti de konmaz, 09:00'dan sonra gösterilir
+        if (window.BildirimKurallari && !window.BildirimKurallari.bildirimSaatiMi(Date.now())) return;
         if (!window.DB || !DB.exams || !Array.isArray(DB.exams)) return;
 
         const now = new Date();
@@ -885,6 +897,8 @@
 
     // --- 📢 Yönetici Tarafından Manuel Yayınlanan Bildirimleri Denetle ---
     window.checkIncomingBroadcastNotifications = function () {
+        // Sessiz saatte (19:00–09:00) bildirim kontrolü yapılmaz; 'gösterildi' işareti de konmaz, 09:00'dan sonra gösterilir
+        if (window.BildirimKurallari && !window.BildirimKurallari.bildirimSaatiMi(Date.now())) return;
         if (!window.DB || !Array.isArray(DB.adminBroadcasts) || DB.adminBroadcasts.length === 0) return;
 
         const myStaffId = window.getDeviceStaffId();
@@ -951,6 +965,8 @@
 
     // --- 🔄 Bekleyen Takas Bildirimlerini Denetle (PWA Cihaz & Kilit Ekranı Bildirimi) ---
     window.checkIncomingSwapNotifications = function () {
+        // Sessiz saatte (19:00–09:00) bildirim kontrolü yapılmaz; 'gösterildi' işareti de konmaz, 09:00'dan sonra gösterilir
+        if (window.BildirimKurallari && !window.BildirimKurallari.bildirimSaatiMi(Date.now())) return;
         if (!window.DB || !Array.isArray(DB.requests) || DB.requests.length === 0) return;
         const myStaffId = window.getDeviceStaffId();
         if (!myStaffId) return;

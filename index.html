@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=20261111b">
+    <link rel="stylesheet" href="style.css?v=20261111d">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -352,9 +352,14 @@
                                 <div class="avatar-glow"></div>
                             </div>
                             <div class="profile-main-info">
-                                <div class="profile-name-row">
+                                <div class="profile-name-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <h1 id="profile-name">Yükleniyor...</h1>
                                     <span id="profile-rank-badge" class="rank-badge">Gözetmen</span>
+                                    <span id="profile-hero-score-chip" class="hero-score-chip" onclick="switchProfileTab('scorecard')" title="Puan karnesini ve detayları görmek için tıklayın" role="button" tabindex="0">
+                                        <span class="chip-trophy">🏆</span>
+                                        <span id="hero-chip-puan">-- P.</span>
+                                        <span id="hero-chip-rank" class="chip-rank">(#--)</span>
+                                    </span>
                                 </div>
                                 <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
                                     <span>🎓 Sınav Görev & Gözetmenlik Portalı</span>
@@ -362,21 +367,8 @@
                             </div>
                         </div>
                         <div class="profile-hero-actions">
-                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="openChangePasswordModal()">
-                                <span>🔑</span> Şifremi Değiştir
-                            </button>
-                            <button type="button" id="btn-profile-theme" class="btn-primary" style="background: linear-gradient(135deg, var(--primary), var(--primary-hover)); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="window.TemaSecici && TemaSecici.open(this)" title="Görünümü (açık/koyu) ve tema rengini seçin">
-                                <span>🎨</span> Tema Rengi
-                            </button>
-                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="exportMyExamsToICal()">
-                                <span>📅</span> Takvimime Ekle (.ics)
-                            </button>
-                            <button type="button" class="btn-primary" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); border: none; padding: 0.5rem 0.9rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;" onclick="openCourseHistoryArchiveModal()">
-                                <span>📚</span> Sınav Süre Arşivi
-                            </button>
-
-                            <button id="btn-change-identity" class="btn-identity-switch">
-                                <span>🔄 Kimliği Değiştir</span>
+                            <button type="button" class="btn-secondary profile-hero-settings-btn" onclick="switchProfileTab('settings')" title="Ayarlarım (Şifre, Tema, Bildirim vb.)" style="background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); padding: 0.5rem 0.95rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.82rem; cursor: pointer; color: #e2e8f0;">
+                                <span>⚙️</span> Ayarlarım
                             </button>
                         </div>
                     </div>
@@ -402,71 +394,9 @@
                         </button>
                     </div>
 
-                    <!-- 4 Bento KPI Kartı (Özet Metrikler) -->
-                    <div class="profile-bento-kpi-grid">
-                        <!-- KPI 1: Toplam Puan & Sıralama -->
-                        <div class="bento-kpi-card" style="border-left: 4px solid var(--primary);">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Toplam Puan</span>
-                                <span class="kpi-icon">🏆</span>
-                            </div>
-                            <div id="profile-dash-puan" class="kpi-value" style="color: var(--primary);">0.0</div>
-                            <div class="kpi-subtitle">
-                                <span id="profile-dash-rank" style="font-weight: 700; color: var(--accent-orange);">#-- Sırada</span>
-                                <span style="color: var(--text-muted);">&bull;</span>
-                                <span id="profile-kpi-diff-badge" style="color: #34d399;">Dengeli Dağılım</span>
-                            </div>
-                        </div>
-
-                        <!-- KPI 2: Sıradaki Göreve Geri Sayım -->
-                        <div class="bento-kpi-card" style="border-left: 4px solid #f59e0b;">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Sıradaki Görev</span>
-                                <span class="kpi-icon">⏳</span>
-                            </div>
-                            <div id="profile-countdown" class="kpi-value" style="font-size: 1.5rem; font-family: monospace; letter-spacing: 0.05em; color: #fbbf24;">-- : -- : --</div>
-                            <div id="profile-countdown-target" class="kpi-subtitle">
-                                Hesaplanıyor...
-                            </div>
-                        </div>
-
-                        <!-- KPI 3: Dönemlik Yük & Süre -->
-                        <div class="bento-kpi-card" style="border-left: 4px solid #06b6d4;">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Dönemlik Yük</span>
-                                <span class="kpi-icon">📊</span>
-                            </div>
-                            <div class="kpi-value" style="color: #22d3ee;">
-                                <span id="profile-kpi-duty-count">0</span> <small style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">Sınav</small>
-                            </div>
-                            <div class="kpi-subtitle">
-                                <span id="profile-kpi-duty-hours" style="font-weight: 600;">0 Saat Gözetmenlik</span>
-                                <span style="color: var(--text-muted);">&bull;</span>
-                                <span id="profile-kpi-avg-badge" style="color: var(--text-muted);">Ort: 0 P.</span>
-                            </div>
-                        </div>
-
-                        <!-- KPI 4: Müsaitlik & Kısıt -->
-                        <div class="bento-kpi-card" style="border-left: 4px solid #10b981;">
-                            <div class="kpi-header">
-                                <span class="kpi-title">Müsaitlik Esnekliği</span>
-                                <span class="kpi-icon">🚫</span>
-                            </div>
-                            <div id="profile-kpi-flex-score" class="kpi-value" style="color: #10b981;">%100</div>
-                            <div id="profile-kpi-constraint-summary" class="kpi-subtitle">
-                                <span style="color: #34d399;">✓ Tam Müsait</span>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Sınav Günü Canlı Durum Kartı (Bugün / Yarın Sınav Varsa Aktifleşir) -->
                     <div id="profile-live-duty-banner" class="profile-live-duty-banner hidden">
                         <!-- JS ile dinamik doldurulacak -->
-                    </div>
-
-                    <!-- Final Dönemi Sonuna Kadar Tahmini Görev Durumum Alanı -->
-                    <div id="profile-final-forecast-card" class="card-large hidden" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 16px; padding: 1.4rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-                        <!-- JS (renderProfileFinalForecast) ile dinamik doldurulacak -->
                     </div>
 
                     <!-- Takas Teklifleri & Bildirimler -->
@@ -535,7 +465,12 @@
                                             <h4 style="margin: 0; font-size: 0.95rem; color: #f1f5f9; display: flex; align-items: center; gap: 6px;">
                                                 <span>📋</span> Aktif Sınav Görevleriniz
                                             </h4>
-                                            <span style="font-size: 0.75rem; color: var(--text-muted);">Sınav detayını görmek için isme tıklayın</span>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <span style="font-size: 0.75rem; color: var(--text-muted);">Sınav detayını görmek için isme tıklayın</span>
+                                                <button type="button" id="btn-profile-view-toggle" class="btn-secondary mobile-view-toggle-btn" onclick="toggleMobileExamViewMode()" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; cursor: pointer; white-space: nowrap;">
+                                                    🗂️ Kart Görünümü
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="table-container" style="border-radius: 12px;">
                                             <table id="profile-table-active">
@@ -770,6 +705,68 @@
                                 
                                 <!-- 9. KARNE (SCORECARD) SEKMESİ -->
                                 <div id="tab-scorecard" class="tab-pane hidden">
+                                    <!-- 4 Bento KPI Kartı (Özet Metrikler) -->
+                    <div class="profile-bento-kpi-grid">
+                        <!-- KPI 1: Toplam Puan & Sıralama -->
+                        <div class="bento-kpi-card" style="border-left: 4px solid var(--primary);">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Toplam Puan</span>
+                                <span class="kpi-icon">🏆</span>
+                            </div>
+                            <div id="profile-dash-puan" class="kpi-value" style="color: var(--primary);">0.0</div>
+                            <div class="kpi-subtitle">
+                                <span id="profile-dash-rank" style="font-weight: 700; color: var(--accent-orange);">#-- Sırada</span>
+                                <span style="color: var(--text-muted);">&bull;</span>
+                                <span id="profile-kpi-diff-badge" style="color: #34d399;">Dengeli Dağılım</span>
+                            </div>
+                        </div>
+
+                        <!-- KPI 2: Sıradaki Göreve Geri Sayım -->
+                        <div class="bento-kpi-card" style="border-left: 4px solid #f59e0b;">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Sıradaki Görev</span>
+                                <span class="kpi-icon">⏳</span>
+                            </div>
+                            <div id="profile-countdown" class="kpi-value" style="font-size: 1.5rem; font-family: monospace; letter-spacing: 0.05em; color: #fbbf24;">-- : -- : --</div>
+                            <div id="profile-countdown-target" class="kpi-subtitle">
+                                Hesaplanıyor...
+                            </div>
+                        </div>
+
+                        <!-- KPI 3: Dönemlik Yük & Süre -->
+                        <div class="bento-kpi-card" style="border-left: 4px solid #06b6d4;">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Dönemlik Yük</span>
+                                <span class="kpi-icon">📊</span>
+                            </div>
+                            <div class="kpi-value" style="color: #22d3ee;">
+                                <span id="profile-kpi-duty-count">0</span> <small style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">Sınav</small>
+                            </div>
+                            <div class="kpi-subtitle">
+                                <span id="profile-kpi-duty-hours" style="font-weight: 600;">0 Saat Gözetmenlik</span>
+                                <span style="color: var(--text-muted);">&bull;</span>
+                                <span id="profile-kpi-avg-badge" style="color: var(--text-muted);">Ort: 0 P.</span>
+                            </div>
+                        </div>
+
+                        <!-- KPI 4: Müsaitlik & Kısıt -->
+                        <div class="bento-kpi-card" style="border-left: 4px solid #10b981;">
+                            <div class="kpi-header">
+                                <span class="kpi-title">Müsaitlik Esnekliği</span>
+                                <span class="kpi-icon">🚫</span>
+                            </div>
+                            <div id="profile-kpi-flex-score" class="kpi-value" style="color: #10b981;">%100</div>
+                            <div id="profile-kpi-constraint-summary" class="kpi-subtitle">
+                                <span style="color: #34d399;">✓ Tam Müsait</span>
+                            </div>
+                        </div>
+                    </div>
+
+                                    <!-- Final Dönemi Sonuna Kadar Tahmini Görev Durumum Alanı -->
+                    <div id="profile-final-forecast-card" class="card-large hidden" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 16px; padding: 1.4rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                        <!-- JS (renderProfileFinalForecast) ile dinamik doldurulacak -->
+                    </div>
+
                                     <div class="card-large" style="padding: 1.5rem; background: rgba(0,0,0,0.25); border-radius: 18px;">
                                         <div style="margin-bottom: 1.5rem;">
                                             <h3 style="margin: 0 0 6px 0; font-size: 1.25rem; color: #fff;">🏆 Puan Karnesi & Dönem Dökümü</h3>
@@ -3333,7 +3330,7 @@
     <script src="bildirim_kurallari.js?v=20261110f"></script>
     <script src="atama_destek.js?v=20261108m"></script>
     <script src="logic.js?v=20261109k"></script>
-    <script src="app.js?v=20261111a"></script>
+    <script src="app.js?v=20261111c"></script>
     <script src="auth_google.js?v=20261109h"></script>
     <script src="swap_email.js?v=20261108m"></script>
     <script src="swap_market.js?v=20261110c"></script>
@@ -3342,8 +3339,8 @@
 
     <script src="notification_engine.js?v=20261110f"></script>
 
-    <script src="mobile_app_engine.js?v=20261111a"></script>
-    <script src="profil_duzen.js?v=20261111b"></script>
+    <script src="mobile_app_engine.js?v=20261111b"></script>
+    <script src="profil_duzen.js?v=20261111d"></script>
 
     <!-- Kişisel tema seçici (görünüm + renk) -->
     <script src="tema.js?v=20261108l"></script>

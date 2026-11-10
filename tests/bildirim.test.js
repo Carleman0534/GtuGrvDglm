@@ -190,18 +190,37 @@ test('Site ve sunucu aynı etiketi üretir (aynı cihazda iki kez çıkmaz)', ()
 });
 
 // ---------------------------------------------------------------- GitHub görevi (gerçek betik, deneme modu)
-function runServer(nowIso, extraDb) {
+function runServer(nowIso, extraDb, saatSiniri) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bildirim-'));
     const db = Object.assign(buildDB(), extraDb || {});
     fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify(db));
     const env = Object.assign({}, process.env, {
         DB_FILE: path.join(dir, 'db.json'), STATE_FILE: path.join(dir, 'durum.json'),
-        NOW: nowIso, PLAN_JSON: '1', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '', DRY_RUN: '1'
+        NOW: nowIso, PLAN_JSON: '1', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '', DRY_RUN: '1',
+        // Planlama testleri saat sınırından bağımsız; sınırın kendisi ayrı testte sınanır
+        SAAT_SINIRI_YOK: saatSiniri ? '0' : '1'
     });
     const out = execFileSync(process.execPath, [path.join(ROOT, '.github', 'scripts', 'sure-hatirlatma.mjs')], { env, cwd: ROOT }).toString();
     const line = out.split('\n').find(l => l.startsWith('PLAN '));
-    return { out, plan: JSON.parse(line.slice(5)), stateWritten: fs.existsSync(path.join(dir, 'durum.json')) };
+    return { out, plan: line ? JSON.parse(line.slice(5)) : null, stateWritten: fs.existsSync(path.join(dir, 'durum.json')) };
 }
+
+test('Bildirim saatleri: yalnızca 09:00–19:00 (Türkiye saati)', () => {
+    assert.equal(K.bildirimSaatiMi(Date.parse('2026-11-10T08:59:00+03:00')), false);
+    assert.equal(K.bildirimSaatiMi(Date.parse('2026-11-10T09:00:00+03:00')), true);
+    assert.equal(K.bildirimSaatiMi(Date.parse('2026-11-10T18:59:00+03:00')), true);
+    assert.equal(K.bildirimSaatiMi(Date.parse('2026-11-10T19:00:00+03:00')), false);
+    assert.equal(K.bildirimSaatiMi(Date.parse('2026-11-10T23:30:00+03:00')), false);
+    assert.equal(K.bildirimSaatiMi(Date.parse('2026-11-10T03:00:00+03:00')), false);
+});
+
+test('GitHub görevi: 19:00–09:00 arasında hiçbir bildirim göndermez, sabah 09:00\'dan sonra gönderir', () => {
+    const gece = runServer('2026-11-09T21:30:00+03:00', null, true);
+    assert.match(gece.out, /Sessiz saat/);
+    assert.equal(gece.plan, null, 'gece planlama ve gönderim yapılmaz');
+    const sabah = runServer('2026-11-09T09:03:00+03:00', null, true);
+    assert.ok(sabah.plan && sabah.plan.length > 0, 'sabah bekleyenler gönderilir');
+});
 
 test('GitHub görevi: bu sabah 09:03\'te yalnızca gün hatırlatması planlar, süre teyidi yok', () => {
     const r = runServer('2026-11-09T09:03:00+03:00');

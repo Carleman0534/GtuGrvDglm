@@ -6476,18 +6476,45 @@ body.dark-theme .batch-modal { background: #111827; color: #f1f5f9; }
 .profile-todo-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
 .profile-todo-link { background: none; border: none; color: var(--text-muted); text-decoration: underline; cursor: pointer; font-size: 0.78rem; }
 
-/* 4 özet kartı → ince şerit */
-.profile-duzen .profile-bento-kpi-grid.kpi-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 1rem; }
-.profile-duzen .kpi-strip .bento-kpi-card { padding: 0.55rem 0.7rem !important; min-height: 0 !important; }
-.profile-duzen .kpi-strip .kpi-header { margin-bottom: 2px !important; }
-.profile-duzen .kpi-strip .kpi-title { font-size: 0.68rem !important; }
-.profile-duzen .kpi-strip .kpi-icon { font-size: 0.85rem !important; }
-.profile-duzen .kpi-strip .kpi-value { font-size: 1.05rem !important; line-height: 1.2 !important; }
-.profile-duzen .kpi-strip .kpi-subtitle { font-size: 0.68rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.profile-duzen .kpi-strip .panel-collapse-header { grid-column: 1 / -1; }
-@media (max-width: 640px) {
-    .profile-duzen .profile-bento-kpi-grid.kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 4 özet kartı → Puanım (tab-scorecard) sekmesi içinde veya genel düzen */
+.profile-duzen #tab-scorecard .profile-bento-kpi-grid,
+.profile-duzen .profile-bento-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 1.25rem; }
+.profile-duzen .profile-bento-kpi-grid .bento-kpi-card { padding: 0.85rem 1rem; border-radius: 14px; }
+.profile-duzen .profile-bento-kpi-grid .panel-collapse-header { grid-column: 1 / -1; margin-bottom: 0.25rem; }
+@media (max-width: 900px) {
+    .profile-duzen #tab-scorecard .profile-bento-kpi-grid,
+    .profile-duzen .profile-bento-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 540px) {
+    .profile-duzen #tab-scorecard .profile-bento-kpi-grid,
+    .profile-duzen .profile-bento-kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* Hero mini puan rozeti */
+.hero-score-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
+    border: 1px solid rgba(168, 85, 247, 0.45);
+    color: #c4b5fd;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+.hero-score-chip:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.3));
+    border-color: rgba(168, 85, 247, 0.7);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
+}
+.hero-score-chip .chip-trophy { font-size: 0.95rem; }
+.hero-score-chip .chip-rank { font-size: 0.75rem; font-weight: 600; color: #cbd5e1; }
 
 /* 4 ana bölüm */
 .profile-main-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 0.5rem; }
@@ -6507,8 +6534,9 @@ body.dark-theme .batch-modal { background: #111827; color: #f1f5f9; }
 }
 
 /* Ayarlarım › Şifre ve Diğer */
-.profile-settings-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-bottom: 1rem; }
-.profile-settings-actions button { padding: 0.6rem 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border, rgba(148,163,184,0.3)); background: rgba(148, 163, 184, 0.08); color: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.profile-settings-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.profile-settings-actions button { display: flex; align-items: center; gap: 8px; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--glass-border, rgba(148,163,184,0.3)); background: rgba(148, 163, 184, 0.08); color: inherit; font-weight: 600; font-size: 0.85rem; cursor: pointer; text-align: left; transition: all 0.2s ease; }
+.profile-settings-actions button:hover { background: rgba(99, 102, 241, 0.15); border-color: var(--primary); transform: translateY(-1px); }
 #tab-settings > .sidebar-widget, #tab-settings > #profile-password-section { margin-bottom: 1rem; }
 /* Koyu görev kartlarında ders adı okunur olsun (açık temanın koyu mavi bağlantı rengi koyu zeminde kayboluyordu) */
 #table-exams.exam-card-mode tbody tr .clickable-name, #table-exams.exam-card-mode tbody tr .clickable-name strong,
@@ -6522,3 +6550,20 @@ body.dark-theme .batch-modal { background: #111827; color: #f1f5f9; }
 }
 /* Yeni bölüm düğmeleri varken eski "Görevlerim, Takvim ve Puan Karnesi" küçültme başlığı gereksiz */
 .profile-duzen .profile-main-column > .panel-collapse-header { display: none !important; }
+
+/* Profilim Bento Izgarası: Tek kolonlu sade masaüstü düzeni */
+.profile-duzen .profile-bento-grid {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+}
+.profile-duzen .profile-sidebar-column {
+    display: none !important;
+}
+.profile-duzen .profile-main-column {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+.profile-duzen .personal-calendar-card {
+    width: 100% !important;
+    max-width: 100% !important;
+}

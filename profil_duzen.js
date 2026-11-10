@@ -48,7 +48,33 @@
         main.dataset.duzen = '1';
         main.classList.add('profile-duzen');
 
-        // 1) Yapmanız gerekenler kutusu
+        // 1) Profilin üst kısmındaki düğmeler Ayarlarım sekmesine taşınır; hero sade kalır
+        const heroActions = $('.profile-hero-actions', hero);
+        if (heroActions) {
+            const adminSwitcher = heroActions.querySelector('#admin-profile-quick-switcher');
+            heroActions.innerHTML = `
+                <button type="button" class="btn-secondary profile-hero-settings-btn" onclick="switchProfileTab('settings')" title="Ayarlarım (Şifre, Tema, Bildirim vb.)" style="background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); padding: 0.5rem 0.95rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.82rem; cursor: pointer; color: #e2e8f0;">
+                    <span>⚙️</span> Ayarlarım
+                </button>`;
+            if (adminSwitcher) heroActions.prepend(adminSwitcher);
+        }
+
+        // Hero'ya avatar/isim yanına tıklanabilir puan ve sıra rozeti ekle
+        const nameRow = $('.profile-name-row', hero);
+        if (nameRow && !document.getElementById('profile-hero-score-chip')) {
+            const chip = document.createElement('span');
+            chip.id = 'profile-hero-score-chip';
+            chip.className = 'hero-score-chip';
+            chip.title = 'Puan karnesini ve detayları görmek için tıklayın';
+            chip.setAttribute('role', 'button');
+            chip.setAttribute('tabindex', '0');
+            chip.innerHTML = `<span class="chip-trophy">🏆</span> <span id="hero-chip-puan">-- P.</span> <span id="hero-chip-rank" class="chip-rank">(#-)</span>`;
+            chip.onclick = () => window.switchProfileTab('scorecard');
+            chip.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.switchProfileTab('scorecard'); } };
+            nameRow.appendChild(chip);
+        }
+
+        // Yapmanız gerekenler kutusu
         const todo = document.createElement('div');
         todo.id = 'profile-todo';
         todo.className = 'profile-todo hidden';
@@ -72,27 +98,71 @@
             </span>`;
         body.appendChild(consRow);
 
-        // 2) Özet kartları ince şerit; kartları ilgili bölümlere taşı
+        // 2) Özet kartlarını (4 Bento KPI) ana sayfadan 🏆 Puanım (tab-scorecard) sekmesine taşı; ana sayfa sade kalır
         const kpi = $('.profile-bento-kpi-grid', main);
-        if (kpi) kpi.classList.add('kpi-strip');
+        const scorecardPane = document.getElementById('tab-scorecard');
+        const forecastCard = document.getElementById('profile-final-forecast-card');
+        if (scorecardPane) {
+            if (forecastCard && forecastCard.parentNode !== scorecardPane) {
+                scorecardPane.insertBefore(forecastCard, scorecardPane.firstChild);
+            }
+            if (kpi && kpi.parentNode !== scorecardPane) {
+                scorecardPane.insertBefore(kpi, scorecardPane.firstChild);
+            }
+        }
         const prepend = (paneId, ids) => {
             const pane = document.getElementById(paneId);
             if (!pane) return;
             ids.slice().reverse().forEach(id => { const el = document.getElementById(id); if (el) pane.insertBefore(el, pane.firstChild); });
         };
-        prepend('tab-scorecard', ['profile-final-forecast-card']);
         prepend('tab-marketplace', ['profile-marketplace-announcement', 'profile-smart-swaps']);
 
-        // Ayarlarım › Şifre ve Diğer: şifre bölümü, kontrol listesi ve günlük
+        // Görünüm değiştirici buton (🗂️ Kart Görünümü) hero'dan alınıp Aktif Görevler tablosu başlığına taşınır
+        const viewToggle = document.getElementById('btn-profile-view-toggle');
+        const activeTableHead = document.querySelector('#tab-active .card-table > div:first-child');
+        if (viewToggle && activeTableHead && viewToggle.parentNode !== activeTableHead) {
+            activeTableHead.appendChild(viewToggle);
+        }
+
+        // Sağdaki takvim kutusunu Görevlerim › Takvim sekmesine taşı; sağ sütunu kaldır (sade tek kolon)
+        const cal = document.querySelector('.personal-calendar-card');
+        const timelinePane = document.getElementById('tab-my-timeline');
+        if (cal && timelinePane) {
+            cal.classList.remove('sidebar-widget');
+            cal.classList.add('card-large');
+            cal.style.padding = '1.5rem';
+            cal.style.background = 'rgba(0,0,0,0.25)';
+            cal.style.borderRadius = '18px';
+            cal.style.border = '1px solid var(--glass-border)';
+            cal.style.marginBottom = '1.5rem';
+            timelinePane.innerHTML = '';
+            timelinePane.appendChild(cal);
+        }
+        const sidebar = $('.profile-sidebar-column', main);
+        if (sidebar) sidebar.style.display = 'none';
+
+        // Ayarlarım › Şifre ve Diğer: üstteki tüm butonlar, şifre paneli, kontrol listesi ve günlük
         const settings = document.createElement('div');
         settings.id = 'tab-settings';
         settings.className = 'tab-pane hidden';
         settings.innerHTML = `
-            <div class="profile-settings-actions">
-                <button type="button" onclick="openChangePasswordModal()">🔑 Şifremi değiştir</button>
-                <button type="button" onclick="window.TemaSecici && TemaSecici.open(this)">🎨 Tema rengi</button>
-                <button type="button" onclick="typeof openNotificationSettingsModal === 'function' && openNotificationSettingsModal()">🔔 Bildirim ayarları</button>
-                <button type="button" onclick="exportMyExamsToICal()">📅 Takvimime ekle (.ics)</button>
+            <div class="card card-table" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 18px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                <div style="margin-bottom: 1rem;">
+                    <h4 style="margin: 0 0 4px 0; font-size: 1rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
+                        <span>⚙️</span> Profil & Sistem Ayarları
+                    </h4>
+                    <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted);">
+                        Kişisel tercihlerinizi, şifrenizi, tema rengini ve takvim entegrasyonunu buradan yönetebilirsiniz.
+                    </p>
+                </div>
+                <div class="profile-settings-actions">
+                    <button type="button" onclick="openChangePasswordModal()"><span style="font-size:1.1rem;">🔑</span> Şifremi Değiştir</button>
+                    <button type="button" id="btn-profile-theme" onclick="window.TemaSecici && TemaSecici.open(this)"><span style="font-size:1.1rem;">🎨</span> Tema Rengi</button>
+                    <button type="button" onclick="typeof openNotificationSettingsModal === 'function' && openNotificationSettingsModal()"><span style="font-size:1.1rem;">🔔</span> Bildirim Ayarları</button>
+                    <button type="button" onclick="exportMyExamsToICal()"><span style="font-size:1.1rem;">📅</span> Takvimime Ekle (.ics)</button>
+                    <button type="button" onclick="openCourseHistoryArchiveModal()"><span style="font-size:1.1rem;">📚</span> Sınav Süre Arşivi</button>
+                    <button type="button" id="btn-change-identity" onclick="window.changeProfileIdentity ? window.changeProfileIdentity() : document.getElementById('btn-change-identity')?.click()"><span style="font-size:1.1rem;">🔄</span> Kimliği Değiştir</button>
+                </div>
             </div>`;
         tabContent.appendChild(settings);
         const pwd = document.getElementById('profile-password-section');
@@ -155,7 +225,13 @@
                     // Eski fonksiyon "settings" panosunu tanır; tümünü gizleyip bunu gösterir
                     const pane = document.getElementById('tab-settings');
                     if (pane) pane.classList.remove('hidden');
+                } else if (tabId === 'my-timeline') {
+                    const myStaffId = lsGet('myStaffId');
+                    if (myStaffId && typeof window.renderPersonalCalendar === 'function') {
+                        window.renderPersonalCalendar(myStaffId);
+                    }
                 }
+                updateHeroScoreChip();
                 const g = groupOf(tabId);
                 if (g) { lsSet(LAST_TAB_KEY, tabId); lsSet('profile_last_tab_' + g.key, tabId); }
                 syncTabs(tabId);
@@ -170,6 +246,19 @@
     function myStaff() {
         const id = lsGet('myStaffId');
         return (window.DB && Array.isArray(DB.staff)) ? DB.staff.find(s => String(s.id) === String(id)) : null;
+    }
+    function updateHeroScoreChip() {
+        const chipPuan = document.getElementById('hero-chip-puan');
+        const chipRank = document.getElementById('hero-chip-rank');
+        if (!chipPuan || !chipRank) return;
+        const staff = myStaff();
+        if (!staff) return;
+        chipPuan.textContent = (staff.totalScore || 0).toFixed(1) + ' P.';
+        if (window.DB && Array.isArray(DB.staff)) {
+            const sorted = [...DB.staff].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+            const rank = sorted.findIndex(s => String(s.id) === String(staff.id)) + 1;
+            chipRank.textContent = rank > 0 ? `(#${rank})` : '(-)';
+        }
     }
     function hasCustomPassword(staff) {
         if (!staff) return true;
@@ -231,6 +320,14 @@
             if (!buildOnce()) return;
             hookSwitch();
             orderTop();
+
+            // Puan ve Görev Özeti 4 Bento KPI kartının 🏆 Puanım (tab-scorecard) içinde kalmasını sağla
+            const kpi = $('.profile-bento-kpi-grid');
+            const scorecardPane = document.getElementById('tab-scorecard');
+            if (kpi && scorecardPane && kpi.parentNode !== scorecardPane) {
+                scorecardPane.insertBefore(kpi, scorecardPane.firstChild);
+            }
+
             // Bölümler artık sekme düğmeleriyle açılıyor; ana sütun eskiden küçültüldüyse içerik görünmez kalmasın
             const hub = document.querySelector('#profile-main-content .profile-main-column');
             if (hub && hub.classList.contains('panel-collapsed')) {
@@ -238,6 +335,7 @@
                 lsSet('panel_collapsed_task_hub', '0');
             }
             updateTodo();
+            updateHeroScoreChip();
             const activeOld = document.querySelector('#section-profile .profile-pill-tabs .tab-btn.active');
             const current = (document.querySelector('#profile-tab-content > .tab-pane:not(.hidden)') || {}).id;
             const curTab = current ? current.replace(/^tab-/, '') : (activeOld && activeOld.dataset.tab);

@@ -318,7 +318,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 logAction('system', 'Giriş', `${matchedStaff.name} kişisel şifresiyle doğrudan kendi profiline giriş yaptı.`);
                 if (loginError) loginError.classList.add('hidden');
                 await finishLogin(false);
-                goToDashboardAfterLogin();
+                // Kendi şifresiyle giren kişi ek seçim/onay olmadan doğrudan kendi profiline iner
+                window.scrollTo(0, 0);
+                document.getElementById('btn-profile')?.click();
+                if (typeof renderProfile === 'function') renderProfile();
                 return;
             }
 
@@ -1529,11 +1532,13 @@ function initUI() {
         if (e.key === 'Enter') doProfilePasswordLogin();
     });
 
-    document.getElementById('btn-change-identity')?.addEventListener('click', () => {
+    window.changeProfileIdentity = function () {
         localStorage.removeItem('myStaffId');
-        renderProfile();
-        updateNotificationBadge();
-    });
+        if (typeof renderProfile === 'function') renderProfile();
+        if (typeof updateNotificationBadge === 'function') updateNotificationBadge();
+    };
+
+    document.getElementById('btn-change-identity')?.addEventListener('click', window.changeProfileIdentity);
 
     // =========================================================================
     // 👤 GLOBAL PROFİL SEKME DEĞİŞTİRİCİSİ (Masaüstü Butonları + Mobil Dropdown)
@@ -8230,6 +8235,12 @@ function updateProfileDashboard(staffId) {
     const rank = sorted.findIndex(s => String(s.id) === String(staffId)) + 1;
     const rankEl = document.getElementById('profile-dash-rank');
     if (rankEl) rankEl.textContent = `#${rank} Sirada`;
+
+    // Hero mini puan rozeti
+    const heroChipPuan = document.getElementById('hero-chip-puan');
+    if (heroChipPuan) heroChipPuan.textContent = (staff.totalScore || 0).toFixed(1) + ' P.';
+    const heroChipRank = document.getElementById('hero-chip-rank');
+    if (heroChipRank) heroChipRank.textContent = rank > 0 ? `(#${rank})` : '(-)';
 
     // Bölüm Ortalamasi ve Farki
     const allStaff = DB.staff || [];

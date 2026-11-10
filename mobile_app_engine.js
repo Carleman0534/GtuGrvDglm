@@ -360,9 +360,9 @@
             }
         }
 
-        // Profil sekmesine de görünüm değiştirici buton ekle (eğer yoksa)
-        const profileActions = document.querySelector('.profile-hero-actions');
-        if (profileActions && !document.getElementById('btn-profile-view-toggle')) {
+        // Profil sekmesinde aktif görevler tablosu başlığına görünüm değiştirici buton ekle (eğer yoksa)
+        const activeTableHead = document.querySelector('#tab-active .card-table > div:first-child');
+        if (activeTableHead && !document.getElementById('btn-profile-view-toggle')) {
             const pBtn = document.createElement('button');
             pBtn.id = 'btn-profile-view-toggle';
             pBtn.type = 'button';
@@ -371,8 +371,11 @@
             pBtn.style.display = 'inline-flex';
             pBtn.style.alignItems = 'center';
             pBtn.style.gap = '6px';
+            pBtn.style.fontSize = '0.78rem';
+            pBtn.style.padding = '0.35rem 0.75rem';
+            pBtn.style.borderRadius = '8px';
             pBtn.onclick = window.toggleMobileExamViewMode;
-            profileActions.appendChild(pBtn);
+            activeTableHead.appendChild(pBtn);
         }
 
         window.applyExamViewMode(initialMode);

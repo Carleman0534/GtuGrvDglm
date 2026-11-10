@@ -165,6 +165,7 @@ test('sure-hatirlatma.mjs: Bekleyen takas talebi ve onaylanan takas Web Push ola
         DB_FILE: path.join(dir, 'db.json'),
         STATE_FILE: path.join(dir, 'durum.json'),
         NOW: new Date().toISOString(),
+        SAAT_SINIRI_YOK: '1',   // test hangi saatte çalışırsa çalışsın planlama sınansın
         DRY_RUN: '1',
         VAPID_PUBLIC_KEY: '',
         VAPID_PRIVATE_KEY: ''
