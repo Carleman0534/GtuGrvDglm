@@ -1474,15 +1474,59 @@ ${signature(claimer)}`
         const incoming = incomingFor(me);
         if (!incoming.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
         box.classList.remove('hidden');
-        box.innerHTML = `<div class="swap-proposals-banner">
-            <div><span style="font-size:1.3rem">🔔</span> <b>${incoming.length}</b> talep onayınızı bekliyor:
-            ${incoming.slice(0, 3).map(r => `<span class="swap-proposal-chip" style="cursor:pointer;" onclick="SwapMarket.openRequestsTab('${esc(S(r.id))}')" title="Bu talebe git">${esc(isSwapReq(r) ? r.initiatorName + ' · ' + reqTitle(r) : (r.status === 'claim_pending' ? r.receiverName : r.initiatorName) + ' · ' + reqTitle(r))}</span>`).join('')}
-            ${incoming.length > 3 ? '…' : ''}</div>
-            <button class="btn-primary" onclick="SwapMarket.openRequestsTab()" style="font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">🔄 Taleplerim'e Git</button>
+
+        // Tek bir talep varsa doğrudan Kabul Et / Reddet ve Talebime Git butonları
+        if (incoming.length === 1) {
+            const r = incoming[0];
+            const rid = esc(S(r.id));
+            const isSwap = isSwapReq(r);
+            const title = esc(isSwap ? (r.initiatorName + ' · ' + reqTitle(r)) : ((r.status === 'claim_pending' ? r.receiverName : r.initiatorName) + ' · ' + reqTitle(r)));
+            const acc = isSwap ? (r.type === 'smart_swap' ? `acceptSmartSwap('${rid}')` : `acceptDirectSwap('${rid}')`) : (r.status === 'claim_pending' ? `confirmOpenRequest('${rid}')` : `approveSwapPeer('${rid}')`);
+            const rej = isSwap ? (r.type === 'smart_swap' ? `rejectSmartSwap('${rid}')` : `rejectDirectSwap('${rid}')`) : (r.status === 'claim_pending' ? `rejectOpenRequest('${rid}')` : `rejectSwapPeer('${rid}')`);
+
+            box.innerHTML = `<div class="swap-proposals-banner" style="background: rgba(15, 23, 42, 0.9); border: 2px solid #38bdf8; border-radius: 14px; padding: 1rem 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.45); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="font-size: 1.4rem;">🔔</span>
+                    <div>
+                        <div style="font-weight: 700; color: #f8fafc; font-size: 0.92rem;">1 talep onayınızı bekliyor:</div>
+                        <div style="color: #38bdf8; font-size: 0.82rem; font-weight: 600; cursor: pointer; text-decoration: underline;" onclick="SwapMarket.openRequestsTab('${rid}')" title="Talebimi detaylı incele">${title}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <button class="btn-primary" onclick="SwapMarket.openRequestsTab('${rid}')" style="background: #0284c7; color: white; font-weight: 700; padding: 0.5rem 0.9rem; font-size: 0.82rem; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                        🔍 Talebime Git
+                    </button>
+                    <button class="btn-primary" onclick="${acc}" style="background: var(--accent-green); color: white; font-weight: 700; padding: 0.5rem 0.9rem; font-size: 0.82rem; border-radius: 8px; border: none; cursor: pointer;">
+                        ✓ Kabul Et
+                    </button>
+                    <button class="btn-delete" onclick="${rej}" style="padding: 0.5rem 0.85rem; font-size: 0.82rem; border-radius: 8px; cursor: pointer;">
+                        Reddet
+                    </button>
+                </div>
+            </div>`;
+            return;
+        }
+
+        // Çoklu talep varsa liste ve Taleplerim'e Git butonu
+        box.innerHTML = `<div class="swap-proposals-banner" style="background: rgba(15, 23, 42, 0.9); border: 2px solid #38bdf8; border-radius: 14px; padding: 1rem 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.45); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <span style="font-size:1.3rem">🔔</span> <b>${incoming.length}</b> talep onayınızı bekliyor:
+                ${incoming.slice(0, 3).map(r => `<span class="swap-proposal-chip" style="cursor:pointer;" onclick="SwapMarket.openRequestsTab('${esc(S(r.id))}')" title="Bu talebe git">${esc(isSwapReq(r) ? r.initiatorName + ' · ' + reqTitle(r) : (r.status === 'claim_pending' ? r.receiverName : r.initiatorName) + ' · ' + reqTitle(r))}</span>`).join('')}
+                ${incoming.length > 3 ? '…' : ''}
+            </div>
+            <button class="btn-primary" onclick="SwapMarket.openRequestsTab()" style="font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; background:#0284c7; padding:0.5rem 1rem; border-radius:8px;">
+                🔍 Taleplerim'e Git
+            </button>
         </div>`;
     }
 
     function openRequestsTab(targetReqId = null) {
+        const me = myId();
+        const incoming = me ? incomingFor(me) : [];
+        if (!targetReqId && incoming.length > 0) {
+            targetReqId = incoming[0].id;
+        }
+
         // 1. Profil sekmesine geç (Masaüstü buton veya mobil alt menü)
         const btnProfile = document.getElementById('btn-profile');
         const sectionProfile = document.getElementById('section-profile');
@@ -1524,28 +1568,43 @@ ${signature(claimer)}`
                 window.renderSwapHistory();
             }
 
-            // 3. DOĞRUDAN TALEPLERİME KAYDIR (Mobil ekranda aşağıda kaybolmasını önler)
+            // 3. DOĞRUDAN TALEPLERİME KAYDIR (Header payı ile hem window.scrollTo hem scrollIntoView)
             const targetEl = (targetReqId ? document.getElementById(`swap-req-${targetReqId}`) : null) ||
                              document.getElementById('card-my-swap-requests') ||
                              document.getElementById('my-requests-content') ||
                              document.getElementById('tab-swap-history');
 
             if (targetEl) {
-                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                targetEl.style.transition = 'box-shadow 0.35s ease, border-color 0.35s ease';
-                targetEl.style.boxShadow = '0 0 25px rgba(56, 189, 248, 0.7)';
+                try {
+                    const rect = targetEl.getBoundingClientRect();
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+                    const targetY = rect.top + scrollTop - 80;
+                    window.scrollTo({
+                        top: Math.max(0, targetY),
+                        behavior: 'smooth'
+                    });
+                } catch (e) {}
+
+                try {
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } catch (e) {}
+
+                // Kullanıcının gözünü hemen karta çekmek için mavi parlama efekti
+                targetEl.style.transition = 'box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s ease';
+                targetEl.style.boxShadow = '0 0 35px rgba(56, 189, 248, 0.9)';
                 targetEl.style.borderColor = '#38bdf8';
                 setTimeout(() => {
                     targetEl.style.boxShadow = '';
                     targetEl.style.borderColor = '';
-                }, 2000);
+                }, 2200);
             }
         };
 
         // DOM'un yüklenmesi ve mobil sekme animasyonu için aşamalı güvenli çağrı
         navigateToRequests();
-        setTimeout(navigateToRequests, 100);
-        setTimeout(navigateToRequests, 300);
+        setTimeout(navigateToRequests, 60);
+        setTimeout(navigateToRequests, 180);
+        setTimeout(navigateToRequests, 450);
     }
 
     // ------------------------------------------------------------------
