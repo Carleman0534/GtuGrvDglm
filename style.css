@@ -6459,3 +6459,66 @@ body.dark-theme .ffc-scope {
 .batch-modal .bb-go { background: #10b981; border-color: #10b981; color: #fff; }
 body.dark-theme .batch-modal { background: #111827; color: #f1f5f9; }
 @media (max-width: 560px) { .batch-modal .bb-kpis { grid-template-columns: 1fr 1fr; } }
+/* ================= Profilim düzeni (profil_duzen.js) ================= */
+/* Eski 7'li sekme çubuğu ve mobil seçici gizli (kod içinden tıklanmaya devam eder) */
+.profile-duzen .profile-pill-tabs,
+.profile-duzen .profile-mobile-tab-picker { display: none !important; }
+
+/* 📌 Yapmanız gerekenler */
+.profile-todo { border: 1.5px solid rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.07); border-radius: 14px; padding: 0.8rem 0.9rem 0.4rem; margin-bottom: 1rem; }
+.profile-todo-head { font-weight: 800; font-size: 0.95rem; color: #f59e0b; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 8px; }
+.profile-todo-count { background: #f59e0b; color: #111827; border-radius: 999px; font-size: 0.72rem; padding: 1px 8px; font-weight: 800; }
+.profile-todo-body > * { margin-bottom: 0.6rem !important; }
+.profile-todo-body #profile-password-announcement-banner { padding: 0.7rem 0.9rem !important; }
+.profile-todo-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 0.85rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.25); }
+.profile-todo-row.hidden { display: none; }
+.profile-todo-actions { display: inline-flex; gap: 8px; align-items: center; }
+.profile-todo-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+.profile-todo-link { background: none; border: none; color: var(--text-muted); text-decoration: underline; cursor: pointer; font-size: 0.78rem; }
+
+/* 4 özet kartı → ince şerit */
+.profile-duzen .profile-bento-kpi-grid.kpi-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 1rem; }
+.profile-duzen .kpi-strip .bento-kpi-card { padding: 0.55rem 0.7rem !important; min-height: 0 !important; }
+.profile-duzen .kpi-strip .kpi-header { margin-bottom: 2px !important; }
+.profile-duzen .kpi-strip .kpi-title { font-size: 0.68rem !important; }
+.profile-duzen .kpi-strip .kpi-icon { font-size: 0.85rem !important; }
+.profile-duzen .kpi-strip .kpi-value { font-size: 1.05rem !important; line-height: 1.2 !important; }
+.profile-duzen .kpi-strip .kpi-subtitle { font-size: 0.68rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-duzen .kpi-strip .panel-collapse-header { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+    .profile-duzen .profile-bento-kpi-grid.kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* 4 ana bölüm */
+.profile-main-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 0.5rem; }
+.profile-main-tab { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0.65rem 0.4rem; border-radius: 12px; border: 1px solid var(--glass-border, rgba(148,163,184,0.3)); background: rgba(148, 163, 184, 0.08); color: var(--text-secondary, inherit); font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: background .15s, border-color .15s; }
+.profile-main-tab:hover { border-color: var(--primary); }
+.profile-main-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+.profile-main-tab .pmt-icon { font-size: 1.05rem; }
+.profile-main-tab .pmt-badge { position: absolute; top: -6px; right: -4px; background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 800; border-radius: 999px; padding: 1px 6px; }
+.profile-main-tab .pmt-badge.hidden { display: none; }
+.profile-sub-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.profile-sub-tabs.hidden { display: none; }
+.profile-sub-tab { padding: 0.35rem 0.85rem; border-radius: 999px; border: 1px solid var(--glass-border, rgba(148,163,184,0.3)); background: transparent; color: var(--text-muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.profile-sub-tab.active { background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: var(--primary); }
+@media (max-width: 640px) {
+    .profile-main-tab { flex-direction: column; gap: 2px; padding: 0.5rem 0.2rem; font-size: 0.72rem; }
+    .profile-main-tab .pmt-icon { font-size: 1.15rem; }
+}
+
+/* Ayarlarım › Şifre ve Diğer */
+.profile-settings-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-bottom: 1rem; }
+.profile-settings-actions button { padding: 0.6rem 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border, rgba(148,163,184,0.3)); background: rgba(148, 163, 184, 0.08); color: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+#tab-settings > .sidebar-widget, #tab-settings > #profile-password-section { margin-bottom: 1rem; }
+/* Koyu görev kartlarında ders adı okunur olsun (açık temanın koyu mavi bağlantı rengi koyu zeminde kayboluyordu) */
+#table-exams.exam-card-mode tbody tr .clickable-name, #table-exams.exam-card-mode tbody tr .clickable-name strong,
+#profile-table-active.exam-card-mode tbody tr .clickable-name, #profile-table-active.exam-card-mode tbody tr .clickable-name strong,
+#profile-table-marketplace.exam-card-mode tbody tr .clickable-name, #profile-table-marketplace.exam-card-mode tbody tr .clickable-name strong,
+#profile-table-archive.exam-card-mode tbody tr .clickable-name, #profile-table-archive.exam-card-mode tbody tr .clickable-name strong { color: #e0f2fe !important; }
+@media (max-width: 768px) {
+    #profile-table-active tbody tr .clickable-name, #profile-table-active tbody tr .clickable-name strong,
+    #profile-table-marketplace tbody tr .clickable-name, #profile-table-marketplace tbody tr .clickable-name strong,
+    #profile-table-archive tbody tr .clickable-name, #profile-table-archive tbody tr .clickable-name strong { color: #e0f2fe !important; }
+}
+/* Yeni bölüm düğmeleri varken eski "Görevlerim, Takvim ve Puan Karnesi" küçültme başlığı gereksiz */
+.profile-duzen .profile-main-column > .panel-collapse-header { display: none !important; }
