@@ -25,6 +25,8 @@
         SURE_SORU: 'sure_teyidi',     // "Sınav süreniz … sürdü, onaylıyor musunuz?"
         SURE_GIRIS: 'sure_girisi',    // "Gerçek süreyi girin"
         DUYURU: 'duyuru',             // yönetici duyurusu
+        TAKAS_TEKLIF: 'swap_offer',   // "… sizinle takas yapmak istiyor"
+        TAKAS_ONAY: 'swap_accepted',  // "Takasınız onaylandı"
         GENEL: 'genel'                // kimlik bağlandı vb.
     });
 
@@ -302,9 +304,20 @@
         let sure = false;
         if (d.tur) sure = d.tur === TUR.SURE_SORU || d.tur === TUR.SURE_GIRIS;
         else sure = d.action === 'verify_duration' || d.action === 'input_duration';
-        if (!sure || d.examId == null || d.examId === '') return { sureEkrani: false, url };
-        const step = d.step || ((d.tur === TUR.SURE_GIRIS || d.action === 'input_duration') ? 'input' : 'question');
-        return { sureEkrani: true, examId: d.examId, step, url };
+        if (sure && d.examId != null && d.examId !== '') {
+            const step = d.step || ((d.tur === TUR.SURE_GIRIS || d.action === 'input_duration') ? 'input' : 'question');
+            return { sureEkrani: true, examId: d.examId, step, url };
+        }
+
+        const isSwap = d.tur === TUR.TAKAS_TEKLIF || d.tur === TUR.TAKAS_ONAY || d.action === 'open_swap' || d.action === 'open_swap_request' || d.tab === 'swap-history';
+        if (isSwap) {
+            const reqId = d.requestId || '';
+            const baseUrl = url.split('?')[0];
+            const swapUrl = reqId ? `${baseUrl}?tab=swap-history&requestId=${encodeURIComponent(reqId)}` : `${baseUrl}?tab=swap-history`;
+            return { sureEkrani: false, takasEkrani: true, requestId: reqId, tab: 'swap-history', url: swapUrl };
+        }
+
+        return { sureEkrani: false, url };
     }
 
     // ------------------------------------------------------------------ Planlayıcı

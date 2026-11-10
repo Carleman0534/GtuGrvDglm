@@ -1,7 +1,7 @@
-const CACHE_NAME = 'gozetmenlik-ai-v63';
+const CACHE_NAME = 'gozetmenlik-ai-v64';
 
 // Ortak bildirim kuralları (dokunma davranışı sitedeki ve sunucudaki bildirimlerle aynı dosyadan)
-try { importScripts('./bildirim_kurallari.js?v=20261110a'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
+try { importScripts('./bildirim_kurallari.js?v=20261110b'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
 
 const ASSETS_TO_CACHE = [
     './',
@@ -88,17 +88,27 @@ self.addEventListener('notificationclick', event => {
         : (() => {
             const sure = data.tur ? (data.tur === 'sure_teyidi' || data.tur === 'sure_girisi')
                 : (data.action === 'verify_duration' || data.action === 'input_duration');
-            return (sure && data.examId)
-                ? { sureEkrani: true, examId: data.examId, step: data.step || ((data.tur === 'sure_girisi' || data.action === 'input_duration') ? 'input' : 'question'), url: data.url || './index.html' }
-                : { sureEkrani: false, url: data.url || './index.html' };
+            if (sure && data.examId) {
+                return { sureEkrani: true, takasEkrani: false, examId: data.examId, step: data.step || ((data.tur === 'sure_girisi' || data.action === 'input_duration') ? 'input' : 'question'), url: data.url || './index.html' };
+            }
+            const isSwap = data.tur === 'swap_offer' || data.tur === 'swap_accepted' || data.action === 'open_swap' || data.action === 'open_swap_request' || data.tab === 'swap-history';
+            if (isSwap) {
+                const reqId = data.requestId || '';
+                const baseUrl = (data.url || './index.html').split('?')[0];
+                const swapUrl = reqId ? `${baseUrl}?tab=swap-history&requestId=${encodeURIComponent(reqId)}` : `${baseUrl}?tab=swap-history`;
+                return { sureEkrani: false, takasEkrani: true, requestId: reqId, tab: 'swap-history', url: swapUrl };
+            }
+            return { sureEkrani: false, takasEkrani: false, url: data.url || './index.html' };
         })();
     const isDurationAction = hedef.sureEkrani;
+    const isSwapAction = hedef.takasEkrani;
     const examId = hedef.examId;
     const step = hedef.step;
+    const requestId = hedef.requestId;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-            // Açık sekme varsa odaklan; süre teyidi bildirimiyse pencereyi açması için mesaj ilet
+            // Açık sekme varsa odaklan; süre teyidi veya takas bildirimiyse pencereyi açması için mesaj ilet
             for (let client of windowClients) {
                 if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
                     if (isDurationAction && examId && 'postMessage' in client) {
@@ -108,6 +118,14 @@ self.addEventListener('notificationclick', event => {
                             action: step === 'input' ? 'input_duration' : 'verify_duration',
                             examId: examId,
                             step: step
+                        });
+                    } else if (isSwapAction && 'postMessage' in client) {
+                        client.postMessage({
+                            type: 'NOTIFICATION_ACTION',
+                            tur: data.tur || 'swap_offer',
+                            action: 'open_swap_request',
+                            requestId: requestId,
+                            tab: 'swap-history'
                         });
                     }
                     return client.focus();

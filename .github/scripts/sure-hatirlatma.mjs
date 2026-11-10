@@ -163,6 +163,101 @@ async function main() {
         console.log(`Duyuru ${bc.id}: hedef ${targetIds.length} kişi, ${ok}/${subs.size} cihaza gönderildi`);
     }
 
+    // --- Takas ve Görev Devri Bildirimleri ---
+    let swapPushed = 0;
+    const requests = Array.isArray(db.requests) ? db.requests : Object.values(db.requests || {});
+    state._takasTalepleri = state._takasTalepleri || {};
+    state._takasOnaylari = state._takasOnaylari || {};
+
+    for (const r of requests) {
+        if (!r || !r.id) continue;
+        const createdAt = Date.parse(r.createdAt) || (typeof r.id === 'number' ? r.id : 0);
+        if (!createdAt || (now - createdAt) > BROADCAST_MAX_AGE_MS) continue;
+
+        // 1. Bekleyen takas teklifi (Alıcı gözetmene kilit ekranı bildirimi)
+        const isPendingPeer = r.status === 'pending_peer' || (r.type === 'marketplace_claim' && r.status === 'pending');
+        if (isPendingPeer && r.receiverId && !state._takasTalepleri[r.id]) {
+            const targetPid = String(r.receiverId);
+            const subs = staffIds.has(targetPid) ? subsOf(targetPid) : [];
+            if (subs.length) {
+                const exam = r.initiatorExamId ? db.exams.find(e => String(e.id) === String(r.initiatorExamId)) : null;
+                const examStart = (exam && exam.date && exam.time) ? (Date.parse(`${exam.date}T${exam.time}:00+03:00`) || 0) : 0;
+                const isUrgent = examStart > 0 && (examStart - now) <= 24 * 60 * 60 * 1000 && (examStart - now) > 0;
+
+                const title = isUrgent ? '🚨 ACİL TAKAS TALEBİ!' : '🔄 Yeni Takas Talebi';
+                const body = `${r.initiatorName || 'Bir meslektaşınız'}, "${r.examName || 'sınav'}" görevi için size takas teklif etti. Onaylamak için dokunun.`;
+                const payload = JSON.stringify({
+                    title,
+                    body,
+                    tag: `gtu_swap_${r.id}`,
+                    data: {
+                        tur: K.TUR.TAKAS_TEKLIF,
+                        action: 'open_swap_request',
+                        requestId: r.id,
+                        tab: 'swap-history',
+                        url: `${SITE_URL}?tab=swap-history&requestId=${r.id}`
+                    }
+                });
+
+                if (dryRun) {
+                    console.log(`[Deneme] Takas talebi: gözetmen #${targetPid}, talep #${r.id}, ${subs.length} cihaz`);
+                } else {
+                    let delivered = false;
+                    for (const s of subs) {
+                        if (await send(targetPid, s, payload, { TTL: 24 * 60 * 60, urgency: isUrgent ? 'high' : 'normal' })) {
+                            delivered = true;
+                            swapPushed++;
+                        }
+                    }
+                    if (delivered) {
+                        state._takasTalepleri[r.id] = new Date(now).toISOString();
+                        console.log(`Takas talebi bildirimi iletildi: gözetmen #${targetPid}, talep #${r.id}`);
+                    }
+                }
+            }
+        }
+
+        // 2. Onaylanmış takas (Teklifi oluşturan gözetmene onay bildirimi)
+        const isApproved = r.status === 'approved';
+        const completedAt = Date.parse(r.completedAt) || Date.parse(r.updatedAt) || 0;
+        if (isApproved && r.initiatorId && completedAt && (now - completedAt) <= 24 * 60 * 60 * 1000 && !state._takasOnaylari[r.id]) {
+            const targetPid = String(r.initiatorId);
+            const subs = staffIds.has(targetPid) ? subsOf(targetPid) : [];
+            if (subs.length) {
+                const title = '✅ Takasınız Onaylandı!';
+                const body = `${r.receiverName || 'Karşı taraf'}, "${r.examName || 'sınav'}" takasınızı kabul etti. Görevleriniz güncellendi.`;
+                const payload = JSON.stringify({
+                    title,
+                    body,
+                    tag: `gtu_swap_approved_${r.id}`,
+                    data: {
+                        tur: K.TUR.TAKAS_ONAY,
+                        action: 'open_swap_request',
+                        requestId: r.id,
+                        tab: 'swap-history',
+                        url: `${SITE_URL}?tab=swap-history&requestId=${r.id}`
+                    }
+                });
+
+                if (dryRun) {
+                    console.log(`[Deneme] Takas onay bildirimi: gözetmen #${targetPid}, talep #${r.id}, ${subs.length} cihaz`);
+                } else {
+                    let delivered = false;
+                    for (const s of subs) {
+                        if (await send(targetPid, s, payload, { TTL: 24 * 60 * 60 })) {
+                            delivered = true;
+                            swapPushed++;
+                        }
+                    }
+                    if (delivered) {
+                        state._takasOnaylari[r.id] = new Date(now).toISOString();
+                        console.log(`Takas onay bildirimi iletildi: gözetmen #${targetPid}, talep #${r.id}`);
+                    }
+                }
+            }
+        }
+    }
+
     // 30 günden eski kayıtları temizle
     const MONTH = 30 * 24 * 60 * 60 * 1000;
     for (const [k, v] of Object.entries(state)) {
@@ -172,6 +267,12 @@ async function main() {
     for (const [k, v] of Object.entries(state._duyurular || {})) {
         if (now - Date.parse(v) > MONTH) delete state._duyurular[k];
     }
+    for (const [k, v] of Object.entries(state._takasTalepleri || {})) {
+        if (now - Date.parse(v) > MONTH) delete state._takasTalepleri[k];
+    }
+    for (const [k, v] of Object.entries(state._takasOnaylari || {})) {
+        if (now - Date.parse(v) > MONTH) delete state._takasOnaylari[k];
+    }
     if (!dryRun) writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 
     const planSayisi = (tur) => plan.filter(p => p.tur === tur).length;
@@ -179,7 +280,7 @@ async function main() {
         `planlanan → süre teyidi: ${planSayisi(K.TUR.SURE_SORU)} (kayıtlı cihazı olmayan: ${noDevice}), ` +
         `gün hatırlatması: ${planSayisi(K.TUR.GUN)}, ${K.AYAR.SAAT_ONCE} saat kala: ${planSayisi(K.TUR.SAAT)}; ` +
         `gönderilen bildirim → süre: ${sayac[K.TUR.SURE_SORU]}, gün: ${sayac[K.TUR.GUN]}, saat: ${sayac[K.TUR.SAAT]}; ` +
-        `yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), hata: ${failed}`);
+        `yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), takas bildirimi: ${swapPushed}, hata: ${failed}`);
     if (!pushEnabled) console.log('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY tanımlı değil: telefon bildirimi gönderilmiyor (deneme modu).');
     if (failed) process.exitCode = 1;
 }

@@ -3330,7 +3330,7 @@
         </div>
     </div>
 
-    <script src="bildirim_kurallari.js?v=20261110a"></script>
+    <script src="bildirim_kurallari.js?v=20261110b"></script>
     <script src="atama_destek.js?v=20261108m"></script>
     <script src="logic.js?v=20261109k"></script>
     <script src="app.js?v=20261110e"></script>
@@ -3340,7 +3340,7 @@
     <script src="smart_doc_parser.js?v=20261108m"></script>
     <script src="final_forecast_engine.js?v=20261109d"></script>
 
-    <script src="notification_engine.js?v=20261110a"></script>
+    <script src="notification_engine.js?v=20261110b"></script>
 
     <script src="mobile_app_engine.js?v=20261110c"></script>
 
@@ -3558,15 +3558,16 @@
                 <button id="btn-enable-notifications" type="button" class="btn-primary" onclick="requestExamNotificationPermission()" style="padding: 0.5rem 1rem; font-size: 0.82rem; border-radius: 8px;">🔔 İzni Aç</button>
             </div>
 
-            <!-- Görev hatırlatmaları: toplam 3 bildirim -->
+            <!-- Görev hatırlatmaları ve Anlık Takas Bildirimleri -->
             <div style="margin-bottom: 1.5rem;">
                 <div style="font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                    ⏱️ Görev Hatırlatmaları (her görev için toplam 3 bildirim):
+                    ⏱️ Otomatik Kilit Ekranı Hatırlatıcıları:
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.86rem; color: #f1f5f9;">
                     <div style="padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">📅 <b>3 gün önce:</b> "Sıradaki göreviniz 3 gün sonra"</div>
                     <div style="padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">📅 <b>Bir gün önce:</b> "Yarın göreviniz var"</div>
                     <div style="padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 10px;">⏰ <b>2 saat önce:</b> "Sınav 2 saat sonra başlıyor"</div>
+                    <div style="padding: 0.6rem 0.9rem; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px;">🔄 <b>Anlık Takas & Görev:</b> Biri size takas teklif ettiğinde veya onayladığında kilit ekranınıza anında bildirim düşer.</div>
                 </div>
             </div>
 
@@ -3581,11 +3582,16 @@
                 </button>
             </div>
 
-            <!-- Test Butonu ve Kapat -->
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
-                <button type="button" class="btn-secondary" onclick="testExamNotification()" style="font-size: 0.82rem; padding: 0.6rem 1rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
-                    <span>📲</span> Telefonuma Test Bildirimi Gönder
-                </button>
+            <!-- Test Butonları ve Kapat -->
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn-secondary" onclick="testExamNotification()" style="font-size: 0.8rem; padding: 0.55rem 0.85rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                        <span>⏰</span> Görev Test Bildirimi
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="testSwapNotification()" style="font-size: 0.8rem; padding: 0.55rem 0.85rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; border-color: rgba(99,102,241,0.4); color: #a5b4fc;">
+                        <span>🔄</span> Takas Test Bildirimi
+                    </button>
+                </div>
                 <button type="button" class="btn-primary" onclick="closeNotificationSettingsModal()" style="padding: 0.6rem 1.4rem; border-radius: 10px; font-weight: 600;">Tamam</button>
             </div>
         </div>

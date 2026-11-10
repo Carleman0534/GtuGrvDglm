@@ -580,6 +580,31 @@
         }
     };
 
+    // Anlık Test Takas Bildirimi
+    window.testSwapNotification = function () {
+        const state = getPermissionState();
+        if (state !== 'granted') {
+            window.requestExamNotificationPermission();
+            return;
+        }
+
+        window.dispatchLocalNotification(
+            '🔄 [Test Bildirimi] Yeni Takas Teklifi',
+            'Dr. Araş. Gör. Ahmet Yılmaz, "MATH 101" görevi için sizinle takas yapmak istiyor. Dokunarak inceleyebilirsiniz.',
+            'test_swap',
+            {
+                tur: 'swap_offer',
+                action: 'open_swap_request',
+                tab: 'swap-history',
+                url: './index.html?tab=swap-history'
+            }
+        );
+
+        if (typeof showToast === 'function') {
+            showToast('✅ Test takas bildirimi telefonunuza gönderildi! Kilit ekranınızı kontrol edebilirsiniz.', 'success');
+        }
+    };
+
     // Tüm Bildirim İzin Durumlarını UI'da Senkronize Et
     window.updateAllNotificationUI = function () {
         const state = getPermissionState();
@@ -906,6 +931,83 @@
         });
     };
 
+    // --- 🔄 Bekleyen Takas Bildirimlerini Denetle (PWA Cihaz & Kilit Ekranı Bildirimi) ---
+    window.checkIncomingSwapNotifications = function () {
+        if (!window.DB || !Array.isArray(DB.requests) || DB.requests.length === 0) return;
+        const myStaffId = window.getDeviceStaffId();
+        if (!myStaffId) return;
+
+        const now = Date.now();
+        const pendingKey = (id, st) => `gtu_swap_notified_${id}_${st}`;
+
+        DB.requests.forEach(r => {
+            if (!r || !r.id) return;
+            const createdAt = Date.parse(r.createdAt) || (typeof r.id === 'number' ? r.id : 0);
+            if (!createdAt || (now - createdAt) > BROADCAST_MAX_AGE_MS) return;
+
+            // 1. Bana gelen bekleyen takas teklifi (Alıcı olarak)
+            const isTargetMe = String(r.receiverId) === String(myStaffId);
+            const isPendingPeer = r.status === 'pending_peer' || (r.type === 'marketplace_claim' && r.status === 'pending');
+            if (isTargetMe && isPendingPeer) {
+                if (localStorage.getItem(pendingKey(r.id, 'pending'))) return;
+
+                const exam = (DB.exams && Array.isArray(DB.exams) && r.initiatorExamId) 
+                    ? DB.exams.find(e => String(e.id) === String(r.initiatorExamId)) 
+                    : null;
+                const examStart = (exam && exam.date && exam.time) 
+                    ? (Date.parse(`${exam.date}T${exam.time}:00+03:00`) || 0) 
+                    : 0;
+                const isUrgent = examStart > 0 && (examStart - now) <= 24 * 60 * 60 * 1000 && (examStart - now) > 0;
+
+                const title = isUrgent ? '🚨 ACİL TAKAS TALEBİ!' : '🔄 Yeni Takas Talebi';
+                const body = `${r.initiatorName || 'Bir meslektaşınız'}, "${r.examName || 'sınav'}" için sizinle takas yapmak istiyor. Dokunarak yanıtlayabilirsiniz.`;
+
+                if (getPermissionState() === 'granted') {
+                    window.dispatchLocalNotification(title, body, `swap_${r.id}`, {
+                        tur: 'swap_offer',
+                        action: 'open_swap_request',
+                        requestId: r.id,
+                        tab: 'swap-history',
+                        url: './index.html?tab=swap-history&requestId=' + r.id
+                    });
+                }
+
+                if (typeof showToast === 'function') {
+                    showToast(`${isUrgent ? '🚨' : '🔄'} ${title}: ${body}`, isUrgent ? 'error' : 'info');
+                }
+
+                localStorage.setItem(pendingKey(r.id, 'pending'), String(now));
+            }
+
+            // 2. Benim açtığım takasın onaylanması (Teklif sahibi olarak)
+            const isInitiatorMe = String(r.initiatorId) === String(myStaffId);
+            const isApproved = r.status === 'approved';
+            const completedAt = Date.parse(r.completedAt) || Date.parse(r.updatedAt) || 0;
+            if (isInitiatorMe && isApproved && completedAt && (now - completedAt) <= 24 * 60 * 60 * 1000) {
+                if (localStorage.getItem(pendingKey(r.id, 'approved'))) return;
+
+                const title = '✅ Takasınız Onaylandı!';
+                const body = `${r.receiverName || 'Karşı taraf'}, "${r.examName || 'sınav'}" takasınızı kabul etti. Görevleriniz güncellendi.`;
+
+                if (getPermissionState() === 'granted') {
+                    window.dispatchLocalNotification(title, body, `swap_approved_${r.id}`, {
+                        tur: 'swap_accepted',
+                        action: 'open_swap_request',
+                        requestId: r.id,
+                        tab: 'swap-history',
+                        url: './index.html?tab=swap-history&requestId=' + r.id
+                    });
+                }
+
+                if (typeof showToast === 'function') {
+                    showToast(`✅ ${title}: ${body}`, 'success');
+                }
+
+                localStorage.setItem(pendingKey(r.id, 'approved'), String(now));
+            }
+        });
+    };
+
     // --- Başlatıcı (Timer & Focus Listeners) ---
     function initNotificationEngine() {
         syncCachedDBEarly();
@@ -914,10 +1016,12 @@
         // Sayfa açıldığında ve periyodik kontrol et
         setTimeout(checkAllExamNotifications, 3000);
         setTimeout(window.checkIncomingBroadcastNotifications, 3500);
-        setTimeout(window.checkPostExamDurationVerifications, 4000);
+        setTimeout(window.checkIncomingSwapNotifications, 4000);
+        setTimeout(window.checkPostExamDurationVerifications, 4500);
 
         setInterval(checkAllExamNotifications, 60000);
         setInterval(window.checkIncomingBroadcastNotifications, 30000);
+        setInterval(window.checkIncomingSwapNotifications, 20000);
         // Sınav biter bitmez (en geç 5 sn içinde) bildirim + onay penceresi; giriş yapılınca da hemen
         setInterval(window.checkPostExamDurationVerifications, 5000);
         setInterval(pushAndPromptTick, 5000);
@@ -926,27 +1030,46 @@
         window.addEventListener('focus', () => {
             checkAllExamNotifications();
             window.checkIncomingBroadcastNotifications();
+            window.checkIncomingSwapNotifications();
             if (typeof window.checkPostExamDurationVerifications === 'function') window.checkPostExamDurationVerifications();
         });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 checkAllExamNotifications();
                 window.checkIncomingBroadcastNotifications();
+                window.checkIncomingSwapNotifications();
                 if (typeof window.checkPostExamDurationVerifications === 'function') window.checkPostExamDurationVerifications();
             }
         });
 
+        // URL üzerinden doğrudan takas sayfasına yönlendirme (Bildirime tıklandığında)
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            const reqId = urlParams.get('requestId');
+            if (tab === 'swap-history' || reqId) {
+                setTimeout(() => {
+                    if (typeof window.switchProfileTab === 'function') window.switchProfileTab('swap-history');
+                    if (typeof window.openRequestsTab === 'function') window.openRequestsTab(reqId || null);
+                }, 600);
+            }
+        } catch (e) {}
+
         // Service Worker Bildirim Tıklama Dinleyicisi
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.addEventListener('message', event => {
-                // Yalnızca süre teyidi bildirimleri pencereyi açar (eski service worker hatırlatmalarda da
-                // NOTIFICATION_ACTION gönderiyordu; action alanı yoksa yok sayılır)
-                if (event.data && event.data.type === 'NOTIFICATION_ACTION' &&
-                    (event.data.action === 'verify_duration' || event.data.action === 'input_duration')) {
-                    const examId = event.data.examId;
-                    const step = event.data.step || (event.data.action === 'input_duration' ? 'input' : 'question');
-                    if (examId && typeof window.openLecturerDurationPromptModal === 'function') {
-                        window.openLecturerDurationPromptModal(examId, step);
+                if (event.data && event.data.type === 'NOTIFICATION_ACTION') {
+                    if (event.data.action === 'verify_duration' || event.data.action === 'input_duration') {
+                        const examId = event.data.examId;
+                        const step = event.data.step || (event.data.action === 'input_duration' ? 'input' : 'question');
+                        if (examId && typeof window.openLecturerDurationPromptModal === 'function') {
+                            window.openLecturerDurationPromptModal(examId, step);
+                        }
+                    } else if (event.data.action === 'open_swap_request' || event.data.tab === 'swap-history') {
+                        if (typeof window.switchProfileTab === 'function') window.switchProfileTab('swap-history');
+                        if (typeof window.openRequestsTab === 'function') {
+                            window.openRequestsTab(event.data.requestId || null);
+                        }
                     }
                 }
             });
