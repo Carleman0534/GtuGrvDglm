@@ -599,30 +599,56 @@
     }
 
     // --- Yeni Sürüm Uyarısı ---
-    // GitHub Pages her yayında tüm dosyaların Last-Modified değerini yeniler. Açılıştaki değer
-    // saklanır; 5 dakikada bir ve uygulamaya geri dönüldüğünde karşılaştırılır. Değiştiyse
-    // (telefona kurulu uygulama günlerce açık kalabildiği için) "Yeni sürüm var" uyarısı çıkar.
-    let loadedVersion = null;
+    // Sürüm kimliği = sayfadaki dosya bağlantılarındaki en yeni "?v=YYYYAAGG.." damgası (kodun sürümü).
+    // Önceden sunucunun Last-Modified değeri karşılaştırılıyordu: GitHub Pages her push'ta (yalnızca test
+    // dosyası değişse bile) bu değeri yenilediği ve önbellek sunucuları birkaç dakika eski/yeni değer
+    // döndürebildiği için uyarı sürekli çıkıyordu. Artık yalnızca kod gerçekten DAHA YENİ ise gösterilir;
+    // kapatılan sürüm için tekrar gösterilmez, "Yenile"den sonra hâlâ eski sürüm geliyorsa (önbellek)
+    // 10 dakika beklenir.
+    const VERSION_RE = /\.(?:js|css)\?v=([0-9]{8}[a-z0-9]*)/gi;
+    const CHECK_EVERY_MS = 5 * 60 * 1000;
     let lastVersionCheck = 0;
 
-    async function fetchDeployedVersion() {
-        const res = await fetch('./index.html?surum=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
-        if (!res.ok) return null;
-        return res.headers.get('Last-Modified') || res.headers.get('ETag');
+    function maxStamp(text) {
+        let max = '';
+        String(text || '').replace(VERSION_RE, (m, v) => { if (v > max) max = v; return m; });
+        return max || null;
     }
 
-    async function checkForNewVersion() {
-        if (!navigator.onLine || Date.now() - lastVersionCheck < 60000) return;
+    function runningVersion() {
+        const attrs = Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href]'))
+            .map(el => el.getAttribute('src') || el.getAttribute('href') || '').join(' ');
+        return maxStamp(attrs);
+    }
+    window.getRunningAppVersion = runningVersion;
+
+    async function fetchDeployedVersion() {
+        const res = await fetch('./index.html?surum=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return null;
+        return maxStamp(await res.text());
+    }
+
+    function readJSON(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+    function writeJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* özel mod */ } }
+
+    async function checkForNewVersion(force) {
+        if (!navigator.onLine) return;
+        if (!force && Date.now() - lastVersionCheck < CHECK_EVERY_MS) return;
         lastVersionCheck = Date.now();
         try {
-            const v = await fetchDeployedVersion();
-            if (!v) return;
-            if (!loadedVersion) loadedVersion = v;
-            else if (v !== loadedVersion) window.showUpdateBanner();
+            const running = runningVersion();
+            const deployed = await fetchDeployedVersion();
+            if (!running || !deployed || deployed <= running) return;      // yalnızca daha yeni kod
+            const dismissed = readJSON('app_update_dismissed');
+            if (dismissed && dismissed.v === deployed) return;               // bu sürüm için kapatıldı
+            const tried = readJSON('app_update_reload');
+            if (tried && tried.v === deployed && Date.now() - tried.at < 10 * 60 * 1000) return; // önbellek gecikmesi
+            window.showUpdateBanner(deployed);
         } catch (e) { /* çevrimdışı vb. */ }
     }
+    window.checkForNewVersion = checkForNewVersion;
 
-    window.showUpdateBanner = function () {
+    window.showUpdateBanner = function (deployed) {
         if (document.getElementById('app-update-banner')) return;
         const bar = document.createElement('div');
         bar.id = 'app-update-banner';
@@ -635,13 +661,20 @@
             '<button type="button" id="app-update-reload" style="background:#0284c7; color:#fff; border:none; border-radius:8px; padding:6px 12px; font-weight:700; cursor:pointer;">Yenile</button>' +
             '<button type="button" id="app-update-later" aria-label="Kapat" style="background:none; border:none; color:#94a3b8; font-size:1.1rem; cursor:pointer;">✕</button>';
         document.body.appendChild(bar);
-        document.getElementById('app-update-reload').onclick = () => window.location.reload();
-        document.getElementById('app-update-later').onclick = () => bar.remove();
+        document.getElementById('app-update-reload').onclick = () => {
+            if (deployed) writeJSON('app_update_reload', { v: deployed, at: Date.now() });
+            window.location.reload();
+        };
+        document.getElementById('app-update-later').onclick = () => {
+            if (deployed) writeJSON('app_update_dismissed', { v: deployed, at: Date.now() });
+            bar.remove();
+        };
     };
 
     function initVersionCheck() {
-        checkForNewVersion();
-        setInterval(checkForNewVersion, 5 * 60 * 1000);
+        // Açılışta hemen değil, sayfa yerleştikten sonra kontrol et
+        setTimeout(() => checkForNewVersion(true), 15000);
+        setInterval(() => checkForNewVersion(), CHECK_EVERY_MS);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForNewVersion(); });
     }
 

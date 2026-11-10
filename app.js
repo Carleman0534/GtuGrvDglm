@@ -9161,7 +9161,7 @@ function independentDurationNoteHtml(ex, pid, selectId) {
                     <option value="" style="background: #1e293b; color: #94a3b8;">Salon Seçiniz…</option>
                     ${rooms.map(r => `
                         <option value="${r.replace(/"/g, '&quot;')}" ${myRoom === r ? 'selected' : ''} style="background: #1e293b; color: #ffffff; font-weight: 700; padding: 6px;">
-                            🚪 ${r} ${myRoom === r ? '(Size Atanan Derslik - Teyitli)' : ''}
+                            🚪 ${r}${myRoom === r ? ' ✓' : ''}
                         </option>
                     `).join('')}
                 </select>
@@ -15334,8 +15334,10 @@ if ('serviceWorker' in navigator) {
                     if (installingWorker) {
                         installingWorker.onstatechange = () => {
                             if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Uyarıyı doğrudan gösterme: yalnızca kodun daha yeni bir sürümü yayınlandıysa
+                                // gösterilsin (service worker'ın kendi değişikliği veya önbellek gecikmesi için değil)
                                 console.log('[PWA] Yeni güncelleme algilandi.');
-                                if (typeof window.showUpdateBanner === 'function') window.showUpdateBanner();
+                                if (typeof window.checkForNewVersion === 'function') window.checkForNewVersion(true);
                             }
                         };
                     }
