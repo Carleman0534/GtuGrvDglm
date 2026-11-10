@@ -1569,7 +1569,14 @@ function initUI() {
             if (typeof markNotificationsAsRead === 'function') markNotificationsAsRead();
         }
         if (tabId === 'my-timeline' && typeof renderMyTimeline === 'function') renderMyTimeline();
-        if (tabId === 'swap-history' && typeof renderSwapHistory === 'function') renderSwapHistory();
+        if (tabId === 'swap-history') {
+            if (typeof window.SwapMarket !== 'undefined' && typeof SwapMarket.renderMyRequests === 'function') {
+                SwapMarket.renderMyRequests();
+            } else if (typeof renderMyRequests === 'function') {
+                renderMyRequests();
+            }
+            if (typeof renderSwapHistory === 'function') renderSwapHistory();
+        }
         if (tabId === 'responsible' && typeof clearMessageBadge === 'function') clearMessageBadge();
         if (tabId === 'scorecard' && typeof renderScorecard === 'function') renderScorecard();
     };
@@ -13051,12 +13058,19 @@ function renderNotifications() {
             ? `<div style="margin-top:6px;"><button type="button" class="btn-primary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; cursor:pointer; font-weight:700;" onclick="openLecturerDurationPromptModal('${n.examId}', '${n.step || 'question'}')">⏱️ Süreyi ${n.step === 'input' ? 'Gir' : 'Onayla / Gir'}</button></div>`
             : '';
 
+        const swapBtn = (n.type === 'request')
+            ? `<div style="margin-top:6px;"><button type="button" class="btn-primary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:linear-gradient(135deg, #3b82f6, #1d4ed8); border:none; cursor:pointer; font-weight:700;" onclick="if(typeof SwapMarket!=='undefined'&&SwapMarket.openRequestsTab){SwapMarket.openRequestsTab();}else if(typeof window.openRequestsTab==='function'){window.openRequestsTab();}">🔄 Talebime Git</button></div>`
+            : (n.type === 'marketplace'
+                ? `<div style="margin-top:6px;"><button type="button" class="btn-primary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; cursor:pointer; font-weight:700;" onclick="if(typeof window.goToProfileMarketplace==='function'){window.goToProfileMarketplace();}">🛒 Pazara Git</button></div>`
+                : '');
+
         return `
             <div class="notif-item ${isNew ? 'unread' : ''}" style="${isAdminBroadcast ? 'border-left: 3px solid #ef4444; background: rgba(239, 68, 68, 0.05);' : ''}">
                 <div class="notif-icon">${n.icon}</div>
                 <div class="notif-content" style="flex:1;">
                     <div class="notif-message"><strong>${n.title}</strong>${badge}: ${n.message}</div>
                     ${durBtn}
+                    ${swapBtn}
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:3px;">
                         <span class="notif-time">${timeStr}</span>
                         ${deleteBtn}

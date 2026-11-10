@@ -208,11 +208,19 @@
             const btn = document.getElementById('btn-profile');
             if (btn) btn.click();
             setTimeout(() => {
-                if (typeof window.switchProfileTab === 'function') {
-                    window.switchProfileTab('marketplace');
+                // Eğer kullanıcının onay bekleyen takas teklifi varsa doğrudan Taleplerim'e git
+                const proposalsBox = document.getElementById('profile-swap-proposals');
+                const hasProposals = proposalsBox && !proposalsBox.classList.contains('hidden') && proposalsBox.innerHTML.trim() !== '';
+
+                if (hasProposals && typeof window.openRequestsTab === 'function') {
+                    window.openRequestsTab();
+                } else {
+                    if (typeof window.switchProfileTab === 'function') {
+                        window.switchProfileTab('marketplace');
+                    }
+                    const pane = document.getElementById('tab-marketplace');
+                    if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
-                const pane = document.getElementById('tab-marketplace');
-                if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
         } else if (tabKey === 'notifs') {
             // Bildirim Ayarları & Bildirimler Penceresini Aç

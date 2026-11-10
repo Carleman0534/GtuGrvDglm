@@ -503,7 +503,7 @@
                                             <select id="profile-tab-mobile-select" onchange="switchProfileTab(this.value)">
                                                 <option value="active" selected>📋 Aktif Görevlerim</option>
                                                 <option value="marketplace">🛒 Pazar Yeri (Açık Görevler)</option>
-                                                <option value="swap-history">🔄 Takas & Devir Geçmişim</option>
+                                                <option value="swap-history">🔄 Takas & Devir Taleplerim / Geçmiş</option>
                                                 <option value="archive">📦 Tamamlanan Görevler Arşivi</option>
                                                 <option value="my-timeline">📅 Kişisel Sınav Takvimim</option>
                                                 <option value="scorecard">🏆 Puan Karnesi & Dönem Dökümü</option>
@@ -519,7 +519,7 @@
                             <div class="profile-pill-tabs">
                                 <button class="tab-btn active" data-tab="active">📋 Aktif Görevler</button>
                                 <button class="tab-btn" data-tab="marketplace">🛒 Pazar Yeri</button>
-                                <button class="tab-btn" data-tab="swap-history">🔄 Takas Geçmişi</button>
+                                <button class="tab-btn" data-tab="swap-history">🔄 Takas Taleplerim & Geçmiş</button>
                                     <button class="tab-btn" data-tab="archive">📦 Arşiv</button>
                                 <button class="tab-btn" data-tab="my-timeline">📅 Sınav Takvimim</button>
                                 <button class="tab-btn" data-tab="scorecard">🏆 Puan Karnem</button>
@@ -584,12 +584,29 @@
                                 </div>
 
 
-                                <!-- 3b. Takas Geçmişi -->
+                                <!-- 3b. Takas Taleplerim & Geçmişi -->
                                 <div id="tab-swap-history" class="tab-pane hidden">
-                                    <div class="card card-table" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 18px; padding: 1.25rem;">
+                                    <!-- A. Aktif Takas & Devir Taleplerim (Onay Bekleyenler & Gönderilenler) -->
+                                    <div id="card-my-swap-requests" class="card card-table" style="background: rgba(15, 23, 42, 0.75); border: 1.5px solid rgba(56, 189, 248, 0.4); border-radius: 18px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.75rem;">
+                                            <h4 style="margin:0; font-size:1rem; color:#f8fafc; display:flex; align-items:center; gap:8px;">
+                                                <span style="font-size:1.2rem;">🔄</span> Takas & Devir Taleplerim
+                                                <span id="requests-tab-badge" class="badge-count hidden" style="background:#ef4444; color:white; font-size:0.75rem; padding:2px 8px; border-radius:12px;">0</span>
+                                            </h4>
+                                            <div style="font-size:0.78rem; color:var(--text-muted);">
+                                                Bana gelen teklifler ve gönderdiğim talepler
+                                            </div>
+                                        </div>
+                                        <div id="my-requests-content" style="display:flex; flex-direction:column; gap:.75rem;">
+                                            <!-- SwapMarket.renderMyRequests() ile doldurulacak -->
+                                        </div>
+                                    </div>
+
+                                    <!-- B. Tamamlanan Takas & Devir Geçmişi -->
+                                    <div id="card-swap-history-archive" class="card card-table" style="background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: 18px; padding: 1.25rem;">
                                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem;">
                                             <h4 style="margin:0; font-size:0.95rem; color:#f1f5f9; display:flex; align-items:center; gap:6px;">
-                                                <span>🔄</span> Takas & Devir Geçmişim
+                                                <span>🗂️</span> Tamamlanan Takas & Devir Geçmişim
                                             </h4>
                                             <div style="display:flex; gap:8px; align-items:center;">
                                                 <select id="swap-history-filter" onchange="renderSwapHistory()" style="background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);padding:5px 10px;border-radius:8px;color:white;font-size:0.78rem;">
@@ -600,7 +617,7 @@
                                             </div>
                                         </div>
                                         <div id="swap-history-list" style="display:flex; flex-direction:column; gap:.6rem;">
-                                            <!-- JS ile doldurulacak -->
+                                            <!-- renderSwapHistory() ile doldurulacak -->
                                         </div>
                                         <div id="swap-history-empty" class="hidden" style="text-align:center; color:var(--text-muted); padding:2rem; font-size:.85rem;">
                                             📭 Henüz tamamlanmış bir takas veya devir işlemi bulunmuyor.

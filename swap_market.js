@@ -770,7 +770,7 @@ ${signature(claimer)}`
             btns += `<button type="button" class="btn-swap-action mail" onclick="SwapMarket.resendMail('${rid}')" title="E-postayı yeniden oluştur">📧</button>`;
             btns += `<button type="button" class="btn-swap-action cancel" onclick="cancelSwapRequest('${rid}')" title="Talebi iptal et">🚫</button>`;
         } else if (['swap_pending', 'claim_pending'].includes(st.key)) {
-            btns += `<button type="button" class="btn-swap-action review" onclick="SwapMarket.openRequestsTab()" title="Talebi incele">👀 İncele</button>`;
+            btns += `<button type="button" class="btn-swap-action review" onclick="SwapMarket.openRequestsTab('${rid}')" title="Talebi incele">👀 İncele</button>`;
         }
         return `<span class="swap-actions">${statusBadge(st)}${btns}</span>`;
     }
@@ -1419,7 +1419,7 @@ ${signature(claimer)}`
             }
         }
         const when = r.completedAt || r.cancelledAt || r.rejectedAt || r.expiredAt || r.updatedAt || r.createdAt;
-        return `<div class="request-card">
+        return `<div class="request-card" id="swap-req-${rid}">
             <div class="request-card-head">
                 <div>${desc}</div>
                 <span class="swap-status ${st.cls}">${esc(st.label)}</span>
@@ -1452,11 +1452,13 @@ ${signature(claimer)}`
                 ${items.length ? items.map(r => requestRowHTML(r, typeof role === 'function' ? role(r) : role)).join('') : `<p class="swap-empty">${empty}</p>`}
             </div>`;
 
+        const isSeparatePane = (pane.id === 'my-requests-content');
+
         pane.innerHTML =
             section('📥 Onayınızı Bekleyenler', incoming, 'incoming', 'Onay bekleyen talep yok.') +
             section('📤 Gönderdiğiniz Talepler', sent.concat(myClaims), r => (r.status === 'claim_pending' && S(r.receiverId) === S(me)) ? 'claim' : 'sent', 'Aktif talebiniz yok. Aktif Görevler sekmesinden 🔄 Takas Yap veya 📤 Pazara Çıkar ile başlayabilirsiniz.') +
             (waitingAdmin.length ? section('🛡️ Yönetici Onayı Bekleyenler', waitingAdmin, 'history', '') : '') +
-            section('🗂️ Geçmiş', history, 'history', 'Henüz sonuçlanmış talep yok.');
+            (!isSeparatePane ? section('🗂️ Geçmiş', history, 'history', 'Henüz sonuçlanmış talep yok.') : '');
 
         if (badge) {
             badge.textContent = incoming.length;
@@ -1474,24 +1476,76 @@ ${signature(claimer)}`
         box.classList.remove('hidden');
         box.innerHTML = `<div class="swap-proposals-banner">
             <div><span style="font-size:1.3rem">🔔</span> <b>${incoming.length}</b> talep onayınızı bekliyor:
-            ${incoming.slice(0, 3).map(r => `<span class="swap-proposal-chip">${esc(isSwapReq(r) ? r.initiatorName + ' · ' + reqTitle(r) : (r.status === 'claim_pending' ? r.receiverName : r.initiatorName) + ' · ' + reqTitle(r))}</span>`).join('')}
+            ${incoming.slice(0, 3).map(r => `<span class="swap-proposal-chip" style="cursor:pointer;" onclick="SwapMarket.openRequestsTab('${esc(S(r.id))}')" title="Bu talebe git">${esc(isSwapReq(r) ? r.initiatorName + ' · ' + reqTitle(r) : (r.status === 'claim_pending' ? r.receiverName : r.initiatorName) + ' · ' + reqTitle(r))}</span>`).join('')}
             ${incoming.length > 3 ? '…' : ''}</div>
-            <button class="btn-primary" onclick="SwapMarket.openRequestsTab()">Taleplerim'e Git</button>
+            <button class="btn-primary" onclick="SwapMarket.openRequestsTab()" style="font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">🔄 Taleplerim'e Git</button>
         </div>`;
     }
 
-    function openRequestsTab() {
+    function openRequestsTab(targetReqId = null) {
+        // 1. Profil sekmesine geç (Masaüstü buton veya mobil alt menü)
         const btnProfile = document.getElementById('btn-profile');
-        const section = document.getElementById('section-profile');
-        if (btnProfile && section && section.classList.contains('hidden')) btnProfile.click();
-        if (typeof window.switchProfileTab === 'function') {
-            window.switchProfileTab('swap-history');
-        } else {
-            const tab = document.querySelector('#section-profile .tab-btn[data-tab="swap-history"]') ||
-                        document.querySelector('#section-profile .tab-btn[data-tab="requests"]');
-            if (tab) tab.click();
+        const sectionProfile = document.getElementById('section-profile');
+
+        // Mobil alt menü ikonunu profil olarak güncelle
+        document.querySelectorAll('#mobile-bottom-nav .mobile-nav-item').forEach(mBtn => {
+            const tab = mBtn.getAttribute('data-tab');
+            if (tab === 'profile' || tab === 'swap') {
+                mBtn.classList.add('active');
+            } else {
+                mBtn.classList.remove('active');
+            }
+        });
+
+        if (btnProfile && sectionProfile && sectionProfile.classList.contains('hidden')) {
+            btnProfile.click();
         }
-        renderMyRequests();
+
+        // 2. Takas Taleplerim sekmesini aç ve direkt kaydır
+        const navigateToRequests = () => {
+            // Profil alt sekmesini 'swap-history' yap
+            if (typeof window.switchProfileTab === 'function') {
+                window.switchProfileTab('swap-history');
+            } else {
+                const tab = document.querySelector('#section-profile .tab-btn[data-tab="swap-history"]') ||
+                            document.querySelector('#section-profile .tab-btn[data-tab="requests"]');
+                if (tab) tab.click();
+            }
+
+            // Mobil dropdown'ı da senkronize et
+            const mobileSelect = document.getElementById('profile-tab-mobile-select');
+            if (mobileSelect && mobileSelect.value !== 'swap-history') {
+                mobileSelect.value = 'swap-history';
+            }
+
+            // Talepleri ve geçmişi derhal render et
+            renderMyRequests();
+            if (typeof window.renderSwapHistory === 'function') {
+                window.renderSwapHistory();
+            }
+
+            // 3. DOĞRUDAN TALEPLERİME KAYDIR (Mobil ekranda aşağıda kaybolmasını önler)
+            const targetEl = (targetReqId ? document.getElementById(`swap-req-${targetReqId}`) : null) ||
+                             document.getElementById('card-my-swap-requests') ||
+                             document.getElementById('my-requests-content') ||
+                             document.getElementById('tab-swap-history');
+
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                targetEl.style.transition = 'box-shadow 0.35s ease, border-color 0.35s ease';
+                targetEl.style.boxShadow = '0 0 25px rgba(56, 189, 248, 0.7)';
+                targetEl.style.borderColor = '#38bdf8';
+                setTimeout(() => {
+                    targetEl.style.boxShadow = '';
+                    targetEl.style.borderColor = '';
+                }, 2000);
+            }
+        };
+
+        // DOM'un yüklenmesi ve mobil sekme animasyonu için aşamalı güvenli çağrı
+        navigateToRequests();
+        setTimeout(navigateToRequests, 100);
+        setTimeout(navigateToRequests, 300);
     }
 
     // ------------------------------------------------------------------
@@ -1592,6 +1646,7 @@ ${signature(claimer)}`
     window.rejectOpenRequest = id => rejectClaim(id, false);
     window.cancelSwapRequest = cancelRequest;
     window.renderMyRequests = renderMyRequests;
+    window.openRequestsTab = openRequestsTab;
 
     // Eski tip yönlendirilmiş devir (showSwapModal ile oluşturulan) → aynı doğrulama/onay zinciri
     window.approveSwapPeer = async function (requestId) {
