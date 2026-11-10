@@ -214,7 +214,8 @@
         // 1. Service Worker ile Bildirim Gönder (PWA arka plandayken veya telefon kilitliyken çalışır)
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification(title, {
+                const actions = (extraData && extraData.actions) || (extraData && extraData.data && extraData.data.actions) || [];
+                const notifOptions = {
                     body: body,
                     icon: './icon-192.png',
                     badge: './icon-192.png',
@@ -222,10 +223,14 @@
                     // Ortak kuralların ürettiği etiketler zaten "gtu_exam_" ile başlar
                     tag: String(tag).startsWith('gtu_exam_') ? tag : `gtu_exam_${tag}`,
                     renotify: true,
-                    requireInteraction: (tag.includes('3h') || tag.includes('6h') || tag.includes('bc_')),
+                    requireInteraction: (tag.includes('3h') || tag.includes('6h') || tag.includes('bc_') || tag === 'sure_onay' || tag.includes('post_exam_') || tag.includes('sure_')),
                     // Türü ve eylemi belirtilmemiş bildirim "genel" sayılır (dokununca yalnızca uygulama açılır)
                     data: Object.assign({ url: './index.html' }, (extraData && (extraData.tur || extraData.action)) ? {} : { tur: 'genel' }, extraData)
-                });
+                };
+                if (Array.isArray(actions) && actions.length > 0) {
+                    notifOptions.actions = actions;
+                }
+                reg.showNotification(title, notifOptions);
             }).catch(err => {
                 console.warn('SW bildirim hatası, normal bildirime dönülüyor:', err);
                 fallbackNotification(title, body, tag);
@@ -402,6 +407,11 @@
 
                 // 1. Cihaz / Push Bildirimi Gönder (Kilit ekranı / PWA)
                 if (getPermissionState() === 'granted') {
+                    const durLabel = durMins ? `${durMins} dk` : 'Süreyi';
+                    const actions = [
+                        { action: 'approve_duration', title: `✅ Onayla (${durLabel})` },
+                        { action: 'input_duration', title: '✏️ Süre Değiştir / Gir' }
+                    ];
                     window.dispatchLocalNotification(
                         title,
                         message,
@@ -410,8 +420,10 @@
                             tur: K.TUR.SURE_SORU,
                             action: 'verify_duration',
                             examId: ex.id,
+                            duration: durMins,
                             step: 'question',
-                            url: `./index.html?verifyDurationExamId=${encodeURIComponent(ex.id)}&step=question`
+                            url: `./index.html?verifyDurationExamId=${encodeURIComponent(ex.id)}&step=question`,
+                            actions: actions
                         }
                     );
                 }
@@ -1065,7 +1077,17 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.addEventListener('message', event => {
                 if (event.data && event.data.type === 'NOTIFICATION_ACTION') {
-                    if (event.data.action === 'verify_duration' || event.data.action === 'input_duration') {
+                    if (event.data.action === 'confirm_direct' || event.data.step === 'confirm_direct') {
+                        const examId = event.data.examId;
+                        if (examId && typeof window.openLecturerDurationPromptModal === 'function') {
+                            window.openLecturerDurationPromptModal(examId, 'question');
+                            setTimeout(() => {
+                                if (typeof window.confirmLecturerExamDuration === 'function') {
+                                    window.confirmLecturerExamDuration(examId);
+                                }
+                            }, 300);
+                        }
+                    } else if (event.data.action === 'verify_duration' || event.data.action === 'input_duration') {
                         const examId = event.data.examId;
                         const step = event.data.step || (event.data.action === 'input_duration' ? 'input' : 'question');
                         if (examId && typeof window.openLecturerDurationPromptModal === 'function') {

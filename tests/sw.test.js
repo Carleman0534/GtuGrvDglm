@@ -17,13 +17,18 @@ function loadSW({ openClients = [] } = {}) {
     const listeners = {};
     const opened = [];
     const posted = [];
+    const shown = [];
     const clientsList = openClients.map(url => ({
         url,
         focus: async () => true,
         postMessage: (m) => posted.push(m)
     }));
     const self = {
-        registration: { scope: SCOPE, showNotification: async () => {}, getNotifications: async () => [] },
+        registration: {
+            scope: SCOPE,
+            showNotification: async (title, opt) => { shown.push({ title, opt }); },
+            getNotifications: async () => []
+        },
         location: { origin: 'https://ornek.github.io' },
         addEventListener: (type, fn) => { listeners[type] = fn; },
         skipWaiting: () => {}
@@ -45,15 +50,29 @@ function loadSW({ openClients = [] } = {}) {
     });
     vm.runInContext(fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), ctx);
 
-    async function click(data) {
+    async function click(data, action = '') {
         let pending = null;
         listeners.notificationclick({
+            action,
             notification: { data, close() {} },
             waitUntil: (p) => { pending = p; }
         });
         await pending;
     }
-    return { click, opened, posted };
+
+    async function push(payload) {
+        let pending = null;
+        listeners.push({
+            data: {
+                json: () => payload,
+                text: () => JSON.stringify(payload)
+            },
+            waitUntil: (p) => { pending = p; }
+        });
+        await pending;
+    }
+
+    return { click, push, opened, posted, shown };
 }
 
 test('"Yarın göreviniz var" hatırlatması süre teyidi penceresini açmaz', async () => {
@@ -98,4 +117,49 @@ test('Duyuru bildirimi kendi adresini açar', async () => {
     const sw = loadSW();
     await sw.click({ url: SCOPE + 'index.html', broadcastId: 'b1' });
     assert.equal(sw.opened[0], SCOPE + 'index.html');
+});
+
+test('Bildirim üzerindeki "approve_duration" butonuna tıklandığında pencere kapalıysa step=confirm_direct ile açılır', async () => {
+    const sw = loadSW();
+    await sw.click({ tur: 'sure_teyidi', examId: 'E10' }, 'approve_duration');
+    assert.equal(sw.opened.length, 1);
+    assert.match(sw.opened[0], /verifyDurationExamId=E10&step=confirm_direct/);
+});
+
+test('Bildirim üzerindeki "input_duration" butonuna tıklandığında pencere kapalıysa step=input ile açılır', async () => {
+    const sw = loadSW();
+    await sw.click({ tur: 'sure_teyidi', examId: 'E10' }, 'input_duration');
+    assert.equal(sw.opened.length, 1);
+    assert.match(sw.opened[0], /verifyDurationExamId=E10&step=input/);
+});
+
+test('Uygulama açıkken: "approve_duration" ve "input_duration" aksiyonları pencereye doğru mesajı iletir', async () => {
+    const sw = loadSW({ openClients: [SCOPE] });
+    await sw.click({ tur: 'sure_teyidi', examId: 'E10' }, 'approve_duration');
+    assert.equal(sw.posted.length, 1);
+    assert.equal(sw.posted[0].action, 'confirm_direct');
+    assert.equal(sw.posted[0].step, 'confirm_direct');
+    assert.equal(sw.posted[0].examId, 'E10');
+
+    await sw.click({ tur: 'sure_teyidi', examId: 'E10' }, 'input_duration');
+    assert.equal(sw.posted.length, 2);
+    assert.equal(sw.posted[1].action, 'input_duration');
+    assert.equal(sw.posted[1].step, 'input');
+    assert.equal(sw.posted[1].examId, 'E10');
+});
+
+test('Web Push bildiriminde gelen actions doğrudan showNotification içine aktarılır', async () => {
+    const sw = loadSW();
+    const payload = {
+        title: '⏱️ Sınav sürenizi onaylayın',
+        body: 'MATH 101 sınavı 90 dk sürdü mü?',
+        actions: [
+            { action: 'approve_duration', title: '✅ Onayla (90 dk)' },
+            { action: 'input_duration', title: '✏️ Süre Değiştir / Gir' }
+        ],
+        data: { examId: 'E10' }
+    };
+    await sw.push(payload);
+    assert.equal(sw.shown.length, 1);
+    assert.deepEqual(sw.shown[0].opt.actions, payload.actions);
 });

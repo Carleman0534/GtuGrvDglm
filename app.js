@@ -10338,7 +10338,16 @@ function handleUrlVerifyDurationParam() {
         const verifyStep = params.get('step') || 'question';
         if (verifyExamId) {
             setTimeout(() => {
-                if (typeof window.openLecturerDurationPromptModal === 'function') {
+                if (verifyStep === 'confirm_direct') {
+                    if (typeof window.openLecturerDurationPromptModal === 'function') {
+                        window.openLecturerDurationPromptModal(verifyExamId, 'question');
+                        setTimeout(() => {
+                            if (typeof window.confirmLecturerExamDuration === 'function') {
+                                window.confirmLecturerExamDuration(verifyExamId);
+                            }
+                        }, 300);
+                    }
+                } else if (typeof window.openLecturerDurationPromptModal === 'function') {
                     window.openLecturerDurationPromptModal(verifyExamId, verifyStep);
                 }
                 try {
@@ -13085,7 +13094,10 @@ function renderNotifications() {
             `<button onclick="deleteAdminBroadcast('${n.broadcastId}')" title="Bu bildirimi yayından kaldır" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:0.8rem; margin-left:auto; padding:2px 6px;">🗑️</button>` : '';
         
         const durBtn = (n.examId && (n.type === 'exam_duration_prompt' || n.type === 'exam_duration_input'))
-            ? `<div style="margin-top:6px;"><button type="button" class="btn-primary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; cursor:pointer; font-weight:700;" onclick="openLecturerDurationPromptModal('${n.examId}', '${n.step || 'question'}')">⏱️ Süreyi ${n.step === 'input' ? 'Gir' : 'Onayla / Gir'}</button></div>`
+            ? `<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn-primary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:linear-gradient(135deg, #10b981, #059669); border:none; cursor:pointer; font-weight:700;" onclick="confirmLecturerExamDuration('${n.examId}')">✅ Onayla</button>
+                <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; background:rgba(56,189,248,0.15); border:1px solid #38bdf8; color:#38bdf8; cursor:pointer; font-weight:700;" onclick="openLecturerDurationPromptModal('${n.examId}', 'input')">✏️ Süre Değiştir / Gir</button>
+               </div>`
             : '';
 
         const swapBtn = (n.type === 'request')

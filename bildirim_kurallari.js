@@ -246,13 +246,28 @@
     /** Süre teyidi; action alanı eski service worker sürümleri için korunur */
     function sureTeyidi(sinavlar, siteUrl) {
         const first = sinavlar[0];
+        const dur = parseInt(first && (first.scheduledDuration || first.duration), 10) || AYAR.VARSAYILAN_SURE_DK;
+        const approveTitle = dur ? `✅ Onayla (${dur} dk)` : '✅ Süreyi Onayla';
+        const actions = [
+            { action: 'approve_duration', title: approveTitle },
+            { action: 'input_duration', title: '✏️ Süre Değiştir / Gir' }
+        ];
         return {
             title: '⏱️ Sınav sürenizi onaylayın',
             body: sinavlar.length === 1
-                ? `${first.name} (${first.date} ${first.time}) — ${parseInt(first.scheduledDuration || first.duration, 10) || AYAR.VARSAYILAN_SURE_DK} dk sürdü mü?`
+                ? `${first.name} (${first.date} ${first.time}) — ${dur} dk sürdü mü?`
                 : `${sinavlar.length} sınavın süresi onay bekliyor. Dokunun ve onaylayın.`,
             tag: 'sure_onay',
-            data: { tur: TUR.SURE_SORU, action: 'verify_duration', url: siteUrl || './index.html', examId: first.id, step: 'question' }
+            actions: actions,
+            data: {
+                tur: TUR.SURE_SORU,
+                action: 'verify_duration',
+                url: siteUrl || './index.html',
+                examId: first.id,
+                duration: dur,
+                step: 'question',
+                actions: actions
+            }
         };
     }
     /**
@@ -303,9 +318,14 @@
         const url = d.url || './index.html';
         let sure = false;
         if (d.tur) sure = d.tur === TUR.SURE_SORU || d.tur === TUR.SURE_GIRIS;
-        else sure = d.action === 'verify_duration' || d.action === 'input_duration';
+        else sure = d.action === 'verify_duration' || d.action === 'input_duration' || d.action === 'confirm_direct';
         if (sure && d.examId != null && d.examId !== '') {
-            const step = d.step || ((d.tur === TUR.SURE_GIRIS || d.action === 'input_duration') ? 'input' : 'question');
+            let step = d.step;
+            if (!step) {
+                if (d.action === 'confirm_direct') step = 'confirm_direct';
+                else if (d.tur === TUR.SURE_GIRIS || d.action === 'input_duration') step = 'input';
+                else step = 'question';
+            }
             return { sureEkrani: true, examId: d.examId, step, url };
         }
 

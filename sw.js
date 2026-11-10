@@ -1,7 +1,7 @@
-const CACHE_NAME = 'gozetmenlik-ai-v65';
+const CACHE_NAME = 'gozetmenlik-ai-v66';
 
 // Ortak bildirim kuralları (dokunma davranışı sitedeki ve sunucudaki bildirimlerle aynı dosyadan)
-try { importScripts('./bildirim_kurallari.js?v=20261110c'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
+try { importScripts('./bildirim_kurallari.js?v=20261110f'); } catch (e) { /* aşağıdaki güvenli yedek kullanılır */ }
 
 const ASSETS_TO_CACHE = [
     './',
@@ -80,16 +80,33 @@ self.addEventListener('fetch', event => {
 // Push & Notification Click Event (PWA Bildirimine Dokunulduğunda Uygulamayı Açar)
 self.addEventListener('notificationclick', event => {
     event.notification.close();
-    const data = event.notification.data || {};
+    const data = Object.assign({}, event.notification.data || {});
+    const clickedAction = event.action;
+
+    // Bildirim üzerindeki interaktif aksiyon butonlarına dokunulduysa
+    if (clickedAction === 'approve_duration') {
+        data.step = 'confirm_direct';
+        data.action = 'confirm_direct';
+    } else if (clickedAction === 'input_duration') {
+        data.step = 'input';
+        data.action = 'input_duration';
+    }
+
     // Ne yapılacağına ortak kural karar verir: süre teyidi penceresi YALNIZCA süre teyidi türünde açılır.
     // Kurallar yüklenemediyse güvenli yedek: yalnızca açık süre türü/eylemi pencere açar, varsayılan yoktur.
     const hedef = (self.BildirimKurallari && self.BildirimKurallari.tiklamaHedefi)
         ? self.BildirimKurallari.tiklamaHedefi(data)
         : (() => {
             const sure = data.tur ? (data.tur === 'sure_teyidi' || data.tur === 'sure_girisi')
-                : (data.action === 'verify_duration' || data.action === 'input_duration');
+                : (data.action === 'verify_duration' || data.action === 'input_duration' || data.action === 'confirm_direct');
             if (sure && data.examId) {
-                return { sureEkrani: true, takasEkrani: false, examId: data.examId, step: data.step || ((data.tur === 'sure_girisi' || data.action === 'input_duration') ? 'input' : 'question'), url: data.url || './index.html' };
+                let s = data.step;
+                if (!s) {
+                    if (data.action === 'confirm_direct') s = 'confirm_direct';
+                    else if (data.tur === 'sure_girisi' || data.action === 'input_duration') s = 'input';
+                    else s = 'question';
+                }
+                return { sureEkrani: true, takasEkrani: false, examId: data.examId, step: s, url: data.url || './index.html' };
             }
             const isSwap = data.tur === 'swap_offer' || data.tur === 'swap_accepted' || data.action === 'open_swap' || data.action === 'open_swap_request' || data.tab === 'swap-history';
             if (isSwap) {
@@ -112,10 +129,11 @@ self.addEventListener('notificationclick', event => {
             for (let client of windowClients) {
                 if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
                     if (isDurationAction && examId && 'postMessage' in client) {
+                        const actionType = step === 'confirm_direct' ? 'confirm_direct' : (step === 'input' ? 'input_duration' : 'verify_duration');
                         client.postMessage({
                             type: 'NOTIFICATION_ACTION',
                             tur: data.tur || null,
-                            action: step === 'input' ? 'input_duration' : 'verify_duration',
+                            action: actionType,
                             examId: examId,
                             step: step
                         });
@@ -156,6 +174,7 @@ self.addEventListener('push', event => {
         }
     }
     const tag = payload.tag || 'gtu_broadcast';
+    const actions = payload.actions || (payload.data && payload.data.actions) || [];
     const options = {
         body: payload.body || payload.message,
         icon: './icon-192.png',
@@ -165,6 +184,9 @@ self.addEventListener('push', event => {
         renotify: true,
         data: Object.assign({ url: './index.html' }, payload.data || {})
     };
+    if (Array.isArray(actions) && actions.length > 0) {
+        options.actions = actions;
+    }
     // Aynı bildirim uygulama açıkken zaten gösterildiyse sessizce yerini al (ikinci kez titretme)
     event.waitUntil(
         self.registration.getNotifications({ tag: tag })
