@@ -8285,7 +8285,29 @@ function updateProfileDashboard(staffId) {
         const todayStr = new Date(trNow).toISOString().split('T')[0];
         const tomorrowStr = new Date(trNow + 86400000).toISOString().split('T')[0];
 
-        const todayExams = myExams.filter(e => e.date === todayStr);
+        const nowMs = Date.now();
+        const BK = window.BildirimKurallari;
+
+        const getEndMs = (e) => {
+            if (BK && typeof BK.sinavBitis === 'function') {
+                const b = BK.sinavBitis(e);
+                if (!isNaN(b)) return b;
+            }
+            const d = typeof getSafeDate === 'function' ? getSafeDate(e.date, e.time) : new Date(e.date + 'T' + e.time);
+            return d.getTime() + (parseInt(e.actualDuration || e.duration, 10) || 60) * 60000;
+        };
+
+        const getStartMs = (e) => {
+            if (BK && typeof BK.sinavBaslangic === 'function') {
+                const s = BK.sinavBaslangic(e);
+                if (!isNaN(s)) return s;
+            }
+            const d = typeof getSafeDate === 'function' ? getSafeDate(e.date, e.time) : new Date(e.date + 'T' + e.time);
+            return d.getTime();
+        };
+
+        // Bugün olan ve HENÜZ BİTMEMİŞ sınavlar (süresi geçmiş olanlar canlı görev bannerında gösterilmez)
+        const todayExams = myExams.filter(e => e.date === todayStr && nowMs < getEndMs(e));
         const tomorrowExams = myExams.filter(e => e.date === tomorrowStr);
 
         if (todayExams.length > 0) {
@@ -8303,7 +8325,7 @@ function updateProfileDashboard(staffId) {
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                     <div>
                         <div style="display: flex; align-items: center; font-weight: 800; font-size: 1.05rem; color: #ef4444; margin-bottom: 4px;">
-                            <span class="live-pulse-dot"></span> 🔴 BUGÜN SINAV GÖREVİNİZ BULUNMAKTADIR (${nextToday.time})
+                            ${(() => { const isOngoing = nowMs >= getStartMs(nextToday); return '<span class="live-pulse-dot"></span> 🔴 ' + (isOngoing ? 'ŞU ANDA SINAV GÖREVİNDESİNİZ (' + nextToday.time + ')' : 'BUGÜN SINAV GÖREVİNİZ BULUNMAKTADIR (' + nextToday.time + ')'); })()}
                         </div>
                         <div style="font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">
                             📚 ${nextToday.name} &bull; ${(() => {
@@ -8325,9 +8347,9 @@ function updateProfileDashboard(staffId) {
                         <button type="button" class="btn-primary" style="background: #10b981; padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="exportSingleExamToICal('${nextToday.id}')">
                             📅 .ics İndir
                         </button>
-                        <button type="button" class="btn-secondary" style="background: rgba(245,158,11,0.2); color:#fbbf24; border-color: rgba(245,158,11,0.4); padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="initiateDirectSwap('${nextToday.id}')">
+                        ${nowMs < getStartMs(nextToday) ? `<button type="button" class="btn-secondary" style="background: rgba(245,158,11,0.2); color:#fbbf24; border-color: rgba(245,158,11,0.4); padding: 0.5rem 0.9rem; font-size: 0.8rem;" onclick="initiateDirectSwap('${nextToday.id}')">
                             🔄 Takasa Çikar
-                        </button>
+                        </button>` : ''}
                     </div>
                 </div>
             `;
