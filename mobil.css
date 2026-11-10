@@ -51,6 +51,14 @@
         max-width: 100% !important;
         box-sizing: border-box;
     }
+    /* Checkbox & radio kutularının 44px min-height kuralıyla dikeyde uzamasını önle */
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-height: 0 !important;
+        width: 18px !important;
+        height: 18px !important;
+        flex-shrink: 0 !important;
+    }
 
     /* Son güvenlik ağı: gözden kaçan bir öğe olsa bile sayfa yatay kaymasın.
        clip, overflow:hidden'dan farklı olarak yapışkan (sticky) başlıkları bozmaz. */
@@ -142,27 +150,7 @@
         grid-template-columns: 1fr !important;
     }
 
-    /* Profil kartı: avatar ve düğmeler yan yana sığmıyor, düğmeler sağdan kesiliyordu.
-       Telefonda düğmeler avatarın altına, iki eşit sütun halinde gelir. */
-    .profile-hero {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 12px;
-    }
-    .profile-hero-content {
-        width: 100%;
-    }
-    .profile-hero-actions {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        width: 100%;
-        gap: 8px;
-    }
-    .profile-hero-actions > * {
-        min-width: 0;
-        width: 100%;
-        box-sizing: border-box;
-    }
+    /* Profil kartı ve düğmeler için detaylı kurallar Bölüm 8'de yer alır */
 
     /* ---------- 5. Açılır pencereler ---------- */
 
@@ -291,5 +279,631 @@
         text-align: left;
         font-weight: 800;
         border: none !important;
+    }
+
+    /* ---------- 8. 👤 PROFİLİM SEKMESİ & BENTO GRID MOBİL GELİŞTİRMELERİ ---------- */
+
+    /* Profil Bento Grid: İki kolonlu masaüstü düzeni mobilde dikey akışa geçer */
+    .profile-bento-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1rem !important;
+        width: 100% !important;
+        margin-bottom: 1.5rem !important;
+    }
+    .profile-main-column,
+    .profile-sidebar-column {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Profil Hero Kartı */
+    .profile-hero {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 16px !important;
+        margin-bottom: 0.85rem !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.85)) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    }
+    .profile-hero-content {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        text-align: left !important;
+        width: 100% !important;
+    }
+    .profile-main-avatar {
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        border-radius: 12px !important;
+        font-size: 1.15rem !important;
+        margin: 0 !important;
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.4) !important;
+    }
+    .profile-main-info {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+    .profile-name-row {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+    }
+    .profile-name-row h1 {
+        font-size: 1.15rem !important;
+        margin: 0 !important;
+        font-weight: 800 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        color: #fff !important;
+    }
+
+    /* Profil Hero Aksiyon Butonları (Kompakt 2x2 Izgara) */
+    .profile-hero-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        margin-top: 0.65rem !important;
+    }
+    .profile-hero-actions button,
+    .profile-hero-actions .btn-identity-switch {
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: 38px !important;
+        padding: 0.45rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        line-height: 1.2 !important;
+        border-radius: 9px !important;
+        white-space: normal !important;
+        text-align: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+    }
+    #btn-profile-view-toggle {
+        grid-column: span 2 !important;
+        min-height: 38px !important;
+        background: rgba(14, 165, 233, 0.15) !important;
+        border: 1px solid rgba(56, 189, 248, 0.45) !important;
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Şifre Bilgilendirme Duyuru Kartı */
+    #profile-password-announcement-banner {
+        padding: 0.75rem 0.85rem !important;
+        margin-bottom: 0.85rem !important;
+        border-radius: 14px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.65rem !important;
+        position: relative !important;
+    }
+    #profile-password-announcement-banner > div:first-child {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding-right: 28px !important;
+    }
+    #profile-password-announcement-banner span[style*="font-size: 1.6rem"] {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        font-size: 1.1rem !important;
+        border-radius: 8px !important;
+    }
+    #profile-password-announcement-banner button:not(.info-box-close) {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.78rem !important;
+        min-height: 36px !important;
+        border-radius: 8px !important;
+    }
+    #profile-password-announcement-banner .info-box-close {
+        position: absolute !important;
+        top: 6px !important;
+        right: 8px !important;
+        left: auto !important;
+        width: 28px !important;
+        min-width: 28px !important;
+        height: 28px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* 4 Bento KPI Kartı (2x2 Grid) */
+    .profile-bento-kpi-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.55rem !important;
+        margin-bottom: 0.85rem !important;
+        width: 100% !important;
+    }
+    .profile-bento-kpi-grid > .panel-collapse-header {
+        grid-column: 1 / -1 !important;
+        margin-bottom: 0.25rem !important;
+        font-size: 0.82rem !important;
+    }
+    .bento-kpi-card {
+        padding: 0.65rem 0.75rem !important;
+        border-radius: 12px !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+    .bento-kpi-card .kpi-header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        margin-bottom: 0.25rem !important;
+    }
+    .bento-kpi-card .kpi-title {
+        font-size: 0.65rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.03em !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .bento-kpi-card .kpi-icon {
+        font-size: 1.1rem !important;
+    }
+    .bento-kpi-card .kpi-value {
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 0.15rem !important;
+        line-height: 1.15 !important;
+    }
+    #profile-countdown {
+        font-size: 1.1rem !important;
+        letter-spacing: 0.02em !important;
+    }
+    .bento-kpi-card .kpi-subtitle {
+        font-size: 0.66rem !important;
+        line-height: 1.25 !important;
+        color: var(--text-secondary) !important;
+        gap: 3px !important;
+        flex-wrap: wrap !important;
+    }
+    #profile-countdown-target,
+    #profile-kpi-constraint-summary {
+        white-space: normal !important;
+        display: -webkit-box !important;
+        -webkit-line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* Sıradaki Görev Kartı (profile-next-duty-card) */
+    .next-duty-card {
+        padding: 0.8rem 0.85rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.85rem !important;
+    }
+    .next-duty-title {
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+    }
+    .next-duty-meta {
+        font-size: 0.74rem !important;
+        gap: 4px 8px !important;
+        margin: 6px 0 !important;
+    }
+    .next-duty-actions {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        margin-top: 8px !important;
+    }
+    .next-duty-actions button {
+        width: 100% !important;
+        min-height: 36px !important;
+        padding: 0.45rem 0.5rem !important;
+        font-size: 0.74rem !important;
+        border-radius: 8px !important;
+        text-align: center !important;
+        justify-content: center !important;
+    }
+    .next-duty-all {
+        width: 100% !important;
+        min-height: 36px !important;
+        padding: 0.45rem 0.6rem !important;
+        font-size: 0.75rem !important;
+        border-radius: 8px !important;
+    }
+
+    /* Canlı Görev Banner'ı (profile-live-duty-banner) */
+    .profile-live-duty-banner {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.85rem !important;
+    }
+    .profile-live-duty-banner > div:first-child {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .profile-live-duty-banner div:has(> button) {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        margin-top: 6px !important;
+    }
+    .profile-live-duty-banner button {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 0.45rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-height: 36px !important;
+        border-radius: 8px !important;
+    }
+
+    /* Sınav Süresi Teyit Kartı (.pending-duration-card) */
+    .pending-duration-card {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 0.85rem !important;
+    }
+    .pending-duration-card > div:first-child {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .pending-duration-card > div:first-child > div:first-child {
+        min-width: 0 !important;
+    }
+    .pending-duration-card div:has(> button) {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        width: 100% !important;
+        margin-top: 6px !important;
+    }
+    .pending-duration-card button {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 0.5rem 0.6rem !important;
+        font-size: 0.75rem !important;
+        min-height: 38px !important;
+        border-radius: 8px !important;
+        text-align: center !important;
+    }
+
+    /* Final Dönemi Tahmin Kartı (ffc-scope) */
+    .ffc-scope {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.85rem !important;
+    }
+    .ffc-scope .forecast-card-head {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+    }
+    .ffc-scope .ffc-head-title h3 {
+        font-size: 0.92rem !important;
+    }
+    .ffc-scope .ffc-intro {
+        font-size: 0.74rem !important;
+        line-height: 1.35 !important;
+    }
+    .ffc-scope .ffc-tiles {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        margin-bottom: 8px !important;
+    }
+    .ffc-scope .ffc-tiles > .ffc-tile-green {
+        grid-column: 1 / -1 !important;
+    }
+    .ffc-scope .ffc-tile {
+        padding: 8px 10px !important;
+        border-radius: 10px !important;
+    }
+    .ffc-scope .ffc-tile-label {
+        font-size: 0.65rem !important;
+    }
+    .ffc-scope .ffc-tile-value {
+        font-size: 1.15rem !important;
+    }
+    .ffc-scope table.ffc-table {
+        min-width: 0 !important;
+        width: 100% !important;
+        font-size: 0.74rem !important;
+    }
+    .ffc-scope table.ffc-table th,
+    .ffc-scope table.ffc-table td {
+        padding: 6px 6px !important;
+    }
+
+    /* Mobil Tab Seçici */
+    .profile-pill-tabs {
+        display: none !important;
+    }
+    .profile-mobile-tab-picker {
+        display: block !important;
+        margin-bottom: 0.85rem !important;
+        width: 100% !important;
+    }
+    .profile-picker-container {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 0.55rem 0.75rem !important;
+        border-radius: 14px !important;
+        box-sizing: border-box !important;
+    }
+    .profile-picker-icon-box {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        border-radius: 10px !important;
+        font-size: 1.15rem !important;
+    }
+    .profile-picker-select-box select {
+        font-size: 0.9rem !important;
+        font-weight: 700 !important;
+        padding: 2px 24px 2px 0 !important;
+        min-height: 32px !important;
+    }
+
+    /* Puan Karnesi (#tab-scorecard / #scorecard-stats-grid) */
+    #tab-scorecard .card-large {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 14px !important;
+    }
+    #scorecard-stats-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        margin-bottom: 1rem !important;
+        width: 100% !important;
+    }
+    .sc-stat-card {
+        padding: 0.65rem 0.4rem !important;
+        border-radius: 12px !important;
+        text-align: center !important;
+        box-sizing: border-box !important;
+    }
+    .sc-stat-card > div:first-child {
+        font-size: 0.62rem !important;
+        letter-spacing: 0.02em !important;
+        margin-bottom: 2px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .sc-stat-card > div:last-child {
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+        line-height: 1.15 !important;
+    }
+    #scorecard-accordion-list {
+        gap: 0.5rem !important;
+    }
+
+    /* Takas Taleplerim & Geçmişi (#tab-swap-history) */
+    #card-my-swap-requests,
+    #card-swap-history-archive {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 14px !important;
+        margin-bottom: 0.85rem !important;
+    }
+    .request-card {
+        padding: 0.75rem 0.8rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 0.6rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+    }
+    .request-card-head {
+        font-size: 0.82rem !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+    .swap-summary-table {
+        font-size: 0.72rem !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: fixed !important;
+    }
+    .swap-summary-table th,
+    .swap-summary-table td {
+        padding: 4px 5px !important;
+        word-wrap: break-word !important;
+    }
+    .swap-summary-table tbody th {
+        width: 44px !important;
+    }
+    .request-card-foot {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 6px !important;
+        margin-top: 4px !important;
+    }
+    .request-card-foot div:has(> button),
+    .request-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+    .request-card-foot button,
+    .request-actions button {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 0.45rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-height: 36px !important;
+        border-radius: 8px !important;
+        text-align: center !important;
+    }
+
+    /* Kişisel Takvim Gridleri (Sidebar + Timeline) */
+    #profile-calendar-grid,
+    #my-timeline-calendar-grid {
+        display: grid !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        gap: 2px !important;
+        width: 100% !important;
+    }
+    #profile-calendar-grid > div,
+    #my-timeline-calendar-grid > div {
+        min-height: 46px !important;
+        padding: 2px 1px !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
+    }
+    .profile-cal-day > div:first-child {
+        font-size: 0.65rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    /* Kısıt Ayarları (#visual-constraint-grid / #vcg-table) */
+    #visual-constraint-grid {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom: 6px !important;
+    }
+    #vcg-table {
+        min-width: 340px !important;
+        width: 100% !important;
+        font-size: 0.68rem !important;
+    }
+    #vcg-table th,
+    #vcg-table td {
+        padding: 3px 2px !important;
+    }
+    .vcg-cell {
+        min-width: 24px !important;
+        height: 24px !important;
+        font-size: 0.6rem !important;
+        border-radius: 4px !important;
+    }
+    .constraint-form-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+    .constraint-form-grid > div:last-child {
+        grid-column: span 2 !important;
+        width: 100% !important;
+    }
+
+    /* Profil Kurulum Ekranı (#profile-identity-setup) */
+    #profile-identity-setup {
+        margin: 1rem auto !important;
+        padding: 1.15rem 1rem !important;
+        border-radius: 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    #profile-identity-setup > div:first-child {
+        font-size: 2.5rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+    #profile-identity-setup h2 {
+        font-size: 1.35rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    #profile-identity-setup p {
+        font-size: 0.82rem !important;
+        margin-bottom: 1rem !important;
+    }
+
+    /* Sınav Detayı Modalı */
+    #exam-detail-info {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
+        margin-bottom: 16px !important;
+    }
+    #modal-exam-detail .section-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    #modal-exam-detail .section-header > div:last-child {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+}
+
+/* =====================================================================
+   480px ve Daha Küçük Ekranlar (Küçük Telefonlar)
+   ===================================================================== */
+@media (max-width: 480px) {
+    .profile-hero {
+        padding: 0.75rem 0.8rem !important;
+    }
+    .bento-kpi-card {
+        padding: 0.6rem 0.65rem !important;
+    }
+    .bento-kpi-card .kpi-value {
+        font-size: 1.15rem !important;
+    }
+    #profile-countdown {
+        font-size: 1.05rem !important;
+    }
+    .sc-stat-card > div:last-child {
+        font-size: 1.15rem !important;
+    }
+}
+
+/* =====================================================================
+   380px ve Daha Küçük Ekranlar (Ekstra Dar Telefonlar: iPhone SE vb.)
+   ===================================================================== */
+@media (max-width: 380px) {
+    .profile-hero-actions {
+        grid-template-columns: 1fr !important;
+    }
+    #btn-profile-view-toggle {
+        grid-column: 1 !important;
+    }
+    .pending-duration-card div:has(> button) {
+        grid-template-columns: 1fr !important;
+    }
+    .profile-live-duty-banner div:has(> button) {
+        grid-template-columns: 1fr !important;
+    }
+    .next-duty-actions {
+        grid-template-columns: 1fr !important;
+    }
+    #exam-detail-info {
+        grid-template-columns: 1fr !important;
+    }
+    .request-card-foot div:has(> button),
+    .request-actions {
+        grid-template-columns: 1fr !important;
+    }
+    #scorecard-stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .profile-bento-kpi-grid {
+        grid-template-columns: 1fr !important;
     }
 }

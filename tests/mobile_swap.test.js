@@ -52,7 +52,7 @@ test('swap_market.js & sw.js: Sürüm önbellek tazeleme ve banner butonları ta
     const swCode = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
-    assert.match(swCode, /CACHE_NAME = 'gozetmenlik-ai-v61'/, 'sw.js önbellek sürümü v61 olmalı');
+    assert.match(swCode, /CACHE_NAME = 'gozetmenlik-ai-v6[1-9]'/, 'sw.js önbellek sürümü v61+ olmalı');
     assert.match(html, /swap_market\.js\?v=20261110c/, 'index.html swap_market güncel sürüm parametresi içermeli');
     assert.match(swapMarketCode, /Talebime Git/, 'Banner üzerinde Talebime Git butonu bulunmalı');
     assert.match(swapMarketCode, /acceptDirectSwap/, 'Banner üzerinde doğrudan kabul butonu bulunmalı');

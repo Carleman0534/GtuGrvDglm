@@ -7803,7 +7803,7 @@ window.renderProfile = function() {
                         <td><span class="score-tag">+${ex.score}</span></td>
                         <td>${statusBadge || '<span style="color:var(--text-muted);font-size:0.7rem;">Normal</span>'}</td>
                         <td style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
-                            <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sinavi Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3);"><span class="icon" style="margin:0;">📅</span></button>
+                            <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sınavı Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3); display: inline-flex; align-items: center; justify-content: center; gap: 4px;"><span class="icon" style="margin:0;">📅</span><span class="btn-cal-text">Takvim</span></button>
                             <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Sınavın başlangıç saatini ve süresini gir / güncelle" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.35); color: #fb923c; cursor:pointer; font-size:0.72rem; font-weight:600;">⏱️ Saat / Süre</button>
                             ${(() => {
                                 const hasRequest = (DB.requests || []).find(r => 
