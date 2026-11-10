@@ -382,6 +382,12 @@
             // aynı sınavdaki başka bir gözetmenin girdiği süre bu gözetmenin teyidini kapatmaz.
             const benimGozetmenligim = myStaffId && K && K.gozetmeniMi(ex, myStaffId);
             if (K ? !K.sureTeyidiBekliyor(ex, now.getTime(), benimGozetmenligim ? myStaffId : null) : true) return;
+
+            // Sınav bitiminden itibaren 1 saat geçmiş olmalı (kullanıcı talebi: sınav bittikten 1 saat sonra bildirim)
+            const end = (K && typeof K.sinavBitis === 'function') ? K.sinavBitis(ex) : 0;
+            const gecikme = (K && K.AYAR && K.AYAR.SURE_GECIKME_MS) ? K.AYAR.SURE_GECIKME_MS : (60 * 60 * 1000);
+            if (end && now.getTime() < end + gecikme) return;
+
             const durMins = K.sinavSuresi(ex);
 
             // Bu sınavın bitiş bildirimi bu cihazda daha önce gönderildi mi?

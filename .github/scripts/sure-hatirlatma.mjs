@@ -3,7 +3,7 @@
  *
  * Site kapalıyken de çalışır ve yalnızca TELEFON BİLDİRİMİ (Web Push) gönderir:
  *  1. Bitmiş ve süresi onaylanmamış sınavın YALNIZCA kendi gözetmenlerinin kayıtlı cihazlarına
- *     "Sınav sürenizi onaylayın" bildirimi: sınav bittikten 15 dk sonra, hâlâ onaylanmadıysa
+ *     "Sınav sürenizi onaylayın" bildirimi: sınav bittikten 1 saat sonra, hâlâ onaylanmadıysa
  *     24 saat sonra bir kez daha (sınav başına en fazla 2). Son 3 günde biten sınavlara bakılır;
  *     31 Ekim 2026 öncesi sınavlar peşinen onaylıdır.
  *  2. Panelden gönderilen yönetici duyurularını (son 3 gün, cihaz bildirimi açık) duyurunun

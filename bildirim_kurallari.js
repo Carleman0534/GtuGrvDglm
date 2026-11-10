@@ -39,7 +39,7 @@
         GUN_BASLANGIC_SAATI: 9,           // gün hatırlatmaları TR 09:00 - 21:00 arasında
         GUN_BITIS_SAATI: 21,
         SAAT_ONCE: 2,                     // sınavdan 2 saat önce son hatırlatma
-        SURE_GECIKME_MS: 15 * 60 * 1000,  // sınav bittikten 15 dk sonra süre teyidi (sunucu)
+        SURE_GECIKME_MS: 60 * 60 * 1000,  // sınav bittikten 1 saat sonra süre teyidi (telefon bildirimi)
         SURE_TEKRAR_MS: 24 * 60 * 60 * 1000,
         SURE_GERIYE_MS: 3 * 24 * 60 * 60 * 1000,
         SURE_EN_FAZLA: 2,

@@ -162,17 +162,17 @@ test('Zaman yolculuğu: 2 saat kala hatırlatması doğru anda (aralık yazılm�
     assert.equal(olaylar.find(o => o.sinavlar[0] === 'E2').payload.title, '⏰ MATH 101 - Deneme 2 saat sonra başlıyor');
 });
 
-test('Zaman yolculuğu: süre teyidi bitişten 15 dk sonra, 24 saat sonra en fazla bir kez daha', () => {
+test('Zaman yolculuğu: süre teyidi bitişten 1 saat sonra, 24 saat sonra en fazla bir kez daha', () => {
     const olaylar = simulate(Object.assign({ onTick: onayE5 }, HAFTA)).filter(o => o.tur === K.TUR.SURE_SORU);
     const ozet = olaylar.map(o => `${o.pid}:${o.sinavlar.join('+')}@${tr(o.now)}`);
     assert.deepEqual(ozet, [
-        '1:E2@2026-11-10 10:45',
-        '1:E1@2026-11-10 15:45',
-        '2:E1@2026-11-10 15:45',
-        '1:E2@2026-11-11 10:45',
-        '1:E1@2026-11-11 15:45',
-        '2:E1@2026-11-11 15:45',
-        '4:E5@2026-11-12 19:15'      // E5 13 Kasım 00:00'da onaylandı → ikinci hatırlatma yok
+        '1:E2@2026-11-10 11:30',
+        '1:E1@2026-11-10 16:30',
+        '2:E1@2026-11-10 16:30',
+        '1:E2@2026-11-11 11:30',
+        '1:E1@2026-11-11 16:30',
+        '2:E1@2026-11-11 16:30',
+        '4:E5@2026-11-12 20:00'      // E5 13 Kasım 00:00'da onaylandı → ikinci hatırlatma yok
     ]);
 });
 
@@ -215,8 +215,14 @@ test('GitHub görevi: bu sabah 09:03\'te yalnızca gün hatırlatması planlar, 
     assert.match(r.out, /\[Deneme modu\]/);
 });
 
-test('GitHub görevi: sınav bittikten sonra süre teyidi planlar ve dokununca pencere açılır', () => {
-    const r = runServer('2026-11-10T15:50:00+03:00');
+test('GitHub görevi: sınav bittikten 1 saat sonra süre teyidi planlar ve dokununca pencere açılır', () => {
+    // Sınav bitiminden (15:30) 20 dk sonra (15:50) henüz 1 saat dolmadığı için E1 planlanmaz, sadece E2 planlanır
+    const rEarly = runServer('2026-11-10T15:50:00+03:00');
+    const sureEarly = rEarly.plan.filter(p => p.tur === 'sure_teyidi');
+    assert.deepEqual(sureEarly.map(p => `${p.pid}:${p.sinavlar.join('+')}`).sort(), ['1:E2'], '1 saat dolmadan E1 planlanmamalı');
+
+    // Sınav bitiminden (15:30) 1 saat sonra (16:35) E1 de süre teyidine dahil edilir
+    const r = runServer('2026-11-10T16:35:00+03:00');
     const sure = r.plan.filter(p => p.tur === 'sure_teyidi');
     assert.deepEqual(sure.map(p => `${p.pid}:${p.sinavlar.join('+')}`).sort(), ['1:E2+E1', '2:E1']);
     for (const p of sure) {

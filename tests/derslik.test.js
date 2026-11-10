@@ -55,7 +55,7 @@ test('Aynı sınavın aynı saatteki başka satırı da aynı derslik sayılır;
 });
 
 test('Süre bildirimi: aynı derslikteki gözetmene yazılan süre onu da onaylı yapar, farklı derslikteki beklemeye devam eder', () => {
-    const now = Date.parse('2026-11-10T16:00:00+03:00');
+    const now = Date.parse('2026-11-10T16:35:00+03:00');
     const ex = satir({ proctorIds: [1, 2, 3], gozetmenDersligi_1: 'Derslik 1', gozetmenDersligi_2: 'Derslik 1', gozetmenDersligi_3: 'Derslik 3' });
     // 1 süre girdi → aynı derslikteki 2'ye de yazıldı (uygulama bunu böyle kaydeder)
     for (const m of [{ pid: 1 }].concat(K.ayniDerslikGozetmenleri(ex, 1, [ex]))) ex[K.sureAlani(m.pid)] = { sure: 100, onaylayan: 'G1', ortakGiris: m.pid !== 1 };
