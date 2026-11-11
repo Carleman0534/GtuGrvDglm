@@ -4412,6 +4412,9 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
     const todayStr = `${yyyy}-${mm}-${dd}`;
+    const nowMs = now.getTime();
+    // Sınav henüz başlamadı mı? (yalnızca tarih değil saat de dikkate alınır)
+    const isFutureExam = (e) => !!(e && e.date && e.time) && getSafeDate(e.date, e.time).getTime() > nowMs;
 
     function getStaffScore(s) {
         if (mode === 'non_exam') return parseFloat((s.nonExamScore || 0).toFixed(2));
@@ -4426,8 +4429,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
     }
 
     function canAssignProctor(staff, exam, currentExams, excludeExamId = null, leavingId = null) {
-        const pIds = exam.proctorIds || (exam.proctorId ? [exam.proctorId] : []);
-        if (pIds.map(String).includes(String(staff.id))) return false;
+        if (!isFutureExam(exam)) return false;
+        if (_examHasProctor(exam, staff.id)) return false;
 
         // Ek uygunluk (görevi bırakan kişi hesaba katılmaz)
         if (typeof window !== 'undefined' && window.AtamaDestek &&
@@ -4450,8 +4453,7 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
             if (excludeExamId && String(otherEx.id) === String(excludeExamId)) return false;
             if (otherEx.date !== exam.date) return false;
 
-            const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
-            if (!otherPids.map(String).includes(String(staff.id))) return false;
+            if (!_examHasProctor(otherEx, staff.id)) return false;
 
             const otherStart = getSafeDate(otherEx.date, otherEx.time);
             const otherDuration = parseInt(otherEx.duration || 60, 10);
@@ -4480,8 +4482,7 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
                 const otherIsNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(otherEx) : !!otherEx.isNonExam;
                 if (!otherIsNon) return false;
                 if (otherEx.name !== exam.name) return false;
-                const otherPids = otherEx.proctorIds || (otherEx.proctorId ? [otherEx.proctorId] : []);
-                return otherPids.map(String).includes(String(staff.id));
+                return _examHasProctor(otherEx, staff.id);
             });
             if (hasSameNonExam) return false;
         }
@@ -4514,11 +4515,10 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
 
                 const currentPairGap = scoreA - scoreB;
 
-                // Gelecek sınavları filtrele (geçmiş sınavlar kesinleştiğinden devredilemez)
+                // Yalnızca henüz BAŞLAMAMIŞ sınavlar (bugün saati geçmiş/başlamış sınavlar da devredilemez)
                 const examsA = simExams.filter(e => {
-                    if (!e.date || e.date < todayStr) return false;
-                    const pids = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
-                    if (!pids.map(String).includes(String(staffA.id))) return false;
+                    if (!isFutureExam(e)) return false;
+                    if (!_examHasProctor(e, staffA.id)) return false;
                     const isNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(e) : !!e.isNonExam;
                     if (mode === 'exam' && isNon) return false;
                     if (mode === 'non_exam' && !isNon) return false;
@@ -4526,9 +4526,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
                 });
 
                 const examsB = simExams.filter(e => {
-                    if (!e.date || e.date < todayStr) return false;
-                    const pids = e.proctorIds || (e.proctorId ? [e.proctorId] : []);
-                    if (!pids.map(String).includes(String(staffB.id))) return false;
+                    if (!isFutureExam(e)) return false;
+                    if (!_examHasProctor(e, staffB.id)) return false;
                     const isNon = typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(e) : !!e.isNonExam;
                     if (mode === 'exam' && isNon) return false;
                     if (mode === 'non_exam' && !isNon) return false;
@@ -4553,8 +4552,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
 
                     // Genel varyans iyileşmesi
                     const nextScores = simStaff.map(s => {
-                        if (s.id === staffA.id) return nextScoreA;
-                        if (s.id === staffB.id) return nextScoreB;
+                        if (String(s.id) === String(staffA.id)) return nextScoreA;
+                        if (String(s.id) === String(staffB.id)) return nextScoreB;
                         return getStaffScore(s);
                     });
                     const nextGlobalVar = nextScores.reduce((acc, v) => acc + Math.pow(v - currAvg, 2), 0);
@@ -4622,8 +4621,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
                         if (nextPairGap >= currentPairGap) continue;
 
                         const nextScores = simStaff.map(s => {
-                            if (s.id === staffA.id) return nextScoreA;
-                            if (s.id === staffB.id) return nextScoreB;
+                            if (String(s.id) === String(staffA.id)) return nextScoreA;
+                            if (String(s.id) === String(staffB.id)) return nextScoreB;
                             return getStaffScore(s);
                         });
                         const nextGlobalVar = nextScores.reduce((acc, v) => acc + Math.pow(v - currAvg, 2), 0);
@@ -4737,7 +4736,15 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
         suggestedActions.push(bestAction);
     }
 
-    const simulatedMetrics = calculateFairnessMetrics(simStaff, mode);
+    // --- Zincir adımları NET değişikliklere çevir ---
+    // Arama adımları birbirinin üzerine kuruludur (bir sınav birkaç kez el değiştirebilir, hatta eski sahibine
+    // döner). Kullanıcıya ve "Uygula"ya bugünkü takvime göre net sonuç verilir: her sınavı ŞU AN tutan kişiden
+    // simülasyon sonundaki kişiye. İki kişinin karşılıklı değişimi takas olarak birleştirilir. Her değişiklik
+    // sırayla güncel takvim üzerinde (çakışma, kısıt, atama kuralları) yeniden doğrulanır.
+    const net = netFairnessActions(dbObj, simExams, mode, getStaffScore, getStaffTasks);
+    const finalActions = net.actions;
+
+    const simulatedMetrics = calculateFairnessMetrics(net.finalStaff, mode);
 
     return {
         mode,
@@ -4751,11 +4758,116 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
             fairnessScoreGain: simulatedMetrics.fairnessScore - initialMetrics.fairnessScore,
             rangeReduction: parseFloat((initialMetrics.scoreRange - simulatedMetrics.scoreRange).toFixed(2))
         },
-        proposedSwaps: suggestedActions,
-        suggestedSwaps: suggestedActions,
-        suggestedActions,
-        simulatedStaff: simStaff
+        proposedSwaps: finalActions,
+        suggestedSwaps: finalActions,
+        suggestedActions: finalActions,
+        searchSteps: suggestedActions.length,
+        simulatedStaff: net.finalStaff
     };
+}
+
+/**
+ * Simülasyonun son durumunu bugünkü takvimle karşılaştırıp net devir/takas listesi üretir.
+ * Döner: { actions, finalStaff } — actions sırayla uygulanabilir (her biri önceki uygulanmış kabul edilerek
+ * güncel takvimde doğrulanmıştır).
+ */
+function netFairnessActions(dbObj, simExams, mode, getStaffScore, getStaffTasks) {
+    const isNonOf = (e) => (typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(e) : !!e.isNonExam);
+    const staffCopy = getActiveProctorStaff(JSON.parse(JSON.stringify(dbObj.staff || [])));
+    const work = JSON.parse(JSON.stringify(dbObj.exams || []));
+    const workDb = { staff: dbObj.staff || [], exams: work };
+    const byId = (list, id) => list.find(e => e && String(e.id) === String(id));
+    const sById = (id) => staffCopy.find(s => String(s.id) === String(id));
+    const finalById = new Map(simExams.filter(Boolean).map(e => [String(e.id), e]));
+
+    // 1) Sınav bazında net değişiklikler (bugün tutan → simülasyon sonunda tutan)
+    let moves = [];
+    work.forEach(ex => {
+        const fin = finalById.get(String(ex && ex.id));
+        if (!ex || !fin) return;
+        const before = _examPids(ex).map(String);
+        const after = _examPids(fin).map(String);
+        const removed = before.filter(p => !after.includes(p));
+        const added = after.filter(p => !before.includes(p));
+        for (let i = 0; i < Math.min(removed.length, added.length); i++) moves.push({ exId: String(ex.id), from: removed[i], to: added[i] });
+    });
+
+    // 2) Karşılıklı değişimleri takas olarak eşle
+    const units = [];
+    const used = new Set();
+    moves.forEach((m, i) => {
+        if (used.has(i)) return;
+        const j = moves.findIndex((o, k) => k !== i && !used.has(k) && o.from === m.to && o.to === m.from);
+        if (j >= 0) { used.add(i); used.add(j); units.push({ tur: 'takas', a: m, b: moves[j] }); }
+        else { used.add(i); units.push({ tur: 'devir', a: m }); }
+    });
+
+    // 3) Sırayla doğrula ve uygula (bir değişiklik diğerine bağlıysa sonraki turda tekrar denenir)
+    const scoreOf = (s) => getStaffScore(s);
+    const examScore = (ex) => parseFloat(ex.score || 0);
+    const shift = (s, ex, sign) => {
+        if (!s) return;
+        const sc = examScore(ex) * sign;
+        if (isNonOf(ex)) { s.nonExamScore = parseFloat(((s.nonExamScore || 0) + sc).toFixed(2)); s.nonExamTaskCount = (s.nonExamTaskCount || 0) + sign; }
+        else { s.totalScore = parseFloat(((s.totalScore || 0) + sc).toFixed(2)); s.taskCount = (s.taskCount || 0) + sign; }
+    };
+    const setPid = (ex, from, to) => {
+        const pids = _examPids(ex);
+        ex.proctorIds = pids.map(p => String(p) === String(from) ? (sById(to) ? sById(to).id : to) : p);
+        if (ex.proctorId == null || String(ex.proctorId) === String(from)) ex.proctorId = ex.proctorIds[0];
+    };
+    const exInfo = (ex) => ({ id: ex.id, name: ex.name, date: ex.date, time: ex.time, duration: ex.duration || 60, location: ex.location || '-', score: examScore(ex) });
+
+    const actions = [];
+    let pending = units;
+    for (let pass = 0; pass < 4 && pending.length; pass++) {
+        const next = [];
+        for (const u of pending) {
+            if (u.tur === 'devir') {
+                const ex = byId(work, u.a.exId);
+                const A = sById(u.a.from), B = sById(u.a.to);
+                if (!ex || !A || !B || !_examHasProctor(ex, A.id) || !fairnessCanReceive(workDb, B.id, ex, null, A.id)) { next.push(u); continue; }
+                const sA = scoreOf(A), sB = scoreOf(B), tA = getStaffTasks(A), tB = getStaffTasks(B);
+                setPid(ex, A.id, B.id); shift(A, ex, -1); shift(B, ex, +1);
+                const nA = scoreOf(A), nB = scoreOf(B);
+                const gapBefore = Math.abs(sA - sB), gapAfter = Math.abs(nA - nB);
+                actions.push({
+                    type: 'transfer', mode, examId: ex.id, examName: ex.name, examDate: ex.date, examTime: ex.time,
+                    examDuration: ex.duration || 60, examLocation: ex.location || '-', examScore: examScore(ex),
+                    isNonExam: isNonOf(ex), categoryLabel: isNonOf(ex) ? 'Sınav Dışı Görev' : 'Sınav Gözetmenliği',
+                    fromStaff: { id: A.id, name: A.name, oldScore: sA, newScore: nA, oldTasks: tA, newTasks: getStaffTasks(A) },
+                    toStaff: { id: B.id, name: B.name, oldScore: sB, newScore: nB, oldTasks: tB, newTasks: getStaffTasks(B) },
+                    gapBefore: parseFloat(gapBefore.toFixed(2)), gapAfter: parseFloat(gapAfter.toFixed(2)),
+                    gapReduction: parseFloat((gapBefore - gapAfter).toFixed(2)), priorityGain: 0, varReduction: 0,
+                    rationale: `${A.name} (${sA} P.) bu görevi ${B.name} (${sB} P.) kişisine devreder; aralarındaki fark ${gapBefore.toFixed(1)} → ${gapAfter.toFixed(1)} puan.`
+                });
+            } else {
+                const e1 = byId(work, u.a.exId), e2 = byId(work, u.b.exId);
+                const A = sById(u.a.from), B = sById(u.a.to);
+                if (!e1 || !e2 || !A || !B || !_examHasProctor(e1, A.id) || !_examHasProctor(e2, B.id)
+                    || !fairnessCanReceive(workDb, B.id, e1, e2.id, A.id) || !fairnessCanReceive(workDb, A.id, e2, e1.id, B.id)) { next.push(u); continue; }
+                const sA = scoreOf(A), sB = scoreOf(B);
+                setPid(e1, A.id, B.id); setPid(e2, B.id, A.id);
+                shift(A, e1, -1); shift(B, e1, +1); shift(B, e2, -1); shift(A, e2, +1);
+                const nA = scoreOf(A), nB = scoreOf(B);
+                const gapBefore = Math.abs(sA - sB), gapAfter = Math.abs(nA - nB);
+                const netShift = parseFloat((examScore(e1) - examScore(e2)).toFixed(2));
+                actions.push({
+                    type: 'bilateral_swap', mode, netShift,
+                    examFromA: exInfo(e1), examFromB: exInfo(e2),
+                    isNonExam: mode === 'non_exam', categoryLabel: mode === 'non_exam' ? 'Sınav Dışı Görev Takası' : 'Sınav Gözetmenliği Takası',
+                    staffA: { id: A.id, name: A.name, oldScore: sA, newScore: nA, tasks: getStaffTasks(A) },
+                    staffB: { id: B.id, name: B.name, oldScore: sB, newScore: nB, tasks: getStaffTasks(B) },
+                    gapBefore: parseFloat(gapBefore.toFixed(2)), gapAfter: parseFloat(gapAfter.toFixed(2)),
+                    gapReduction: parseFloat((gapBefore - gapAfter).toFixed(2)), priorityGain: 0, varReduction: 0,
+                    rationale: `Karşılıklı takas: ${A.name} "${e1.name}" (${examScore(e1)} P.) görevini, ${B.name} "${e2.name}" (${examScore(e2)} P.) görevini verir; net ${netShift.toFixed(1)} P. geçer, görev sayıları değişmez.`
+                });
+            }
+        }
+        if (next.length === pending.length) break;   // ilerleme yok
+        pending = next;
+    }
+    return { actions, finalStaff: staffCopy, skipped: pending.length };
 }
 
 /**
@@ -4967,6 +5079,8 @@ function _examHasProctor(ex, sid) { return _examPids(ex).map(String).includes(St
 function fairnessCanReceive(dbObj, staffId, exam, ignoreExamId = null, leavingId = null) {
     const staff = (dbObj.staff || []).find(s => s && String(s.id) === String(staffId));
     if (!staff || !exam || _examHasProctor(exam, staffId)) return false;
+    // Başlamış / geçmiş sınavın görevlisi değiştirilemez
+    if (!exam.date || !exam.time || getSafeDate(exam.date, exam.time).getTime() <= Date.now()) return false;
     if (typeof isAvailable === 'function' && !isAvailable(staff.name, exam.date, exam.time, exam.duration)) return false;
     if (typeof window !== 'undefined' && window.AtamaDestek &&
         !window.AtamaDestek.uygunMu(staff, exam, { exams: dbObj.exams, ayrilan: leavingId != null ? [leavingId] : [], haric: ignoreExamId != null ? [ignoreExamId] : [] })) return false;
@@ -5248,6 +5362,7 @@ if (_targetGlobal) {
     _targetGlobal.markSimulationApplied = markSimulationApplied;
     _targetGlobal.rollbackSimulationSnapshot = rollbackSimulationSnapshot;
     _targetGlobal.fairnessCanReceive = fairnessCanReceive;
+    _targetGlobal.netFairnessActions = netFairnessActions;
     _targetGlobal.moveExamProctor = moveExamProctor;
     _targetGlobal.moveProctorPersonalFields = moveProctorPersonalFields;
     _targetGlobal.fairnessProposalExpired = fairnessProposalExpired;
