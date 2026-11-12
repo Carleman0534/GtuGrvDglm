@@ -22,8 +22,8 @@
         .filter(p => p !== null && p !== undefined && p !== '').map(S);
 
     const METHOD_TEXT = {
-        otomatik: '🤖 Sistem otomatik atadı: o saatte uygun olanlar arasından puanı en düşük gözetmen seçilir.',
-        ice_aktarim: '📥 Sınav programı içe aktarılırken sistem otomatik atadı (o saatte uygun olanlar arasından en düşük puanlı).',
+        otomatik: '🤖 Sistem otomatik atadı: o saatte uygun olanlar arasından sıralamada en önde olan gözetmen seçilir.',
+        ice_aktarim: '📥 Sınav programı içe aktarılırken sistem otomatik atadı (o saatte uygun olanlar arasından sıralamada en önde olan).',
         yonetici: '👤 Yönetici bu görevi elle atadı.',
         takas: '🔄 Görev size takas ya da görev devri (Pazar Yeri) ile geçti.',
         dengeleme: '⚖️ Yöneticinin çalıştırdığı adalet dengelemesiyle görev, puanı daha yüksek bir gözetmenden size aktarıldı.'
@@ -81,32 +81,55 @@
         return 'uygun';
     }
 
+    // --- Karşılaştırma havuzu: yalnızca aktif gözetmenler (gözetmenlik almayan öğretim üyeleri sayılmaz) ---
+    function proctorPool(me) {
+        const all = (DB.staff || []).filter(Boolean);
+        const pool = typeof getActiveProctorStaff === 'function' ? getActiveProctorStaff(all) : all;
+        return me && !pool.some(s => S(s.id) === S(me.id)) ? pool.concat([me]) : pool;
+    }
+    const isNonExamTask = (ex) => (typeof shouldCountAsNonExam === 'function' ? shouldCountAsNonExam(ex) : !!ex.isNonExam);
+
     // --- O anın fotoğrafı ---
+    // Atama kuralı (logic.js findBestProctor ile aynı):
+    //   sınav görevleri  → dönem sonu beklenen puan (bugünkü puan + kalan dönemde müsaitliğe göre beklenen pay)
+    //   sınav dışı görev → sınav dışı puan
     function snapshot(ex, pid, method) {
         if (!window.DB || !Array.isArray(DB.staff) || !ex || !ex.date || !ex.time) return null;
         const me = DB.staff.find(s => s && S(s.id) === S(pid));
         if (!me) return null;
         const onExam = proctorsOf(ex);
         const exScore = Number(ex.score) || 0;
+        const nonExam = isNonExamTask(ex);
+        const field = nonExam ? 'nonExamScore' : 'totalScore';
         // Bu sınavın puanı atanan kişilerin toplamına zaten eklenmiş olabilir: atama öncesine göre karşılaştır
-        const scoreBefore = (s) => round2((Number(s.totalScore) || 0) - (onExam.includes(S(s.id)) ? exScore : 0));
+        const scoreBefore = (s) => round2((Number(s[field]) || 0) - (onExam.includes(S(s.id)) ? exScore : 0));
+        let fut = null;
+        if (!nonExam && typeof getFutureBalanceMap === 'function') { try { fut = getFutureBalanceMap(); } catch (e) { fut = null; } }
+        const extra = (s) => (fut && fut[S(s.id)] ? fut[S(s.id)].beklenen || 0 : 0);
+        const key = (s) => scoreBefore(s) + extra(s);
 
-        const myScore = scoreBefore(me);
-        const others = DB.staff.filter(s => s && S(s.id) !== S(pid) && !onExam.includes(S(s.id)));
-        const lower = others.filter(s => scoreBefore(s) < myScore);
+        const myKey = key(me);
+        const others = proctorPool(me).filter(s => S(s.id) !== S(pid) && !onExam.includes(S(s.id)));
+        const lower = others.filter(s => key(s) < myKey - 0.005);
         const counts = { kisit: 0, cakisma: 0, cuma: 0, limit: 0, diger: 0, uygun: 0 };
         lower.forEach(s => { counts[blockReason(s, ex)]++; });
         Object.keys(counts).forEach(k => { if (!counts[k]) delete counts[k]; });
 
-        return {
+        const snap = {
             y: method,
             t: new Date().toISOString(),
-            p: myScore,
+            k: nonExam ? 'sinavdisi' : (fut ? 'donem' : 'puan'),
+            p: scoreBefore(me),
             r: lower.length + 1,
             n: others.length + 1,
             d: lower.length,
             s: counts
         };
+        if (fut && fut[S(pid)]) {
+            snap.bp = round2(fut[S(pid)].beklenen);       // kalan dönemde beklenen pay
+            if (fut[S(pid)].kisitli) snap.kz = true;        // kalan dönemde az müsait
+        }
+        return snap;
     }
 
     // --- Kayıt anında yeni atamaları bul ve gerekçelerini yaz (veri_koruma.js çağırır) ---
@@ -192,13 +215,34 @@
         if (!info) return html + '<p>Bu görev için açıklama hesaplanamadı.</p>';
 
         const r = info.r, s = r.s || {};
-        if (r.y && METHOD_TEXT[r.y]) html += `<p class="atama-gerekce-method">${METHOD_TEXT[r.y]}</p>`;
+        const sayi = (v) => String(v).replace('.', ',');
+        const kural = r.k || 'puan';   // eski kayıtlarda kural alanı yok: o zamanki kural puandı
+        const kuralMetni = {
+            donem: 'Sınav görevlerinde sıralama <strong>dönem sonu beklenen puana</strong> göre yapılır: bugünkü puan + dönemin kalanında (tahmini finaller, mazeretler) müsaitliğinize göre almanız beklenen pay. Kalan dönemde az müsait olan kişi, müsait olduğu sınavlarda öne geçer.',
+            puan: 'Sıralama o sırada <strong>toplam puana</strong> göre yapılıyordu: puanı en düşük olan önce görev alır.',
+            sinavdisi: 'Sınav dışı görevlerde sıralama <strong>sınav dışı puana</strong> göre yapılır: bu puanı en düşük olan önce görev alır.'
+        }[kural];
 
-        html += `<p>${info.approx ? 'Bugünkü' : 'Atama anındaki'} puanınız: <strong>${String(r.p).replace('.', ',')}</strong>.
-            Gözetmenler arasında puanı en düşük <strong>${r.r}.</strong> kişiydiniz (toplam ${r.n} kişi).</p>`;
+        // Eski (kaydı tutulmamış) atamalar: atama anındaki puanlar bilinmediği için "sizden düşük puanlı kim vardı"
+        // listesi gösterilmez. Bugünkü puanlarla hesaplamak yanıltıcı olurdu (o kişiler o gün sizden düşük olmayabilir).
+        if (info.approx) {
+            html += `<p class="atama-gerekce-note">ℹ️ Bu görev, açıklama kaydı tutulmaya başlamadan önce atanmış. Atama anındaki puanlar ve kimlerin uygun olduğu kayıtlı olmadığı için o güne ait bir karşılaştırma gösterilemiyor.</p>`;
+            html += `<p>${kuralMetni}</p>`;
+            html += `<p>Bilgi için, <strong>bugün</strong> ${kural === 'sinavdisi' ? 'sınav dışı puanınız' : 'puanınız'} <strong>${sayi(r.p)}</strong>${r.bp != null ? ` (kalan dönemde beklenen pay +${sayi(Math.round(r.bp))})` : ''}; gözetmenler arasında sıralamada <strong>${r.r}.</strong> sıradasınız (toplam ${r.n} kişi, 1 = sıradaki göreve en yakın).</p>`;
+            html += `<p class="atama-gerekce-foot">Bir yanlışlık olduğunu düşünüyorsanız yöneticiye bildirebilir ya da görevinizi Pazar Yeri'ne koyabilirsiniz.</p>`;
+            return html;
+        }
+
+        if (r.y && METHOD_TEXT[r.y]) html += `<p class="atama-gerekce-method">${METHOD_TEXT[r.y]}</p>`;
+        html += `<p>${kuralMetni}</p>`;
+
+        const puanAdi = kural === 'sinavdisi' ? 'sınav dışı puanınız' : 'puanınız';
+        html += `<p>Atama anındaki ${puanAdi}: <strong>${sayi(r.p)}</strong>${r.bp != null ? ` · kalan dönemde beklenen pay: <strong>+${sayi(Math.round(r.bp))}</strong>` : ''}.
+            Gözetmenler arasında sıralamada <strong>${r.r}.</strong> sıradaydınız (toplam ${r.n} kişi, 1 = göreve en yakın).</p>`;
+        if (r.kz) html += `<p class="atama-gerekce-note">📅 Kısıtlarınız nedeniyle dönemin kalanında daha az sınava girebileceğiniz öngörüldü; bu yüzden müsait olduğunuz sınavlarda önceliğiniz yükseldi.</p>`;
 
         if (!r.d) {
-            html += `<p>O sırada <strong>sizden düşük puanlı kimse yoktu</strong>; puan kuralına göre görev size gelir.</p>`;
+            html += `<p>O sırada <strong>sıralamada sizden önde kimse yoktu</strong>; kurala göre görev size gelir.</p>`;
         } else {
             const rows = [];
             if (s.kisit) rows.push(`<li><strong>${s.kisit}</strong> kişinin o saatte kısıtı vardı (ders, izin vb.)</li>`);
@@ -207,21 +251,17 @@
             if (s.diger) rows.push(`<li><strong>${s.diger}</strong> kişi başka bir kural nedeniyle uygun değildi</li>`);
             if (s.limit) rows.push(`<li><strong>${s.limit}</strong> kişi görev üst sınırına ulaşmıştı</li>`);
             if (s.uygun) rows.push(`<li><strong>${s.uygun}</strong> kişi o saatte uygun görünüyordu</li>`);
-            html += `<p>Sizden düşük puanlı <strong>${r.d}</strong> kişi vardı:</p><ul class="atama-gerekce-list">${rows.join('')}</ul>`;
+            html += `<p>Sıralamada sizden önde <strong>${r.d}</strong> kişi vardı:</p><ul class="atama-gerekce-list">${rows.join('')}</ul>`;
 
             if (s.uygun) {
                 if (r.y === 'yonetici') html += `<p class="atama-gerekce-note">Görev yönetici tarafından elle atandığı için puan sırası uygulanmadı.</p>`;
                 else if (r.y === 'dengeleme') html += `<p class="atama-gerekce-note">Dengeleme, toplam puanları birbirine yaklaştırmak için görevleri yeniden dağıtır.</p>`;
                 else if (r.y === 'takas') html += `<p class="atama-gerekce-note">Görev takas ya da devirle geldiği için puan sırası uygulanmadı.</p>`;
-                else if (info.approx) html += `<p class="atama-gerekce-note">Bu kişilerin bir kısmının puanı atamadan sonra değişmiş olabilir; dönem başındaki toplu atamada puanlar birbirine çok yakındı.</p>`;
                 else html += `<p class="atama-gerekce-note">Toplu atamada görevler sırayla dağıtılır; bu kişilere aynı dağıtımda başka görevler verilmiş olabilir.</p>`;
             }
         }
 
-        if (info.approx) {
-            html += `<p class="atama-gerekce-note">ℹ️ Bu görev için atama anında kayıt tutulmamış (özellik yeni eklendi). Açıklama bugünkü puan ve kısıtlara göre yaklaşık hesaplandı.</p>`;
-        }
-        html += `<p class="atama-gerekce-foot">Puan tek başına belirleyici değildir: sistem önce o saatte uygun olanları ayırır, sonra aralarından puanı en düşük olanı seçer.
+        html += `<p class="atama-gerekce-foot">Sistem önce o saatte gerçekten uygun olanları ayırır (kısıt, aynı saatte başka görev, Cuma namazı, görev üst sınırı), sonra aralarından sıralamada en önde olanı seçer.
             Bir yanlışlık olduğunu düşünüyorsanız yöneticiye bildirebilir ya da görevinizi Pazar Yeri'ne koyabilirsiniz.</p>`;
         return html;
     }
@@ -261,4 +301,6 @@
 
     // Test ve yönetici paneli için
     window.getAtamaGerekcesi = reasonFor;
+    window.atamaGerekcesiHtml = buildHtml;
+    window.atamaGerekcesiFotografi = snapshot;
 })();
