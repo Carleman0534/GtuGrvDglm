@@ -205,11 +205,69 @@
         const onExam = proctorsOf(ex);
         const others = proctorPool(me).filter(s => S(s.id) !== S(pid));
         const c = { bu_sinav: 0, kisit: 0, cakisma: 0, cuma: 0, limit: 0, diger: 0, uygun: 0 };
+        const uygunlar = [];
         others.forEach(s => {
             if (onExam.includes(S(s.id))) { c.bu_sinav++; return; }
-            c[blockReason(s, ex)]++;
+            const why = blockReason(s, ex);
+            c[why]++;
+            if (why === 'uygun') uygunlar.push(s);
         });
-        return { toplam: others.length, c };
+        return { toplam: others.length, c, uygunlar };
+    }
+
+    // --- Sıralama anahtarı (atama kuralı ile aynı; bugünkü verilerle) ---
+    function siralamaAnahtari(ex) {
+        const onExam = proctorsOf(ex);
+        const nonExam = isNonExamTask(ex);
+        const field = nonExam ? 'nonExamScore' : 'totalScore';
+        const exScore = Number(ex.score) || 0;
+        let fut = null;
+        if (!nonExam && typeof getFutureBalanceMap === 'function') { try { fut = getFutureBalanceMap(); } catch (e) { fut = null; } }
+        const key = (s) => round2((Number(s[field]) || 0) - (onExam.includes(S(s.id)) ? exScore : 0) + (fut && fut[S(s.id)] ? fut[S(s.id)].beklenen || 0 : 0));
+        return { key, kural: nonExam ? 'sinavdisi' : (fut ? 'donem' : 'puan') };
+    }
+
+    /**
+     * "Neden siz?": o saatte uygun olanlarla karşılaştırma.
+     * Kayıtlı atamada atama anındaki sayı (r.s.uygun = uygun ve sıralamada önde olanlar) kullanılır;
+     * kaydı olmayan eski atamada bugünkü verilerle hesaplanır ve böyle etiketlenir.
+     */
+    function nedenSizHtml(ex, pid, info, slot) {
+        const r = info.r;
+        const me = DB.staff.find(s => s && S(s.id) === S(pid));
+        if (!me) return '';
+        const n = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+        const { key, kural } = siralamaAnahtari(ex);
+        const kuralAdi = { donem: 'dönem sonu beklenen puanı', puan: 'puanı', sinavdisi: 'sınav dışı puanı' }[(info.approx ? kural : (r.k || 'puan'))];
+        const benim = key(me);
+        const onde = slot.uygunlar.filter(s => key(s) < benim - 0.005);
+        const arkada = slot.uygunlar.filter(s => key(s) >= benim - 0.005);
+        const enYakin = arkada.length ? Math.min(...arkada.map(s => key(s) - benim)) : null;
+        const yakinMetni = enYakin != null ? ` Uygun olanlar arasında size en yakın kişinin ${kuralAdi} sizinkinden <strong>${n(enYakin)} puan</strong> yüksek.` : '';
+
+        let metin;
+        if (!slot.uygunlar.length) {
+            metin = `O saatte sizden başka uygun gözetmen yok; görev bu yüzden size verildi.`;
+        } else if (!info.approx) {
+            // Atama anındaki kayıt
+            const ondeO = (r.s && r.s.uygun) || 0;
+            if (!ondeO) {
+                metin = `Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>kimse yoktu</strong>: uygun olanların hepsinin ${kuralAdi} sizinkinden yüksekti. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size verildi.`;
+            } else {
+                const neden = r.y === 'yonetici' ? 'Görevi yönetici elle atadığı için sıra uygulanmadı.'
+                    : r.y === 'dengeleme' ? 'Görev, adalet dengelemesiyle puanları birbirine yaklaştırmak için size aktarıldı.'
+                    : r.y === 'takas' ? 'Görev size takas ya da devirle geçtiği için sıra uygulanmadı.'
+                    : 'Toplu atamada görevler sırayla dağıtıldı; bu kişilere aynı dağıtımda başka görevler verilmiş olabilir.';
+                metin = `Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>${ondeO} kişi</strong> vardı. ${neden}`;
+            }
+        } else if (!onde.length) {
+            metin = `O saatte uygun <strong>${slot.uygunlar.length} kişinin hepsi</strong> sıralamada sizden sonra geliyor: hepsinin ${kuralAdi} sizinkinden yüksek. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size gelir.${yakinMetni}`;
+        } else {
+            metin = `Bugünkü puanlara göre o saatte uygun ${slot.uygunlar.length} kişiden <strong>${onde.length} kişi</strong> sıralamada sizden önde (${kuralAdi} daha düşük), ${arkada.length} kişi sizden sonra. Görev atandığı gün puanlar farklıydı; o gün bu kişiler sizden sonra gelmiş olabilir.`;
+        }
+        if (info.approx && slot.uygunlar.length) metin += ' <span class="atama-gerekce-etiket">(bugünkü puanlara göre)</span>';
+        else if (!info.approx && slot.uygunlar.length && arkada.length) metin += yakinMetni.replace('Uygun olanlar', 'Bugün uygun olanlar');
+        return `<div class="atama-gerekce-neden">➡️ <strong>Neden siz?</strong> ${metin}</div>`;
     }
 
     // --- Dönemdeki yeri: puan, görev sayısı, akşam/hafta sonu görevleri (aynı görev türünde) ---
@@ -299,7 +357,8 @@
         if (c.diger) parcalar.push(`<li><strong>${c.diger} kişi</strong> başka bir kural nedeniyle uygun değil</li>`);
         if (c.uygun) parcalar.push(`<li><strong>${c.uygun} kişi</strong> uygun</li>`);
         html += `<div class="atama-gerekce-blok"><div class="atama-gerekce-baslik">⏰ ${esc(fmt(ex.date))} ${esc(ex.time)} için diğer ${slot.toplam} gözetmen</div>
-            <ul class="atama-gerekce-list">${parcalar.join('') || '<li>—</li>'}</ul></div>`;
+            <ul class="atama-gerekce-list">${parcalar.join('') || '<li>—</li>'}</ul>
+            ${nedenSizHtml(ex, pid, info, slot)}</div>`;
 
         // ⚖️ Sıralama: önünüzdekiler neden seçilmedi
         const puanAdi = r.k === 'sinavdisi' ? 'Bu görev hariç sınav dışı puanınız' : 'Bu görev hariç puanınız';

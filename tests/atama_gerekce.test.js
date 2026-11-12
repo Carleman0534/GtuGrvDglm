@@ -81,6 +81,35 @@ test('O saatteki durum takvimden somut olarak sayılır (toplam = diğer gözetm
     assert.ok(toplam >= 11);
 });
 
+test('"Neden siz?": uygun olanların hepsi sıralamada sonra ise bunu ve en yakın farkı söyler', () => {
+    const app = freshApp();
+    // id 3'ü en düşük puanlı yap: uygun olanların hepsi ondan sonra gelir
+    app.raw(`DB.staff.find(s => s.id === 3).totalScore = 100;`);
+    const html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9500), 3)`);
+    assert.match(html, /Neden siz\?/);
+    assert.match(html, /kişinin hepsi<\/strong> sıralamada sizden sonra geliyor/);
+    assert.match(html, /size en yakın kişinin .* <strong>[\d,]+ puan<\/strong> yüksek/);
+});
+
+test('"Neden siz?": bugünkü puanlarla önde olan uygun kişi varsa sayısını ve nedenini söyler', () => {
+    const app = freshApp();
+    app.raw(`DB.staff.find(s => s.id === 3).totalScore = 99999;`);   // en yüksek puanlı: uygun olanlar önde
+    const html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9500), 3)`);
+    assert.match(html, /kişiden <strong>\d+ kişi<\/strong> sıralamada sizden önde/);
+    assert.match(html, /Görev atandığı gün puanlar farklıydı/);
+    assert.match(html, /bugünkü puanlara göre/);
+});
+
+test('"Neden siz?": kayıtlı atamada atama anındaki sayı ve yöntem kullanılır', () => {
+    const app = freshApp();
+    app.raw(`const ex = DB.exams.find(e => e.id === 9500); ex.atamaGerekce = { '3': { y: 'otomatik', t: '2026-11-07T10:00:00Z', k: 'donem', p: 3000, r: 1, n: 12, d: 0, s: {} } };`);
+    let html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9500), 3)`);
+    assert.match(html, /Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>kimse yoktu<\/strong>/);
+    app.raw(`DB.exams.find(e => e.id === 9500).atamaGerekce['3'] = { y: 'yonetici', t: '2026-11-07T10:00:00Z', k: 'donem', p: 3000, r: 4, n: 12, d: 3, s: { uygun: 2, kisit: 1 } };`);
+    html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9500), 3)`);
+    assert.match(html, /sizden önde olan <strong>2 kişi<\/strong> vardı\. Görevi yönetici elle atadığı için sıra uygulanmadı/);
+});
+
 test('Herkes görev üst sınırını aşmışsa "üst sınırda" denmez (atama sınırı esnetir)', () => {
     const app = freshApp();
     const tasks = app.run('DB.staff.filter(s => s.id <= 12).map(s => s.taskCount)');
