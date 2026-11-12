@@ -5386,6 +5386,7 @@ window.renderTimeScoreDraft = function(scope) {
                     <th colspan="3" class="tsd-grp">⏱️ Görevler toplamı</th>
                     <th rowspan="2">Taban puan</th>
                     <th rowspan="2">Genel toplam</th>
+                    <th rowspan="2" class="tsd-siralama-th" title="Sınav Gözetmenliği Puan Sıralaması'ndaki puan: taban + yapılan sınavlar + henüz yapılmamış sınavlar">Sıralamadaki puan</th>
                 </tr>
                 <tr>
                     <th>Görev</th><th>Süre (sa)</th><th>Puan</th>
@@ -5407,6 +5408,7 @@ window.renderTimeScoreDraft = function(scope) {
                     <td>${n(k.toplam.puanSaat)}</td>
                     <td>${n(k.taban)}</td>
                     <td><b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small></td>
+                    <td class="tsd-siralama"><b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small></td>
                 </tr>`).join('')}</tbody>
             <tfoot>
                 <tr>
@@ -5415,11 +5417,13 @@ window.renderTimeScoreDraft = function(scope) {
                     <td>${st.disiGorev}</td><td>${n(st.disiSaat)}</td><td>${n(st.disiPuan)}</td>
                     <td>${n(st.toplamSaat)}</td><td>${n(st.toplamPuan)}</td><td>${n(st.puanSaat)}</td>
                     <td>${n(st.taban)}</td><td><b>${n(st.genel)}</b></td>
+                    <td class="tsd-siralama"><b>${n(st.siralamaPuan)}</b></td>
                 </tr>
             </tfoot>
         </table></div>
         <p class="tsd-note">Kapsam: <b>${kapsam}</b>, ${planDahil ? 'yapılan + <b>planlanan</b> görevler' : '<b>şu ana kadar yapılan</b> görevler'}.
         ${!planDahil && st.planGorev ? `Henüz yapılmamış ${st.planGorev} görev (${n(st.planSaat)} saat) dahil değildir; "Planlanan görevler dahil" ile eklenebilir. Sistemdeki puan planlanan görevleri de içerdiği için "Genel toplam" sistem puanından düşük olabilir.` : ''}
+        <b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır: taban puan + yapılmış sınavlar + henüz yapılmamış (planlanan) sınavlar. Bu yüzden "Sınav gözetmenliği · Puan" sütunundan (yalnızca yapılmış sınavlar) farklıdır.
         Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre). Saat başına puanın yüksek olması, akşam / hafta sonu gibi yüksek katsayılı görevlerin payının fazla olduğunu gösterir.</p>`;
 };
 

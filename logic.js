@@ -3848,7 +3848,8 @@ function computeTimeScoreStats(opts = {}) {
     const pidsOf = (ex) => (Array.isArray(ex.proctorIds) && ex.proctorIds.length ? ex.proctorIds : (ex.proctorId != null ? [ex.proctorId] : [])).map(String);
     const bos = () => ({ gorev: 0, dk: 0, puan: 0, dkZor: 0, planGorev: 0, planDk: 0, planPuan: 0 });
 
-    const rows = new Map(pool.map(s => [String(s.id), { id: s.id, name: s.name, taban: Number(s.baseScore) || 0, sinav: bos(), disi: bos() }]));
+    // siralamaPuan: "Sınav Gözetmenliği Puan Sıralaması"ndaki sistem puanı (taban + yapılan + planlanan sınavlar)
+    const rows = new Map(pool.map(s => [String(s.id), { id: s.id, name: s.name, taban: Number(s.baseScore) || 0, siralamaPuan: Number(s.totalScore) || 0, sinav: bos(), disi: bos() }]));
     (dbObj.exams || []).forEach(ex => {
         if (!ex || !ex.date || !ex.time) return;
         if (curTerm && termOf(ex.date) !== curTerm) return;
@@ -3887,6 +3888,10 @@ function computeTimeScoreStats(opts = {}) {
             puanSaat: dk > 0 ? p1((r.sinav.puan + r.disi.puan) / (dk / 60)) : 0
         };
         r.genel = p1(r.taban + r.toplam.puan);   // taban + sınav + sınav dışı
+        // Sıralamadaki puanın dökümü: taban + yapılmış sınavlar + henüz yapılmamış sınavlar
+        r.siralamaPuan = p1(r.siralamaPuan);
+        r.siralamaYapilan = p1(opts.planDahil ? r.sinav.puan - r.sinav.planPuan : r.sinav.puan);
+        r.siralamaPlan = r.sinav.planPuan;
         // Geriye dönük alanlar (eski kart/test uyumu)
         r.saat = r.sinav.saat; r.puan = r.sinav.puan; r.puanSaat = r.sinav.puanSaat; r.zorOran = r.sinav.zorOran; r.gorev = r.sinav.gorev;
         r.saatTamam = r.sinav.saat;
@@ -3900,7 +3905,8 @@ function computeTimeScoreStats(opts = {}) {
         disiSaat: p1(sum(r => r.disi.saat)), disiPuan: p1(sum(r => r.disi.puan)), disiGorev: sum(r => r.disi.gorev),
         toplamSaat: p1(sum(r => r.toplam.saat)), toplamPuan: p1(sum(r => r.toplam.puan)),
         taban: p1(sum(r => r.taban)), genel: p1(sum(r => r.genel)),
-        planSaat: p1(sum(r => r.sinav.planSaat + r.disi.planSaat)), planGorev: sum(r => r.sinav.planGorev + r.disi.planGorev)
+        planSaat: p1(sum(r => r.sinav.planSaat + r.disi.planSaat)), planGorev: sum(r => r.sinav.planGorev + r.disi.planGorev),
+        siralamaPuan: p1(sum(r => r.siralamaPuan)), siralamaPlan: p1(sum(r => r.siralamaPlan))
     };
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);

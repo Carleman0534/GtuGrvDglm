@@ -64,6 +64,22 @@ test('Sınav gözetmenliği ve sınav dışı görevler ayrı; toplamlar doğru'
     assert.ok(Math.abs(k.toplam.puan - (k.sinav.puan + k.disi.puan)) < 0.05);
 });
 
+test('Sıralamadaki puan = taban + yapılan + planlanan sınavlar (her iki görünümde)', () => {
+    const app = freshApp(fx => {
+        fx.exams.push({ id: 9720, name: 'GELECEK', date: '2026-11-20', time: '10:00', duration: 90, type: 'Vize', proctorIds: [1], proctorId: 1 });
+    });
+    const staff = app.run('DB.staff');
+    for (const planDahil of [false, true]) {
+        const st = app.run(`computeTimeScoreStats({ planDahil: ${planDahil} })`);
+        for (const k of st.kisiler) {
+            const s = staff.find(x => x.id === k.id);
+            assert.ok(Math.abs(k.siralamaPuan - s.totalScore) < 0.05, `${k.name}: sıralamadaki puan = sistem puanı`);
+            assert.ok(Math.abs(k.taban + k.siralamaYapilan + k.siralamaPlan - k.siralamaPuan) < 0.5, `${k.name}: döküm toplamı tutar`);
+        }
+        assert.ok(st.kisiler.find(k => k.id === 1).siralamaPlan > 0, 'gelecek sınav planlanan olarak görünür');
+    }
+});
+
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {
     const app = freshApp();
     const st = app.run('computeTimeScoreStats()');

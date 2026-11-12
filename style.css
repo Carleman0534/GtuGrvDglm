@@ -6638,3 +6638,5 @@ html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
 #stats-time-score-draft .tsd-table tfoot td { font-weight: 700; border-top: 2px solid rgba(99, 102, 241, 0.45); background: rgba(99, 102, 241, 0.08); }
 .atama-gerekce-neden { margin-top: 0.45rem; padding: 0.55rem 0.75rem; border-radius: 10px; background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.35); font-size: 0.86rem; line-height: 1.5; }
 .atama-gerekce-etiket { color: var(--text-muted); font-size: 0.76rem; }
+#stats-time-score-draft .tsd-siralama { background: rgba(245, 158, 11, 0.08); }
+#stats-time-score-draft .tsd-siralama-th { background: rgba(245, 158, 11, 0.25) !important; }
