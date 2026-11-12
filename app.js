@@ -5354,78 +5354,112 @@ window.showEditScheduleModal = (name, date, time, location) => {
 };
 
 /** 🧪 TASLAK: Süre ve Puan Analizi kartı (İstatistikler; yalnızca yönetici) */
-window.renderTimeScoreDraft = function(scope) {
+// Seçili veri grupları (kullanıcı tercihi bu cihazda hatırlanır)
+const TSD_GRUPLAR = ['sinav', 'disi', 'toplam', 'puan'];
+function tsdOku(k, vars) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : vars; } catch (e) { return vars; } }
+function tsdYaz(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* özel mod */ } }
+
+window.toggleTsdGrup = function(grup) {
+    let secili = tsdOku('tsd_gruplar', ['sinav']);
+    secili = secili.includes(grup) ? secili.filter(g => g !== grup) : secili.concat(grup);
+    if (!secili.length) secili = [grup];   // en az bir grup açık kalır
+    tsdYaz('tsd_gruplar', TSD_GRUPLAR.filter(g => secili.includes(g)));
+    window.renderTimeScoreDraft();
+};
+
+window.renderTimeScoreDraft = function() {
     const body = document.getElementById('tsd-body');
     if (!body || typeof computeTimeScoreStats !== 'function') return;
-    window._tsdScope = scope || window._tsdScope || 'tum';
-    document.querySelectorAll('#stats-time-score-draft .tsd-scope button').forEach(b => b.classList.toggle('active', b.dataset.scope === window._tsdScope));
-    const planDahil = !!(document.getElementById('tsd-plan-dahil') || {}).checked;
-    const st = computeTimeScoreStats({ donem: window._tsdScope === 'donem', planDahil });
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const n = (v) => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('tr-TR', { maximumFractionDigits: 1 });
     const fark = (v) => `<span class="${v > 0 ? 'tsd-plus' : (v < 0 ? 'tsd-minus' : '')}">${v > 0 ? '+' : ''}${n(v)}</span>`;
+
+    // Kapsam seçici: tüm zamanlar / bu dönem / aylar
+    const sel = document.getElementById('tsd-kapsam');
+    const donemAdi = (() => {
+        try { const e = window.FinalForecastEngine; return e ? e.getAcademicTerm(e.localDateStr ? e.localDateStr(new Date()) : new Date().toISOString().slice(0, 10)).name : 'Bu dönem'; } catch (e) { return 'Bu dönem'; }
+    })();
+    const aylar = typeof timeScoreMonths === 'function' ? timeScoreMonths() : [];
+    let kapsam = (sel && sel.value) || tsdOku('tsd_kapsam', 'tum');
+    if (kapsam !== 'tum' && kapsam !== 'donem' && !aylar.some(a => a.key === kapsam)) kapsam = 'tum';
+    if (sel) {
+        sel.innerHTML = `<option value="tum">Tüm zamanlar</option><option value="donem">Bu dönem (${esc(donemAdi)})</option>
+            <optgroup label="Ay seçin">${aylar.map(a => `<option value="${a.key}">${esc(a.ad)}</option>`).join('')}</optgroup>`;
+        sel.value = kapsam;
+    }
+    tsdYaz('tsd_kapsam', kapsam);
+    const ayModu = kapsam !== 'tum' && kapsam !== 'donem';
+    const kapsamAdi = kapsam === 'tum' ? 'tüm zamanlar' : (kapsam === 'donem' ? donemAdi + ' dönemi' : (aylar.find(a => a.key === kapsam) || {}).ad);
+
+    // Seçili gruplar; "Puan özeti" (taban, genel toplam, sıralamadaki puan) yalnızca tüm zamanlarda anlamlı
+    let secili = tsdOku('tsd_gruplar', ['sinav']).filter(g => TSD_GRUPLAR.includes(g));
+    if (!secili.length) secili = ['sinav'];
+    const puanKapali = kapsam !== 'tum';
+    document.querySelectorAll('#stats-time-score-draft .tsd-gruplar button').forEach(b => {
+        const g = b.dataset.grup;
+        b.classList.toggle('active', secili.includes(g) && !(g === 'puan' && puanKapali));
+        b.disabled = g === 'puan' && puanKapali;
+        b.title = b.disabled ? 'Taban puan ve sıralamadaki puan tüm zamanları kapsar; yalnızca "Tüm zamanlar" seçiliyken gösterilir.' : '';
+    });
+    const goster = secili.filter(g => !(g === 'puan' && puanKapali));
+    if (!goster.length) goster.push('sinav');
+
+    const planDahil = !!(document.getElementById('tsd-plan-dahil') || {}).checked;
+    const st = computeTimeScoreStats({ donem: kapsam === 'donem', ay: ayModu ? kapsam : null, planDahil });
     if (!st.kisiler.length) { body.innerHTML = '<p class="tsd-note">Gözetmen bulunamadı.</p>'; return; }
+
+    // --- Özet kutuları (yalnızca seçili gruplar) ---
+    const kpi = [];
+    if (goster.includes('sinav')) kpi.push(`<div><span>🎓 Sınav gözetmenliği</span><b>${n(st.sinavSaat)} sa · ${n(st.sinavPuan)} P</b><small>${st.sinavGorev} görev</small></div>`);
+    if (goster.includes('disi')) kpi.push(`<div><span>📋 Sınav dışı görev</span><b>${n(st.disiSaat)} sa · ${n(st.disiPuan)} P</b><small>${st.disiGorev} görev</small></div>`);
+    if (goster.includes('toplam')) kpi.push(`<div><span>⏱️ Görevler toplamı</span><b>${n(st.toplamSaat)} sa · ${n(st.toplamPuan)} P</b><small>kişi başı ${n(st.ortSaat)} sa · saat başına ${n(st.puanSaat)} P</small></div>`);
+    if (goster.includes('puan')) kpi.push(`<div><span>🏆 Genel toplam puan</span><b>${n(st.genel)} P</b><small>taban ${n(st.taban)} + görevler ${n(st.toplamPuan)}</small></div>`);
+
+    // --- Sütunlar (yalnızca seçili gruplar) ---
+    const kol = [];   // { grup, baslik, hucre(k), alt(st) }
+    if (goster.includes('sinav')) kol.push(
+        { grup: '🎓 Sınav gözetmenliği', baslik: 'Görev', hucre: k => k.sinav.gorev, alt: () => st.sinavGorev },
+        { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (sa)', hucre: k => `${n(k.sinav.saat)}${k.sinav.dk ? `<small>akşam–h.sonu %${k.sinav.zorOran}</small>` : ''}`, alt: () => n(st.sinavSaat) },
+        { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan', hucre: k => n(k.sinav.puan), alt: () => n(st.sinavPuan) });
+    if (goster.includes('disi')) kol.push(
+        { grup: '📋 Sınav dışı görev', baslik: 'Görev', hucre: k => `${k.disi.gorev}${k.eskiDisi && k.eskiDisi.gorev ? `<small>${k.eskiDisi.gorev} eski*</small>` : ''}`, alt: () => st.disiGorev },
+        { grup: '📋 Sınav dışı görev', baslik: 'Süre (sa)', hucre: k => n(k.disi.saat), alt: () => n(st.disiSaat) },
+        { grup: '📋 Sınav dışı görev', baslik: 'Puan', hucre: k => n(k.disi.puan), alt: () => n(st.disiPuan) });
     const maxSaat = Math.max(...st.kisiler.map(k => k.toplam.saat), 1);
-    const kapsam = st.donem
-        ? `${esc(st.donem.replace(/-guz$/, ' Güz').replace(/-bahar$/, ' Bahar').replace(/-yaz$/, ' Yaz'))} dönemi`
-        : 'tüm zamanlar';
+    if (goster.includes('toplam')) kol.push(
+        { grup: '⏱️ Görevler toplamı', baslik: 'Süre (sa)', hucre: k => `<div class="tsd-bar"><i style="width:${Math.round(k.toplam.saat / maxSaat * 100)}%"></i></div><b>${n(k.toplam.saat)}</b><small>ort. farkı ${fark(k.saatFark)}</small>`, alt: () => n(st.toplamSaat) },
+        { grup: '⏱️ Görevler toplamı', baslik: 'Puan', hucre: k => n(k.toplam.puan), alt: () => n(st.toplamPuan) },
+        { grup: '⏱️ Görevler toplamı', baslik: 'P/sa', hucre: k => n(k.toplam.puanSaat), alt: () => n(st.puanSaat) });
+    if (goster.includes('puan')) kol.push(
+        { grup: '🏆 Puan özeti', baslik: 'Taban', hucre: k => n(k.taban), alt: () => n(st.taban) },
+        { grup: '🏆 Puan özeti', baslik: 'Genel toplam', hucre: k => `<b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small>`, alt: () => `<b>${n(st.genel)}</b>` },
+        { grup: '🏆 Puan özeti', baslik: 'Sıralamadaki puan', cls: 'tsd-siralama', hucre: k => `<b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaEski ? ` + ${n(k.siralamaEski)} eski sınav dışı*` : ''}${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small>`, alt: () => `<b>${n(st.siralamaPuan)}</b>` });
+
+    // Sıralama: ilk seçili grubun süresine göre (görevler toplamı varsa ona göre)
+    const sirala = goster.includes('toplam') ? (k => k.toplam.saat) : goster.includes('sinav') ? (k => k.sinav.saat) : goster.includes('disi') ? (k => k.disi.saat) : (k => k.genel);
+    const kisiler = st.kisiler.slice().sort((a, b) => sirala(b) - sirala(a));
+
+    const gruplar = [];
+    kol.forEach(c => { const g = gruplar[gruplar.length - 1]; if (g && g.ad === c.grup) g.sayi++; else gruplar.push({ ad: c.grup, sayi: 1 }); });
+    const tekGrup = gruplar.length === 1;
 
     body.innerHTML = `
-        <div class="tsd-kpis">
-            <div><span>🎓 Sınav gözetmenliği</span><b>${n(st.sinavSaat)} sa · ${n(st.sinavPuan)} P</b><small>${st.sinavGorev} görev</small></div>
-            <div><span>📋 Sınav dışı görev</span><b>${n(st.disiSaat)} sa · ${n(st.disiPuan)} P</b><small>${st.disiGorev} görev</small></div>
-            <div><span>⏱️ Toplam süre</span><b>${n(st.toplamSaat)} sa</b><small>kişi başı ${n(st.ortSaat)} sa · saat başına ${n(st.puanSaat)} P</small></div>
-            <div><span>🏆 Genel toplam puan</span><b>${n(st.genel)} P</b><small>taban ${n(st.taban)} + görevler ${n(st.toplamPuan)} · kişi başı ${n(st.ortGenel)}</small></div>
-        </div>
+        <div class="tsd-kpis" style="grid-template-columns: repeat(${Math.min(kpi.length, 4)}, minmax(0, 1fr));">${kpi.join('')}</div>
         <div class="table-container"><table class="tsd-table">
             <thead>
-                <tr>
-                    <th rowspan="2">Gözetmen</th>
-                    <th colspan="3" class="tsd-grp">🎓 Sınav gözetmenliği</th>
-                    <th colspan="3" class="tsd-grp">📋 Sınav dışı görev</th>
-                    <th colspan="3" class="tsd-grp">⏱️ Görevler toplamı</th>
-                    <th rowspan="2">Taban puan</th>
-                    <th rowspan="2">Genel toplam</th>
-                    <th rowspan="2" class="tsd-siralama-th" title="Sınav Gözetmenliği Puan Sıralaması'ndaki puan: taban + yapılan sınavlar + henüz yapılmamış sınavlar">Sıralamadaki puan</th>
-                </tr>
-                <tr>
-                    <th>Görev</th><th>Süre (sa)</th><th>Puan</th>
-                    <th>Görev</th><th>Süre (sa)</th><th>Puan</th>
-                    <th>Süre (sa)</th><th>Puan</th><th>P/sa</th>
-                </tr>
+                ${tekGrup ? '' : `<tr><th rowspan="2">Gözetmen</th>${gruplar.map(g => `<th colspan="${g.sayi}" class="tsd-grp">${g.ad}</th>`).join('')}</tr>`}
+                <tr>${tekGrup ? '<th>Gözetmen</th>' : ''}${kol.map(c => `<th class="${c.cls ? c.cls + '-th' : ''}">${c.baslik}</th>`).join('')}</tr>
             </thead>
-            <tbody>${st.kisiler.map(k => `
-                <tr>
-                    <td><b>${esc(k.name)}</b></td>
-                    <td>${k.sinav.gorev}</td>
-                    <td>${n(k.sinav.saat)}${k.sinav.dk ? `<small title="Akşam / hafta sonu görevlerinin süredeki payı">akşam–h.sonu %${k.sinav.zorOran}</small>` : ''}</td>
-                    <td>${n(k.sinav.puan)}</td>
-                    <td>${k.disi.gorev}${k.eskiDisi && k.eskiDisi.gorev ? `<small title="Sistemde sınav puanına sayılan eski görevler">${k.eskiDisi.gorev} eski*</small>` : ''}</td>
-                    <td>${n(k.disi.saat)}</td>
-                    <td>${n(k.disi.puan)}</td>
-                    <td><div class="tsd-bar"><i style="width:${Math.round(k.toplam.saat / maxSaat * 100)}%"></i></div><b>${n(k.toplam.saat)}</b><small>ort. farkı ${fark(k.saatFark)}</small></td>
-                    <td>${n(k.toplam.puan)}</td>
-                    <td>${n(k.toplam.puanSaat)}</td>
-                    <td>${n(k.taban)}</td>
-                    <td><b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small></td>
-                    <td class="tsd-siralama"><b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaEski ? ` + ${n(k.siralamaEski)} eski sınav dışı*` : ''}${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small></td>
-                </tr>`).join('')}</tbody>
-            <tfoot>
-                <tr>
-                    <td><b>Bölüm toplamı</b></td>
-                    <td>${st.sinavGorev}</td><td>${n(st.sinavSaat)}</td><td>${n(st.sinavPuan)}</td>
-                    <td>${st.disiGorev}</td><td>${n(st.disiSaat)}</td><td>${n(st.disiPuan)}</td>
-                    <td>${n(st.toplamSaat)}</td><td>${n(st.toplamPuan)}</td><td>${n(st.puanSaat)}</td>
-                    <td>${n(st.taban)}</td><td><b>${n(st.genel)}</b></td>
-                    <td class="tsd-siralama"><b>${n(st.siralamaPuan)}</b></td>
-                </tr>
-            </tfoot>
+            <tbody>${kisiler.map(k => `<tr><td><b>${esc(k.name)}</b></td>${kol.map(c => `<td class="${c.cls || ''}">${c.hucre(k)}</td>`).join('')}</tr>`).join('')}</tbody>
+            <tfoot><tr><td><b>Bölüm toplamı</b></td>${kol.map(c => `<td class="${c.cls || ''}">${c.alt()}</td>`).join('')}</tr></tfoot>
         </table></div>
-        <p class="tsd-note">Kapsam: <b>${kapsam}</b>, ${planDahil ? 'yapılan + <b>planlanan</b> görevler' : '<b>şu ana kadar yapılan</b> görevler'}.
-        ${!planDahil && st.planGorev ? `Henüz yapılmamış ${st.planGorev} görev (${n(st.planSaat)} saat) dahil değildir; "Planlanan görevler dahil" ile eklenebilir. Sistemdeki puan planlanan görevleri de içerdiği için "Genel toplam" sistem puanından düşük olabilir.` : ''}
-        <b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır: taban puan + yapılmış sınavlar + henüz yapılmamış (planlanan) sınavlar. Bu yüzden "Sınav gözetmenliği · Puan" sütunundan (yalnızca yapılmış sınavlar) farklıdır.
-        ${st.eskiDisiGorev ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev (festival, servis dersi görevlendirmesi vb.; toplam ${n(st.eskiDisiSaat)} saat, ${n(st.eskiDisiPuan)} puan) bu tabloda <b>sınav dışı</b> sütununda gösterilir. Sistem bu görevleri o tarihteki kurala göre <b>sınav puanına</b> saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}<br>
-        Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre). Saat başına puanın yüksek olması, akşam / hafta sonu gibi yüksek katsayılı görevlerin payının fazla olduğunu gösterir.</p>`;
+        <p class="tsd-note">Kapsam: <b>${esc(kapsamAdi)}</b>, ${planDahil ? 'yapılan + <b>planlanan</b> görevler' : '<b>şu ana kadar yapılan</b> görevler'}.
+        ${ayModu ? 'Ay seçiminde görevler Puan Karnem ile aynı şekilde <b>sınav tarihinin ayına</b> göre gruplanır.' : ''}
+        ${!planDahil && st.planGorev ? `Henüz yapılmamış ${st.planGorev} görev (${n(st.planSaat)} saat) dahil değildir.` : ''}
+        ${puanKapali && secili.includes('puan') ? '🏆 Puan özeti (taban, genel toplam, sıralamadaki puan) tüm zamanları kapsadığı için yalnızca "Tüm zamanlar" seçiliyken gösterilir.' : ''}
+        ${goster.includes('puan') ? '<br><b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır (taban + yapılan + planlanan sınavlar).' : ''}
+        ${st.eskiDisiGorev && (goster.includes('disi') || goster.includes('puan')) ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev bu tabloda sınav dışı sütununda gösterilir; sistem bunları o tarihteki kurala göre sınav puanına saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}
+        <br>Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre).</p>`;
 };
 
 function renderStats() {
@@ -15658,7 +15692,8 @@ window.renderScorecard = function() {
             };
         }
 
-        const scoreVal = parseFloat(ex.score || 0);
+        // Gözetmenin kendi girdiği süre varsa puan ondan (toplam puanla aynı hesap; aylık toplamlar toplam puanı tutsun)
+        const scoreVal = typeof getProctorExamScore === 'function' ? parseFloat(getProctorExamScore(ex, myStaffId)) || 0 : parseFloat(ex.score || 0);
         const isNonExam = (typeof shouldCountAsNonExam === 'function') ? shouldCountAsNonExam(ex) : Boolean(ex.isNonExam);
 
         const taskItem = {

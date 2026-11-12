@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=20261112i">
+    <link rel="stylesheet" href="style.css?v=20261112k">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1470,12 +1470,16 @@
                     <div class="tsd-head">
                         <h3><span>⏱️</span> Süre ve Puan Analizi <span class="tsd-badge">🧪 TASLAK</span></h3>
                         <div class="tsd-controls">
-                            <div class="tsd-scope" role="group" aria-label="Kapsam">
-                                <button type="button" data-scope="tum" class="active" onclick="renderTimeScoreDraft('tum')">Tüm zamanlar</button>
-                                <button type="button" data-scope="donem" onclick="renderTimeScoreDraft('donem')">Bu dönem</button>
-                            </div>
+                            <label class="tsd-kapsam-label">📅 <select id="tsd-kapsam" onchange="renderTimeScoreDraft()" aria-label="Dönem veya ay"></select></label>
                             <label class="tsd-plan"><input type="checkbox" id="tsd-plan-dahil" onchange="renderTimeScoreDraft()"> Planlanan görevler dahil</label>
                         </div>
+                    </div>
+                    <div class="tsd-gruplar" role="group" aria-label="Gösterilecek veriler">
+                        <span class="tsd-gruplar-baslik">Göster:</span>
+                        <button type="button" data-grup="sinav" onclick="toggleTsdGrup('sinav')">🎓 Sınav gözetmenliği</button>
+                        <button type="button" data-grup="disi" onclick="toggleTsdGrup('disi')">📋 Sınav dışı görev</button>
+                        <button type="button" data-grup="toplam" onclick="toggleTsdGrup('toplam')">⏱️ Görevler toplamı</button>
+                        <button type="button" data-grup="puan" onclick="toggleTsdGrup('puan')">🏆 Puan özeti</button>
                     </div>
                     <p class="tsd-note">Taslak aşamasında bir fikir: her kişinin <b>şu ana kadar</b> görevlerde geçirdiği toplam süre ve kazandığı tüm puanlar, <b>sınav gözetmenlikleri</b> ve <b>sınav dışı görevler</b> olarak ayrı ayrı. Yalnızca bilgi amaçlıdır, <b>puanlamayı değiştirmez</b> ve şimdilik yalnızca yöneticiye görünür.</p>
                     <div id="tsd-body"></div>
@@ -3350,8 +3354,8 @@
 
     <script src="bildirim_kurallari.js?v=20261112b"></script>
     <script src="atama_destek.js?v=20261108m"></script>
-    <script src="logic.js?v=20261112j"></script>
-    <script src="app.js?v=20261112j"></script>
+    <script src="logic.js?v=20261112k"></script>
+    <script src="app.js?v=20261112k"></script>
     <script src="auth_google.js?v=20261109h"></script>
     <script src="swap_email.js?v=20261112b"></script>
     <script src="swap_market.js?v=20261110c"></script>

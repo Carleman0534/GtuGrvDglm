@@ -96,6 +96,30 @@ test('Sıralamadaki puan = taban + yapılan + planlanan sınavlar (her iki gör�
     }
 });
 
+test('Ay seçimi: yalnızca o ay sayılır; tüm ayların toplamı tüm zamanlara eşit', () => {
+    const app = freshApp();
+    const aylar = app.run('timeScoreMonths()');
+    assert.ok(aylar.length > 3);
+    assert.deepEqual(aylar.map(a => a.key), aylar.map(a => a.key).slice().sort().reverse(), 'en yeni ay önce');
+    assert.match(aylar.find(a => a.key === '2026-11').ad, /Kasım 2026/);
+    const tum = app.run('computeTimeScoreStats({ planDahil: true })');
+    let sinavDk = 0, disiDk = 0, puan = 0;
+    for (const a of aylar) {
+        const st = app.run(`computeTimeScoreStats({ ay: '${a.key}', planDahil: true })`);
+        assert.equal(st.ay, a.key);
+        sinavDk += st.kisiler.reduce((x, k) => x + k.sinav.dk, 0);
+        disiDk += st.kisiler.reduce((x, k) => x + k.disi.dk, 0);
+        puan += st.toplamPuan;
+    }
+    assert.equal(sinavDk, tum.kisiler.reduce((x, k) => x + k.sinav.dk, 0));
+    assert.equal(disiDk, tum.kisiler.reduce((x, k) => x + k.disi.dk, 0));
+    assert.ok(Math.abs(puan - tum.toplamPuan) < 1);
+    // Bir ayın sınavları yalnızca o ayın kapsamında
+    const nisan = app.run(`computeTimeScoreStats({ ay: '2026-04', planDahil: true })`);
+    const nisanDk = app.run(`DB.exams.filter(e => String(e.date).startsWith('2026-04') && !shouldCountAsNonExam(e)).reduce((a, e) => a + (Array.isArray(e.proctorIds) && e.proctorIds.length ? e.proctorIds : [e.proctorId]).filter(p => p >= 1 && p <= 12).length * (parseInt(e.duration, 10) || 60), 0)`);
+    assert.equal(nisan.kisiler.reduce((x, k) => x + k.sinav.dk + k.disi.dk, 0), nisanDk);
+});
+
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {
     const app = freshApp();
     const st = app.run('computeTimeScoreStats()');

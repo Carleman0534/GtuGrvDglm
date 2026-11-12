@@ -3858,6 +3858,7 @@ function computeTimeScoreStats(opts = {}) {
     (dbObj.exams || []).forEach(ex => {
         if (!ex || !ex.date || !ex.time) return;
         if (curTerm && termOf(ex.date) !== curTerm) return;
+        if (opts.ay && String(ex.date).slice(0, 7) !== opts.ay) return;   // ay seçimi: 'YYYY-AA' (Puan Karnem ile aynı: sınav tarihine göre)
         const start = getSafeDate(ex.date, ex.time).getTime();
         if (isNaN(start)) return;
         const eski = eskiSinavDisi(ex);
@@ -3925,6 +3926,7 @@ function computeTimeScoreStats(opts = {}) {
 
     return Object.assign({
         donem: curTerm,
+        ay: opts.ay || null,
         planDahil: !!opts.planDahil,
         kisiler: list,
         ortPuan: p1(sum(r => r.sinav.puan) / n),
@@ -3933,6 +3935,21 @@ function computeTimeScoreStats(opts = {}) {
     }, ozet);
 }
 if (typeof window !== 'undefined') window.computeTimeScoreStats = computeTimeScoreStats;
+
+/** Süre ve Puan Analizi için seçilebilir aylar (aktif gözetmenlerin görevi olan aylar, en yeni önce) */
+function timeScoreMonths() {
+    const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : DB;
+    const pool = new Set(getActiveProctorStaff((dbObj.staff || []).filter(Boolean)).map(s => String(s.id)));
+    const ADLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    const set = new Set();
+    (dbObj.exams || []).forEach(ex => {
+        if (!ex || !/^\d{4}-\d{2}/.test(String(ex.date || ''))) return;
+        const pids = (Array.isArray(ex.proctorIds) && ex.proctorIds.length ? ex.proctorIds : (ex.proctorId != null ? [ex.proctorId] : [])).map(String);
+        if (pids.some(p => pool.has(p))) set.add(String(ex.date).slice(0, 7));
+    });
+    return [...set].sort().reverse().map(k => ({ key: k, ad: `${ADLAR[parseInt(k.slice(5, 7), 10) - 1]} ${k.slice(0, 4)}` }));
+}
+if (typeof window !== 'undefined') window.timeScoreMonths = timeScoreMonths;
 
 function recalculateAllScores() {
     const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : (typeof DB !== 'undefined' ? DB : null);
