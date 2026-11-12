@@ -298,6 +298,7 @@
         const idx = list.map(S).indexOf(S(fromId));
         if (idx === -1) throw new Error(`"${exam.name}" görevinde devreden hoca bulunamadı`);
         list[idx] = toStaff.id;
+        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'takas');
         exam.proctorIds = list;
         if (exam.proctorId === undefined || exam.proctorId === null || S(exam.proctorId) === S(fromId)) exam.proctorId = list[0];
         exam.proctorName = list.map(id => (staffById(id) || {}).name).filter(Boolean).join(', ');

@@ -2053,10 +2053,12 @@ function balanceDraftBatch(opts = {}) {
 
         if (!best) break;
         if (best.tur === 'devir') {
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(best.e.id, 'otomatik');
             moveExamProctor(DB, best.e, best.p, best.q);
             proj[best.p] -= best.s; proj[best.q] += best.s;
             steps.push({ tur: 'devir', sinav: best.e.name, tarih: best.e.date, kimden: staffName(best.p), kime: staffName(best.q), puan: best.s });
         } else {
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(best.e1.id, 'otomatik'); if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(best.e2.id, 'otomatik');
             moveExamProctor(DB, best.e1, best.p, best.q);
             moveExamProctor(DB, best.e2, best.q, best.p);
             proj[best.p] -= best.d; proj[best.q] += best.d;
@@ -2122,6 +2124,7 @@ function autoResolveConflicts() {
             Object.assign({}, exam, { ayrilan: oldStaff ? [oldStaff.id] : [] }));
 
         if (newProctor) {
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'otomatik');
             // Yeni gözetmeni ata
             exam.proctorId = newProctor.id;
             exam.proctorName = newProctor.name;
@@ -2230,6 +2233,7 @@ function runGlobalOptimization() {
 
         if (chosen.penalty < 10000) {
             const score = calculateScore(getSafeDate(date, time), duration, ex.id);
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(ex.id, 'otomatik');
             ex.proctorIds = [chosen.staff.id];
             ex.proctorId = chosen.staff.id;
             ex.proctorName = chosen.staff.name;
@@ -2316,7 +2320,7 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
     
     if (proctors.length === 0 && !examData.allowUnassigned) {
         const best = findBestProctor(examData.date, examData.time, examData.duration, null, false, "", examData);
-        if (best) proctors = [best];
+        if (best) { proctors = [best]; examData.__otomatikAtama = true; }
     }
 
     if (proctors.length === 0 && !examData.allowUnassigned) {
@@ -2347,6 +2351,7 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
     };
 
     DB.exams.push(newExam);
+    if (examData.__otomatikAtama) { delete examData.__otomatikAtama; if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(newExam.id, 'otomatik'); }
     window._hasLocalEdits = true;
     DB.lastUpdated = new Date().toISOString();
     
@@ -5203,6 +5208,7 @@ function acceptFairnessProposal(proposalId, staffId) {
             return { success: false, error: `Takas uygulanamadı: ${reason} Teklif kapatıldı.` };
         }
 
+        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exFrom.id, 'dengeleme'); if (exTo) if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exTo.id, 'dengeleme');
         moveExamProctor(dbObj, exFrom, prop.fromStaffId, prop.toStaffId);
         if (exTo) moveExamProctor(dbObj, exTo, prop.toStaffId, prop.fromStaffId);
 

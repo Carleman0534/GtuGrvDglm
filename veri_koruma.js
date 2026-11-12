@@ -301,6 +301,9 @@
 
     // ---------- Kaydetme ----------
     window.saveToBackend = function () {
+        // Yeni atamaların gerekçesini kaydet ("Bu görev neden bana geldi?" — atama_gerekce.js)
+        try { if (typeof window.recordAssignmentReasons === 'function') window.recordAssignmentReasons(_base); }
+        catch (e) { console.warn('Atama gerekçesi kaydedilemedi:', e); }
         _dirty = true;
         writePending();
         _saveChain = _saveChain.then(doSave).catch(e => console.error('🛡️ Kayıt hatası:', e));

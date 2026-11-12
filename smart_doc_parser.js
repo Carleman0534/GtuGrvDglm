@@ -554,6 +554,7 @@ Veri Bilimi ve Analitiği 37 HIS 101 Principles of Atatürk and the History of T
                     ex.scheduledDuration = item.duration;
                     ex.score = score;
                     if (item.assignedProctorIds.length > 0) {
+                        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(ex.id, 'ice_aktarim');
                         ex.proctorIds = item.assignedProctorIds;
                         ex.proctorId = item.assignedProctorIds[0];
                         ex.proctorName = item.assignedProctorNames.join(', ');

@@ -477,6 +477,7 @@
             <div class="next-duty-actions">
                 <button type="button" onclick="openUpdateDurationModal('${id}')">⏱️ Saat / Süre</button>
                 <button type="button" onclick="exportSingleExamToICal('${id}')">📅 Takvime ekle</button>
+                <button type="button" onclick="showAtamaGerekcesi('${id}', '${escapeHtml(staffId)}')">ℹ️ Neden ben?</button>
                 ${ongoing ? '' : `<button type="button" onclick="initiateOpenSwap('${id}')">🛒 Yerime biri lazım</button>`}
             </div>
             ${others > 0 ? `<button type="button" class="next-duty-all" onclick="exportMyExamsToICal()">📅 Yaklaşan ${others + 1} görevimin hepsini takvime ekle</button>` : ''}`;

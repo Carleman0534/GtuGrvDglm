@@ -6580,3 +6580,19 @@ html.gg-tarih input[type="date"][data-gg]:not(:focus)::before {
     color: inherit; pointer-events: none; white-space: nowrap;
 }
 html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
+
+/* ===== "BU GÖREV NEDEN BANA GELDİ?" (atama_gerekce.js) ===== */
+.atama-gerekce-btn { padding: 0.3rem 0.55rem !important; border-radius: 6px; font-size: 0.72rem !important; white-space: nowrap; }
+.atama-gerekce-body { font-size: 0.88rem; line-height: 1.5; }
+.atama-gerekce-body p { margin: 0 0 0.6rem; }
+.atama-gerekce-exam { display: flex; flex-direction: column; gap: 2px; padding: 0.6rem 0.8rem; margin-bottom: 0.8rem;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 10px; }
+.atama-gerekce-exam span { font-size: 0.78rem; color: var(--text-muted); }
+.atama-gerekce-method { font-weight: 600; }
+.atama-gerekce-list { margin: 0 0 0.6rem 1.1rem; padding: 0; }
+.atama-gerekce-list li { margin-bottom: 2px; }
+.atama-gerekce-note { font-size: 0.8rem; color: var(--text-muted); }
+.atama-gerekce-foot { font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--glass-border, rgba(148,163,184,0.25)); padding-top: 0.6rem; margin-top: 0.4rem; }
+#modal-atama-gerekce .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap; }
+#modal-atama-gerekce .modal-header h3 { font-size: 1rem; margin: 0; }
+#modal-atama-gerekce .modal-header .close-modal { flex: 0 0 auto; }

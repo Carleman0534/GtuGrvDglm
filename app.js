@@ -2988,6 +2988,7 @@ window.takeOverDuty = async function(examId, oldProctorId) {
         }
 
         // SINAV GÜNCELLEME
+        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'takas');
         exam.proctorId = newProctor.id;
         exam.proctorName = newProctor.name;
         if (!exam.proctorIds || exam.proctorIds.length === 0) {
@@ -5028,6 +5029,7 @@ window.showEditExamModal = (id) => {
                     <span style="font-size:0.85rem; flex:1; min-width:0;">${staff ? staff.name : '???'}</span>
                     ${proctorRoomSelectHtml('edit', id)}
                     <div style="display:flex; gap:10px; align-items:center;">
+                        ${(() => { const eid = document.getElementById('edit-exam-id')?.value; const ex = eid && DB.exams.find(e => String(e.id) === String(eid)); return ex && (ex.proctorIds || [ex.proctorId]).map(String).includes(String(id)) ? `<button type="button" class="btn-icon" onclick="showAtamaGerekcesi('${eid}', '${id}')" title="Bu görev bu kişiye neden geldi?" style="cursor:pointer; background:none; border:none; font-size:1rem;">ℹ️</button>` : ''; })()}
                         <button type="button" class="btn-icon" onclick="removeProctorAndSendCancelMail(${id})" title="Gözetmenliği İptal Et ve Mail Gönder" style="color:#38bdf8; font-size:1.1rem; cursor:pointer; background:none; border:none; padding:0;">📧</button>
                         <button type="button" class="btn-icon" onclick="removeProctorFromEditList(${id})" title="Sadece Listeden Çikar" style="color:var(--accent-red); font-size:1rem; filter:grayscale(1) brightness(2); cursor:pointer; background:none; border:none; padding:0;">🗑️</button>
                     </div>
@@ -6751,6 +6753,7 @@ window.approveSwapPeer = async function(requestId, staffId) {
                 toStaff.taskCount = (toStaff.taskCount || 0) + 1;
             }
 
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'takas');
             exam.proctorId = toStaff.id;
             exam.proctorName = toStaff.name;
             if (!exam.proctorIds) exam.proctorIds = [toStaff.id];
@@ -7827,6 +7830,7 @@ window.renderProfile = function() {
                         <td><span class="score-tag">+${ex.score}</span></td>
                         <td>${statusBadge || '<span style="color:var(--text-muted);font-size:0.7rem;">Normal</span>'}</td>
                         <td style="display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;">
+                            <button class="btn-secondary atama-gerekce-btn" onclick="showAtamaGerekcesi('${ex.id}', '${myStaffId}')" title="Bu görev neden bana geldi?">ℹ️ Neden ben?</button>
                             <button class="btn-secondary" onclick="exportSingleExamToICal('${ex.id}')" title="Bu Sınavı Takvime (.ics) Ekle" style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(2, 132, 199, 0.15); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3); display: inline-flex; align-items: center; justify-content: center; gap: 4px;"><span class="icon" style="margin:0;">📅</span><span class="btn-cal-text">Takvim</span></button>
                             <button class="btn-secondary" onclick="openUpdateDurationModal('${ex.id}')" title="Sınavın başlangıç saatini ve süresini gir / güncelle" style="padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.35); color: #fb923c; cursor:pointer; font-size:0.72rem; font-weight:600;">⏱️ Saat / Süre</button>
                             ${(() => {
@@ -11630,6 +11634,7 @@ window.acceptOpenRequest = async function(requestId) {
         }
 
         // Sinavi Güncelle
+        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'takas');
         if (!exam.proctorIds) exam.proctorIds = [exam.proctorId];
         
         // Initiator'i bul ve değiştir
@@ -11712,6 +11717,7 @@ window.confirmOpenRequest = async function(requestId) {
                 toStaff.taskCount = (toStaff.taskCount || 0) + 1;
             }
 
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'takas');
             exam.proctorId = toStaff.id;
             exam.proctorName = toStaff.name;
             if (!exam.proctorIds) exam.proctorIds = [toStaff.id];
@@ -12110,6 +12116,7 @@ window.acceptDirectSwap = async function(requestId) {
 
         // 4. Sinavlarin Gözetmenlerini Değiştir
         // MyExam -> hisStaff
+        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(myExam.id, 'takas'); if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(hisExam.id, 'takas');
         myExam.proctorId = hisStaff.id;
         myExam.proctorName = hisStaff.name;
         if (myExam.proctorIds) {
@@ -12235,6 +12242,7 @@ window.batchAutoAssign = async function() {
         unassignedExams.forEach(ex => {
             const best = findBestProctor(ex.date, ex.time, ex.duration, null, false, "", ex);
             if (best) {
+                if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(ex.id, 'otomatik');
                 ex.proctorId = best.id;
                 ex.proctorIds = [best.id];
                 ex.proctorName = best.name;
@@ -12289,6 +12297,7 @@ window.quickFixConflict = async function(examId) {
         const best = findBestProctor(exam.date, exam.time, exam.duration, exam.id, false, "",
             Object.assign({}, exam, { proctorIds: [], proctorId: null }));
         if (best) {
+            if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(exam.id, 'otomatik');
             exam.proctorId = best.id;
             exam.proctorIds = [best.id];
             exam.proctorName = best.name;
@@ -13421,6 +13430,7 @@ window.acceptSmartSwap = async function(requestId) {
         }
 
         // Şimdi karşilikli ata
+        if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(myExam.id, 'takas'); if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(hisExam.id, 'takas');
         myExam.proctorId = him.id;
         myExam.proctorIds = [him.id];
         myExam.proctorName = him.name;
@@ -14104,6 +14114,7 @@ function processExcelRows(rows) {
             return b.score - a.score; // Puanı yüksek (zorlu) sınavlar önce
         });
 
+    if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi('*', 'ice_aktarim');
     assignOrder.forEach(ex => {
         let assignedProctors = [];
         
@@ -17961,7 +17972,7 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
     const canReceive = (staffId, exam, ignoreExamId, leavingId) => fairnessCanReceive(DB, staffId, exam, ignoreExamId, leavingId);
 
     // Görev devri: liste, birincil gözetmen, görünen ad ve derslik/süre alanları birlikte taşınır (ortak: logic.js)
-    const moveProctor = (ex, fromStaff, toStaff) => moveExamProctor(DB, ex, fromStaff.id, toStaff.id);
+    const moveProctor = (ex, fromStaff, toStaff) => { if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(ex.id, 'dengeleme'); return moveExamProctor(DB, ex, fromStaff.id, toStaff.id); };
 
     const applied = [];
     const skipped = [];
