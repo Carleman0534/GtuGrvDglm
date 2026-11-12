@@ -6601,3 +6601,11 @@ html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
 .atama-gerekce-not-baslik { font-weight: 700; font-size: 0.82rem; margin-bottom: 4px; }
 .atama-gerekce-not-baslik span { font-weight: 400; color: var(--text-muted); }
 .atama-gerekce-not-metin { font-size: 0.9rem; white-space: normal; word-break: break-word; }
+
+/* "Neden ben?" bölümleri */
+.atama-gerekce-kisaca { font-weight: 600; padding: 0.55rem 0.75rem; border-radius: 10px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.35); margin-bottom: 0.7rem; }
+.atama-gerekce-blok { margin-bottom: 0.7rem; }
+.atama-gerekce-baslik { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.25rem; }
+.atama-gerekce-blok .atama-gerekce-list { margin-bottom: 0.3rem; }
+.atama-gerekce-oneri { padding: 0.6rem 0.75rem; border-radius: 10px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); margin-bottom: 0.7rem; font-size: 0.85rem; }
+.atama-gerekce-aksiyon { margin-top: 0.45rem; padding: 0.4rem 0.8rem; border-radius: 8px; border: none; background: #0ea5e9; color: #fff; font-weight: 700; cursor: pointer; }
