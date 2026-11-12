@@ -5353,7 +5353,47 @@ window.showEditScheduleModal = (name, date, time, location) => {
     };
 };
 
+/** 🧪 TASLAK: Süre ve Puan Analizi kartı (İstatistikler; yalnızca yönetici) */
+window.renderTimeScoreDraft = function(scope) {
+    const body = document.getElementById('tsd-body');
+    if (!body || typeof computeTimeScoreStats !== 'function') return;
+    window._tsdScope = scope || window._tsdScope || 'donem';
+    document.querySelectorAll('#stats-time-score-draft .tsd-scope button').forEach(b => b.classList.toggle('active', b.dataset.scope === window._tsdScope));
+    const st = computeTimeScoreStats({ donem: window._tsdScope === 'donem' });
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const n = (v) => String(v).replace('.', ',');
+    if (!st.kisiler.length || !st.toplamSaat) { body.innerHTML = '<p class="tsd-note">Bu kapsamda sınav gözetmenliği kaydı yok.</p>'; return; }
+    const maxSaat = Math.max(...st.kisiler.map(k => k.saat), 1);
+    body.innerHTML = `
+        <div class="tsd-kpis">
+            <div><span>Toplam gözetmenlik</span><b>${n(st.toplamSaat)} saat</b></div>
+            <div><span>Kişi başı ortalama</span><b>${n(st.ortSaat)} saat</b></div>
+            <div><span>Saat başına puan</span><b>${n(st.puanSaat)}</b></div>
+            <div><span>En çok / en az</span><b>${n(st.enCok.saat)} / ${n(st.enAz.saat)} sa</b></div>
+        </div>
+        <div class="table-container"><table class="tsd-table">
+            <thead><tr><th>Gözetmen</th><th>Süre (saat)</th><th>Ort. farkı</th><th>Sınav puanı</th><th>Puan / saat</th><th>Akşam–h.sonu</th><th>Görev</th></tr></thead>
+            <tbody>${st.kisiler.map(k => `
+                <tr>
+                    <td>${esc(k.name)}</td>
+                    <td><div class="tsd-bar"><i style="width:${Math.round(k.saat / maxSaat * 100)}%"></i></div>
+                        <b>${n(k.saat)}</b>${k.dkPlan ? ` <small title="Henüz yapılmamış görevler">(${n(k.saatTamam)} tamamlandı)</small>` : ''}</td>
+                    <td class="${k.saatFark > 0 ? 'tsd-plus' : (k.saatFark < 0 ? 'tsd-minus' : '')}">${k.saatFark > 0 ? '+' : ''}${n(k.saatFark)}</td>
+                    <td>${n(k.puan)}</td>
+                    <td>${n(k.puanSaat)}</td>
+                    <td>%${k.zorOran}</td>
+                    <td>${k.gorev}</td>
+                </tr>`).join('')}</tbody>
+        </table></div>
+        <p class="tsd-note">Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre). Taban puan dahil değildir; yalnızca sınav gözetmenlikleri sayılır.
+        Saat başına puanın yüksek olması, akşam / hafta sonu gibi yüksek katsayılı görevlerin payının fazla olduğunu gösterir.
+        ${st.donem ? `Kapsam: ${esc(st.donem.replace(/-guz$/, ' Güz').replace(/-bahar$/, ' Bahar').replace(/-yaz$/, ' Yaz'))} dönemi (yapılmış + planlanan).` : 'Kapsam: tüm zamanlar.'}</p>`;
+};
+
 function renderStats() {
+    if (sessionStorage.getItem('isAdmin') === 'true' && typeof window.renderTimeScoreDraft === 'function') {
+        try { window.renderTimeScoreDraft(); } catch (e) { console.warn('Süre-puan taslağı:', e); }
+    }
     const data = getDetailedStats();
     
     // 1. Global Grafik (Bar Chart)

@@ -6609,3 +6609,21 @@ html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
 .atama-gerekce-blok .atama-gerekce-list { margin-bottom: 0.3rem; }
 .atama-gerekce-oneri { padding: 0.6rem 0.75rem; border-radius: 10px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); margin-bottom: 0.7rem; font-size: 0.85rem; }
 .atama-gerekce-aksiyon { margin-top: 0.45rem; padding: 0.4rem 0.8rem; border-radius: 8px; border: none; background: #0ea5e9; color: #fff; font-weight: 700; cursor: pointer; }
+/* 🧪 TASLAK: Süre ve Puan Analizi (İstatistikler) */
+#stats-time-score-draft .tsd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 0.6rem; }
+#stats-time-score-draft h3 { font-size: 1.1rem; color: #818cf8; display: flex; align-items: center; gap: 10px; margin: 0; }
+.tsd-badge { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.18); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.45); }
+.tsd-scope { display: inline-flex; gap: 4px; }
+.tsd-scope button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--glass-border, rgba(148,163,184,0.3)); background: transparent; color: var(--text-muted); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.tsd-scope button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tsd-note { font-size: 0.78rem; color: var(--text-muted); line-height: 1.45; margin: 0.4rem 0 0.8rem; }
+.tsd-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 0.9rem; }
+.tsd-kpis > div { background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px; padding: 0.5rem 0.7rem; }
+.tsd-kpis span { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.tsd-kpis b { font-size: 1.02rem; }
+.tsd-table td small { color: var(--text-muted); font-size: 0.7rem; }
+.tsd-bar { height: 6px; background: rgba(148, 163, 184, 0.2); border-radius: 999px; margin-bottom: 3px; min-width: 70px; }
+.tsd-bar i { display: block; height: 100%; background: #6366f1; border-radius: 999px; }
+.tsd-plus { color: #f59e0b; font-weight: 700; }
+.tsd-minus { color: #22c55e; font-weight: 700; }
+@media (max-width: 640px) { .tsd-kpis { grid-template-columns: 1fr 1fr; } }

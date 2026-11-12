@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=20261112e">
+    <link rel="stylesheet" href="style.css?v=20261112f">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1463,6 +1463,19 @@
                     <div style="height: 350px; position: relative;">
                         <canvas id="score-distribution-chart"></canvas>
                     </div>
+                </div>
+
+                <!-- 🧪 TASLAK: Süre ve Puan Analizi (yalnızca yönetici; puanlamayı değiştirmez) -->
+                <div id="stats-time-score-draft" class="card-large admin-only" style="margin-bottom: 2rem;">
+                    <div class="tsd-head">
+                        <h3><span>⏱️</span> Süre ve Puan Analizi <span class="tsd-badge">🧪 TASLAK</span></h3>
+                        <div class="tsd-scope" role="group" aria-label="Kapsam">
+                            <button type="button" data-scope="donem" class="active" onclick="renderTimeScoreDraft('donem')">Bu dönem</button>
+                            <button type="button" data-scope="tum" onclick="renderTimeScoreDraft('tum')">Tüm zamanlar</button>
+                        </div>
+                    </div>
+                    <p class="tsd-note">Taslak aşamasında bir fikir: sınavlarda geçen toplam süre ve bu sürelerden kazanılan puan yan yana. Yalnızca bilgi amaçlıdır, <b>puanlamayı değiştirmez</b> ve şimdilik yalnızca yöneticiye görünür.</p>
+                    <div id="tsd-body"></div>
                 </div>
 
                 <div class="card-large" style="margin-bottom: 2rem;">
@@ -3334,8 +3347,8 @@
 
     <script src="bildirim_kurallari.js?v=20261112b"></script>
     <script src="atama_destek.js?v=20261108m"></script>
-    <script src="logic.js?v=20261112b"></script>
-    <script src="app.js?v=20261112b"></script>
+    <script src="logic.js?v=20261112f"></script>
+    <script src="app.js?v=20261112f"></script>
     <script src="auth_google.js?v=20261109h"></script>
     <script src="swap_email.js?v=20261112b"></script>
     <script src="swap_market.js?v=20261110c"></script>

@@ -3828,6 +3828,72 @@ if (typeof window !== 'undefined') {
     window.getProctorExamScore = getProctorExamScore;
 }
 
+/**
+ * 🧪 TASLAK: Süre ve puan analizi (yalnızca bilgi; puanlamayı DEĞİŞTİRMEZ).
+ * Her aktif gözetmen için sınav gözetmenliğinde geçen süre ve bu sürelerden kazanılan puan.
+ *   donem: true → yalnızca güncel akademik dönem (ör. 2026-2027 Güz); false → tüm zamanlar
+ * Süre ve puan, gözetmenin KENDİ girdiği süreden (varsa) hesaplanır. Taban puan dahil edilmez.
+ */
+function computeTimeScoreStats(opts = {}) {
+    const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : DB;
+    const now = opts.now || Date.now();
+    const engine = (typeof window !== 'undefined' && window.FinalForecastEngine) || (typeof FinalForecastEngine !== 'undefined' ? FinalForecastEngine : null);
+    const termOf = (d) => (engine && engine.getAcademicTerm) ? engine.getAcademicTerm(d).key : null;
+    const curTerm = opts.donem && engine ? termOf(engine.localDateStr ? engine.localDateStr(new Date(now)) : new Date(now).toISOString().slice(0, 10)) : null;
+    const pool = getActiveProctorStaff((dbObj.staff || []).filter(Boolean));
+    const pidsOf = (ex) => (Array.isArray(ex.proctorIds) && ex.proctorIds.length ? ex.proctorIds : (ex.proctorId != null ? [ex.proctorId] : [])).map(String);
+
+    const rows = new Map(pool.map(s => [String(s.id), {
+        id: s.id, name: s.name,
+        dkTamam: 0, dkPlan: 0, puanTamam: 0, puanPlan: 0, gorevTamam: 0, gorevPlan: 0, dkZor: 0
+    }]));
+    (dbObj.exams || []).forEach(ex => {
+        if (!ex || !ex.date || !ex.time) return;
+        if (shouldCountAsNonExam(ex)) return;                    // yalnızca sınav gözetmenliği
+        if (curTerm && termOf(ex.date) !== curTerm) return;
+        const start = getSafeDate(ex.date, ex.time).getTime();
+        if (isNaN(start)) return;
+        pidsOf(ex).forEach(pid => {
+            const r = rows.get(pid);
+            if (!r) return;
+            const dk = getProctorExamDuration(ex, pid);
+            const puan = getProctorExamScore(ex, pid);
+            const bitti = start + dk * 60000 <= now;
+            if (bitti) { r.dkTamam += dk; r.puanTamam += puan; r.gorevTamam++; }
+            else { r.dkPlan += dk; r.puanPlan += puan; r.gorevPlan++; }
+            if ((parseFloat(ex.katsayi) || 1) >= 1.5) r.dkZor += dk;   // akşam / hafta sonu
+        });
+    });
+
+    const list = [...rows.values()].map(r => {
+        const dk = r.dkTamam + r.dkPlan, puan = r.puanTamam + r.puanPlan;
+        return Object.assign(r, {
+            saat: Math.round(dk / 6) / 10,
+            saatTamam: Math.round(r.dkTamam / 6) / 10,
+            puan: Math.round(puan * 10) / 10,
+            puanSaat: dk > 0 ? Math.round(puan / (dk / 60) * 10) / 10 : 0,
+            zorOran: dk > 0 ? Math.round(r.dkZor / dk * 100) : 0,
+            gorev: r.gorevTamam + r.gorevPlan
+        });
+    }).sort((a, b) => b.saat - a.saat);
+
+    const avg = (k) => list.length ? Math.round(list.reduce((a, r) => a + r[k], 0) / list.length * 10) / 10 : 0;
+    const toplamSaat = Math.round(list.reduce((a, r) => a + r.saat, 0) * 10) / 10;
+    const toplamPuan = list.reduce((a, r) => a + r.puan, 0);
+    list.forEach(r => { r.saatFark = Math.round((r.saat - avg('saat')) * 10) / 10; });
+    return {
+        donem: curTerm,
+        kisiler: list,
+        toplamSaat,
+        ortSaat: avg('saat'),
+        ortPuan: avg('puan'),
+        puanSaat: toplamSaat > 0 ? Math.round(toplamPuan / toplamSaat * 10) / 10 : 0,
+        enCok: list[0] || null,
+        enAz: list[list.length - 1] || null
+    };
+}
+if (typeof window !== 'undefined') window.computeTimeScoreStats = computeTimeScoreStats;
+
 function recalculateAllScores() {
     const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : (typeof DB !== 'undefined' ? DB : null);
     if (!dbObj || !dbObj.staff || !dbObj.exams) return 0;
