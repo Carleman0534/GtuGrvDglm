@@ -3849,13 +3849,19 @@ function computeTimeScoreStats(opts = {}) {
     const bos = () => ({ gorev: 0, dk: 0, puan: 0, dkZor: 0, planGorev: 0, planDk: 0, planPuan: 0 });
 
     // siralamaPuan: "Sınav Gözetmenliği Puan Sıralaması"ndaki sistem puanı (taban + yapılan + planlanan sınavlar)
-    const rows = new Map(pool.map(s => [String(s.id), { id: s.id, name: s.name, taban: Number(s.baseScore) || 0, siralamaPuan: Number(s.totalScore) || 0, sinav: bos(), disi: bos() }]));
+    const rows = new Map(pool.map(s => [String(s.id), { id: s.id, name: s.name, taban: Number(s.baseScore) || 0, siralamaPuan: Number(s.totalScore) || 0, sinav: bos(), disi: bos(), eskiDisi: { gorev: 0, dk: 0, puan: 0 } }]));
+    // Tabloda görev TÜRÜNE göre ayrım: sistem, sınav dışı görevleri ayrım tarihinden (NON_EXAM_SPLIT_DATE) önce
+    // sınav puanına sayar. Bu tabloda o eski görevler ("Diğer" türü ya da sınav dışı işaretli) sınav dışı sütununda
+    // gösterilir; sıralamadaki puanla farkı "eski sınav dışı" olarak ayrıca verilir.
+    const eskiSinavDisi = (ex) => !shouldCountAsNonExam(ex) && (ex.isNonExam || ex.type === 'Diğer' || ex.type === 'Tercih Günü')
+        && new Date(...String(ex.date).split('-').map((v, i) => i === 1 ? v - 1 : +v)) < NON_EXAM_SPLIT_DATE;
     (dbObj.exams || []).forEach(ex => {
         if (!ex || !ex.date || !ex.time) return;
         if (curTerm && termOf(ex.date) !== curTerm) return;
         const start = getSafeDate(ex.date, ex.time).getTime();
         if (isNaN(start)) return;
-        const tur = shouldCountAsNonExam(ex) ? 'disi' : 'sinav';
+        const eski = eskiSinavDisi(ex);
+        const tur = (shouldCountAsNonExam(ex) || eski) ? 'disi' : 'sinav';
         pidsOf(ex).forEach(pid => {
             const r = rows.get(pid);
             if (!r) return;
@@ -3863,6 +3869,7 @@ function computeTimeScoreStats(opts = {}) {
             const puan = getProctorExamScore(ex, pid);
             const bitti = start + dk * 60000 <= now;
             const t = r[tur];
+            if (eski) { r.eskiDisi.gorev++; r.eskiDisi.dk += dk; r.eskiDisi.puan += puan; }
             if (bitti || opts.planDahil) {
                 t.gorev++; t.dk += dk; t.puan += puan;
                 if ((parseFloat(ex.katsayi) || 1) >= 1.5) t.dkZor += dk;   // akşam / hafta sonu
@@ -3892,6 +3899,8 @@ function computeTimeScoreStats(opts = {}) {
         r.siralamaPuan = p1(r.siralamaPuan);
         r.siralamaYapilan = p1(opts.planDahil ? r.sinav.puan - r.sinav.planPuan : r.sinav.puan);
         r.siralamaPlan = r.sinav.planPuan;
+        r.eskiDisi.puan = p1(r.eskiDisi.puan); r.eskiDisi.saat = sa(r.eskiDisi.dk);
+        r.siralamaEski = r.eskiDisi.puan;   // sistemde sınav puanına sayılan eski sınav dışı görevler
         // Geriye dönük alanlar (eski kart/test uyumu)
         r.saat = r.sinav.saat; r.puan = r.sinav.puan; r.puanSaat = r.sinav.puanSaat; r.zorOran = r.sinav.zorOran; r.gorev = r.sinav.gorev;
         r.saatTamam = r.sinav.saat;
@@ -3906,7 +3915,8 @@ function computeTimeScoreStats(opts = {}) {
         toplamSaat: p1(sum(r => r.toplam.saat)), toplamPuan: p1(sum(r => r.toplam.puan)),
         taban: p1(sum(r => r.taban)), genel: p1(sum(r => r.genel)),
         planSaat: p1(sum(r => r.sinav.planSaat + r.disi.planSaat)), planGorev: sum(r => r.sinav.planGorev + r.disi.planGorev),
-        siralamaPuan: p1(sum(r => r.siralamaPuan)), siralamaPlan: p1(sum(r => r.siralamaPlan))
+        siralamaPuan: p1(sum(r => r.siralamaPuan)), siralamaPlan: p1(sum(r => r.siralamaPlan)),
+        eskiDisiGorev: sum(r => r.eskiDisi.gorev), eskiDisiSaat: p1(sum(r => r.eskiDisi.saat)), eskiDisiPuan: p1(sum(r => r.eskiDisi.puan))
     };
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);

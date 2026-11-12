@@ -5400,7 +5400,7 @@ window.renderTimeScoreDraft = function(scope) {
                     <td>${k.sinav.gorev}</td>
                     <td>${n(k.sinav.saat)}${k.sinav.dk ? `<small title="Akşam / hafta sonu görevlerinin süredeki payı">akşam–h.sonu %${k.sinav.zorOran}</small>` : ''}</td>
                     <td>${n(k.sinav.puan)}</td>
-                    <td>${k.disi.gorev}</td>
+                    <td>${k.disi.gorev}${k.eskiDisi && k.eskiDisi.gorev ? `<small title="Sistemde sınav puanına sayılan eski görevler">${k.eskiDisi.gorev} eski*</small>` : ''}</td>
                     <td>${n(k.disi.saat)}</td>
                     <td>${n(k.disi.puan)}</td>
                     <td><div class="tsd-bar"><i style="width:${Math.round(k.toplam.saat / maxSaat * 100)}%"></i></div><b>${n(k.toplam.saat)}</b><small>ort. farkı ${fark(k.saatFark)}</small></td>
@@ -5408,7 +5408,7 @@ window.renderTimeScoreDraft = function(scope) {
                     <td>${n(k.toplam.puanSaat)}</td>
                     <td>${n(k.taban)}</td>
                     <td><b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small></td>
-                    <td class="tsd-siralama"><b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small></td>
+                    <td class="tsd-siralama"><b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaEski ? ` + ${n(k.siralamaEski)} eski sınav dışı*` : ''}${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small></td>
                 </tr>`).join('')}</tbody>
             <tfoot>
                 <tr>
@@ -5424,6 +5424,7 @@ window.renderTimeScoreDraft = function(scope) {
         <p class="tsd-note">Kapsam: <b>${kapsam}</b>, ${planDahil ? 'yapılan + <b>planlanan</b> görevler' : '<b>şu ana kadar yapılan</b> görevler'}.
         ${!planDahil && st.planGorev ? `Henüz yapılmamış ${st.planGorev} görev (${n(st.planSaat)} saat) dahil değildir; "Planlanan görevler dahil" ile eklenebilir. Sistemdeki puan planlanan görevleri de içerdiği için "Genel toplam" sistem puanından düşük olabilir.` : ''}
         <b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır: taban puan + yapılmış sınavlar + henüz yapılmamış (planlanan) sınavlar. Bu yüzden "Sınav gözetmenliği · Puan" sütunundan (yalnızca yapılmış sınavlar) farklıdır.
+        ${st.eskiDisiGorev ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev (festival, servis dersi görevlendirmesi vb.; toplam ${n(st.eskiDisiSaat)} saat, ${n(st.eskiDisiPuan)} puan) bu tabloda <b>sınav dışı</b> sütununda gösterilir. Sistem bu görevleri o tarihteki kurala göre <b>sınav puanına</b> saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}<br>
         Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre). Saat başına puanın yüksek olması, akşam / hafta sonu gibi yüksek katsayılı görevlerin payının fazla olduğunu gösterir.</p>`;
 };
 

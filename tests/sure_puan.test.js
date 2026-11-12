@@ -24,14 +24,30 @@ test('Yalnızca aktif gözetmenler; puanlar değişmez; planlananlar dahil edili
     const st = app.run('computeTimeScoreStats({ planDahil: true })');
     assert.equal(st.kisiler.length, 12, 'öğretim üyeleri dahil değil');
     assert.equal(app.run('JSON.stringify(DB.staff.map(s => [s.id, s.totalScore, s.nonExamScore]))'), before, 'yalnızca bilgi: puan değişmez');
-    // Planlananlar dahil: taban + sınav = sistemdeki totalScore; sınav dışı = nonExamScore
+    // Planlananlar dahil: taban + sınav + eski sınav dışı = sistemdeki totalScore; sınav dışı − eski = nonExamScore
     const staff = app.run('DB.staff');
     for (const k of st.kisiler) {
         const s = staff.find(x => x.id === k.id);
-        assert.ok(Math.abs((k.taban + k.sinav.puan) - s.totalScore) < 0.5, `${k.name}: taban + sınav = sistem puanı`);
-        assert.ok(Math.abs(k.disi.puan - (s.nonExamScore || 0)) < 0.5, `${k.name}: sınav dışı puan`);
+        assert.ok(Math.abs((k.taban + k.sinav.puan + k.eskiDisi.puan) - s.totalScore) < 0.5, `${k.name}: taban + sınav + eski sınav dışı = sistem puanı`);
+        assert.ok(Math.abs(k.disi.puan - k.eskiDisi.puan - (s.nonExamScore || 0)) < 0.5, `${k.name}: sınav dışı puan`);
         assert.ok(Math.abs(k.genel - (k.taban + k.sinav.puan + k.disi.puan)) < 0.05);
     }
+});
+
+test('Ayrım tarihinden önceki "Diğer" görevleri tabloda sınav dışı; sonraki işaretsiz görev sınav kalır', () => {
+    const app = freshApp(fx => {
+        fx.exams.push({ id: 9730, name: 'Festival', date: '2026-05-13', time: '09:30', duration: 450, type: 'Diğer', proctorIds: [3], proctorId: 3 });       // eski, işaretsiz
+        fx.exams.push({ id: 9731, name: 'Ek Görev', date: '2026-06-12', time: '09:30', duration: 20, type: 'Diğer', isNonExam: true, proctorIds: [3], proctorId: 3 }); // eski, işaretli
+        fx.exams.push({ id: 9732, name: 'Yeterlilik Sınavı', date: '2026-09-14', time: '10:00', duration: 180, type: 'Diğer', proctorIds: [3], proctorId: 3 }); // sonra, işaretsiz → sınav
+    });
+    const base = freshApp().run('computeTimeScoreStats()').kisiler.find(k => k.id === 3);
+    const k = app.run('computeTimeScoreStats()').kisiler.find(x => x.id === 3);
+    assert.equal(k.disi.dk - base.disi.dk, 470, 'festival + ek görev sınav dışında');
+    assert.equal(k.sinav.dk - base.sinav.dk, 180, 'yeterlilik sınavı sınav gözetmenliğinde');
+    assert.equal(k.eskiDisi.gorev - base.eskiDisi.gorev, 2);
+    // Sıralamadaki puan dökümü yine tutar
+    const s = app.run('DB.staff.find(x => x.id === 3)');
+    assert.ok(Math.abs(k.taban + k.siralamaYapilan + k.siralamaEski + k.siralamaPlan - s.totalScore) < 0.5);
 });
 
 test('Varsayılan: yalnızca şu ana kadar yapılan görevler; planlananlar ayrı sayılır', () => {
@@ -74,7 +90,7 @@ test('Sıralamadaki puan = taban + yapılan + planlanan sınavlar (her iki gör�
         for (const k of st.kisiler) {
             const s = staff.find(x => x.id === k.id);
             assert.ok(Math.abs(k.siralamaPuan - s.totalScore) < 0.05, `${k.name}: sıralamadaki puan = sistem puanı`);
-            assert.ok(Math.abs(k.taban + k.siralamaYapilan + k.siralamaPlan - k.siralamaPuan) < 0.5, `${k.name}: döküm toplamı tutar`);
+            assert.ok(Math.abs(k.taban + k.siralamaYapilan + k.siralamaEski + k.siralamaPlan - k.siralamaPuan) < 0.5, `${k.name}: döküm toplamı tutar`);
         }
         assert.ok(st.kisiler.find(k => k.id === 1).siralamaPlan > 0, 'gelecek sınav planlanan olarak görünür');
     }
