@@ -5357,37 +5357,70 @@ window.showEditScheduleModal = (name, date, time, location) => {
 window.renderTimeScoreDraft = function(scope) {
     const body = document.getElementById('tsd-body');
     if (!body || typeof computeTimeScoreStats !== 'function') return;
-    window._tsdScope = scope || window._tsdScope || 'donem';
+    window._tsdScope = scope || window._tsdScope || 'tum';
     document.querySelectorAll('#stats-time-score-draft .tsd-scope button').forEach(b => b.classList.toggle('active', b.dataset.scope === window._tsdScope));
-    const st = computeTimeScoreStats({ donem: window._tsdScope === 'donem' });
+    const planDahil = !!(document.getElementById('tsd-plan-dahil') || {}).checked;
+    const st = computeTimeScoreStats({ donem: window._tsdScope === 'donem', planDahil });
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const n = (v) => String(v).replace('.', ',');
-    if (!st.kisiler.length || !st.toplamSaat) { body.innerHTML = '<p class="tsd-note">Bu kapsamda sınav gözetmenliği kaydı yok.</p>'; return; }
-    const maxSaat = Math.max(...st.kisiler.map(k => k.saat), 1);
+    const n = (v) => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+    const fark = (v) => `<span class="${v > 0 ? 'tsd-plus' : (v < 0 ? 'tsd-minus' : '')}">${v > 0 ? '+' : ''}${n(v)}</span>`;
+    if (!st.kisiler.length) { body.innerHTML = '<p class="tsd-note">Gözetmen bulunamadı.</p>'; return; }
+    const maxSaat = Math.max(...st.kisiler.map(k => k.toplam.saat), 1);
+    const kapsam = st.donem
+        ? `${esc(st.donem.replace(/-guz$/, ' Güz').replace(/-bahar$/, ' Bahar').replace(/-yaz$/, ' Yaz'))} dönemi`
+        : 'tüm zamanlar';
+
     body.innerHTML = `
         <div class="tsd-kpis">
-            <div><span>Toplam gözetmenlik</span><b>${n(st.toplamSaat)} saat</b></div>
-            <div><span>Kişi başı ortalama</span><b>${n(st.ortSaat)} saat</b></div>
-            <div><span>Saat başına puan</span><b>${n(st.puanSaat)}</b></div>
-            <div><span>En çok / en az</span><b>${n(st.enCok.saat)} / ${n(st.enAz.saat)} sa</b></div>
+            <div><span>🎓 Sınav gözetmenliği</span><b>${n(st.sinavSaat)} sa · ${n(st.sinavPuan)} P</b><small>${st.sinavGorev} görev</small></div>
+            <div><span>📋 Sınav dışı görev</span><b>${n(st.disiSaat)} sa · ${n(st.disiPuan)} P</b><small>${st.disiGorev} görev</small></div>
+            <div><span>⏱️ Toplam süre</span><b>${n(st.toplamSaat)} sa</b><small>kişi başı ${n(st.ortSaat)} sa · saat başına ${n(st.puanSaat)} P</small></div>
+            <div><span>🏆 Genel toplam puan</span><b>${n(st.genel)} P</b><small>taban ${n(st.taban)} + görevler ${n(st.toplamPuan)} · kişi başı ${n(st.ortGenel)}</small></div>
         </div>
         <div class="table-container"><table class="tsd-table">
-            <thead><tr><th>Gözetmen</th><th>Süre (saat)</th><th>Ort. farkı</th><th>Sınav puanı</th><th>Puan / saat</th><th>Akşam–h.sonu</th><th>Görev</th></tr></thead>
+            <thead>
+                <tr>
+                    <th rowspan="2">Gözetmen</th>
+                    <th colspan="3" class="tsd-grp">🎓 Sınav gözetmenliği</th>
+                    <th colspan="3" class="tsd-grp">📋 Sınav dışı görev</th>
+                    <th colspan="3" class="tsd-grp">⏱️ Görevler toplamı</th>
+                    <th rowspan="2">Taban puan</th>
+                    <th rowspan="2">Genel toplam</th>
+                </tr>
+                <tr>
+                    <th>Görev</th><th>Süre (sa)</th><th>Puan</th>
+                    <th>Görev</th><th>Süre (sa)</th><th>Puan</th>
+                    <th>Süre (sa)</th><th>Puan</th><th>P/sa</th>
+                </tr>
+            </thead>
             <tbody>${st.kisiler.map(k => `
                 <tr>
-                    <td>${esc(k.name)}</td>
-                    <td><div class="tsd-bar"><i style="width:${Math.round(k.saat / maxSaat * 100)}%"></i></div>
-                        <b>${n(k.saat)}</b>${k.dkPlan ? ` <small title="Henüz yapılmamış görevler">(${n(k.saatTamam)} tamamlandı)</small>` : ''}</td>
-                    <td class="${k.saatFark > 0 ? 'tsd-plus' : (k.saatFark < 0 ? 'tsd-minus' : '')}">${k.saatFark > 0 ? '+' : ''}${n(k.saatFark)}</td>
-                    <td>${n(k.puan)}</td>
-                    <td>${n(k.puanSaat)}</td>
-                    <td>%${k.zorOran}</td>
-                    <td>${k.gorev}</td>
+                    <td><b>${esc(k.name)}</b></td>
+                    <td>${k.sinav.gorev}</td>
+                    <td>${n(k.sinav.saat)}${k.sinav.dk ? `<small title="Akşam / hafta sonu görevlerinin süredeki payı">akşam–h.sonu %${k.sinav.zorOran}</small>` : ''}</td>
+                    <td>${n(k.sinav.puan)}</td>
+                    <td>${k.disi.gorev}</td>
+                    <td>${n(k.disi.saat)}</td>
+                    <td>${n(k.disi.puan)}</td>
+                    <td><div class="tsd-bar"><i style="width:${Math.round(k.toplam.saat / maxSaat * 100)}%"></i></div><b>${n(k.toplam.saat)}</b><small>ort. farkı ${fark(k.saatFark)}</small></td>
+                    <td>${n(k.toplam.puan)}</td>
+                    <td>${n(k.toplam.puanSaat)}</td>
+                    <td>${n(k.taban)}</td>
+                    <td><b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small></td>
                 </tr>`).join('')}</tbody>
+            <tfoot>
+                <tr>
+                    <td><b>Bölüm toplamı</b></td>
+                    <td>${st.sinavGorev}</td><td>${n(st.sinavSaat)}</td><td>${n(st.sinavPuan)}</td>
+                    <td>${st.disiGorev}</td><td>${n(st.disiSaat)}</td><td>${n(st.disiPuan)}</td>
+                    <td>${n(st.toplamSaat)}</td><td>${n(st.toplamPuan)}</td><td>${n(st.puanSaat)}</td>
+                    <td>${n(st.taban)}</td><td><b>${n(st.genel)}</b></td>
+                </tr>
+            </tfoot>
         </table></div>
-        <p class="tsd-note">Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre). Taban puan dahil değildir; yalnızca sınav gözetmenlikleri sayılır.
-        Saat başına puanın yüksek olması, akşam / hafta sonu gibi yüksek katsayılı görevlerin payının fazla olduğunu gösterir.
-        ${st.donem ? `Kapsam: ${esc(st.donem.replace(/-guz$/, ' Güz').replace(/-bahar$/, ' Bahar').replace(/-yaz$/, ' Yaz'))} dönemi (yapılmış + planlanan).` : 'Kapsam: tüm zamanlar.'}</p>`;
+        <p class="tsd-note">Kapsam: <b>${kapsam}</b>, ${planDahil ? 'yapılan + <b>planlanan</b> görevler' : '<b>şu ana kadar yapılan</b> görevler'}.
+        ${!planDahil && st.planGorev ? `Henüz yapılmamış ${st.planGorev} görev (${n(st.planSaat)} saat) dahil değildir; "Planlanan görevler dahil" ile eklenebilir. Sistemdeki puan planlanan görevleri de içerdiği için "Genel toplam" sistem puanından düşük olabilir.` : ''}
+        Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre). Saat başına puanın yüksek olması, akşam / hafta sonu gibi yüksek katsayılı görevlerin payının fazla olduğunu gösterir.</p>`;
 };
 
 function renderStats() {

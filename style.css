@@ -6627,3 +6627,12 @@ html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
 .tsd-plus { color: #f59e0b; font-weight: 700; }
 .tsd-minus { color: #22c55e; font-weight: 700; }
 @media (max-width: 640px) { .tsd-kpis { grid-template-columns: 1fr 1fr; } }
+/* Süre ve Puan Analizi — ayrıntılı tablo */
+#stats-time-score-draft .tsd-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#stats-time-score-draft .tsd-plan { font-size: 0.78rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+#stats-time-score-draft .tsd-kpis small { display: block; font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+#stats-time-score-draft .tsd-table th, #stats-time-score-draft .tsd-table td { white-space: nowrap; text-align: center; }
+#stats-time-score-draft .tsd-table th:first-child, #stats-time-score-draft .tsd-table td:first-child { text-align: left; }
+#stats-time-score-draft .tsd-table td small { display: block; }
+#stats-time-score-draft .tsd-table .tsd-grp { border-bottom: 1px solid rgba(148, 163, 184, 0.35); }
+#stats-time-score-draft .tsd-table tfoot td { font-weight: 700; border-top: 2px solid rgba(99, 102, 241, 0.45); background: rgba(99, 102, 241, 0.08); }

@@ -3830,11 +3830,15 @@ if (typeof window !== 'undefined') {
 
 /**
  * 🧪 TASLAK: Süre ve puan analizi (yalnızca bilgi; puanlamayı DEĞİŞTİRMEZ).
- * Her aktif gözetmen için sınav gözetmenliğinde geçen süre ve bu sürelerden kazanılan puan.
+ * Her aktif gözetmen için ŞU ANA KADAR görevlerde geçen süre ve kazanılan puan; sınav gözetmenliği ve
+ * sınav dışı görev olarak ayrı, ayrıca görevler toplamı ve taban puan dahil genel toplam.
  *   donem: true → yalnızca güncel akademik dönem (ör. 2026-2027 Güz); false → tüm zamanlar
- * Süre ve puan, gözetmenin KENDİ girdiği süreden (varsa) hesaplanır. Taban puan dahil edilmez.
+ *   planDahil: true → henüz yapılmamış görevler de toplamlara katılır
+ * Süre ve puan, gözetmenin KENDİ girdiği süreden (varsa) hesaplanır.
  */
 function computeTimeScoreStats(opts = {}) {
+    // opts.donem: true → yalnızca güncel akademik dönem; false (varsayılan) → tüm zamanlar
+    // opts.planDahil: true → henüz yapılmamış (planlanan) görevler de toplamlara katılır; varsayılan: yalnızca ŞU ANA KADAR yapılanlar
     const dbObj = (typeof window !== 'undefined' && window.DB) ? window.DB : DB;
     const now = opts.now || Date.now();
     const engine = (typeof window !== 'undefined' && window.FinalForecastEngine) || (typeof FinalForecastEngine !== 'undefined' ? FinalForecastEngine : null);
@@ -3842,55 +3846,75 @@ function computeTimeScoreStats(opts = {}) {
     const curTerm = opts.donem && engine ? termOf(engine.localDateStr ? engine.localDateStr(new Date(now)) : new Date(now).toISOString().slice(0, 10)) : null;
     const pool = getActiveProctorStaff((dbObj.staff || []).filter(Boolean));
     const pidsOf = (ex) => (Array.isArray(ex.proctorIds) && ex.proctorIds.length ? ex.proctorIds : (ex.proctorId != null ? [ex.proctorId] : [])).map(String);
+    const bos = () => ({ gorev: 0, dk: 0, puan: 0, dkZor: 0, planGorev: 0, planDk: 0, planPuan: 0 });
 
-    const rows = new Map(pool.map(s => [String(s.id), {
-        id: s.id, name: s.name,
-        dkTamam: 0, dkPlan: 0, puanTamam: 0, puanPlan: 0, gorevTamam: 0, gorevPlan: 0, dkZor: 0
-    }]));
+    const rows = new Map(pool.map(s => [String(s.id), { id: s.id, name: s.name, taban: Number(s.baseScore) || 0, sinav: bos(), disi: bos() }]));
     (dbObj.exams || []).forEach(ex => {
         if (!ex || !ex.date || !ex.time) return;
-        if (shouldCountAsNonExam(ex)) return;                    // yalnızca sınav gözetmenliği
         if (curTerm && termOf(ex.date) !== curTerm) return;
         const start = getSafeDate(ex.date, ex.time).getTime();
         if (isNaN(start)) return;
+        const tur = shouldCountAsNonExam(ex) ? 'disi' : 'sinav';
         pidsOf(ex).forEach(pid => {
             const r = rows.get(pid);
             if (!r) return;
             const dk = getProctorExamDuration(ex, pid);
             const puan = getProctorExamScore(ex, pid);
             const bitti = start + dk * 60000 <= now;
-            if (bitti) { r.dkTamam += dk; r.puanTamam += puan; r.gorevTamam++; }
-            else { r.dkPlan += dk; r.puanPlan += puan; r.gorevPlan++; }
-            if ((parseFloat(ex.katsayi) || 1) >= 1.5) r.dkZor += dk;   // akşam / hafta sonu
+            const t = r[tur];
+            if (bitti || opts.planDahil) {
+                t.gorev++; t.dk += dk; t.puan += puan;
+                if ((parseFloat(ex.katsayi) || 1) >= 1.5) t.dkZor += dk;   // akşam / hafta sonu
+            }
+            if (!bitti) { t.planGorev++; t.planDk += dk; t.planPuan += puan; }
         });
     });
 
+    const sa = (dk) => Math.round(dk / 6) / 10;
+    const p1 = (v) => Math.round(v * 10) / 10;
     const list = [...rows.values()].map(r => {
-        const dk = r.dkTamam + r.dkPlan, puan = r.puanTamam + r.puanPlan;
-        return Object.assign(r, {
-            saat: Math.round(dk / 6) / 10,
-            saatTamam: Math.round(r.dkTamam / 6) / 10,
-            puan: Math.round(puan * 10) / 10,
-            puanSaat: dk > 0 ? Math.round(puan / (dk / 60) * 10) / 10 : 0,
-            zorOran: dk > 0 ? Math.round(r.dkZor / dk * 100) : 0,
-            gorev: r.gorevTamam + r.gorevPlan
+        ['sinav', 'disi'].forEach(k => {
+            const t = r[k];
+            t.saat = sa(t.dk); t.puan = p1(t.puan); t.planSaat = sa(t.planDk); t.planPuan = p1(t.planPuan);
+            t.puanSaat = t.dk > 0 ? p1(t.puan / (t.dk / 60)) : 0;
+            t.zorOran = t.dk > 0 ? Math.round(t.dkZor / t.dk * 100) : 0;
         });
-    }).sort((a, b) => b.saat - a.saat);
+        const dk = r.sinav.dk + r.disi.dk;
+        r.toplam = {
+            gorev: r.sinav.gorev + r.disi.gorev,
+            saat: sa(dk),
+            puan: p1(r.sinav.puan + r.disi.puan),
+            puanSaat: dk > 0 ? p1((r.sinav.puan + r.disi.puan) / (dk / 60)) : 0
+        };
+        r.genel = p1(r.taban + r.toplam.puan);   // taban + sınav + sınav dışı
+        // Geriye dönük alanlar (eski kart/test uyumu)
+        r.saat = r.sinav.saat; r.puan = r.sinav.puan; r.puanSaat = r.sinav.puanSaat; r.zorOran = r.sinav.zorOran; r.gorev = r.sinav.gorev;
+        r.saatTamam = r.sinav.saat;
+        return r;
+    }).sort((a, b) => b.toplam.saat - a.toplam.saat || b.genel - a.genel);
 
-    const avg = (k) => list.length ? Math.round(list.reduce((a, r) => a + r[k], 0) / list.length * 10) / 10 : 0;
-    const toplamSaat = Math.round(list.reduce((a, r) => a + r.saat, 0) * 10) / 10;
-    const toplamPuan = list.reduce((a, r) => a + r.puan, 0);
-    list.forEach(r => { r.saatFark = Math.round((r.saat - avg('saat')) * 10) / 10; });
-    return {
+    const sum = (f) => list.reduce((a, r) => a + f(r), 0);
+    const n = list.length || 1;
+    const ozet = {
+        sinavSaat: p1(sum(r => r.sinav.saat)), sinavPuan: p1(sum(r => r.sinav.puan)), sinavGorev: sum(r => r.sinav.gorev),
+        disiSaat: p1(sum(r => r.disi.saat)), disiPuan: p1(sum(r => r.disi.puan)), disiGorev: sum(r => r.disi.gorev),
+        toplamSaat: p1(sum(r => r.toplam.saat)), toplamPuan: p1(sum(r => r.toplam.puan)),
+        taban: p1(sum(r => r.taban)), genel: p1(sum(r => r.genel)),
+        planSaat: p1(sum(r => r.sinav.planSaat + r.disi.planSaat)), planGorev: sum(r => r.sinav.planGorev + r.disi.planGorev)
+    };
+    ozet.ortSaat = p1(ozet.toplamSaat / n);
+    ozet.ortGenel = p1(ozet.genel / n);
+    ozet.puanSaat = ozet.toplamSaat > 0 ? p1(ozet.toplamPuan / ozet.toplamSaat) : 0;
+    list.forEach(r => { r.saatFark = p1(r.toplam.saat - ozet.ortSaat); r.genelFark = p1(r.genel - ozet.ortGenel); });
+
+    return Object.assign({
         donem: curTerm,
+        planDahil: !!opts.planDahil,
         kisiler: list,
-        toplamSaat,
-        ortSaat: avg('saat'),
-        ortPuan: avg('puan'),
-        puanSaat: toplamSaat > 0 ? Math.round(toplamPuan / toplamSaat * 10) / 10 : 0,
+        ortPuan: p1(sum(r => r.sinav.puan) / n),
         enCok: list[0] || null,
         enAz: list[list.length - 1] || null
-    };
+    }, ozet);
 }
 if (typeof window !== 'undefined') window.computeTimeScoreStats = computeTimeScoreStats;
 
