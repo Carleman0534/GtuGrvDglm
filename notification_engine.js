@@ -545,7 +545,7 @@
             return `
                 <div style="border:1px solid rgba(245,158,11,0.45); background:rgba(245,158,11,0.08); border-radius:12px; padding:0.7rem 0.8rem; margin-bottom:0.6rem;">
                     <div style="font-weight:700; color:#f8fafc; font-size:0.92rem;">${escapeHtml(ex.name)}</div>
-                    <div style="font-size:0.76rem; color:#cbd5e1; margin:3px 0 8px;">📅 ${escapeHtml(ex.date)} · ⏰ ${escapeHtml(ex.time)} · 📍 ${escapeHtml(konum)} · Planlanan <b>${mins} dk</b></div>
+                    <div style="font-size:0.76rem; color:#cbd5e1; margin:3px 0 8px;">📅 ${escapeHtml(formatTarih(ex.date))} · ⏰ ${escapeHtml(ex.time)} · 📍 ${escapeHtml(konum)} · Planlanan <b>${mins} dk</b></div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
                         <button type="button" class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669); border:none; padding:0.55rem 0.4rem; border-radius:8px; font-weight:700; font-size:0.8rem;"
                             onclick="window.confirmPendingDuration('${id}', ${mins})">✓ ${escapeHtml(onayMetni)}</button>

@@ -6567,3 +6567,16 @@ body.dark-theme .batch-modal { background: #111827; color: #f1f5f9; }
     width: 100% !important;
     max-width: 100% !important;
 }
+
+/* ===== TARİH KUTULARI: HER CİHAZDA GG.AA.YYYY (mobile_app_engine.js → data-gg) ===== */
+html.gg-tarih input[type="date"][data-gg] { position: relative; }
+html.gg-tarih input[type="date"][data-gg]:not(:focus)::-webkit-datetime-edit { color: transparent; }
+html.gg-tarih input[type="date"][data-gg]:not(:focus)::-webkit-date-and-time-value { color: transparent; }
+html.gg-tarih input[type="date"][data-gg]:not(:focus)::before {
+    content: attr(data-gg);
+    position: absolute; top: 0; bottom: 0; left: 0;
+    display: flex; align-items: center;
+    padding-left: inherit;
+    color: inherit; pointer-events: none; white-space: nowrap;
+}
+html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }

@@ -681,14 +681,41 @@
         document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForNewVersion(); });
     }
 
+    // --- Tarih kutuları her cihazda GG.AA.YYYY ---
+    // <input type="date"> tarayıcının diline göre gösterilir (İngilizce cihazda AA/GG/YYYY).
+    // Değer YYYY-AA-GG kalır; kutunun üstüne GG.AA.YYYY yazısı bindirilir (style.css: data-gg).
+    const TARIH_BOS = 'gg.aa.yyyy';
+    function syncDateInput(el) {
+        const v = el.value ? (typeof window.formatTarih === 'function' ? window.formatTarih(el.value) : el.value) : TARIH_BOS;
+        if (el.getAttribute('data-gg') !== v) el.setAttribute('data-gg', v);
+        el.classList.toggle('gg-bos', !el.value);
+    }
+    function syncAllDateInputs() {
+        document.querySelectorAll('input[type="date"]').forEach(syncDateInput);
+    }
+    function initDateInputs() {
+        // Overlay yalnızca WebKit/Blink'te çalışır (Firefox girişlere ::before çizmez; orada yerel görünüm kalır)
+        const supported = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('selector(::-webkit-datetime-edit)');
+        if (!supported) return;
+        document.documentElement.classList.add('gg-tarih');
+        ['input', 'change', 'blur'].forEach(ev => document.addEventListener(ev, (e) => {
+            if (e.target && e.target.matches && e.target.matches('input[type="date"]')) syncDateInput(e.target);
+        }, true));
+        // Değeri koddan atanan kutular (düzenleme pencereleri vb.) için düzenli eşitleme
+        syncAllDateInputs();
+        setInterval(syncAllDateInputs, 700);
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initMobileEngine);
         document.addEventListener('DOMContentLoaded', initVersionCheck);
         document.addEventListener('DOMContentLoaded', initProfileComfort);
+        document.addEventListener('DOMContentLoaded', initDateInputs);
     } else {
         initMobileEngine();
         initVersionCheck();
         initProfileComfort();
+        initDateInputs();
     }
 
 })();

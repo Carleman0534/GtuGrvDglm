@@ -259,7 +259,7 @@
         return {
             title: '⏱️ Sınav sürenizi onaylayın',
             body: sinavlar.length === 1
-                ? `${first.name} (${first.date} ${first.time}) — ${dur} dk sürdü mü?`
+                ? `${first.name} (${String(first.date).split('-').reverse().join('.')} ${first.time}) — ${dur} dk sürdü mü?`
                 : `${sinavlar.length} sınavın süresi onay bekliyor. Dokunun ve onaylayın.`,
             tag: 'sure_onay',
             actions: actions,

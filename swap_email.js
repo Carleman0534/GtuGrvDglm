@@ -85,10 +85,12 @@ window.getTaskStatusBadge = function(examId, staffId) {
    ───────────────────────────────────────── */
 
 /**
- * '2026-10-15' → '15 Ekim 2026'
+ * '2026-10-15' → '15.10.2026' (sistem genelindeki GG.AA.YYYY biçimi)
  */
 window.formatDateTR = function(dateStr) {
     if (!dateStr) return '-';
+    // Sistem genelinde tarihler GG.AA.YYYY gösterilir
+    if (typeof window.formatTarih === 'function') return window.formatTarih(dateStr);
     const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
                     'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
     const parts = dateStr.split('-');

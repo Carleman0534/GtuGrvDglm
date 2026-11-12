@@ -1,3 +1,23 @@
+// Tarihler veride YYYY-AA-GG olarak saklanır (sıralama, karşılaştırma ve bildirimler buna dayanır);
+// ekranda, e-postalarda ve bildirimlerde her yerde GG.AA.YYYY gösterilir.
+function formatTarih(d) {
+    if (d === null || d === undefined || d === '') return '';
+    // Tek günlük kısıtlar yılsız AA-GG olarak saklanır: GG.AA göster
+    const md = String(d).trim().match(/^(\d{1,2})-(\d{1,2})$/);
+    if (md) return `${md[2].padStart(2, '0')}.${md[1].padStart(2, '0')}`;
+    const m = String(d).match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}:\d{2}))?/);
+    if (!m) return String(d);
+    const out = `${m[3].padStart(2, '0')}.${m[2].padStart(2, '0')}.${m[1]}`;
+    return m[4] ? `${out} ${m[4]}` : out;
+}
+// Yıl olmadan kısa gösterim: GG.AA
+function formatTarihKisa(d) {
+    const t = formatTarih(d);
+    return /^\d{2}\.\d{2}\.\d{4}/.test(t) ? t.slice(0, 5) : t;
+}
+window.formatTarih = formatTarih;
+window.formatTarihKisa = formatTarihKisa;
+
 function getSafeDate(dateStr, timeStr) {
     if (!dateStr) return new Date();
     if (!timeStr) return new Date(dateStr + 'T09:00:00');
@@ -1382,13 +1402,13 @@ function validateDatabaseIntegrity(targetDB = null) {
                         const isAllDay = c.allDay || (!c.start && !c.end) || (c.start === "00:00" && (c.end === "23:59" || c.end === "24:00" || c.end === "23:30"));
                         if (isAllDay) {
                             isClash = true;
-                            constraintDesc = `Özel Tarih (${c.date} Tüm Gün)`;
+                            constraintDesc = `Özel Tarih (${formatTarih(c.date)} Tüm Gün)`;
                         } else {
                             const cs = c.start ? timeToMins(c.start) : 0;
                             const ce = c.end ? timeToMins(c.end) : 1440;
                             if (sMin < ce && eMin > cs) {
                                 isClash = true;
-                                constraintDesc = `Özel Tarih (${c.date} ${c.start || '00:00'}-${c.end || '23:59'})`;
+                                constraintDesc = `Özel Tarih (${formatTarih(c.date)} ${c.start || '00:00'}-${c.end || '23:59'})`;
                             }
                         }
                     }
@@ -1397,13 +1417,13 @@ function validateDatabaseIntegrity(targetDB = null) {
                         const isAllDay = c.allDay || (!c.start && !c.end) || (c.start === "00:00" && (c.end === "23:59" || c.end === "24:00" || c.end === "23:30"));
                         if (isAllDay) {
                             isClash = true;
-                            constraintDesc = `Tarih Aralığı (${c.startDate}/${c.endDate} Tüm Gün)`;
+                            constraintDesc = `Tarih Aralığı (${formatTarih(c.startDate)}/${formatTarih(c.endDate)} Tüm Gün)`;
                         } else {
                             const cs = c.start ? timeToMins(c.start) : 0;
                             const ce = c.end ? timeToMins(c.end) : 1440;
                             if (sMin < ce && eMin > cs) {
                                 isClash = true;
-                                constraintDesc = `Tarih Aralığı (${c.startDate}/${c.endDate} ${c.start || '00:00'}-${c.end || '23:59'})`;
+                                constraintDesc = `Tarih Aralığı (${formatTarih(c.startDate)}/${formatTarih(c.endDate)} ${c.start || '00:00'}-${c.end || '23:59'})`;
                             }
                         }
                     }
@@ -2349,7 +2369,7 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
             if (!Array.isArray(DB.notifications[p.id])) DB.notifications[p.id] = [];
             DB.notifications[p.id].unshift({
                 id: Date.now() + p.id + Math.floor(Math.random() * 1000),
-                message: `📅 Yeni Görev: "${newExam.name}" (${newExam.date} - ${newExam.time}) sınavına gözetmen olarak atandınız.`,
+                message: `📅 Yeni Görev: "${newExam.name}" (${formatTarih(newExam.date)} - ${newExam.time}) sınavına gözetmen olarak atandınız.`,
                 type: 'new_assignment',
                 createdAt: nowNotif,
                 isRead: false
@@ -2364,7 +2384,7 @@ function addExam(examData, skipSave = false, skipSnapshot = false) {
 
     if (!skipSave) {
         saveToLocalStorage();
-        logAction('admin', 'Sınav Ekleme', `${newExam.name} (${newExam.date}) sınavı sisteme eklendi.`);
+        logAction('admin', 'Sınav Ekleme', `${newExam.name} (${formatTarih(newExam.date)}) sınavı sisteme eklendi.`);
     }
     return newExam;
 }
@@ -2594,7 +2614,7 @@ async function sendAssignmentEmail(staffId, exam, type = 'new') {
             .replace(/{personel_adi}/g, staff.name)
             .replace(/{sinav_adi}/g, exam.name || '-')
             .replace(/{dersi_veren}/g, exam.lecturer || '-')
-            .replace(/{tarih}/g, exam.date || '-')
+            .replace(/{tarih}/g, formatTarih(exam.date) || '-')
             .replace(/{saat}/g, exam.time || '-')
             .replace(/{derslik}/g, exam.location || '-')
             .replace(/{sure}/g, exam.duration || '-')
@@ -3732,7 +3752,7 @@ function requestSmartSwap(myExamId, otherExamId, otherStaffId, myStaffId) {
     }
     DB.notifications[otherMember.id].unshift({
         id: Date.now() + 1,
-        message: `🔄 **Akıllı Takas Teklifi:** ${me.name}, ${myExam.date} tarihindeki görevini seninle takas etmek istiyor.`,
+        message: `🔄 **Akıllı Takas Teklifi:** ${me.name}, ${formatTarih(myExam.date)} tarihindeki görevini seninle takas etmek istiyor.`,
         type: 'smart_swap_request',
         requestId: newRequest.id,
         createdAt: new Date().toISOString(),

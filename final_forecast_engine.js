@@ -692,7 +692,7 @@
                         <div class="ffc-exam-item">
                             <div>
                                 <span class="ffc-strong ${ex.isMazeret ? 'ffc-amber' : 'ffc-blue'}">${ex.isMazeret ? '📋 [Mazeret]' : '📚'} ${esc(ex.name)}</span>
-                                <span class="ffc-muted" style="font-size: 0.72rem;">(${esc(ex.date)} ${esc(ex.time)})</span>
+                                <span class="ffc-muted" style="font-size: 0.72rem;">(${esc(typeof formatTarih === 'function' ? formatTarih(ex.date) : ex.date)} ${esc(ex.time)})</span>
                             </div>
                             <span class="ffc-num ffc-green">${ex.duration} dk</span>
                         </div>`).join('')}

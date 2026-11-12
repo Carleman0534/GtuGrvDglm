@@ -2754,9 +2754,9 @@ function renderConstraintsList(staffName) {
         if (c.day !== undefined) {
              timeLabel = `📅 Her ${dayNames[c.day]}`;
         } else if (c.startDate && c.endDate) {
-             timeLabel = `📆 ${c.startDate} / ${c.endDate}`;
+             timeLabel = `📆 ${formatTarih(c.startDate)} / ${formatTarih(c.endDate)}`;
         } else {
-             timeLabel = `🗓️ ${c.date}`;
+             timeLabel = `🗓️ ${formatTarih(c.date)}`;
         }
 
         tr.innerHTML = `
@@ -4346,17 +4346,17 @@ window.sendExamMailViaOutlook = (examId) => {
     const scoreText = typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-');
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
 
-    const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
+    const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${formatTarih(exam.date)}`;
 
     const body = `Sayin Hocam,
  
-${exam.date} tarihinde saat ${exam.time}'de yapilacak olan "${exam.name}" sinavina gözetmen olarak atandiniz.
+${formatTarih(exam.date)} tarihinde saat ${exam.time}'de yapilacak olan "${exam.name}" sinavina gözetmen olarak atandiniz.
  
 SINAV BİLGİLERİ
 ----------------------------
 📚 Sinav Adi : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
-📅 Tarih : ${exam.date}
+📅 Tarih : ${formatTarih(exam.date)}
 🕒 Saat : ${exam.time}
 🏫 Derslik : ${exam.location || '-'}
 ⏱ Süre : ${exam.duration} dakika
@@ -4429,16 +4429,16 @@ window.sendScheduleMailViaOutlook = (examName, examDate, examTime, examLocation)
     const scoreText = typeof refExam.score === 'number' ? refExam.score.toFixed(1) : (refExam.score || '-');
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
 
-    const subject = `📅 Yeni Gözetmenlik Görevi: ${examName} | ${examDate}`;
+    const subject = `📅 Yeni Gözetmenlik Görevi: ${examName} | ${formatTarih(examDate)}`;
     const body = `Sayin Hocam,
  
-${examDate} tarihinde saat ${examTime}'de yapilacak olan "${examName}" sinavina gözetmen olarak atandiniz.
+${formatTarih(examDate)} tarihinde saat ${examTime}'de yapilacak olan "${examName}" sinavina gözetmen olarak atandiniz.
  
 SINAV BİLGİLERİ
 ----------------------------
 📚 Sinav Adi : ${examName}
 👨‍🏫 Dersi Veren : ${refExam.lecturer || '-'}
-📅 Tarih : ${examDate}
+📅 Tarih : ${formatTarih(examDate)}
 🕒 Saat : ${examTime}
 🏫 Derslik : ${examLocation || '-'}
 ⏱ Süre : ${refExam.duration} dakika
@@ -4481,7 +4481,7 @@ window.sendCancelMailViaOutlook = (staffId, exam) => {
     }
 
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
-    const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
+    const subject = `❌ Görev İptal Edildi: ${exam.name} | ${formatTarih(exam.date)}`;
     
     let body = `Sayin ${staff.name} Hocam,
  
@@ -4491,7 +4491,7 @@ SINAV BİLGİLERİ
 ----------------------------
 📚 Sinav Adi   : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
-📅 Tarih       : ${exam.date}
+📅 Tarih       : ${formatTarih(exam.date)}
 🕒 Saat        : ${exam.time}
 🏫 Derslik     : ${exam.location || '-'}
 ⏱ Süre        : ${exam.duration} dakika
@@ -4532,7 +4532,7 @@ ${siteUrl}`;
             .replace(/{personel_adi}/g, staff.name)
             .replace(/{sinav_adi}/g, exam.name || '-')
             .replace(/{dersi_veren}/g, exam.lecturer || '-')
-            .replace(/{tarih}/g, exam.date || '-')
+            .replace(/{tarih}/g, formatTarih(exam.date) || '-')
             .replace(/{saat}/g, exam.time || '-')
             .replace(/{derslik}/g, exam.location || '-')
             .replace(/{sure}/g, exam.duration || '-')
@@ -4584,17 +4584,17 @@ window.sendSingleProctorMailViaOutlook = (examId, staffId) => {
         .join(', ') || exam.proctorName || '-';
 
     const scoreText = typeof exam.score === 'number' ? exam.score.toFixed(1) : (exam.score || '-');
-    const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${exam.date}`;
+    const subject = `📅 Yeni Gözetmenlik Görevi: ${exam.name} | ${formatTarih(exam.date)}`;
     
     const body = `Sayin ${staff.name} Hocam,
  
-${exam.date} tarihinde saat ${exam.time}'de yapilacak olan "${exam.name}" sinavina gözetmen olarak atandiniz.
+${formatTarih(exam.date)} tarihinde saat ${exam.time}'de yapilacak olan "${exam.name}" sinavina gözetmen olarak atandiniz.
  
 SINAV BİLGİLERİ
 ----------------------------
 📚 Sinav Adi : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
-📅 Tarih : ${exam.date}
+📅 Tarih : ${formatTarih(exam.date)}
 🕒 Saat : ${exam.time}
 🏫 Derslik : ${exam.location || '-'}
 ⏱ Süre : ${exam.duration} dakika
@@ -4656,16 +4656,16 @@ window.sendBulkCancelMailViaOutlook = (examId) => {
     }
 
     const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
-    const subject = `❌ Görev İptal Edildi: ${exam.name} | ${exam.date}`;
+    const subject = `❌ Görev İptal Edildi: ${exam.name} | ${formatTarih(exam.date)}`;
     let body = `Sayin Hocalarim,
  
-${exam.date} tarihindeki "${exam.name}" sinavi iptal edilmiştir. Bu sinavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
+${formatTarih(exam.date)} tarihindeki "${exam.name}" sinavi iptal edilmiştir. Bu sinavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
  
 İPTAL OLAN SINAV BİLGİLERİ
 ----------------------------
 📚 Sinav Adi   : ${exam.name}
 👨‍🏫 Dersi Veren : ${exam.lecturer || '-'}
-📅 Tarih       : ${exam.date}
+📅 Tarih       : ${formatTarih(exam.date)}
 🕒 Saat        : ${exam.time}
 🏫 Derslik     : ${exam.location || '-'}
 ⏱ Süre        : ${exam.duration} dakika
@@ -4699,7 +4699,7 @@ ${siteUrl}`;
             .replace(/{personel_adi}/g, 'Hocalarim')
             .replace(/{sinav_adi}/g, exam.name || '-')
             .replace(/{dersi_veren}/g, exam.lecturer || '-')
-            .replace(/{tarih}/g, exam.date || '-')
+            .replace(/{tarih}/g, formatTarih(exam.date) || '-')
             .replace(/{saat}/g, exam.time || '-')
             .replace(/{derslik}/g, exam.location || '-')
             .replace(/{sure}/g, exam.duration || '-')
@@ -4746,17 +4746,17 @@ window.deleteExam = async (id) => {
         // Toplu mailto hazirliği
         const siteUrl = (typeof window.getSystemUrl === 'function') ? window.getSystemUrl() : (window.location.origin + window.location.pathname);
         const emailList = proctors.map(p => p.email).filter(Boolean).join(';');
-        const subject = `❌ Sinav İptali / Görev İptal Edildi: ${ex.name} | ${ex.date}`;
+        const subject = `❌ Sinav İptali / Görev İptal Edildi: ${ex.name} | ${formatTarih(ex.date)}`;
         
         let body = `Sayin Hocalarim,
  
-${ex.date} tarihindeki "${ex.name}" sinavi iptal edilmiştir. Bu sinavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
+${formatTarih(ex.date)} tarihindeki "${ex.name}" sinavi iptal edilmiştir. Bu sinavdaki gözetmenlik göreviniz de bu doğrultuda iptal edilmiştir.
  
 İPTAL OLAN SINAV BİLGİLERİ
 ----------------------------
 📚 Sinav Adi   : ${ex.name}
 👨‍🏫 Dersi Veren : ${ex.lecturer || '-'}
-📅 Tarih       : ${ex.date}
+📅 Tarih       : ${formatTarih(ex.date)}
 🕒 Saat        : ${ex.time}
 🏫 Derslik     : ${ex.location || '-'}
 ⏱ Süre        : ${ex.duration} dakika
@@ -4790,7 +4790,7 @@ ${siteUrl}`;
                 .replace(/{personel_adi}/g, 'Hocalarim')
                 .replace(/{sinav_adi}/g, ex.name || '-')
                 .replace(/{dersi_veren}/g, ex.lecturer || '-')
-                .replace(/{tarih}/g, ex.date || '-')
+                .replace(/{tarih}/g, formatTarih(ex.date) || '-')
                 .replace(/{saat}/g, ex.time || '-')
                 .replace(/{derslik}/g, ex.location || '-')
                 .replace(/{sure}/g, ex.duration || '-')
@@ -5416,9 +5416,9 @@ function getStaffConstraintsSummaryHtml(staffName, staffId) {
         if (c.day !== undefined) {
             text = `${TurkishDayShort[c.day]} ${c.start}-${c.end}`;
         } else if (c.startDate && c.endDate) {
-            text = `${c.startDate.split('-').slice(1).join('/')}-${c.endDate.split('-').slice(1).join('/')}`;
+            text = `${formatTarihKisa(c.startDate)}-${formatTarihKisa(c.endDate)}`;
         } else if (c.date) {
-            text = `${c.date} ${c.start}`;
+            text = `${formatTarih(c.date)} ${c.start}`;
         }
         pills.push(`<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">🚫 ${text}</span>`);
     });
@@ -5525,8 +5525,8 @@ window.renderStaffConstraintsMaster = function() {
         if (specialConstraints.length > 0) {
             specialBadges = specialConstraints.map(c => {
                 let text = "";
-                if (c.startDate && c.endDate) text = `📅 ${c.startDate} / ${c.endDate} (${c.start}-${c.end})`;
-                else if (c.date) text = `📅 ${c.date} (${c.start}-${c.end})`;
+                if (c.startDate && c.endDate) text = `📅 ${formatTarih(c.startDate)} / ${formatTarih(c.endDate)} (${c.start}-${c.end})`;
+                else if (c.date) text = `📅 ${formatTarih(c.date)} (${c.start}-${c.end})`;
                 else text = `${c.start}-${c.end}`;
                 return `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; margin: 2px; display: inline-block;">
                     ${text}
@@ -5612,10 +5612,10 @@ window.renderStaffConstraintsModalTable = function(staffName) {
             label = `Her Hafta ${TurkishDays[c.day]}`;
         } else if (c.startDate && c.endDate) {
             typeBadge = '<span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; margin-right:6px;">Tarih Araliği</span>';
-            label = `${c.startDate} - ${c.endDate}`;
+            label = `${formatTarih(c.startDate)} - ${formatTarih(c.endDate)}`;
         } else if (c.date) {
             typeBadge = '<span class="badge" style="background:rgba(236,72,153,0.2); color:#f472b6; margin-right:6px;">Özel Tarih</span>';
-            label = `${c.date}`;
+            label = `${formatTarih(c.date)}`;
         }
 
         const tr = document.createElement('tr');
@@ -6685,9 +6685,9 @@ window.assignAsSubstitute = async function(targetStaffId, targetStaffName, curre
     let selectedExam;
     if (myExams.length === 1) {
         selectedExam = myExams[0];
-        if (!confirm(`${selectedExam.name} (${selectedExam.date} ${selectedExam.time}) görevini ${targetStaffName} hocaya devretmek istiyor musunuz?`)) return;
+        if (!confirm(`${selectedExam.name} (${formatTarih(selectedExam.date)} ${selectedExam.time}) görevini ${targetStaffName} hocaya devretmek istiyor musunuz?`)) return;
     } else {
-        const examOptions = myExams.map((ex, i) => `${i+1}-) ${ex.name} (${ex.date} ${ex.time})`).join('\n');
+        const examOptions = myExams.map((ex, i) => `${i+1}-) ${ex.name} (${formatTarih(ex.date)} ${ex.time})`).join('\n');
         const choice = prompt(`Hangi görevi devretmek istiyorsunuz? (1-${myExams.length} arasi rakam girin)\n\n${examOptions}`);
         const idx = parseInt(choice) - 1;
         if (isNaN(idx) || idx < 0 || idx >= myExams.length) {
@@ -7816,7 +7816,7 @@ window.renderProfile = function() {
                         <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
                         <td>${myRoomCellHtml(ex, myStaffId)}</td>
                         <td>${ex.lecturer || '-'}</td>
-                        <td>${ex.date}</td>
+                        <td>${formatTarih(ex.date)}</td>
                         <td>${ex.time}</td>
                         <td>
                             <strong>${ex.duration} dk</strong>
@@ -7868,7 +7868,7 @@ window.renderProfile = function() {
                     <td><span class="clickable-name" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location || ''}')"><strong>${ex.name}</strong></span></td>
                     <td>${myRoomCellHtml(ex, myStaffId)}</td>
                     <td>${ex.lecturer || '-'}</td>
-                    <td>${ex.date}</td>
+                    <td>${formatTarih(ex.date)}</td>
                     <td>${myTime}${myTime !== ex.time ? `<div style="font-size:0.65rem; color:#38bdf8;" title="Planlanan başlangıç">Plan: ${ex.time}</div>` : ''}</td>
                     <td>
                         <strong>${myDur || '-'} dk</strong>
@@ -8307,8 +8307,8 @@ function updateProfileDashboard(staffId) {
             const cList = staffConstraints.map(c => {
                 const hours = (c.start || c.end) ? ` ${c.start || ''}-${c.end || ''}` : '';
                 if (c.day !== undefined && c.day !== null && c.day !== '') return `${dayShort[parseInt(c.day, 10)] || c.day}${hours}`;
-                if (c.startDate && c.endDate) return `${String(c.startDate).substring(5)}→${String(c.endDate).substring(5)}`;
-                return `${c.date ? String(c.date).slice(-5) : 'Tarih'}${hours}`;
+                if (c.startDate && c.endDate) return `${formatTarihKisa(c.startDate)}→${formatTarihKisa(c.endDate)}`;
+                return `${c.date ? formatTarihKisa(c.date) : 'Tarih'}${hours}`;
             }).slice(0, 2).join(', ');
             constrSummaryEl.innerHTML = `<span style="color:#f87171;" title="${staffConstraints.length} kisit">🚫 ${cList}${staffConstraints.length > 2 ? '...' : ''}</span>`;
         }
@@ -8587,7 +8587,7 @@ function renderResponsibleExamsTab(staffId, staff) {
             <tr>
                 <td><strong>${ex.lecturer || '-'}</strong></td>
                 <td>${ex.name}</td>
-                <td style="font-size:0.85rem;">${ex.date} <span style="opacity:0.6;">${ex.time}</span></td>
+                <td style="font-size:0.85rem;">${formatTarih(ex.date)} <span style="opacity:0.6;">${ex.time}</span></td>
                 <td><span class="note-pill" style="background: rgba(99,102,241,0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; color: var(--primary); border: 1px solid rgba(99,102,241,0.2);">${msg}</span></td>
                 <td style="text-align:right;">
                     <button class="btn-secondary" onclick="showExamDetail('${ex.name.replace(/'/g, "\\'")}', '${ex.date}', '${ex.time}', '${ex.location.replace(/'/g, "\\'")}')" style="font-size:0.75rem; padding:4px 8px;">Detay</button>
@@ -8627,7 +8627,7 @@ function renderLecturerExamsTab(staffId, staff) {
             <tr>
                 <td><strong>${ex.name}</strong></td>
                 <td style="font-size:0.85rem;">${proctorsStr}</td>
-                <td style="font-size:0.85rem;">${ex.date} <span style="opacity:0.6;">${ex.time}</span></td>
+                <td style="font-size:0.85rem;">${formatTarih(ex.date)} <span style="opacity:0.6;">${ex.time}</span></td>
                 <td><span class="note-pill" style="background: rgba(34,197,94,0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; color: var(--accent-green); border: 1px solid rgba(34,197,94,0.2);">${msg}</span></td>
                 <td style="text-align:right;"><button class="btn-primary" onclick="openLecturerMessageModal(${ex.id})" style="font-size:0.75rem; padding:4px 8px; background:linear-gradient(135deg, var(--primary), #4f46e5);">Özel Not/Mesaj</button></td>
             </tr>
@@ -8647,7 +8647,7 @@ window.openLecturerMessageModal = function(id) {
     
     document.getElementById('lecturer-message-info').innerHTML = `
         <strong>${ex.name}</strong><br>
-        <span style="font-size:0.8rem;">Tarih: ${ex.date} | Saat: ${ex.time}</span>
+        <span style="font-size:0.8rem;">Tarih: ${formatTarih(ex.date)} | Saat: ${ex.time}</span>
     `;
 
     document.getElementById('modal-lecturer-message').classList.remove('hidden');
@@ -8743,7 +8743,7 @@ window.onLecturerPortalStaffChange = function(lecturerName) {
     
     if (myExams.length > 0) {
         courseSelect.innerHTML += '<option value="all-exams">★★★ TÜM SINAVLARIM / TÜM GÖZETMENLER ★★★</option>';
-        courseSelect.innerHTML += myExams.map(ex => `<option value="${ex.id}">${ex.name} (${ex.date} ${ex.time})</option>`).join('');
+        courseSelect.innerHTML += myExams.map(ex => `<option value="${ex.id}">${ex.name} (${formatTarih(ex.date)} ${ex.time})</option>`).join('');
     } else {
         courseSelect.innerHTML = '<option value="">Adiniza kayitli ders bulunamadi.</option>';
     }
@@ -8810,7 +8810,7 @@ window.onLecturerPortalCourseChange = function(examId) {
         if (!exam) return;
 
         title.textContent = exam.name;
-        details.innerHTML = `📅 ${exam.date} &nbsp; 🕒 ${exam.time} &nbsp; 📍 ${exam.location || ''}`;
+        details.innerHTML = `📅 ${formatTarih(exam.date)} &nbsp; 🕒 ${exam.time} &nbsp; 📍 ${exam.location || ''}`;
         
         const pNames = (exam.proctorIds || [exam.proctorId]).map(pid => {
             if (!pid) return null;
@@ -9103,8 +9103,8 @@ function saveProctorDurationRecord(ex, pid, { sure, saat, not, derslik }, actor)
         if (typeof logAction === 'function') {
             logAction('user', oncekiOda ? 'Derslik Düzeltme' : 'Derslik Bildirimi',
                 oncekiOda
-                    ? `${actor}: "${ex.name}" (${ex.date} ${ex.time}) sınavındaki dersliğini ${oncekiOda} → ${derslik} olarak düzeltti.`
-                    : `${actor}: "${ex.name}" (${ex.date} ${ex.time}) sınavında ${derslik} dersliğinde olduğunu bildirdi.`);
+                    ? `${actor}: "${ex.name}" (${formatTarih(ex.date)} ${ex.time}) sınavındaki dersliğini ${oncekiOda} → ${derslik} olarak düzeltti.`
+                    : `${actor}: "${ex.name}" (${formatTarih(ex.date)} ${ex.time}) sınavında ${derslik} dersliğinde olduğunu bildirdi.`);
         }
     }
     const t = getDurationTargets(DB.exams.find(e => String(e.id) === String(ex.id)) || ex, pid, derslik);
@@ -9405,7 +9405,7 @@ function renderProfileDurationAlerts(myStaffId, staff) {
                                 <span class="badge" style="background: rgba(245,158,11,0.25); color: #fbbf24; font-size: 0.7rem; padding: 1px 7px; border-radius: 4px;">Sıfır Sürtünmeli Onay</span>
                             </div>
                             <div style="font-size: 0.88rem; color: #f8fafc; margin-top: 4px;">
-                                <strong>${ex.name}</strong> &nbsp;•&nbsp; 📍 <strong>${myRoomText(ex, myStaffId)}</strong> &nbsp;•&nbsp; 📅 ${ex.date} (${ex.time})
+                                <strong>${ex.name}</strong> &nbsp;•&nbsp; 📍 <strong>${myRoomText(ex, myStaffId)}</strong> &nbsp;•&nbsp; 📅 ${formatTarih(ex.date)} (${ex.time})
                             </div>
                             <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
                                 Planlanan Süre: <strong>${scheduled} dk</strong> &nbsp;|&nbsp; Ders Hocası: ${ex.lecturer || '-'}
@@ -9485,7 +9485,7 @@ window.confirmScheduledDuration = function(examId, durationVal = null) {
             logAction(
                 'user',
                 'Sınav Süresi Teyidi',
-                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${targetDuration} dk olarak teyit edildi${pid ? ' (yalnızca kendi görevi için)' : ''}.`
+                `${actor} tarafından "${baseExam.name}" (${formatTarih(baseExam.date)} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${targetDuration} dk olarak teyit edildi${pid ? ' (yalnızca kendi görevi için)' : ''}.`
             );
         }
 
@@ -9562,7 +9562,7 @@ window.openUpdateDurationModal = function(examId) {
                 <div>
                     <h3 style="margin:0; font-size:1.05rem; color:#fff;">${ex.name}</h3>
                     <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; ${(() => {
+                        📅 ${formatTarih(ex.date)} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; ${(() => {
                             const BK = window.BildirimKurallari;
                             const r = (durCtx.pid && BK) ? BK.gozetmenDersligi(ex, durCtx.pid) : null;
                             return r 
@@ -9612,7 +9612,7 @@ window.openUpdateDurationModal = function(examId) {
                         </div>
                         <div style="color:var(--text-secondary); font-size:0.78rem; line-height:1.45;">
                             <div>Ortalama Süre: <strong>${stats.averageDuration} dk</strong> &nbsp;|&nbsp; Son Sınav: <strong>${stats.latestDuration} dk</strong></div>
-                            ${lastSession ? `<div style="color:#c7d2fe; margin-top:2px;">👥 <strong>Önceki Sınavda Görevli Asistanlar:</strong> <em>${lastProctors}</em> (${lastSession.date})</div>` : ''}
+                            ${lastSession ? `<div style="color:#c7d2fe; margin-top:2px;">👥 <strong>Önceki Sınavda Görevli Asistanlar:</strong> <em>${lastProctors}</em> (${formatTarih(lastSession.date)})</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -9803,7 +9803,7 @@ window.saveExamDurationFromModal = function() {
             logAction(
                 'user',
                 'Sınav Süresi Güncelleme',
-                `${actor} tarafından "${ex.name}" (${ex.date} ${oldTime}, Salon: ${ex.location || '-'})${timeChanged ? ` başlangıç saati ${oldTime} -> ${newTime},` : ''} süresi ${scheduledDur} dk -> ${val} dk yapıldı${examEnded ? ' ve onaylandı' : ''}${perProctor ? ' (yalnızca kendi görevi için)' : ''}.${note ? ' Not: ' + note : ''}`
+                `${actor} tarafından "${ex.name}" (${formatTarih(ex.date)} ${oldTime}, Salon: ${ex.location || '-'})${timeChanged ? ` başlangıç saati ${oldTime} -> ${newTime},` : ''} süresi ${scheduledDur} dk -> ${val} dk yapıldı${examEnded ? ' ve onaylandı' : ''}${perProctor ? ' (yalnızca kendi görevi için)' : ''}.${note ? ' Not: ' + note : ''}`
             );
         }
 
@@ -9932,7 +9932,7 @@ window.openLecturerDurationPromptModal = function(examId, step = 'question') {
                 <div>
                     <h3 style="margin:0; font-size:1.05rem; color:#fff; font-weight:700;">${ex.name}</h3>
                     <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:3px;">
-                        📅 ${ex.date} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; ${(() => {
+                        📅 ${formatTarih(ex.date)} &nbsp;•&nbsp; ⏰ ${ex.time} &nbsp;•&nbsp; ${(() => {
                             const BK = window.BildirimKurallari;
                             const r = (ldpCtx.pid && BK) ? BK.gozetmenDersligi(ex, ldpCtx.pid) : null;
                             return r 
@@ -10086,7 +10086,7 @@ window.confirmLecturerExamDuration = function(examId = null) {
             if (typeof recalculateAllScores === 'function') recalculateAllScores();
         }
         if (typeof logAction === 'function') {
-            logAction('user', ctx.pid ? 'Sınav Süresi Teyidi' : 'Hoca Sınav Süresi Onayı', `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}) süresi ${dur} dk olarak onaylandı${ctx.pid ? ' (yalnızca kendi görevi için)' : ''}.`);
+            logAction('user', ctx.pid ? 'Sınav Süresi Teyidi' : 'Hoca Sınav Süresi Onayı', `${actor} tarafından "${baseExam.name}" (${formatTarih(baseExam.date)} ${baseExam.time}) süresi ${dur} dk olarak onaylandı${ctx.pid ? ' (yalnızca kendi görevi için)' : ''}.`);
         }
 
         if (typeof saveToBackend === 'function') saveToBackend();
@@ -10218,7 +10218,7 @@ window.submitLecturerActualDuration = function(examId = null, customMins = null,
             logAction(
                 'user',
                 ctx.pid ? 'Gözetmen Gerçekleşen Sınav Süresi Girişi' : 'Hoca Gerçekleşen Sınav Süresi Girişi',
-                `${actor} tarafından "${baseExam.name}" (${baseExam.date} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${prevDur} dk -> ${val} dk olarak sisteme işlendi${ctx.pid ? ' (yalnızca kendi görevi için)' : ''}.${note ? ' Not: ' + note : ''}`
+                `${actor} tarafından "${baseExam.name}" (${formatTarih(baseExam.date)} ${baseExam.time}, Salon: ${baseExam.location || '-'}) süresi ${prevDur} dk -> ${val} dk olarak sisteme işlendi${ctx.pid ? ' (yalnızca kendi görevi için)' : ''}.${note ? ' Not: ' + note : ''}`
             );
         }
 
@@ -10529,7 +10529,7 @@ function renderExamDetailHistory(examName, currentDate, currentTime) {
         rowsHtml += `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="padding: 0.55rem 0.5rem; font-size:0.83rem;">
-                    <strong>${s.date}</strong> <span style="color:var(--text-muted); font-size:0.75rem;">(${s.time})</span>
+                    <strong>${formatTarih(s.date)}</strong> <span style="color:var(--text-muted); font-size:0.75rem;">(${s.time})</span>
                     <div style="font-size:0.72rem; color:var(--text-muted);">${s.type}</div>
                 </td>
                 <td style="padding: 0.55rem 0.5rem; font-size:0.83rem;">
@@ -10722,7 +10722,7 @@ window.onCourseArchiveSelectChange = function(courseName) {
                     <div>
                         <div style="font-weight:700; font-size:0.95rem; color:#f8fafc;">${s.name}</div>
                         <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-                            📅 <strong>${s.date}</strong> &nbsp;•&nbsp; ⏰ <strong>${s.time}</strong> &nbsp;•&nbsp; 📍 Salon: <strong>${s.location}</strong>
+                            📅 <strong>${formatTarih(s.date)}</strong> &nbsp;•&nbsp; ⏰ <strong>${s.time}</strong> &nbsp;•&nbsp; 📍 Salon: <strong>${s.location}</strong>
                         </div>
                     </div>
                     <div>
@@ -11179,9 +11179,9 @@ function renderProfileConstraints() {
             if (c.day !== undefined) {
                 label = `Haftalik: ${TurkishDays[c.day]}`;
             } else if (c.startDate && c.endDate) {
-                label = `Toplu Tarih: ${c.startDate} / ${c.endDate}`;
+                label = `Toplu Tarih: ${formatTarih(c.startDate)} / ${formatTarih(c.endDate)}`;
             } else if (c.date) {
-                label = `Özel Tarih: ${c.date}`;
+                label = `Özel Tarih: ${formatTarih(c.date)}`;
             }
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -11826,7 +11826,7 @@ window.initiateDirectSwap = function(myExamId) {
     if (!myExam) return;
 
     document.getElementById('direct-swap-my-exam-id').value = myExamId;
-    document.getElementById('direct-swap-my-exam-name').textContent = `${myExam.name} (${myExam.date})`;
+    document.getElementById('direct-swap-my-exam-name').textContent = `${myExam.name} (${formatTarih(myExam.date)})`;
     
     // Hoca listesini doldur (kendim hariç)
     const targetSelect = document.getElementById('direct-swap-target-proctor');
@@ -11873,7 +11873,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
         list.innerHTML = targetExams.map(ex => `
             <div class="suggestion-item" onclick="selectDirectSwapTargetExam(${ex.id}, \`${ex.name.replace(/`/g, '').replace(/"/g, '&quot;')}\`, '${ex.date}', this)">
                 <div style="font-weight: 600;">${ex.name}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">${ex.date} - ${ex.time}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${formatTarih(ex.date)} - ${ex.time}</div>
             </div>
         `).join('');
     }
@@ -11882,7 +11882,7 @@ window.renderDirectSwapTargetExams = function(targetStaffId) {
 
 window.selectDirectSwapTargetExam = function(examId, name, date, element) {
     window.selectedDirectSwapTargetExamId = examId;
-    document.getElementById('direct-swap-target-exam-name').textContent = `${name} (${date})`;
+    document.getElementById('direct-swap-target-exam-name').textContent = `${name} (${formatTarih(date)})`;
     document.getElementById('direct-swap-summary').classList.remove('hidden');
     document.getElementById('btn-confirm-direct-swap').disabled = false;
     
@@ -11968,7 +11968,7 @@ window.openOfferSwapModal = function(requestId) {
     if (!targetExam) return;
 
     document.getElementById('offer-swap-request-id').value = requestId;
-    document.getElementById('offer-swap-target-exam-name').textContent = `${targetExam.name} (${targetExam.date})`;
+    document.getElementById('offer-swap-target-exam-name').textContent = `${targetExam.name} (${formatTarih(targetExam.date)})`;
     
     // Kendi aktif sinavlarimi bul
     const now = new Date();
@@ -11988,7 +11988,7 @@ window.openOfferSwapModal = function(requestId) {
         list.innerHTML = myExams.map(ex => `
             <div class="suggestion-item" onclick="selectOfferSwapExam(${ex.id}, \`${ex.name.replace(/`/g, '').replace(/"/g, '&quot;')}\`, '${ex.date}', this)">
                 <div style="font-weight: 600;">${ex.name}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">${ex.date} - ${ex.time}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${formatTarih(ex.date)} - ${ex.time}</div>
             </div>
         `).join('');
     }
@@ -12002,7 +12002,7 @@ window.openOfferSwapModal = function(requestId) {
 
 window.selectOfferSwapExam = function(examId, name, date, element) {
     window.selectedOfferSwapMyExamId = examId;
-    document.getElementById('offer-swap-my-exam-name').textContent = `${name} (${date})`;
+    document.getElementById('offer-swap-my-exam-name').textContent = `${name} (${formatTarih(date)})`;
     document.getElementById('offer-swap-summary').classList.remove('hidden');
     document.getElementById('btn-confirm-offer-swap').disabled = false;
     
@@ -13032,7 +13032,7 @@ function getNotifications() {
                 notifs.push({
                     type: 'exam',
                     title: 'Yaklaşan Görev',
-                    message: `Hatirlatma: "${ex.name}" sinavi yaklaşiyor (${ex.date} ${ex.time})`,
+                    message: `Hatirlatma: "${ex.name}" sinavi yaklaşiyor (${formatTarih(ex.date)} ${ex.time})`,
                     time: exDate - 1, // Sinavin tam vaktinden bir saniye önce olsun ki listede üstte görünsün
                     icon: '⏳'
                 });
@@ -14348,7 +14348,7 @@ function renderExcelPreview() {
         tr.innerHTML = `
             <td>${yearBadge}<span class="badge" style="background: rgba(255,255,255,0.08); color:white;">${ex.type}</span>${dupBadge}</td>
             <td><strong>${ex.name}</strong><br><small style="color:var(--text-muted); font-size:0.8rem;">👨‍🏫 ${ex.lecturer || 'Belirtilmedi'}</small></td>
-            <td>${ex.hasError ? '<span style="color:#ef4444;">❌ Belirsiz</span>' : `📅 ${ex.date}`}</td>
+            <td>${ex.hasError ? '<span style="color:#ef4444;">❌ Belirsiz</span>' : `📅 ${formatTarih(ex.date)}`}</td>
             <td>${durationBadge}</td>
             <td>📍 ${locBadge}</td>
             <td style="vertical-align:middle;">
@@ -14390,7 +14390,7 @@ window.exportExcelWithProctors = function() {
             : (ex.proctorName ? ex.proctorName.replace(/<[^>]*>?/gm, '') : '');
 
         const locStr = ex.capacity > 0 ? `${ex.capacity} - ${ex.location}` : ex.location;
-        const timeStr = `${ex.date} ${ex.time}${ex.endTime ? ' - ' + ex.endTime : ''}`;
+        const timeStr = `${formatTarih(ex.date)} ${ex.time}${ex.endTime ? ' - ' + ex.endTime : ''}`;
 
         data.push([
             ex.code || (ex.name ? ex.name.split(' - ')[0] : ""),
@@ -15407,7 +15407,7 @@ window.showStaffReportModal = (id) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
         tr.innerHTML = `
-            <td style="padding: 0.75rem;">${ex.date} ${ex.time}</td>
+            <td style="padding: 0.75rem;">${formatTarih(ex.date)} ${ex.time}</td>
             <td style="padding: 0.75rem; font-weight: 500;">${ex.name}</td>
             <td style="padding: 0.75rem;">${typeStr}</td>
             <td style="padding: 0.75rem; text-align: right; color: var(--accent-green); font-weight: bold;">+${points.toFixed(1)}</td>
@@ -15630,7 +15630,7 @@ window.renderScorecard = function() {
                         <tbody>
                             ${monthItem.examTasks.map(t => `
                                 <tr>
-                                    <td style="color:#cbd5e1; font-weight:600; white-space:nowrap;">${t.date} (${t.time})</td>
+                                    <td style="color:#cbd5e1; font-weight:600; white-space:nowrap;">${formatTarih(t.date)} (${t.time})</td>
                                     <td><strong style="color:#fff;">${t.name}</strong></td>
                                     <td><span class="badge-location" style="font-size:0.75rem;">${t.location}</span></td>
                                     <td style="color:#818cf8; font-weight:700; text-align:right;">+${t.score.toFixed(1)}</td>
@@ -15663,7 +15663,7 @@ window.renderScorecard = function() {
                         <tbody>
                             ${monthItem.nonExamTasks.map(t => `
                                 <tr>
-                                    <td style="color:#cbd5e1; font-weight:600; white-space:nowrap;">${t.date} (${t.time})</td>
+                                    <td style="color:#cbd5e1; font-weight:600; white-space:nowrap;">${formatTarih(t.date)} (${t.time})</td>
                                     <td><strong style="color:#fff;">${t.name}</strong></td>
                                     <td><span class="badge-location" style="font-size:0.75rem;">${t.location}</span></td>
                                     <td><span style="color:#fdba74; font-size:0.8rem; background:rgba(249,115,22,0.1); padding:2px 8px; border-radius:6px; border:1px solid rgba(249,115,22,0.25);">${t.type}</span></td>
@@ -15788,7 +15788,7 @@ window.runDataHealthCheck = function() {
             <div style="font-weight: 700; color: #ef4444; font-size: 0.9rem; margin-bottom: 6px;">🚫 Çifte Görev Çakişmalari (${report.doubleBookings.length})</div>
             ${report.doubleBookings.map(d => `
                 <div style="background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
-                    <strong>${d.staffName}</strong>: ${d.date} tarihinde hem <em>${d.exam1}</em> hem de <em>${d.exam2}</em> sinavinda görünüyor.
+                    <strong>${d.staffName}</strong>: ${formatTarih(d.date)} tarihinde hem <em>${d.exam1}</em> hem de <em>${d.exam2}</em> sinavinda görünüyor.
                 </div>
             `).join('')}
         </div>`;
@@ -15800,7 +15800,7 @@ window.runDataHealthCheck = function() {
             <div style="font-weight: 700; color: #f59e0b; font-size: 0.9rem; margin-bottom: 6px;">⚠️ Güz Dönemi Kisit / Ders Çakişmalari (${report.constraintClashes.length})</div>
             ${report.constraintClashes.map(c => `
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem;">
-                    <strong>${c.staffName}</strong>: <em>${c.examName}</em> (${c.date} ${c.time}) sinavina atanmiş ancak <strong>${c.constraint}</strong> kisiti var.
+                    <strong>${c.staffName}</strong>: <em>${c.examName}</em> (${formatTarih(c.date)} ${c.time}) sinavina atanmiş ancak <strong>${c.constraint}</strong> kisiti var.
                 </div>
             `).join('')}
         </div>`;
@@ -16904,7 +16904,7 @@ window.renderTomorrowReminderData = function() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="4" style="text-align: center; color: #94a3b8; padding: 30px;">
-                    📅 <strong>${targetDate}</strong> tarihinde planlanmiş herhangi bir gözetmenlik görevi bulunamadi.
+                    📅 <strong>${formatTarih(targetDate)}</strong> tarihinde planlanmiş herhangi bir gözetmenlik görevi bulunamadi.
                 </td>
             </tr>
         `;
@@ -18085,7 +18085,7 @@ window.applySingleFairnessAction = async function(index) {
     if (act.type === 'transfer') {
         confirmMsg = `⚠️ [Adım ${index + 1} • Görev Devri Onayı]\n\n`
             + `📚 Sınav: ${act.examName} (${act.examScore} Puan)\n`
-            + `📅 Tarih & Saat: ${act.examDate} ${act.examTime}\n`
+            + `📅 Tarih & Saat: ${formatTarih(act.examDate)} ${act.examTime}\n`
             + `🛑 Devreden: ${act.fromStaff.name} (${act.fromStaff.oldScore} ➔ ${act.fromStaff.newScore} P.)\n`
             + `🟢 Devralan: ${act.toStaff.name} (${act.toStaff.oldScore} ➔ ${act.toStaff.newScore} P.)\n`
             + `⚖️ İkili Puan Farkı: ${act.gapBefore} ➔ ${act.gapAfter} P. (-${act.gapReduction} P. kapanır)\n\n`
@@ -18928,7 +18928,7 @@ window.exportScheduleToExcel = function() {
         const name = (ex.name || '').replace(/,/g, ' ');
         const lecturer = (ex.lecturer || '').replace(/,/g, ' ');
         const location = (ex.location || '').replace(/,/g, ' ');
-        const date = ex.date || '';
+        const date = ex.date ? formatTarih(ex.date) : '';
         const time = ex.time || '';
         const duration = ex.duration || '';
         
@@ -19568,7 +19568,7 @@ async function sendScheduleShareDirectly() {
                         <tbody>
                             ${r.exams.map(ex => `
                                 <tr>
-                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.date || '-'}</td>
+                                    <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${formatTarih(ex.date) || '-'}</td>
                                     <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.time || '-'}${ex.duration ? ` (${ex.duration} dk)` : ''}</td>
                                     <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: 600;">${ex.name || '-'}</td>
                                     <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${ex.location || '-'}</td>
