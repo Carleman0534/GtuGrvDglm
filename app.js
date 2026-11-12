@@ -5413,7 +5413,7 @@ window.renderTimeScoreDraft = function() {
     if (goster.includes('sinav')) kpi.push(`<div><span>🎓 Sınav gözetmenliği</span><b>${n(st.sinavSaat)} sa · ${n(st.sinavPuan)} P</b><small>${st.sinavGorev} görev</small></div>`);
     if (goster.includes('disi')) kpi.push(`<div><span>📋 Sınav dışı görev</span><b>${n(st.disiSaat)} sa · ${n(st.disiPuan)} P</b><small>${st.disiGorev} görev</small></div>`);
     if (goster.includes('toplam')) kpi.push(`<div><span>⏱️ Görevler toplamı</span><b>${n(st.toplamSaat)} sa · ${n(st.toplamPuan)} P</b><small>kişi başı ${n(st.ortSaat)} sa · saat başına ${n(st.puanSaat)} P</small></div>`);
-    if (goster.includes('puan')) kpi.push(`<div><span>🏆 Genel toplam puan</span><b>${n(st.genel)} P</b><small>taban ${n(st.taban)} + görevler ${n(st.toplamPuan)}</small></div>`);
+    if (goster.includes('puan')) kpi.push(`<div><span>🏆 Genel toplam puan</span><b>${n(st.genel)} P</b><small>taban ${n(st.taban)} (≈ ${n(st.tabanGorev)} görev) + görevler ${n(st.toplamPuan)}</small></div>`);
 
     // --- Sütunlar (yalnızca seçili gruplar) ---
     const kol = [];   // { grup, baslik, hucre(k), alt(st) }
@@ -5431,7 +5431,8 @@ window.renderTimeScoreDraft = function() {
         { grup: '⏱️ Görevler toplamı', baslik: 'Puan', hucre: k => n(k.toplam.puan), alt: () => n(st.toplamPuan) },
         { grup: '⏱️ Görevler toplamı', baslik: 'P/sa', hucre: k => n(k.toplam.puanSaat), alt: () => n(st.puanSaat) });
     if (goster.includes('puan')) kol.push(
-        { grup: '🏆 Puan özeti', baslik: 'Taban', hucre: k => n(k.taban), alt: () => n(st.taban) },
+        { grup: '🏆 Puan özeti', baslik: 'Taban', hucre: k => `${n(k.taban)}<small title="Önceden yapıldığı varsayılan görev: her ${st.tabanGorevPuani} puan 1 görev">≈ ${n(k.tabanGorev)} görev</small>`, alt: () => `${n(st.taban)}<small>≈ ${n(st.tabanGorev)} görev</small>` },
+        { grup: '🏆 Puan özeti', baslik: 'Görev (taban dahil)', hucre: k => `<b>${n(k.gorevTabanDahil)}</b><small>${k.toplam.gorev} yapılan + ${n(k.tabanGorev)} önceki</small>`, alt: () => `<b>${n(st.gorevTabanDahil)}</b>` },
         { grup: '🏆 Puan özeti', baslik: 'Genel toplam', hucre: k => `<b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small>`, alt: () => `<b>${n(st.genel)}</b>` },
         { grup: '🏆 Puan özeti', baslik: 'Sıralamadaki puan', cls: 'tsd-siralama', hucre: k => `<b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaEski ? ` + ${n(k.siralamaEski)} eski sınav dışı*` : ''}${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small>`, alt: () => `<b>${n(st.siralamaPuan)}</b>` });
 
@@ -5457,7 +5458,8 @@ window.renderTimeScoreDraft = function() {
         ${ayModu ? 'Ay seçiminde görevler Puan Karnem ile aynı şekilde <b>sınav tarihinin ayına</b> göre gruplanır.' : ''}
         ${!planDahil && st.planGorev ? `Henüz yapılmamış ${st.planGorev} görev (${n(st.planSaat)} saat) dahil değildir.` : ''}
         ${puanKapali && secili.includes('puan') ? '🏆 Puan özeti (taban, genel toplam, sıralamadaki puan) tüm zamanları kapsadığı için yalnızca "Tüm zamanlar" seçiliyken gösterilir.' : ''}
-        ${goster.includes('puan') ? '<br><b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır (taban + yapılan + planlanan sınavlar).' : ''}
+        ${goster.includes('puan') ? `<br><b>Taban puan</b> önceki dönemlerde yapılmış görevleri temsil eder; her <b>${st.tabanGorevPuani} puan 1 görev</b> sayılarak "önceden yapıldığı varsayılan görev" hesaplanır ve "Görev (taban dahil)" sütununa eklenir (varsayım; gerçek görev kaydı değildir).
+            <br><b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır (taban + yapılan + planlanan sınavlar).` : ''}
         ${st.eskiDisiGorev && (goster.includes('disi') || goster.includes('puan')) ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev bu tabloda sınav dışı sütununda gösterilir; sistem bunları o tarihteki kurala göre sınav puanına saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}
         <br>Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre).</p>`;
 };

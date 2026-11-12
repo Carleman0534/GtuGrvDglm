@@ -3896,6 +3896,9 @@ function computeTimeScoreStats(opts = {}) {
             puanSaat: dk > 0 ? p1((r.sinav.puan + r.disi.puan) / (dk / 60)) : 0
         };
         r.genel = p1(r.taban + r.toplam.puan);   // taban + sınav + sınav dışı
+        // Taban puan, önceki dönemlerde yapılmış görevleri temsil eder: her TABAN_GOREV_PUANI puan bir görev sayılır (varsayım)
+        r.tabanGorev = p1(r.taban / TABAN_GOREV_PUANI);
+        r.gorevTabanDahil = p1(r.toplam.gorev + r.tabanGorev);
         // Sıralamadaki puanın dökümü: taban + yapılmış sınavlar + henüz yapılmamış sınavlar
         r.siralamaPuan = p1(r.siralamaPuan);
         r.siralamaYapilan = p1(opts.planDahil ? r.sinav.puan - r.sinav.planPuan : r.sinav.puan);
@@ -3917,7 +3920,8 @@ function computeTimeScoreStats(opts = {}) {
         taban: p1(sum(r => r.taban)), genel: p1(sum(r => r.genel)),
         planSaat: p1(sum(r => r.sinav.planSaat + r.disi.planSaat)), planGorev: sum(r => r.sinav.planGorev + r.disi.planGorev),
         siralamaPuan: p1(sum(r => r.siralamaPuan)), siralamaPlan: p1(sum(r => r.siralamaPlan)),
-        eskiDisiGorev: sum(r => r.eskiDisi.gorev), eskiDisiSaat: p1(sum(r => r.eskiDisi.saat)), eskiDisiPuan: p1(sum(r => r.eskiDisi.puan))
+        eskiDisiGorev: sum(r => r.eskiDisi.gorev), eskiDisiSaat: p1(sum(r => r.eskiDisi.saat)), eskiDisiPuan: p1(sum(r => r.eskiDisi.puan)),
+        tabanGorev: p1(sum(r => r.tabanGorev)), gorevTabanDahil: p1(sum(r => r.gorevTabanDahil)), tabanGorevPuani: TABAN_GOREV_PUANI
     };
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);
@@ -3935,6 +3939,10 @@ function computeTimeScoreStats(opts = {}) {
     }, ozet);
 }
 if (typeof window !== 'undefined') window.computeTimeScoreStats = computeTimeScoreStats;
+
+/** Taban puanın görev karşılığı: 120 puan = önceden yapıldığı varsayılan 1 görev */
+const TABAN_GOREV_PUANI = 120;
+if (typeof window !== 'undefined') window.TABAN_GOREV_PUANI = TABAN_GOREV_PUANI;
 
 /** Süre ve Puan Analizi için seçilebilir aylar (aktif gözetmenlerin görevi olan aylar, en yeni önce) */
 function timeScoreMonths() {

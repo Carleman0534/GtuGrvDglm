@@ -120,6 +120,20 @@ test('Ay seçimi: yalnızca o ay sayılır; tüm ayların toplamı tüm zamanlar
     assert.equal(nisan.kisiler.reduce((x, k) => x + k.sinav.dk + k.disi.dk, 0), nisanDk);
 });
 
+test('Taban puan görev olarak: her 120 puan önceden yapıldığı varsayılan 1 görev', () => {
+    const app = freshApp();
+    const st = app.run('computeTimeScoreStats()');
+    assert.equal(st.tabanGorevPuani, 120);
+    for (const k of st.kisiler) {
+        assert.equal(k.tabanGorev, Math.round(k.taban / 120 * 10) / 10);
+        assert.equal(k.gorevTabanDahil, Math.round((k.toplam.gorev + k.tabanGorev) * 10) / 10);
+    }
+    // Fixture: taban 1800 → 15 görev, 600 → 5 görev
+    assert.equal(st.kisiler.find(k => k.taban === 1800).tabanGorev, 15);
+    assert.equal(st.kisiler.find(k => k.taban === 600).tabanGorev, 5);
+    assert.ok(Math.abs(st.tabanGorev - st.taban / 120) < 0.5);
+});
+
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {
     const app = freshApp();
     const st = app.run('computeTimeScoreStats()');
