@@ -3911,6 +3911,11 @@ function showAddExamModal() {
                 <!-- Seçili gözetmenler buraya gelecek -->
             </div>
         </div>
+        <div class="form-group atama-notu-group">
+            <label>📝 Görevlendirme Açıklaması <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">(isteğe bağlı)</span></label>
+            <textarea id="exam-atama-notu" rows="3" maxlength="600" placeholder="Örn: Bu sınav dersi veren hocanın asistanı olduğunuz için size verildi. / Puanı sizden düşük olanların hepsinin o saatte dersi var." style="width:100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 8px; color: inherit; resize: vertical;"></textarea>
+            <div style="font-size:0.74rem; color:var(--text-muted); margin-top:4px;">Bu sınavdaki gözetmenler açıklamayı görevlerindeki <b>ℹ️ Neden ben?</b> penceresinde görür.</div>
+        </div>
         <div id="add-suggestions" class="suggestion-area hidden">
             <h4>🤖 Akilli Öneriler</h4>
             <div id="add-suggestion-list" class="suggestion-list"></div>
@@ -4231,6 +4236,9 @@ function showAddExamModal() {
             window._hasLocalEdits = false;
             return;
         }
+        // Görevlendirme açıklaması: gözetmenlerin "Neden ben?" penceresinde görünür
+        const addNote = (document.getElementById('exam-atama-notu')?.value || '').trim();
+        if (addNote && typeof setAtamaNotu === 'function') setAtamaNotu(added, added.proctorIds || [], addNote);
         
         window.tempSelectedProctors = [];
         window.tempAddRooms = {};
@@ -4923,6 +4931,10 @@ window.showEditExamModal = (id) => {
     document.getElementById('edit-exam-time').value = ex.time;
     document.getElementById('edit-exam-duration').value = ex.duration;
     document.getElementById('edit-exam-note').value = ex.lecturerNote || '';
+    // Görevlendirme açıklaması (gözetmenlerin "Neden ben?" penceresinde görünür)
+    window._editAtamaNotuIlk = (typeof getAtamaNotuOrtak === 'function') ? getAtamaNotuOrtak(ex) : '';
+    const atamaNotuEl = document.getElementById('edit-exam-atama-notu');
+    if (atamaNotuEl) atamaNotuEl.value = window._editAtamaNotuIlk;
 
     // Initialize tempEditProctors with existing proctors
     window.tempEditProctors = ex.proctorIds || (ex.proctorId ? [ex.proctorId] : []);
@@ -5223,7 +5235,19 @@ document.getElementById('edit-modal-form').onsubmit = async (e) => {
 
     window._hasLocalEdits = true;
     DB.lastUpdated = new Date().toISOString();
+    const oncekiGozetmenler = (currentExam.proctorIds || (currentExam.proctorId ? [currentExam.proctorId] : [])).map(String);
     updateExam(id, data);
+    // Görevlendirme açıklaması: değiştiyse tüm gözetmenlere, değişmediyse yalnızca yeni eklenenlere yazılır
+    try {
+        const notEl = document.getElementById('edit-exam-atama-notu');
+        const updated = DB.exams.find(ex => String(ex.id) === String(id));
+        if (notEl && updated && typeof setAtamaNotu === 'function') {
+            const metin = notEl.value.trim();
+            const simdiki = (updated.proctorIds || (updated.proctorId ? [updated.proctorId] : [])).map(String);
+            if (metin !== (window._editAtamaNotuIlk || '')) setAtamaNotu(updated, simdiki, metin);
+            else if (metin) setAtamaNotu(updated, simdiki.filter(p => !oncekiGozetmenler.includes(p)), metin);
+        }
+    } catch (noteErr) { console.warn('Görevlendirme açıklaması kaydedilemedi:', noteErr); }
     document.getElementById('edit-modal').classList.add('hidden');
     renderExams();
     renderSchedule();

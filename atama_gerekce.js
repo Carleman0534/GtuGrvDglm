@@ -121,11 +121,12 @@
             const old = before.get(S(ex.id)) || new Set();
             const fresh = now.filter(pid => !old.has(pid));
 
-            // Görevden ayrılanların gerekçesini temizle
-            if (ex.atamaGerekce && typeof ex.atamaGerekce === 'object') {
-                Object.keys(ex.atamaGerekce).forEach(pid => { if (!now.includes(pid)) delete ex.atamaGerekce[pid]; });
-                if (!Object.keys(ex.atamaGerekce).length) delete ex.atamaGerekce;
-            }
+            // Görevden ayrılanların gerekçesini ve yönetici açıklamasını temizle
+            ['atamaGerekce', 'atamaNotu'].forEach(field => {
+                if (!ex[field] || typeof ex[field] !== 'object') return;
+                Object.keys(ex[field]).forEach(pid => { if (!now.includes(pid)) delete ex[field][pid]; });
+                if (!Object.keys(ex[field]).length) delete ex[field];
+            });
             if (!fresh.length) return;
 
             const method = methodFor(ex.id);
@@ -137,6 +138,28 @@
             });
             hints.delete(S(ex.id));
         });
+    };
+
+    // --- Yöneticinin görevlendirme açıklaması (exam.atamaNotu[gözetmenId] = { m: metin, t: zaman }) ---
+    // Gözetmen başına tutulur: görev takasla başka birine geçerse açıklama yeni kişiye taşınmaz.
+    window.setAtamaNotu = function (ex, pids, metin) {
+        if (!ex || !Array.isArray(pids)) return;
+        const text = String(metin || '').trim().slice(0, 600);
+        pids.map(S).forEach(pid => {
+            if (text) {
+                if (!ex.atamaNotu || typeof ex.atamaNotu !== 'object') ex.atamaNotu = {};
+                ex.atamaNotu[pid] = { m: text, t: new Date().toISOString() };
+            } else if (ex.atamaNotu && ex.atamaNotu[pid]) {
+                delete ex.atamaNotu[pid];
+            }
+        });
+        if (ex.atamaNotu && !Object.keys(ex.atamaNotu).length) delete ex.atamaNotu;
+    };
+    // Düzenleme penceresinde gösterilecek açıklama (gözetmenlerdeki ilk açıklama)
+    window.getAtamaNotuOrtak = function (ex) {
+        if (!ex || !ex.atamaNotu) return '';
+        const n = proctorsOf(ex).map(pid => ex.atamaNotu[pid]).find(x => x && x.m);
+        return n ? n.m : '';
     };
 
     // --- Açıklama metni ---
@@ -157,6 +180,15 @@
                 <span>📅 ${esc(fmt(ex.date))} · ⏰ ${esc(ex.time)} · 📍 ${esc(ex.location || '-')}</span>
                 ${staff ? `<span>👤 ${esc(staff.name)}</span>` : ''}
             </div>`;
+        const not = ex.atamaNotu && ex.atamaNotu[S(pid)];
+        if (not && not.m) {
+            const notTarih = not.t ? new Date(not.t).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+            html += `
+            <div class="atama-gerekce-not">
+                <div class="atama-gerekce-not-baslik">📝 Yöneticinin açıklaması${notTarih ? ` <span>(${esc(notTarih)})</span>` : ''}</div>
+                <div class="atama-gerekce-not-metin">${esc(not.m).replace(/\n/g, '<br>')}</div>
+            </div>`;
+        }
         if (!info) return html + '<p>Bu görev için açıklama hesaplanamadı.</p>';
 
         const r = info.r, s = r.s || {};
