@@ -4768,6 +4768,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
     // sırayla güncel takvim üzerinde (çakışma, kısıt, atama kuralları) yeniden doğrulanır.
     const net = netFairnessActions(dbObj, simExams, mode, getStaffScore, getStaffTasks);
     const finalActions = net.actions;
+    const stopAt = fairnessStopPoint(finalActions, net.initialSpread, dbObj.exams, net.initialSd);
+    finalActions.forEach((a, i) => { a.recommended = i < stopAt; });
 
     const simulatedMetrics = calculateFairnessMetrics(net.finalStaff, mode);
 
@@ -4787,6 +4789,8 @@ function simulateFairnessOptimization(maxSwaps = 10, mode = 'exam') {
         suggestedSwaps: finalActions,
         suggestedActions: finalActions,
         searchSteps: suggestedActions.length,
+        initialSpread: net.initialSpread,
+        stopAt,
         simulatedStaff: net.finalStaff
     };
 }
@@ -4843,56 +4847,144 @@ function netFairnessActions(dbObj, simExams, mode, getStaffScore, getStaffTasks)
     };
     const exInfo = (ex) => ({ id: ex.id, name: ex.name, date: ex.date, time: ex.time, duration: ex.duration || 60, location: ex.location || '-', score: examScore(ex) });
 
-    const actions = [];
-    let pending = units;
-    for (let pass = 0; pass < 4 && pending.length; pass++) {
-        const next = [];
-        for (const u of pending) {
-            if (u.tur === 'devir') {
-                const ex = byId(work, u.a.exId);
-                const A = sById(u.a.from), B = sById(u.a.to);
-                if (!ex || !A || !B || !_examHasProctor(ex, A.id) || !fairnessCanReceive(workDb, B.id, ex, null, A.id)) { next.push(u); continue; }
-                const sA = scoreOf(A), sB = scoreOf(B), tA = getStaffTasks(A), tB = getStaffTasks(B);
-                setPid(ex, A.id, B.id); shift(A, ex, -1); shift(B, ex, +1);
-                const nA = scoreOf(A), nB = scoreOf(B);
-                const gapBefore = Math.abs(sA - sB), gapAfter = Math.abs(nA - nB);
-                actions.push({
-                    type: 'transfer', mode, examId: ex.id, examName: ex.name, examDate: ex.date, examTime: ex.time,
-                    examDuration: ex.duration || 60, examLocation: ex.location || '-', examScore: examScore(ex),
-                    isNonExam: isNonOf(ex), categoryLabel: isNonOf(ex) ? 'Sınav Dışı Görev' : 'Sınav Gözetmenliği',
-                    fromStaff: { id: A.id, name: A.name, oldScore: sA, newScore: nA, oldTasks: tA, newTasks: getStaffTasks(A) },
-                    toStaff: { id: B.id, name: B.name, oldScore: sB, newScore: nB, oldTasks: tB, newTasks: getStaffTasks(B) },
-                    gapBefore: parseFloat(gapBefore.toFixed(2)), gapAfter: parseFloat(gapAfter.toFixed(2)),
-                    gapReduction: parseFloat((gapBefore - gapAfter).toFixed(2)), priorityGain: 0, varReduction: 0,
-                    rationale: `${A.name} (${sA} P.) bu görevi ${B.name} (${sB} P.) kişisine devreder; aralarındaki fark ${gapBefore.toFixed(1)} → ${gapAfter.toFixed(1)} puan.`
-                });
-            } else {
-                const e1 = byId(work, u.a.exId), e2 = byId(work, u.b.exId);
-                const A = sById(u.a.from), B = sById(u.a.to);
-                if (!e1 || !e2 || !A || !B || !_examHasProctor(e1, A.id) || !_examHasProctor(e2, B.id)
-                    || !fairnessCanReceive(workDb, B.id, e1, e2.id, A.id) || !fairnessCanReceive(workDb, A.id, e2, e1.id, B.id)) { next.push(u); continue; }
-                const sA = scoreOf(A), sB = scoreOf(B);
-                setPid(e1, A.id, B.id); setPid(e2, B.id, A.id);
-                shift(A, e1, -1); shift(B, e1, +1); shift(B, e2, -1); shift(A, e2, +1);
-                const nA = scoreOf(A), nB = scoreOf(B);
-                const gapBefore = Math.abs(sA - sB), gapAfter = Math.abs(nA - nB);
-                const netShift = parseFloat((examScore(e1) - examScore(e2)).toFixed(2));
-                actions.push({
-                    type: 'bilateral_swap', mode, netShift,
-                    examFromA: exInfo(e1), examFromB: exInfo(e2),
-                    isNonExam: mode === 'non_exam', categoryLabel: mode === 'non_exam' ? 'Sınav Dışı Görev Takası' : 'Sınav Gözetmenliği Takası',
-                    staffA: { id: A.id, name: A.name, oldScore: sA, newScore: nA, tasks: getStaffTasks(A) },
-                    staffB: { id: B.id, name: B.name, oldScore: sB, newScore: nB, tasks: getStaffTasks(B) },
-                    gapBefore: parseFloat(gapBefore.toFixed(2)), gapAfter: parseFloat(gapAfter.toFixed(2)),
-                    gapReduction: parseFloat((gapBefore - gapAfter).toFixed(2)), priorityGain: 0, varReduction: 0,
-                    rationale: `Karşılıklı takas: ${A.name} "${e1.name}" (${examScore(e1)} P.) görevini, ${B.name} "${e2.name}" (${examScore(e2)} P.) görevini verir; net ${netShift.toFixed(1)} P. geçer, görev sayıları değişmez.`
-                });
-            }
+    // En faydalı değişiklik önce: her turda, güncel takvimde geçerli olan birimler arasından dengesizliği
+    // (ortalamadan sapmaların kareleri toplamı) en çok azaltanı seç ve uygula. Böylece ilk öneriler farkın
+    // büyük kısmını kapatır, ara durumlar kötüleşmez; yalnız başına zarar veren değişiklikler en sona kalır.
+    const variance = () => { const v = staffCopy.map(scoreOf); const m = v.reduce((a, b) => a + b, 0) / (v.length || 1); return v.reduce((a, x) => a + (x - m) * (x - m), 0) / (v.length || 1); };
+    const spread = () => { const v = staffCopy.map(scoreOf); return v.length ? Math.max(...v) - Math.min(...v) : 0; };
+    const initialSpread = parseFloat(spread().toFixed(2));
+    const initialSd = Math.sqrt(variance());
+    const nowMs = Date.now();
+    const exStart = (id) => { const e = byId(dbObj.exams || [], id); return e ? getSafeDate(e.date, e.time).getTime() : Infinity; };
+    const deltaOf = (u) => {
+        // birimin uygulanmasıyla kimin puanı ne kadar değişir (yalnızca bu moddaki puan)
+        const d = {};
+        const addD = (id, ex, sign) => {
+            if (!ex) return;
+            const counts = mode === 'all' || (mode === 'non_exam') === isNonOf(ex);
+            if (counts) d[String(id)] = (d[String(id)] || 0) + examScore(ex) * sign;
+        };
+        if (u.tur === 'devir') { const ex = byId(work, u.a.exId); addD(u.a.from, ex, -1); addD(u.a.to, ex, +1); }
+        else { const e1 = byId(work, u.a.exId), e2 = byId(work, u.b.exId); addD(u.a.from, e1, -1); addD(u.a.to, e1, +1); addD(u.b.from, e2, -1); addD(u.b.to, e2, +1); }
+        return d;
+    };
+    const varianceWith = (d) => {
+        const v = staffCopy.map(s => scoreOf(s) + (d[String(s.id)] || 0));
+        const m = v.reduce((a, b) => a + b, 0) / (v.length || 1);
+        return v.reduce((a, x) => a + (x - m) * (x - m), 0) / (v.length || 1);
+    };
+    const isValid = (u) => {
+        if (u.tur === 'devir') {
+            const ex = byId(work, u.a.exId), A = sById(u.a.from), B = sById(u.a.to);
+            return !!(ex && A && B && _examHasProctor(ex, A.id) && fairnessCanReceive(workDb, B.id, ex, null, A.id));
         }
-        if (next.length === pending.length) break;   // ilerleme yok
-        pending = next;
+        const e1 = byId(work, u.a.exId), e2 = byId(work, u.b.exId), A = sById(u.a.from), B = sById(u.a.to);
+        return !!(e1 && e2 && A && B && _examHasProctor(e1, A.id) && _examHasProctor(e2, B.id)
+            && fairnessCanReceive(workDb, B.id, e1, e2.id, A.id) && fairnessCanReceive(workDb, A.id, e2, e1.id, B.id));
+    };
+
+    const actions = [];
+    let pending = units.slice();
+    while (pending.length) {
+        const curVar = variance();
+        let best = null, bestVar = Infinity;
+        for (const u of pending) {
+            if (!isValid(u)) continue;
+            const v = varianceWith(deltaOf(u));
+            if (v < bestVar) { bestVar = v; best = u; }
+        }
+        if (!best) break;   // kalanların hiçbiri güncel takvimde geçerli değil
+        pending = pending.filter(u => u !== best);
+        const gain = curVar - bestVar;
+        let act;
+        if (best.tur === 'devir') {
+            const ex = byId(work, best.a.exId);
+            const A = sById(best.a.from), B = sById(best.a.to);
+            const sA = scoreOf(A), sB = scoreOf(B), tA = getStaffTasks(A), tB = getStaffTasks(B);
+            setPid(ex, A.id, B.id); shift(A, ex, -1); shift(B, ex, +1);
+            const nA = scoreOf(A), nB = scoreOf(B);
+            const gapBefore = Math.abs(sA - sB), gapAfter = Math.abs(nA - nB);
+            act = {
+                type: 'transfer', mode, examId: ex.id, examName: ex.name, examDate: ex.date, examTime: ex.time,
+                examDuration: ex.duration || 60, examLocation: ex.location || '-', examScore: examScore(ex),
+                isNonExam: isNonOf(ex), categoryLabel: isNonOf(ex) ? 'Sınav Dışı Görev' : 'Sınav Gözetmenliği',
+                fromStaff: { id: A.id, name: A.name, oldScore: sA, newScore: nA, oldTasks: tA, newTasks: getStaffTasks(A) },
+                toStaff: { id: B.id, name: B.name, oldScore: sB, newScore: nB, oldTasks: tB, newTasks: getStaffTasks(B) },
+                gapBefore: parseFloat(gapBefore.toFixed(2)), gapAfter: parseFloat(gapAfter.toFixed(2)),
+                gapReduction: parseFloat((gapBefore - gapAfter).toFixed(2)), priorityGain: gain, varReduction: gain,
+                rationale: `${A.name} (${sA} P.) bu görevi ${B.name} (${sB} P.) kişisine devreder; aralarındaki fark ${gapBefore.toFixed(1)} → ${gapAfter.toFixed(1)} puan.`
+            };
+        } else {
+            const e1 = byId(work, best.a.exId), e2 = byId(work, best.b.exId);
+            const A = sById(best.a.from), B = sById(best.a.to);
+            const sA = scoreOf(A), sB = scoreOf(B);
+            setPid(e1, A.id, B.id); setPid(e2, B.id, A.id);
+            shift(A, e1, -1); shift(B, e1, +1); shift(B, e2, -1); shift(A, e2, +1);
+            const nA = scoreOf(A), nB = scoreOf(B);
+            const gapBefore = Math.abs(sA - sB), gapAfter = Math.abs(nA - nB);
+            const netShift = parseFloat((examScore(e1) - examScore(e2)).toFixed(2));
+            act = {
+                type: 'bilateral_swap', mode, netShift,
+                examFromA: exInfo(e1), examFromB: exInfo(e2),
+                isNonExam: mode === 'non_exam', categoryLabel: mode === 'non_exam' ? 'Sınav Dışı Görev Takası' : 'Sınav Gözetmenliği Takası',
+                staffA: { id: A.id, name: A.name, oldScore: sA, newScore: nA, tasks: getStaffTasks(A) },
+                staffB: { id: B.id, name: B.name, oldScore: sB, newScore: nB, tasks: getStaffTasks(B) },
+                gapBefore: parseFloat(gapBefore.toFixed(2)), gapAfter: parseFloat(gapAfter.toFixed(2)),
+                gapReduction: parseFloat((gapBefore - gapAfter).toFixed(2)), priorityGain: gain, varReduction: gain,
+                rationale: `Karşılıklı takas: ${A.name} "${e1.name}" (${examScore(e1)} P.) görevini, ${B.name} "${e2.name}" (${examScore(e2)} P.) görevini verir; net ${netShift.toFixed(1)} P. geçer, görev sayıları değişmez.`
+            };
+        }
+        const ids = act.type === 'transfer' ? [act.examId] : [act.examFromA.id, act.examFromB.id];
+        act.spreadAfter = parseFloat(spread().toFixed(2));
+        act.sdAfter = parseFloat(Math.sqrt(variance()).toFixed(2));
+        act.yakin = ids.some(id => exStart(id) - nowMs < FAIRNESS_NEAR_MS);
+        actions.push(act);
     }
-    return { actions, finalStaff: staffCopy, skipped: pending.length };
+    return { actions, finalStaff: staffCopy, skipped: pending.length, initialSpread, initialSd: parseFloat(initialSd.toFixed(2)) };
+}
+
+/** 48 saatten yakın sınavların görevlisi doğrudan değiştirilmez; kişilere takas teklifi olarak gider */
+const FAIRNESS_NEAR_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Önerilen durma noktası: farkın büyük kısmını kapatan ilk N öneri.
+ * Fark tek bir sınavın tipik puanının altına indiğinde ya da ulaşılabilir iyileşmenin %90'ı
+ * sağlandığında durulur; sonraki öneriler az kazanç için insanların programını değiştirir.
+ */
+function fairnessStopPoint(actions, initialSpread, exams, initialSd) {
+    if (!actions.length) return 0;
+    const now = Date.now();
+    const futureScores = (exams || []).filter(e => e && e.date && e.time && getSafeDate(e.date, e.time).getTime() > now)
+        .map(e => parseFloat(e.score) || 0).filter(x => x > 0).sort((a, b) => a - b);
+    const typical = futureScores.length ? futureScores[Math.floor(futureScores.length / 2)] : 100;
+
+    // Fark zaten tek bir sınavın puanından küçükse değişiklik önerilmez (her değişiklik kişilerin programını bozar)
+    if (initialSpread <= typical) return 0;
+
+    const hasSd = typeof initialSd === 'number' && actions.every(a => typeof a.sdAfter === 'number');
+    if (hasSd) {
+        const finalSd = actions[actions.length - 1].sdAfter;
+        const total = initialSd - finalSd;
+        if (total <= initialSd * 0.05) return 0;               // toplam iyileşme %5'ten az: değmez
+        let prev = initialSd;
+        for (let i = 0; i < actions.length; i++) {
+            const sd = actions[i].sdAfter;
+            if (i > 0 && prev - sd < initialSd * 0.02) return i;   // bu adım neredeyse hiçbir şey katmıyor
+            if (actions[i].spreadAfter <= typical) return i + 1;   // fark bir sınav puanının altına indi
+            if (sd - finalSd <= total * 0.1) return i + 1;          // ulaşılabilir iyileşmenin %90'ı sağlandı
+            prev = sd;
+        }
+        return actions.length;
+    }
+
+    const finalSpread = actions[actions.length - 1].spreadAfter;
+    const total = initialSpread - finalSpread;
+    for (let i = 0; i < actions.length; i++) {
+        const s = actions[i].spreadAfter;
+        if (s <= typical) return i + 1;
+        if (total > 0 && (s - finalSpread) <= total * 0.1) return i + 1;
+    }
+    return actions.length;
 }
 
 /**
@@ -5389,6 +5481,8 @@ if (_targetGlobal) {
     _targetGlobal.rollbackSimulationSnapshot = rollbackSimulationSnapshot;
     _targetGlobal.fairnessCanReceive = fairnessCanReceive;
     _targetGlobal.netFairnessActions = netFairnessActions;
+    _targetGlobal.fairnessStopPoint = fairnessStopPoint;
+    _targetGlobal.FAIRNESS_NEAR_MS = FAIRNESS_NEAR_MS;
     _targetGlobal.moveExamProctor = moveExamProctor;
     _targetGlobal.moveProctorPersonalFields = moveProctorPersonalFields;
     _targetGlobal.fairnessProposalExpired = fairnessProposalExpired;

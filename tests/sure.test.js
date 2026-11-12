@@ -87,7 +87,8 @@ test('Kayıt, sınav üzerinde gözetmen başına AYRI alanda tutulur', () => {
 
 test('Veri birleştirme: iki gözetmenin farklı cihazlardan aynı anda girdiği süreler birbirini ezmez', () => {
     // veri_koruma.js'deki gerçek birleştirme fonksiyonları
-    const src = fs.readFileSync(path.join(ROOT, 'veri_koruma.js'), 'utf8');
+    // Satır sonları (Windows CRLF / LF) fark etmesin
+    const src = fs.readFileSync(path.join(ROOT, 'veri_koruma.js'), 'utf8').replace(/\r\n/g, '\n');
     const pick = (re) => { const m = src.match(re); assert.ok(m, 'bulunamadı: ' + re); return m[0]; };
     const code = [
         pick(/const same = [^\n]+/), pick(/const clone = [^\n]+/), pick(/const isPlainObj = [^\n]+/), pick(/const hasIds = [^\n]+/),

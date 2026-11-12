@@ -17520,6 +17520,70 @@ window.renderFairnessMetricsUI = function() {
     barsContainer.innerHTML = barsHtml;
 };
 
+/**
+ * Simülatörden uygulanan / teklif edilen değişiklikler için kişiye özel bildirim.
+ * Her kişiye tek bir duyuru (kendi değişikliklerini listeleyen) gider: uygulama içi bildirim paneli,
+ * uygulama açılınca cihaz bildirimi ve telefona anlık bildirim (yalnızca 09:00–19:00).
+ */
+function notifyFairnessChanges(applied, offered) {
+    const fmt = (d) => (typeof window.formatTarih === 'function' ? window.formatTarih(d) : d);
+    const ex = (o) => `"${o.name}" (${fmt(o.date)} ${o.time}${o.location && o.location !== '-' ? ', ' + o.location : ''})`;
+    const lines = {};   // staffId -> [satır]
+    const add = (id, text) => { const k = String(id); (lines[k] = lines[k] || []).push(text); };
+    (applied || []).forEach(a => {
+        if (a.type === 'transfer') {
+            const e = { name: a.examName, date: a.examDate, time: a.examTime, location: a.examLocation };
+            add(a.fromStaff.id, `➖ ${ex(e)} görevi adil dağılım için ${a.toStaff.name} kişisine devredildi.`);
+            add(a.toStaff.id, `➕ Yeni görev: ${ex(e)} (${a.fromStaff.name} yerine).`);
+        } else {
+            add(a.staffA.id, `🔁 Takas: ${ex(a.examFromA)} görevi ${a.staffB.name} kişisine geçti; size ${ex(a.examFromB)} verildi.`);
+            add(a.staffB.id, `🔁 Takas: ${ex(a.examFromB)} görevi ${a.staffA.name} kişisine geçti; size ${ex(a.examFromA)} verildi.`);
+        }
+    });
+    (offered || []).forEach(a => {
+        if (a.type === 'transfer') {
+            const e = { name: a.examName, date: a.examDate, time: a.examTime, location: a.examLocation };
+            add(a.toStaff.id, `📤 Teklif: ${ex(e)} görevini ${a.fromStaff.name} yerine almanız öneriliyor. Profilim › Takas'tan kabul edebilirsiniz.`);
+            add(a.fromStaff.id, `📤 Bilgi: ${ex(e)} görevinizin ${a.toStaff.name} kişisine devri önerildi. Kabul ederse görev ona geçer; o zamana kadar görev sizde.`);
+        } else {
+            add(a.staffA.id, `📤 Takas teklifi: ${ex(a.examFromA)} ⇄ ${ex(a.examFromB)} (${a.staffB.name} ile). Profilim › Takas'tan onaylayın.`);
+            add(a.staffB.id, `📤 Takas teklifi: ${ex(a.examFromB)} ⇄ ${ex(a.examFromA)} (${a.staffA.name} ile). Profilim › Takas'tan onaylayın.`);
+        }
+    });
+    const ids = Object.keys(lines);
+    if (!ids.length) return 0;
+    if (!Array.isArray(DB.adminBroadcasts)) DB.adminBroadcasts = [];
+    const nowIso = new Date().toISOString();
+    ids.forEach((id, i) => {
+        const hasOffer = lines[id].some(l => l.startsWith('📤'));
+        DB.adminBroadcasts.unshift({
+            id: `bc_adalet_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+            title: hasOffer ? '📤 Görev takası teklifi' : '📋 Görevinizde değişiklik',
+            message: lines[id].join('\n'),
+            priority: 'normal',
+            target: [id],
+            pushToDevice: true,
+            senderName: 'Yönetici',
+            senderRole: 'admin',
+            kaynak: 'adalet_simulatoru',
+            createdAt: nowIso,
+            timestamp: Date.now()
+        });
+    });
+    return ids.length;
+}
+window.notifyFairnessChanges = notifyFairnessChanges;
+
+/** Öneri kartına: bu adımdan sonra kalan genel fark, ek adım ve 48 saat uyarısı */
+function fairnessStepInfoHtml(act, simResult) {
+    const parts = [];
+    if (act.spreadAfter != null) parts.push(`📊 Bu adımdan sonra: sapma <b>±${act.sdAfter != null ? act.sdAfter : '-'} P.</b>, en yüksek–en düşük fark <b>${act.spreadAfter} P.</b>`);
+    if (act.recommended === false) parts.push(`<span style="color:#fbbf24;">➕ Ek adım (az kazanç, seçili gelmez)</span>`);
+    if (act.yakin) parts.push(`<span style="color:#fca5a5;">⏰ 48 saatten yakın: doğrudan değil, takas teklifi olarak gider</span>`);
+    if (!parts.length) return '';
+    return `<div style="margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; font-size:0.72rem; color:#cbd5e1; background:rgba(255,255,255,0.03); padding:5px 8px; border-radius:4px;">${parts.join('<span style="opacity:.4">•</span>')}</div>`;
+}
+
 window.runFairnessRebalanceSimulation = function(isManual = false) {
     if (typeof simulateFairnessOptimization !== 'function') return;
 
@@ -17612,9 +17676,32 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
         </div>
     `;
 
+    // Önerilen durma noktası özeti: farkın büyük kısmını ilk N öneri kapatır, kalanlar az kazanç sağlar
+    if (simResult.stopAt != null && actions.length) {
+        const stop = simResult.stopAt;
+        const sd0 = simResult.before ? simResult.before.stdDev : null;
+        const last = actions[actions.length - 1];
+        const nearCount = actions.slice(0, Math.max(stop, 0)).filter(a => a.yakin).length;
+        let head;
+        if (stop === 0) {
+            head = `🟢 <b>Değişiklik önerilmiyor.</b> Puanlar zaten dengeli (en yüksek–en düşük fark ${simResult.initialSpread} P., ortalamadan sapma ±${sd0} P.).
+                Aşağıdaki ${actions.length} adım farkı yalnızca ${simResult.initialSpread} → ${last.spreadAfter} P. değiştirir; kişilerin programını bozmamak için hiçbiri seçili gelmez.`;
+        } else {
+            const atStop = actions[stop - 1];
+            head = `✅ <b>Önerilen: ilk ${stop} adım.</b> Ortalamadan sapma <b>±${sd0} → ±${atStop.sdAfter} P.</b>, en yüksek–en düşük fark ${simResult.initialSpread} → ${atStop.spreadAfter} P.
+                ${stop < actions.length ? `Kalan ${actions.length - stop} adım sapmayı yalnızca ±${atStop.sdAfter} → ±${last.sdAfter} P. değiştirir; daha fazla kişinin programını değiştirdiği için seçili gelmez.` : ''}`;
+        }
+        swapsHtml += `
+            <div style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:0.78rem; color:#d1fae5; line-height:1.5;">
+                ${head}
+                ${nearCount ? `<br>⏰ Önerilenlerden ${nearCount} adım 48 saatten yakın bir sınav içeriyor: uygularsanız takvim doğrudan değişmez, ilgili kişilere <b>takas teklifi</b> olarak gider.` : ''}
+                <br>🔔 Uygulanan her değişiklik ve gönderilen her teklif ilgili kişilere bildirilir (09:00–19:00 arasında).
+            </div>`;
+    }
+
     actions.forEach((act, idx) => {
         if (act.type === 'transfer') {
-            const badgeStyle = act.isNonExam 
+            const badgeStyle = act.isNonExam
                 ? 'background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);' 
                 : 'background:rgba(99,102,241,0.2); color:#818cf8; border:1px solid rgba(99,102,241,0.4);';
             const badgeIcon = act.isNonExam ? '📋 Sınav Dışı' : '🎓 Sınav';
@@ -17658,6 +17745,7 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                         <span>⚖️ <b>İkili Puan Farkı:</b> ${act.gapBefore} P. ➔ <b>${act.gapAfter} P.</b></span>
                         <span style="color:#34d399; font-weight:700;">📉 Fark ${act.gapReduction} Puan Kapandı</span>
                     </div>
+                    ${fairnessStepInfoHtml(act, simResult)}
                     <div style="margin-top:6px; font-size:0.72rem; color:#93c5fd; background:rgba(2,132,199,0.1); border-left:3px solid #38bdf8; padding:5px 8px; border-radius:4px;">
                         💡 <b>Öneri Nedeni:</b> ${safeEsc(act.rationale)}
                     </div>
@@ -17665,7 +17753,7 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                     <!-- Tekil Onay & Seçim Aksiyon Çubuğu -->
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); flex-wrap:wrap; gap:8px;">
                         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#cbd5e1; user-select:none;">
-                            <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" checked onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
+                            <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" ${act.recommended === false ? '' : 'checked'} onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
                             <span>Seçime Dahil Et</span>
                         </label>
                         <div style="display:flex; gap:6px; align-items:center;">
@@ -17728,6 +17816,7 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                         <span>⚖️ <b>İkili Puan Farkı:</b> ${act.gapBefore} P. ➔ <b>${act.gapAfter} P.</b></span>
                         <span style="color:#34d399; font-weight:700;">📉 Fark ${act.gapReduction} Puan Kapandı</span>
                     </div>
+                    ${fairnessStepInfoHtml(act, simResult)}
                     <div style="margin-top:6px; font-size:0.72rem; color:#d8b4fe; background:rgba(147,51,234,0.1); border-left:3px solid #c084fc; padding:5px 8px; border-radius:4px;">
                         💡 <b>Öneri Nedeni:</b> ${safeEsc(act.rationale)}
                     </div>
@@ -17735,7 +17824,7 @@ window.runFairnessRebalanceSimulation = function(isManual = false) {
                     <!-- Tekil Onay & Seçim Aksiyon Çubuğu -->
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); flex-wrap:wrap; gap:8px;">
                         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#cbd5e1; user-select:none;">
-                            <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" checked onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
+                            <input type="checkbox" class="fairness-step-checkbox" data-index="${idx}" ${act.recommended === false ? '' : 'checked'} onchange="window.updateFairnessSelectedCount()" style="width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9;">
                             <span>Seçime Dahil Et</span>
                         </label>
                         <div style="display:flex; gap:6px; align-items:center;">
@@ -18000,8 +18089,22 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
 
     const applied = [];
     const skipped = [];
+    const offered = [];   // 48 saatten yakın: doğrudan değil, kişilere takas teklifi
+
+    // 48 saatten yakın sınav içeren adımlar takvimi doğrudan değiştirmez; ilgili kişilere teklif olarak gider
+    const nearMs = (typeof FAIRNESS_NEAR_MS !== 'undefined') ? FAIRNESS_NEAR_MS : 48 * 3600 * 1000;
+    const isNear = (action) => {
+        const ids = action.type === 'transfer' ? [action.examId] : [action.examFromA.id, action.examFromB.id];
+        return ids.some(id => { const e = findExam(id); return e && getSafeDate(e.date, e.time).getTime() - Date.now() < nearMs; });
+    };
 
     actionsToApply.forEach((action) => {
+        if (isNear(action) && typeof createFairnessSwapProposal === 'function') {
+            const prop = createFairnessSwapProposal(action, { kaynak: 'simulator_48s' });
+            if (prop) offered.push(action);
+            else skipped.push(action.examName || (action.examFromA && action.examFromA.name) || '?');
+            return;
+        }
         if (action.type === 'transfer') {
             const exam = findExam(action.examId);
             if (!exam || !hasProctor(exam, action.fromStaff.id) || !canReceive(action.toStaff.id, exam, null, action.fromStaff.id)) {
@@ -18033,8 +18136,22 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
         }
     });
 
+    // Görevi değişen ve teklif alan kişilere bildirim (09:00–19:00 kuralı gönderim tarafında uygulanır)
+    notifyFairnessChanges(applied, offered);
+    if (offered.length && logger) {
+        logger('admin', 'Adalet Takas Teklifi (48 saat)', `${offered.length} öneri 48 saatten yakın sınav içerdiği için takvime doğrudan işlenmedi, ilgili kişilere takas teklifi olarak gönderildi.`);
+    }
+
     if (applied.length === 0) {
-        alert(`⚠️ Seçilen adımların hiçbiri güncel takvime uygulanamadı (görev sahibi değişmiş veya çakışma oluşuyor).\n\nSimülasyon yeniden hesaplanıyor.`);
+        if (offered.length) {
+            saveToLocalStorage();
+            if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
+                try { await saveToBackend(); } catch (e) { console.error('saveToBackend hatası:', e); }
+            }
+            if (typeof showToast === 'function') showToast(`📤 ${offered.length} öneri 48 saatten yakın sınav içerdiği için kişilere takas teklifi olarak gönderildi.`, 'info');
+        } else {
+            alert(`⚠️ Seçilen adımların hiçbiri güncel takvime uygulanamadı (görev sahibi değişmiş veya çakışma oluşuyor).\n\nSimülasyon yeniden hesaplanıyor.`);
+        }
         window.renderFairnessMetricsUI();
         window.runFairnessRebalanceSimulation();
         return;
@@ -18093,9 +18210,13 @@ window.executeFairnessActions = async function(actionsToApply, isBulk = false) {
     let msg = applied.length === 1
         ? `✅ 1 dengeleme adımı başarıyla onaylandı ve takvime işlendi!`
         : `🌟 ${applied.length} dengeleme adımı başarıyla onaylandı ve takvime işlendi!`;
+    if (offered.length > 0) {
+        msg += ` 📤 ${offered.length} adım 48 saatten yakın olduğu için kişilere takas teklifi olarak gönderildi.`;
+    }
     if (skipped.length > 0) {
         msg += ` ⚠️ ${skipped.length} adım, seçilmeyen önceki adımlara bağlı olduğu veya çakışma oluşturacağı için atlandı: ${skipped.join(', ')}`;
     }
+    msg += ' 🔔 İlgili kişilere bildirim gönderildi.';
 
     if (typeof showToast === 'function') {
         showToast(msg, 'success');
@@ -18501,6 +18622,7 @@ window.publishSingleFairnessProposal = function(actionIndex) {
         alert("Teklif oluşturulamadı.");
         return;
     }
+    notifyFairnessChanges([], [action]);
 
     saveToLocalStorage();
     if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
@@ -18532,10 +18654,12 @@ window.publishAllFairnessProposalsToStaff = function() {
     }
 
     let createdCount = 0;
+    const created = [];
     actions.forEach(act => {
         const prop = createFairnessSwapProposal(act);
-        if (prop) createdCount++;
+        if (prop) { createdCount++; created.push(act); }
     });
+    notifyFairnessChanges([], created);
 
     saveToLocalStorage();
     if (sessionStorage.getItem('isAdmin') === 'true' && typeof saveToBackend === 'function') {
