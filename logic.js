@@ -3846,7 +3846,17 @@ function computeTimeScoreStats(opts = {}) {
     const curTerm = opts.donem && engine ? termOf(engine.localDateStr ? engine.localDateStr(new Date(now)) : new Date(now).toISOString().slice(0, 10)) : null;
     const pool = getActiveProctorStaff((dbObj.staff || []).filter(Boolean));
     const pidsOf = (ex) => (Array.isArray(ex.proctorIds) && ex.proctorIds.length ? ex.proctorIds : (ex.proctorId != null ? [ex.proctorId] : [])).map(String);
-    const bos = () => ({ gorev: 0, dk: 0, puan: 0, dkZor: 0, planGorev: 0, planDk: 0, planPuan: 0 });
+    const dilimBos = () => ({ gorev: 0, dk: 0, puan: 0 });
+    const bos = () => ({ gorev: 0, dk: 0, puan: 0, dkZor: 0, planGorev: 0, planDk: 0, planPuan: 0,
+        dilim: { mesai: dilimBos(), disari: dilimBos(), hsonu: dilimBos() } });
+    // Görev zaman dilimi: hafta sonu → 'hsonu'; tamamı hafta içi 09:00–17:00 içindeyse → 'mesai'; aksi halde → 'disari'
+    const zamanDilimi = (d, dk) => {
+        if (isNaN(d.getTime())) return 'mesai';
+        const gun = d.getDay();
+        if (gun === 0 || gun === 6) return 'hsonu';
+        const bas = d.getHours() * 60 + d.getMinutes();
+        return (bas >= 9 * 60 && bas + dk <= 17 * 60) ? 'mesai' : 'disari';
+    };
 
     // siralamaPuan: "Sınav Gözetmenliği Puan Sıralaması"ndaki sistem puanı (taban + yapılan + planlanan sınavlar)
     const rows = new Map(pool.map(s => [String(s.id), { id: s.id, name: s.name, taban: Number(s.baseScore) || 0, siralamaPuan: Number(s.totalScore) || 0, sinav: bos(), disi: bos(), eskiDisi: { gorev: 0, dk: 0, puan: 0 } }]));
@@ -3874,6 +3884,8 @@ function computeTimeScoreStats(opts = {}) {
             if (bitti || opts.planDahil) {
                 t.gorev++; t.dk += dk; t.puan += puan;
                 if ((parseFloat(ex.katsayi) || 1) >= 1.5) t.dkZor += dk;   // akşam / hafta sonu
+                const z = t.dilim[zamanDilimi(getSafeDate(ex.date, getProctorExamTime(ex, pid) || ex.time), dk)];
+                z.gorev++; z.dk += dk; z.puan += puan;
             }
             if (!bitti) { t.planGorev++; t.planDk += dk; t.planPuan += puan; }
         });
@@ -3887,6 +3899,7 @@ function computeTimeScoreStats(opts = {}) {
             t.saat = sa(t.dk); t.puan = p1(t.puan); t.planSaat = sa(t.planDk); t.planPuan = p1(t.planPuan);
             t.puanSaat = t.dk > 0 ? p1(t.puan / (t.dk / 60)) : 0;
             t.zorOran = t.dk > 0 ? Math.round(t.dkZor / t.dk * 100) : 0;
+            Object.values(t.dilim).forEach(z => { z.puan = p1(z.puan); z.saat = sa(z.dk); });
         });
         const dk = r.sinav.dk + r.disi.dk;
         r.toplam = {
@@ -3903,6 +3916,11 @@ function computeTimeScoreStats(opts = {}) {
         r.tabanDk = Math.round(r.taban * TABAN_DK_PER_PUAN);
         r.tabanSaat = sa(r.tabanDk);
         r.saatTabanDahil = sa(dk + r.tabanDk);   // önceki (taban) + sistemde kayıtlı görevler
+        // Sınav gözetmenliği, taban dahil: süre = taban süresi + sınav süresi; puan = taban + sınav puanı
+        const sdk = r.sinav.dk + r.tabanDk;
+        r.sinav.saatTabanDahil = sa(sdk);
+        r.sinav.puanTabanDahil = p1(r.taban + r.sinav.puan);
+        r.sinav.puanSaatTabanDahil = sdk > 0 ? p1(r.sinav.puanTabanDahil / (sdk / 60)) : 0;
         // Sıralamadaki puanın dökümü: taban + yapılmış sınavlar + henüz yapılmamış sınavlar
         r.siralamaPuan = p1(r.siralamaPuan);
         r.siralamaYapilan = p1(opts.planDahil ? r.sinav.puan - r.sinav.planPuan : r.sinav.puan);
@@ -3926,8 +3944,18 @@ function computeTimeScoreStats(opts = {}) {
         siralamaPuan: p1(sum(r => r.siralamaPuan)), siralamaPlan: p1(sum(r => r.siralamaPlan)),
         eskiDisiGorev: sum(r => r.eskiDisi.gorev), eskiDisiSaat: p1(sum(r => r.eskiDisi.saat)), eskiDisiPuan: p1(sum(r => r.eskiDisi.puan)),
         tabanGorev: p1(sum(r => r.tabanGorev)), gorevTabanDahil: p1(sum(r => r.gorevTabanDahil)), tabanGorevPuani: TABAN_GOREV_PUANI,
-        tabanSaat: sa(sum(r => r.tabanDk)), saatTabanDahil: sa(sum(r => r.sinav.dk + r.disi.dk + r.tabanDk))
+        tabanSaat: sa(sum(r => r.tabanDk)), saatTabanDahil: sa(sum(r => r.sinav.dk + r.disi.dk + r.tabanDk)),
+        sinavSaatTabanDahil: sa(sum(r => r.sinav.dk + r.tabanDk)),
+        sinavPuanTabanDahil: p1(sum(r => r.sinav.puanTabanDahil))
     };
+    ozet.sinavPuanSaatTabanDahil = ozet.sinavSaatTabanDahil > 0 ? p1(ozet.sinavPuanTabanDahil / (sum(r => r.sinav.dk + r.tabanDk) / 60)) : 0;
+    // Zaman dilimleri (bölüm toplamı): sinavDilim.mesai / disari / hsonu → { gorev, saat, puan }
+    ['sinav', 'disi'].forEach(k => {
+        ozet[k + 'Dilim'] = {};
+        ['mesai', 'disari', 'hsonu'].forEach(z => {
+            ozet[k + 'Dilim'][z] = { gorev: sum(r => r[k].dilim[z].gorev), saat: sa(sum(r => r[k].dilim[z].dk)), puan: p1(sum(r => r[k].dilim[z].puan)) };
+        });
+    });
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);
     ozet.puanSaat = ozet.toplamSaat > 0 ? p1(ozet.toplamPuan / ozet.toplamSaat) : 0;

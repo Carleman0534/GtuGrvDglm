@@ -147,6 +147,34 @@ test('Taban puan süre olarak: 1 puan = 1 dk; önceki + sistemde = taban dahil s
     assert.ok(Math.abs(st.saatTabanDahil - (st.toplamSaat + st.tabanSaat)) < 0.5);
 });
 
+test('Zaman dilimleri: hafta içi 09–17 / mesai dışı / hafta sonu; toplamlar tutar; taban dahil sınav', () => {
+    const add = (id, date, time, duration) => ({ id, name: 'Z' + id, date, time, duration, type: 'Vize', proctorIds: [5], proctorId: 5 });
+    const app = freshApp(fx => {
+        fx.exams.push(add(9740, '2026-11-02', '10:00', 120));  // Pazartesi 10–12 → mesai
+        fx.exams.push(add(9741, '2026-11-03', '16:00', 120));  // Salı 16–18 → mesai dışı
+        fx.exams.push(add(9742, '2026-11-04', '08:30', 60));   // Çarşamba 08:30 → mesai dışı
+        fx.exams.push(add(9743, '2026-11-07', '10:00', 90));   // Cumartesi → hafta sonu
+    });
+    const base = freshApp().run('computeTimeScoreStats()').kisiler.find(k => k.id === 5);
+    const st = app.run('computeTimeScoreStats()');
+    const k = st.kisiler.find(x => x.id === 5);
+    assert.equal(k.sinav.dilim.mesai.gorev - base.sinav.dilim.mesai.gorev, 1);
+    assert.equal(k.sinav.dilim.disari.gorev - base.sinav.dilim.disari.gorev, 2);
+    assert.equal(k.sinav.dilim.hsonu.gorev - base.sinav.dilim.hsonu.gorev, 1);
+    for (const x of st.kisiler) {
+        const d = x.sinav.dilim;
+        assert.equal(d.mesai.gorev + d.disari.gorev + d.hsonu.gorev, x.sinav.gorev, `${x.name}: görev sayısı`);
+        assert.equal(d.mesai.dk + d.disari.dk + d.hsonu.dk, x.sinav.dk);
+        assert.ok(Math.abs(d.mesai.puan + d.disari.puan + d.hsonu.puan - x.sinav.puan) < 0.5);
+        assert.ok(Math.abs(x.sinav.puanTabanDahil - (x.taban + x.sinav.puan)) < 0.05);
+        assert.equal(x.sinav.saatTabanDahil, Math.round((x.sinav.dk + x.taban) / 6) / 10);
+        const sdk = x.sinav.dk + x.taban;
+        assert.ok(Math.abs(x.sinav.puanSaatTabanDahil - (x.taban + x.sinav.puan) / (sdk / 60)) < 0.1);
+    }
+    const d = st.sinavDilim;
+    assert.equal(d.mesai.gorev + d.disari.gorev + d.hsonu.gorev, st.sinavGorev);
+});
+
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {
     const app = freshApp();
     const st = app.run('computeTimeScoreStats()');

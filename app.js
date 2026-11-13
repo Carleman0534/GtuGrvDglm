@@ -5410,7 +5410,12 @@ window.renderTimeScoreDraft = function() {
 
     // --- Özet kutuları (yalnızca seçili gruplar) ---
     const kpi = [];
-    if (goster.includes('sinav')) kpi.push(`<div><span>🎓 Sınav gözetmenliği</span><b>${n(st.sinavSaat)} sa · ${n(st.sinavPuan)} P</b><small>${st.sinavGorev} görev</small></div>`);
+    const tumZaman = kapsam === 'tum';
+    if (goster.includes('sinav')) {
+        const d = st.sinavDilim;
+        kpi.push(`<div><span>🎓 Sınav gözetmenliği</span><b>${n(st.sinavSaat)} sa · ${n(st.sinavPuan)} P</b><small>${st.sinavGorev} görev: hafta içi 09–17 <b>${d.mesai.gorev}</b> (${n(d.mesai.puan)} P) · mesai dışı <b>${d.disari.gorev}</b> (${n(d.disari.puan)} P) · hafta sonu <b>${d.hsonu.gorev}</b> (${n(d.hsonu.puan)} P)</small></div>`);
+        if (tumZaman) kpi.push(`<div><span>🎓 Sınav gözetmenliği (taban dahil)</span><b>${n(st.sinavSaatTabanDahil)} sa · ${n(st.sinavPuanTabanDahil)} P</b><small>saat başına ${n(st.sinavPuanSaatTabanDahil)} P · önceki ${n(st.tabanSaat)} sa + sistemde ${n(st.sinavSaat)} sa</small></div>`);
+    }
     if (goster.includes('disi')) kpi.push(`<div><span>📋 Sınav dışı görev</span><b>${n(st.disiSaat)} sa · ${n(st.disiPuan)} P</b><small>${st.disiGorev} görev</small></div>`);
     if (goster.includes('toplam')) kpi.push(`<div><span>⏱️ Görevler toplamı</span><b>${n(st.toplamSaat)} sa · ${n(st.toplamPuan)} P</b><small>kişi başı ${n(st.ortSaat)} sa · saat başına ${n(st.puanSaat)} P</small></div>`);
     if (goster.includes('puan')) kpi.push(`<div><span>🏆 Genel toplam puan</span><b>${n(st.genel)} P</b><small>taban ${n(st.taban)} (≈ ${n(st.tabanGorev)} görev) + görevler ${n(st.toplamPuan)}</small></div>`,
@@ -5418,10 +5423,20 @@ window.renderTimeScoreDraft = function() {
 
     // --- Sütunlar (yalnızca seçili gruplar) ---
     const kol = [];   // { grup, baslik, hucre(k), alt(st) }
-    if (goster.includes('sinav')) kol.push(
-        { grup: '🎓 Sınav gözetmenliği', baslik: 'Görev', hucre: k => k.sinav.gorev, alt: () => st.sinavGorev },
-        { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (sa)', hucre: k => `${n(k.sinav.saat)}${k.sinav.dk ? `<small>akşam–h.sonu %${k.sinav.zorOran}</small>` : ''}`, alt: () => n(st.sinavSaat) },
-        { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan', hucre: k => n(k.sinav.puan), alt: () => n(st.sinavPuan) });
+    const dilimHucre = (z) => z.gorev ? `<b>${z.gorev}</b> görev<small>${n(z.puan)} P · ${n(z.saat)} sa</small>` : '<span class="tsd-bos">—</span>';
+    if (goster.includes('sinav')) {
+        kol.push(
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Görev', hucre: k => k.sinav.gorev, alt: () => st.sinavGorev },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (sa)', hucre: k => n(k.sinav.saat), alt: () => n(st.sinavSaat) },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan', hucre: k => n(k.sinav.puan), alt: () => n(st.sinavPuan) },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta içi 09–17', hucre: k => dilimHucre(k.sinav.dilim.mesai), alt: () => dilimHucre(st.sinavDilim.mesai) },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta içi mesai dışı', hucre: k => dilimHucre(k.sinav.dilim.disari), alt: () => dilimHucre(st.sinavDilim.disari) },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta sonu', hucre: k => dilimHucre(k.sinav.dilim.hsonu), alt: () => dilimHucre(st.sinavDilim.hsonu) });
+        if (tumZaman) kol.push(
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (taban dahil)', hucre: k => `<b>${n(k.sinav.saatTabanDahil)}</b><small>${n(k.tabanSaat)} önceki + ${n(k.sinav.saat)} sistemde</small>`, alt: () => `<b>${n(st.sinavSaatTabanDahil)}</b>` },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan (taban dahil)', hucre: k => `<b>${n(k.sinav.puanTabanDahil)}</b><small>${n(k.taban)} taban + ${n(k.sinav.puan)} sistemde</small>`, alt: () => `<b>${n(st.sinavPuanTabanDahil)}</b>` },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'P/sa (taban dahil)', hucre: k => n(k.sinav.puanSaatTabanDahil), alt: () => n(st.sinavPuanSaatTabanDahil) });
+    }
     if (goster.includes('disi')) kol.push(
         { grup: '📋 Sınav dışı görev', baslik: 'Görev', hucre: k => `${k.disi.gorev}${k.eskiDisi && k.eskiDisi.gorev ? `<small>${k.eskiDisi.gorev} eski*</small>` : ''}`, alt: () => st.disiGorev },
         { grup: '📋 Sınav dışı görev', baslik: 'Süre (sa)', hucre: k => n(k.disi.saat), alt: () => n(st.disiSaat) },
@@ -5463,6 +5478,8 @@ window.renderTimeScoreDraft = function() {
         ${goster.includes('puan') ? `<br><b>Taban puan</b> önceki dönemlerde yapılmış görevleri temsil eder; her <b>${st.tabanGorevPuani} puan 1 görev</b> sayılarak "önceden yapıldığı varsayılan görev" hesaplanır ve "Görev (taban dahil)" sütununa eklenir. Süre karşılığı için hafta içi mesai katsayısıyla (1,0) <b>1 puan = 1 dakika</b> alınır (${st.tabanGorevPuani} puan = ${st.tabanGorevPuani} dk = 1 görev) ve "Süre (taban dahil)" sütununa eklenir. <b>Önceki</b> = sistemden önce (taban puandan, varsayım; gerçek görev kaydı değildir), <b>sistemde</b> = sistemde kayıtlı görevler.
             <br><b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır (taban + yapılan + planlanan sınavlar).` : ''}
         ${st.eskiDisiGorev && (goster.includes('disi') || goster.includes('puan')) ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev bu tabloda sınav dışı sütununda gösterilir; sistem bunları o tarihteki kurala göre sınav puanına saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}
+        ${goster.includes('sinav') ? `<br><b>Zaman dilimi:</b> görevin tamamı hafta içi 09:00–17:00 arasındaysa "Hafta içi 09–17"; başlangıcı 09:00'dan önce ya da bitişi 17:00'den sonraysa "Hafta içi mesai dışı"; Cumartesi–Pazar ise "Hafta sonu" sayılır. Puanlar o görevden alınan puanların tamamıdır.
+            ${tumZaman ? `<b>Taban dahil</b> sütunlarında taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki); P/sa = (taban + sınav puanı) ÷ (önceki + sistemdeki saat).` : ''}` : ''}
         <br>Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre).</p>`;
 };
 
