@@ -16,7 +16,8 @@
         { key: 'gorevler', icon: '📋', label: 'Görevlerim', tabs: [
             { id: 'active', label: 'Liste' },
             { id: 'my-timeline', label: 'Takvim' },
-            { id: 'archive', label: 'Geçmiş' }
+            { id: 'archive', label: 'Geçmiş' },
+            { id: 'sinav-bildir', label: 'Sınav Bildir' }
         ] },
         { key: 'takas', icon: '🔄', label: 'Takas', tabs: [
             { id: 'marketplace', label: 'Pazar Yeri' },
@@ -224,6 +225,11 @@
                 if (tabId === 'settings') {
                     // Eski fonksiyon "settings" panosunu tanır; tümünü gizleyip bunu gösterir
                     const pane = document.getElementById('tab-settings');
+                    if (pane) pane.classList.remove('hidden');
+                } else if (tabId === 'sinav-bildir') {
+                    // Kendi aldığı sınavı bildirme (sinav_bildirimi.js); pano ilk açılışta oluşturulur
+                    if (window.SinavBildirimi) window.SinavBildirimi.renderProfil();
+                    const pane = document.getElementById('tab-sinav-bildir');
                     if (pane) pane.classList.remove('hidden');
                 } else if (tabId === 'my-timeline') {
                     const myStaffId = lsGet('myStaffId');

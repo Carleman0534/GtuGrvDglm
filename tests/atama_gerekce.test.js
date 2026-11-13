@@ -149,3 +149,78 @@ test('Eski biçimde (kural alanı olmayan) kayıt "toplam puan" kuralıyla açı
     assert.match(html, /<strong>toplam puan<\/strong>/);
     assert.match(html, /sizden önde kimse yoktu/);
 });
+
+test('Atama anındaki tablo: herkesin durumu, kısıt saatleri ve sistemin önerisi kaydedilir ve isimlerle gösterilir', () => {
+    const app = freshApp(fx => {
+        // 20.11.2026 Cuma; 4 numara o gün 09:00–12:00 kısıtlı, 5 numara aynı saatte başka sınavda
+        fx.constraints[NAME(3)] = [{ day: 5, start: '09:00', end: '12:00' }];
+        fx.exams.push({ id: 9510, name: 'AYNI SAAT', date: '2026-11-20', time: '10:30', duration: 60, type: 'Vize', proctorIds: [5], proctorId: 5 });
+    });
+    const snap = app.run(`atamaGerekcesiFotografi(DB.exams.find(e => e.id === 9500), 3, 'otomatik')`);
+    assert.equal(snap.l.length, 11, 'kendisi dışındaki 11 aktif gözetmen');
+    const row = (id) => snap.l.find(x => String(x[0]) === String(id));
+    assert.equal(row(4)[1], 'k');
+    assert.equal(row(4)[4], 'Cum (her hafta) 09:00–12:00', 'kısıtın saati kaydedilir');
+    // Sınav gözetmenliğinde o anki puan sınav gözetmenliği puanıdır (sınav dışı puan katılmaz)
+    const staff = app.run('DB.staff');
+    snap.l.forEach(x => {
+        const s = staff.find(y => String(y.id) === String(x[0]));
+        assert.equal(x[3], Math.round((s.totalScore || 0) * 100) / 100, `${s.name}: sınav gözetmenliği puanı`);
+    });
+    assert.equal(row(5)[1], 'c');
+    assert.ok(typeof snap.sk === 'number');
+    // Sayılar tabloyla tutarlı: önündeki (değeri düşük) kişilerin durum dağılımı
+    const once = snap.l.filter(x => x[1] !== 'b' && x[2] < snap.sk - 0.005);
+    assert.equal(once.length, snap.d);
+    assert.equal(once.filter(x => x[1] === 'u').length, snap.s.uygun || 0);
+
+    app.raw(`const ex = DB.exams.find(e => e.id === 9500); ex.atamaGerekce = { '3': atamaGerekcesiFotografi(ex, 3, 'otomatik') };`);
+    const html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9500), 3)`);
+    assert.match(html, /Atama anındaki tablo/);
+    assert.match(html, /<th>Sınav gözetmenliği puanı \(atama anında\)<\/th>/);
+    assert.match(html, /karşılaştırma yalnızca <strong>sınav gözetmenliği puanlarıyla<\/strong>/);
+    assert.match(html, new RegExp(NAME(3).replace(/\./g, '\\.') + '<\\/td><td>[\\d,]+(?:<small[^>]*>[^<]*<\\/small>)?<\\/td><td>🚫 Kısıtı vardı <span class="atama-gerekce-kisit">\\(Cum \\(her hafta\\) 09:00–12:00\\)'));
+    assert.match(html, /👉 <strong>Siz — görev size verildi<\/strong>/);
+    // Sistemin önerisi: uygun olanlar + atanan kişi arasında değeri en düşük olan
+    const uygunlar = snap.l.filter(x => x[1] === 'u').map(x => x[2]);
+    if (uygunlar.every(v => v >= snap.sk - 0.005)) assert.match(html, /önerdiği kişi <strong>sizdiniz<\/strong>/);
+    else assert.match(html, /sistemin önerisi <strong>/);
+});
+
+test('Tablo kaydı olmayan eski atamada tablo bugünkü verilerle hesaplanır ve öyle etiketlenir', () => {
+    const app = freshApp();
+    app.raw(`const ex = DB.exams.find(e => e.id === 9500); const s = atamaGerekcesiFotografi(ex, 3, 'otomatik'); delete s.l; delete s.sk; ex.atamaGerekce = { '3': s };`);
+    const html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9500), 3)`);
+    assert.match(html, /Tablo \(bugünkü verilerle — bu atamanın anlık kaydı yok\)/);
+});
+test('Sınav dışı görevde tablo sınav dışı görev puanlarını gösterir (sınav gözetmenliği puanı karışmaz)', () => {
+    const app = freshApp();
+    const snap = app.run(`atamaGerekcesiFotografi(DB.exams.find(e => e.id === 9501), 3, 'otomatik')`);
+    assert.equal(snap.k, 'sinavdisi');
+    const staff = app.run('DB.staff');
+    snap.l.forEach(x => {
+        const s = staff.find(y => String(y.id) === String(x[0]));
+        assert.equal(x[3], Math.round((s.nonExamScore || 0) * 100) / 100, `${s.name}: sınav dışı puanı`);
+        assert.equal(x[2], x[3], 'sınav dışında sıralama değeri = sınav dışı puanı');
+    });
+    app.raw(`const ex = DB.exams.find(e => e.id === 9501); ex.atamaGerekce = { '3': atamaGerekcesiFotografi(ex, 3, 'otomatik') };`);
+    const html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9501), 3)`);
+    assert.match(html, /<th>Sınav dışı görev puanı \(atama anında\)<\/th>/);
+    assert.match(html, /karşılaştırma yalnızca <strong>sınav dışı görev puanlarıyla<\/strong>/);
+    assert.doesNotMatch(html, /beklenen pay [\d,]+ =/, 'sınav dışında beklenen pay eklenmez');
+});
+test('Tablo puanı en yüksekten en düşüğe sıralar; birlikte görevli olanlar en altta', () => {
+    const app = freshApp(fx => {
+        fx.exams.push({ id: 9520, name: 'ORTAK', date: '2026-11-25', time: '10:00', duration: 90, type: 'Vize', proctorIds: [3, 7], proctorId: 3 });
+    });
+    app.raw(`const ex = DB.exams.find(e => e.id === 9520); ex.atamaGerekce = { '3': atamaGerekcesiFotografi(ex, 3, 'otomatik') };`);
+    const html = app.run(`atamaGerekcesiHtml(DB.exams.find(e => e.id === 9520), 3)`);
+    const tbody = html.split('<tbody>')[1].split('</tbody>')[0];
+    const rows = tbody.split('</tr>').filter(r => r.includes('<td>'));
+    const deger = (r) => { const td = r.split('<td>')[3]; const m = td.match(/= ([\d.,]+)<\/small>/) || td.match(/^([\d.,]+)/); return parseFloat(m[1].replace(/\./g, '').replace(',', '.')); };
+    const ana = rows.filter(r => !r.includes('Bu sınavda birlikte'));
+    for (let i = 1; i < ana.length; i++) assert.ok(deger(ana[i - 1]) >= deger(ana[i]), 'en yüksekten en düşüğe');
+    assert.ok(rows[rows.length - 1].includes('Bu sınavda birlikte'), 'birlikte görevli en altta');
+    assert.match(rows[0], /<td>1<\/td>/);
+    assert.match(html, /en yüksekten en düşüğe/);
+});

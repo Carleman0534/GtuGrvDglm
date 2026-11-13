@@ -40,6 +40,8 @@
         'carleman@gtu.edu.tr',
         'yasinturan@gtu.edu.tr'
     ];
+    // Sınav bildirimi gibi yöneticiye haber verilen akışlar için (sinav_bildirimi.js)
+    window.GTU_ADMIN_EMAILS = ADMIN_EMAILS.slice();
 
     function initFirebaseApp() {
         if (typeof firebase === 'undefined') {

@@ -6,8 +6,14 @@
  * Bu dosya her yeni atamada o anın fotoğrafını exam.atamaGerekce[gözetmenId] altına yazar:
  *   y: yöntem (otomatik / yonetici / takas / ice_aktarim)
  *   t: zaman, p: atama anındaki puan, r: puan sırası (1 = en düşük), n: gözetmen sayısı
- *   d: puanı daha düşük olan kişi sayısı, s: bu kişilerin neden seçilmediği (yalnızca sayılar)
- * İsim tutulmaz; kimsenin kısıtı başkasına görünmez.
+ *   d: puanı daha düşük olan kişi sayısı, s: bu kişilerin neden seçilmediği (sayılar)
+ *   sk: atanan kişinin sıralama değeri, l: atama anındaki tablo — diğer her gözetmen için
+ *       [kimlik, durum, sıralama değeri, o anki puan, kısıt metni]. Puan görevin türüne göredir:
+ *       sınav gözetmenliğinde sınav gözetmenliği puanı, sınav dışı görevde sınav dışı puanı (ikisi ayrıdır).
+ *       (durum: u uygun, k kısıt, c aynı saatte başka görev,
+ *       m Cuma namazı, l görev üst sınırı, d başka kural, b bu sınavda birlikte)
+ * "Neden ben?" penceresinde bu tablo isimlerle gösterilir: kişi gerçekten önerilen kişinin kendisi olduğunu,
+ * diğerleri de neden görevi almadıklarını (kısıt saatleri dahil) görebilir (yönetici kararı, 13.11.2026).
  *
  * Yeni atamalar veri_koruma.js'deki kayıt anında, sunucudaki son kopyayla karşılaştırılarak bulunur.
  * Kaydı olmayan eski atamalar için açıklama bugünkü verilerden yaklaşık olarak hesaplanır.
@@ -81,6 +87,34 @@
         if ((staff.taskCount || 0) >= max && limitEtkinMi()) return 'limit';
         return 'uygun';
     }
+    // --- Sınavı engelleyen kısıtın kısa metni (ör. "Pzt 13:30–15:20", "05.11 tüm gün") ---
+    const GUNLER = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    function kisitMetni(staff, ex) {
+        if (typeof getConstraintsForStaff !== 'function' || typeof timeToMins !== 'function') return '';
+        const list = getConstraintsForStaff(staff.name) || [];
+        const [y, m, d] = String(ex.date).split('-').map(Number);
+        const gun = new Date(y, m - 1, d).getDay();
+        const mmdd = `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const s0 = timeToMins(ex.time), e0 = s0 + (parseInt(ex.duration, 10) || 60);
+        for (const c of list) {
+            if (!c) continue;
+            let eslesme = null;
+            if (c.day !== undefined && parseInt(c.day, 10) === gun) eslesme = GUNLER[gun] + ' (her hafta)';
+            else if (c.date && (String(c.date) === ex.date || String(c.date) === mmdd)) eslesme = `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}`;
+            else if (c.startDate && c.endDate && ex.date >= c.startDate && ex.date <= c.endDate) {
+                const f = (iso) => iso.split('-').reverse().slice(0, 2).join('.');
+                eslesme = `${f(c.startDate)}–${f(c.endDate)}`;
+            }
+            if (!eslesme) continue;
+            const tumGun = c.allDay || (!c.start && !c.end) || (c.start === '00:00' && /^(23:59|24:00|23:30)$/.test(c.end || ''));
+            if (tumGun) return `${eslesme} tüm gün`;
+            const cs = timeToMins(c.start), ce = timeToMins(c.end);
+            if (s0 < ce && e0 > cs) return `${eslesme} ${c.start}–${c.end}`;
+        }
+        return '';
+    }
+    const DURUM_KOD = { uygun: 'u', kisit: 'k', cakisma: 'c', cuma: 'm', limit: 'l', diger: 'd' };
+
     function gorevUstSiniri() { return (typeof GLOBAL_LIMITS !== 'undefined' && GLOBAL_LIMITS.MAX_TASKS) || 6; }
     function limitEtkinMi() {
         const max = gorevUstSiniri();
@@ -135,6 +169,17 @@
             snap.bp = round2(fut[S(pid)].beklenen);       // kalan dönemde beklenen pay
             if (fut[S(pid)].kisitli) snap.kz = true;        // kalan dönemde az müsait
         }
+        // Atama anındaki tablo: herkesin durumu ve sıralama değeri (kısıt varsa saatleriyle)
+        // Satır: [kimlik, durum, sıralama değeri, o anki puan (görevin türüne göre: sınav gözetmenliği
+        // ya da sınav dışı puanı, bu görev hariç), kısıt metni]
+        snap.sk = round2(myKey);
+        snap.l = proctorPool(me).filter(s => S(s.id) !== S(pid)).map(s => {
+            if (onExam.includes(S(s.id))) return [s.id, 'b', round2(key(s)), scoreBefore(s)];
+            const why = blockReason(s, ex);
+            const row = [s.id, DURUM_KOD[why] || 'd', round2(key(s)), scoreBefore(s)];
+            if (why === 'kisit') { const t = kisitMetni(s, ex); if (t) row.push(t); }
+            return row;
+        });
         return snap;
     }
 
@@ -306,6 +351,83 @@
         };
     }
 
+    // --- 📸 Atama anındaki tablo ---
+    const DURUM_METNI = {
+        u: '✅ Uygundu',
+        k: '🚫 Kısıtı vardı',
+        c: '📋 Aynı saatte başka sınavda görevliydi',
+        m: '🕌 Cuma namazı saatine denk geliyordu',
+        l: '🔝 Görev üst sınırındaydı',
+        d: '⛔ Başka bir kural nedeniyle uygun değildi',
+        b: '👥 Bu sınavda birlikte görevli'
+    };
+    function tabloHtml(ex, pid, info) {
+        let r = info.r, yaklasik = info.approx;
+        if (!Array.isArray(r.l)) {
+            // Eski atama: tablo kaydı yok → bugünkü verilerle hesapla ve öyle etiketle
+            const bugun = snapshot(ex, pid, null);
+            if (!bugun || !Array.isArray(bugun.l)) return '';
+            r = Object.assign({}, r, { l: bugun.l, sk: bugun.sk });
+            yaklasik = true;
+        }
+        const n = (v) => String(Math.round((Number(v) || 0) * 10) / 10).replace('.', ',');
+        const ad = (id) => ((DB.staff || []).find(s => s && S(s.id) === S(id)) || {}).name || `#${id}`;
+        const benimDeger = r.sk != null ? r.sk : r.p;
+        const satirlar = r.l.map((row) => {
+            // [kimlik, durum, sıralama değeri, puan, kısıt metni] (puan yoksa sıralama değeri gösterilir)
+            const [id, kod, deger] = row;
+            const puan = typeof row[3] === 'number' ? row[3] : null;
+            const metin = typeof row[3] === 'string' ? row[3] : row[4];
+            return { id, kod, deger, puan, metin, ben: false };
+        })
+            .concat([{ id: pid, kod: 'ben', deger: benimDeger, puan: r.p, ben: true }])
+            .sort((a, b) => a.deger - b.deger);   // önce artan: sistemin önerisini bulmak için
+        const sinavDisi = r.k === 'sinavdisi';
+        const puanAdi = sinavDisi ? 'Sınav dışı görev puanı' : 'Sınav gözetmenliği puanı';
+        const donemli = r.k === 'donem';
+        const puanHucre = (x) => {
+            if (x.puan == null) return n(x.deger);
+            const ek = donemli && Math.abs(x.deger - x.puan) >= 0.05 ? `<small class="atama-gerekce-kisit"> + beklenen pay ${n(x.deger - x.puan)} = ${n(x.deger)}</small>` : '';
+            return `${n(x.puan)}${ek}`;
+        };
+        // Sistemin önerisi: uygun olanlar (ve atanan kişi) arasında sıralama değeri en düşük olan
+        const adaylar = satirlar.filter(x => x.ben || x.kod === 'u');
+        const oneri = adaylar[0];
+        const zaman = yaklasik ? 'bugünkü verilerle' : 'atama anında';
+        const ust = oneri && oneri.ben
+            ? `<div class="atama-gerekce-oneri-tamam">✅ ${yaklasik ? 'Bugünkü verilere göre de' : 'Atama anında'} sistemin bu görev için önerdiği kişi <strong>sizdiniz</strong>: o saatte uygun olanlar arasında ${sinavDisi ? 'sınav dışı görev puanı' : (donemli ? 'sıralama değeri (sınav gözetmenliği puanı + beklenen pay)' : 'sınav gözetmenliği puanı')} en düşük olan sizdiniz.</div>`
+            : `<div class="atama-gerekce-oneri-farkli">ℹ️ ${yaklasik ? 'Bugünkü verilere göre' : 'Atama anında'} sistemin önerisi <strong>${esc(ad(oneri.id))}</strong> olurdu (${puanAdi.toLocaleLowerCase('tr')} ${puanHucre(oneri)}, sizinki ${puanHucre({ puan: r.p, deger: benimDeger })}).${r.y && METHOD_TEXT[r.y] && !yaklasik ? ' ' + METHOD_TEXT[r.y] : ''}</div>`;
+        const tur = sinavDisi
+            ? `<div class="atama-gerekce-note">📋 Bu bir <strong>sınav dışı görev</strong>; karşılaştırma yalnızca <strong>sınav dışı görev puanlarıyla</strong> yapılır (sınav gözetmenliği puanı sayılmaz).</div>`
+            : `<div class="atama-gerekce-note">🎓 Bu bir <strong>sınav gözetmenliği</strong> görevi; karşılaştırma yalnızca <strong>sınav gözetmenliği puanlarıyla</strong> yapılır (sınav dışı görev puanı sayılmaz).</div>`;
+        // Gösterim: puanı en yüksekten en düşüğe; bu sınavda birlikte görevli olanlar en altta.
+        // Görev, uygun olanlar arasında en alttaki (puanı en düşük) kişiye gider.
+        const gosterim = satirlar.filter(x => x.kod !== 'b').sort((a, b) => b.deger - a.deger)
+            .concat(satirlar.filter(x => x.kod === 'b').sort((a, b) => b.deger - a.deger));
+        let sira = 0;
+        const govde = gosterim.map(x => {
+            const no = x.kod === 'b' ? '–' : String(++sira);
+            const durum = x.ben ? '👉 <strong>Siz — görev size verildi</strong>' : (DURUM_METNI[x.kod] || DURUM_METNI.d) + (x.metin ? ` <span class="atama-gerekce-kisit">(${esc(x.metin)})</span>` : '');
+            return `<tr class="${x.ben ? 'atama-gerekce-ben' : (x.kod === 'u' ? 'atama-gerekce-uygun' : '')}"><td>${no}</td><td>${esc(x.ben ? ad(pid) : ad(x.id))}</td><td>${x.kod === 'b' && x.puan == null ? '—' : puanHucre(x)}</td><td>${durum}</td></tr>`;
+        }).join('');
+        const aciklama = sinavDisi
+            ? `Tablo, ${zaman} sınav dışı görev puanına (bu görev hariç) göre <strong>en yüksekten en düşüğe</strong> sıralıdır.`
+            : donemli
+                ? `Tablo, ${zaman} sınav gözetmenliği puanına (bu görev hariç) kalan dönemde müsaitliğe göre beklenen pay eklenerek bulunan değere (dönem sonu beklenen puan) göre <strong>en yüksekten en düşüğe</strong> sıralıdır.`
+                : `Tablo, ${zaman} sınav gözetmenliği puanına (bu görev hariç) göre <strong>en yüksekten en düşüğe</strong> sıralıdır.`;
+        return `<details class="atama-gerekce-blok atama-gerekce-tablo" open>
+            <summary class="atama-gerekce-baslik">📸 ${yaklasik ? 'Tablo (bugünkü verilerle — bu atamanın anlık kaydı yok)' : 'Atama anındaki tablo'}</summary>
+            ${tur}
+            ${ust}
+            <div class="atama-gerekce-tablo-kap"><table>
+                <thead><tr><th>#</th><th>Gözetmen</th><th>${puanAdi} (${yaklasik ? 'bugün' : 'atama anında'})</th><th>${esc(fmtTarih(ex.date))} ${esc(ex.time)} için durum</th></tr></thead>
+                <tbody>${govde}</tbody>
+            </table></div>
+            <div class="atama-gerekce-note">${aciklama} Görev, o saatte <strong>uygun olanlar arasında puanı en düşük olana</strong> (tabloda en alttaki ✅ uygun kişiye) verilir; üstteki kişilerin puanı zaten daha yüksek olduğu için görev onlara gitmez.</div>
+        </details>`;
+    }
+    const fmtTarih = (d) => (typeof formatTarih === 'function' ? formatTarih(d) : d);
+
     function buildHtml(ex, pid) {
         const info = reasonFor(ex, pid);
         const staff = DB.staff.find(s => S(s.id) === S(pid));
@@ -360,8 +482,11 @@
             <ul class="atama-gerekce-list">${parcalar.join('') || '<li>—</li>'}</ul>
             ${nedenSizHtml(ex, pid, info, slot)}</div>`;
 
+        // 📸 Atama anındaki tablo: kim uygundu, kim neden alamadı, sistem kimi öneriyordu
+        html += tabloHtml(ex, pid, info);
+
         // ⚖️ Sıralama: önünüzdekiler neden seçilmedi
-        const puanAdi = r.k === 'sinavdisi' ? 'Bu görev hariç sınav dışı puanınız' : 'Bu görev hariç puanınız';
+        const puanAdi = r.k === 'sinavdisi' ? 'Bu görev hariç sınav dışı görev puanınız' : 'Bu görev hariç sınav gözetmenliği puanınız';
         let sira = `<div class="atama-gerekce-blok"><div class="atama-gerekce-baslik">⚖️ Sıralama (${zaman})</div>
             <div>${puanAdi}: <strong>${sayi(r.p)}</strong>${r.bp != null ? ` + kalan dönemde beklenen pay <strong>${sayi(Math.round(r.bp))}</strong>` : ''} → <strong>${r.r}.</strong> sıra / ${r.n}</div>`;
         if (r.d) {
@@ -393,7 +518,7 @@
             const fark = round2(y.puan - y.ort);
             html += `<div class="atama-gerekce-blok"><div class="atama-gerekce-baslik">📊 Genel durumunuz${y.nonExam ? ' (sınav dışı görevler)' : ''}</div>
                 <ul class="atama-gerekce-list">
-                    <li>Toplam puanınız <strong>${sayi(y.puan)}</strong> · gözetmen ortalaması ${sayi(y.ort)} (<strong>${fark >= 0 ? '+' : ''}${sayi(fark)}</strong>) · en yüksek puandan ${y.sira}. / ${y.n}</li>
+                    <li>${y.nonExam ? 'Sınav dışı görev puanınız' : 'Sınav gözetmenliği puanınız'} <strong>${sayi(y.puan)}</strong> · gözetmen ortalaması ${sayi(y.ort)} (<strong>${fark >= 0 ? '+' : ''}${sayi(fark)}</strong>) · en yüksek puandan ${y.sira}. / ${y.n}</li>
                     <li>Toplam görev sayınız <strong>${y.gorev}</strong> · ortalama ${sayi(y.gorevOrt)}</li>
                     <li>Bu dönem akşam / hafta sonu göreviniz <strong>${y.zor}</strong> · ortalama ${sayi(y.zorOrt)}</li>
                     <li>Bu görev olmasaydı: puanınız ${sayi(y.olmasaydiPuan)}, sıranız ${y.olmasaydiSira}. / ${y.n}</li>
@@ -429,7 +554,7 @@
             modal.id = 'modal-atama-gerekce';
             modal.className = 'modal hidden';
             modal.innerHTML = `
-                <div class="modal-content" style="max-width: 480px;">
+                <div class="modal-content" style="max-width: 640px;">
                     <div class="modal-header">
                         <h3>ℹ️ Bu görev neden bana geldi?</h3>
                         <button class="close-modal" type="button" onclick="closeAtamaGerekcesi()">&times;</button>
