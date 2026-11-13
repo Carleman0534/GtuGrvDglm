@@ -3899,6 +3899,10 @@ function computeTimeScoreStats(opts = {}) {
         // Taban puan, önceki dönemlerde yapılmış görevleri temsil eder: her TABAN_GOREV_PUANI puan bir görev sayılır (varsayım)
         r.tabanGorev = p1(r.taban / TABAN_GOREV_PUANI);
         r.gorevTabanDahil = p1(r.toplam.gorev + r.tabanGorev);
+        // Taban puanın süre karşılığı: hafta içi mesai katsayısı 1 → 1 puan = 1 dakika (120 puan = 120 dk = 1 görev)
+        r.tabanDk = Math.round(r.taban * TABAN_DK_PER_PUAN);
+        r.tabanSaat = sa(r.tabanDk);
+        r.saatTabanDahil = sa(dk + r.tabanDk);   // önceki (taban) + sistemde kayıtlı görevler
         // Sıralamadaki puanın dökümü: taban + yapılmış sınavlar + henüz yapılmamış sınavlar
         r.siralamaPuan = p1(r.siralamaPuan);
         r.siralamaYapilan = p1(opts.planDahil ? r.sinav.puan - r.sinav.planPuan : r.sinav.puan);
@@ -3921,7 +3925,8 @@ function computeTimeScoreStats(opts = {}) {
         planSaat: p1(sum(r => r.sinav.planSaat + r.disi.planSaat)), planGorev: sum(r => r.sinav.planGorev + r.disi.planGorev),
         siralamaPuan: p1(sum(r => r.siralamaPuan)), siralamaPlan: p1(sum(r => r.siralamaPlan)),
         eskiDisiGorev: sum(r => r.eskiDisi.gorev), eskiDisiSaat: p1(sum(r => r.eskiDisi.saat)), eskiDisiPuan: p1(sum(r => r.eskiDisi.puan)),
-        tabanGorev: p1(sum(r => r.tabanGorev)), gorevTabanDahil: p1(sum(r => r.gorevTabanDahil)), tabanGorevPuani: TABAN_GOREV_PUANI
+        tabanGorev: p1(sum(r => r.tabanGorev)), gorevTabanDahil: p1(sum(r => r.gorevTabanDahil)), tabanGorevPuani: TABAN_GOREV_PUANI,
+        tabanSaat: sa(sum(r => r.tabanDk)), saatTabanDahil: sa(sum(r => r.sinav.dk + r.disi.dk + r.tabanDk))
     };
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);
@@ -3942,7 +3947,9 @@ if (typeof window !== 'undefined') window.computeTimeScoreStats = computeTimeSco
 
 /** Taban puanın görev karşılığı: 120 puan = önceden yapıldığı varsayılan 1 görev */
 const TABAN_GOREV_PUANI = 120;
-if (typeof window !== 'undefined') window.TABAN_GOREV_PUANI = TABAN_GOREV_PUANI;
+/** Taban puanın süre karşılığı: hafta içi mesai katsayısı (1,0) ile 1 puan = 1 dakika */
+const TABAN_DK_PER_PUAN = 1;
+if (typeof window !== 'undefined') { window.TABAN_GOREV_PUANI = TABAN_GOREV_PUANI; window.TABAN_DK_PER_PUAN = TABAN_DK_PER_PUAN; }
 
 /** Süre ve Puan Analizi için seçilebilir aylar (aktif gözetmenlerin görevi olan aylar, en yeni önce) */
 function timeScoreMonths() {

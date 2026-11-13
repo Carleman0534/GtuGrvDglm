@@ -134,6 +134,19 @@ test('Taban puan görev olarak: her 120 puan önceden yapıldığı varsayılan 
     assert.ok(Math.abs(st.tabanGorev - st.taban / 120) < 0.5);
 });
 
+test('Taban puan süre olarak: 1 puan = 1 dk; önceki + sistemde = taban dahil süre', () => {
+    const app = freshApp();
+    const st = app.run('computeTimeScoreStats()');
+    for (const k of st.kisiler) {
+        assert.equal(k.tabanDk, Math.round(k.taban));
+        assert.equal(k.tabanSaat, Math.round(k.taban / 6) / 10);
+        assert.equal(k.saatTabanDahil, Math.round((k.sinav.dk + k.disi.dk + k.tabanDk) / 6) / 10);
+    }
+    // Fixture: taban 1800 → 30 saat (= 15 görev × 2 sa)
+    assert.equal(st.kisiler.find(k => k.taban === 1800).tabanSaat, 30);
+    assert.ok(Math.abs(st.saatTabanDahil - (st.toplamSaat + st.tabanSaat)) < 0.5);
+});
+
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {
     const app = freshApp();
     const st = app.run('computeTimeScoreStats()');
