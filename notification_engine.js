@@ -25,6 +25,11 @@
     const BROADCAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
     // Erken Önbellek Senkronizasyonu (Giriş yapılmasa bile veritabanını ve yayınları hazırla)
+    // Sunucudan erken yükleme sayfa başına YALNIZCA BİR KEZ yapılır. (Eskiden yükleme bitince
+    // populateQuickStaffDropdown → syncCachedDBEarly → yeniden yükleme zinciri kuruluyordu; giriş
+    // ekranında açık bekleyen her sayfa veritabanının tamamını durmadan yeniden indiriyordu.
+    // Sonraki güncellemeleri veri_koruma.js'deki periyodik eşitleme yapar.)
+    let erkenYuklemeBasladi = false;
     function syncCachedDBEarly() {
         if (!window.DB || !Array.isArray(window.DB.staff) || window.DB.staff.length <= 2) {
             try {
@@ -40,7 +45,8 @@
             }
         }
         // Eğer Firebase'den canlı veri çekilebiliyorsa arka planda güncelle
-        if (typeof window.loadFromDataJSON === 'function' && !sessionStorage.getItem('isLoggedIn')) {
+        if (!erkenYuklemeBasladi && typeof window.loadFromDataJSON === 'function' && !sessionStorage.getItem('isLoggedIn')) {
+            erkenYuklemeBasladi = true;
             window.loadFromDataJSON().then(() => {
                 if (typeof window.populateQuickStaffDropdown === 'function') {
                     window.populateQuickStaffDropdown();
