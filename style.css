@@ -6659,6 +6659,11 @@ body.dark-theme .tsd-denge-dusuk { color: #93c5fd; }
 #sc-zaman-ozeti .scz-kart b { display: block; font-size: 1.35rem; color: #fff; margin: 2px 0; }
 #sc-zaman-ozeti .scz-kart small { display: block; font-size: 0.78rem; color: #94a3b8; }
 #sc-zaman-ozeti .scz-not { font-size: 0.78rem; color: var(--text-muted); margin: 0.6rem 0 0; }
+#sc-zaman-ozeti .scz-neden { margin-top: 0.75rem; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 0.6rem 0.9rem; }
+#sc-zaman-ozeti .scz-neden summary { cursor: pointer; font-weight: 700; color: #c7d2fe; font-size: 0.9rem; }
+#sc-zaman-ozeti .scz-neden p { font-size: 0.85rem; color: #cbd5e1; margin: 0.55rem 0 0; line-height: 1.5; }
+#sc-zaman-ozeti .scz-neden b { color: #fff; }
+#sc-zaman-ozeti .scz-neden-ben { background: rgba(255, 255, 255, 0.04); border-radius: 8px; padding: 0.5rem 0.7rem; }
 /* Süre ve Puan Analizi — seçmeli görünüm */
 #stats-time-score-draft .tsd-kapsam-label { font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; }
 #stats-time-score-draft #tsd-kapsam { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--glass-border, rgba(148,163,184,0.35)); background: var(--bg-card, transparent); color: inherit; font-size: 0.82rem; font-weight: 600; }

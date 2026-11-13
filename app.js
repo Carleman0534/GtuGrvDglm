@@ -15702,6 +15702,41 @@ window.cleanExpiredConstraints = (silent = false) => {
 
 // ===== KARNE (SCORECARD) MODÜLÜ =====
 /**
+ * "Puanlar eşitken neden mesai dışı / hafta sonu görevlerim farklı?" sorusunun kişisel yanıtı.
+ * Katsayılar ve atama kuralı + kişinin kendi rakamları (fazladan puan, toplam süre) ve bölüm ortalaması.
+ */
+function nedenMesaiDisiHtml(ben, st, n, ort) {
+    if (!ben.sinav.gorev) return '';
+    const K = (typeof KATSAYILAR !== 'undefined' && KATSAYILAR) || { HAFTA_ICI_MESAI: 1, HAFTA_ICI_AKSAM: 1.5, HAFTA_SONU_GUNDUZ: 2, HAFTA_SONU_AKSAM: 2.5 };
+    const B = (typeof BONUSLAR !== 'undefined' && BONUSLAR) || { ERKEN_KUS: 0.2 };
+    const k = (v) => String(v).replace('.', ',');
+    const d = ben.sinav.dilim;
+    const disDk = d.disari.dk + d.hsonu.dk, disPuan = d.disari.puan + d.hsonu.puan;
+    const mesaiKarsiligi = disDk * K.HAFTA_ICI_MESAI;          // aynı süre hafta içi 09–17'de yapılsaydı
+    const ekPuan = Math.max(0, disPuan - mesaiKarsiligi);
+    const ortEk = ort(x => Math.max(0, x.sinav.dilim.disari.puan + x.sinav.dilim.hsonu.puan - (x.sinav.dilim.disari.dk + x.sinav.dilim.hsonu.dk) * K.HAFTA_ICI_MESAI));
+    const benSaat = ben.sinav.saatTabanDahil, ortSaat = ort(x => x.sinav.saatTabanDahil);
+    const f = ben.sinav.disariPaySureFark;
+    let kisisel;
+    if (!disDk) {
+        kisisel = `Sizin şu ana kadar mesai dışı ya da hafta sonu sınav göreviniz yok; puanınızın tamamı hafta içi 09–17 görevlerinden geliyor.`;
+    } else {
+        kisisel = `Sizin mesai dışı ve hafta sonu sınav görevleriniz <b>${n(disDk / 60)} saat</b> sürdü ve <b>${n(disPuan)} P</b> getirdi; aynı süre hafta içi 09–17 arasında olsaydı <b>${n(mesaiKarsiligi)} P</b> ederdi. Yani bu görevlerden <b>${n(ekPuan)} P fazladan</b> aldınız (≈ ${n(ekPuan / TABAN_GOREV_PUANI)} görev; bölüm ortalaması ${n(ortEk)} P).`;
+        if (f >= TSD_DENGE_ESIK && benSaat < ortSaat) kisisel += ` Mesai dışı payınız ortalamanın üstünde; bu görevler fazladan puan getirdiği için aynı puana daha az saatle ulaşırsınız. Toplam sınav gözetmenliği süreniz (taban dahil) <b>${n(benSaat)} sa</b>, bölüm ortalaması ${n(ortSaat)} sa — ortalamadan ${n(ortSaat - benSaat)} saat az.`;
+        else if (f <= -TSD_DENGE_ESIK && benSaat > ortSaat) kisisel += ` Mesai dışı payınız ortalamanın altında; görevleriniz çoğunlukla 1,0 katsayılı saatlerde olduğu için aynı puana daha fazla saatle ulaştınız: toplam süreniz (taban dahil) <b>${n(benSaat)} sa</b>, bölüm ortalaması ${n(ortSaat)} sa.`;
+        else kisisel += ` Toplam süreniz (taban dahil) <b>${n(benSaat)} sa</b>, bölüm ortalaması ${n(ortSaat)} sa.`;
+    }
+    return `
+        <details class="scz-neden">
+            <summary>❓ Puanlar dengeliyken neden mesai dışı / hafta sonu görev sayılarımız farklı?</summary>
+            <p><b>1. Puan saate göre ağırlıklıdır.</b> Hafta içi 09–17 görevler dakika başına ${k(K.HAFTA_ICI_MESAI)} puan (saatte ${n(60 * K.HAFTA_ICI_MESAI)} P), hafta içi akşam ×${k(K.HAFTA_ICI_AKSAM)}, hafta sonu gündüz ×${k(K.HAFTA_SONU_GUNDUZ)}, hafta sonu akşam ×${k(K.HAFTA_SONU_AKSAM)} katsayıyla puanlanır; 10:00 öncesi dakikalara +${k(B.ERKEN_KUS)} erken saat eki eklenir. Yani mesai dışı ve hafta sonu görevlerin yükü <b>fazladan puanla</b> karşılanır.</p>
+            <p><b>2. Atama saat dilimine bakmaz.</b> Her sınav, o saatte uygun olanlar (dersi, kısıtı, başka görevi olmayanlar) arasında sıralamada en geride olana verilir. Akşam ya da hafta sonu sınavı geldiğinde kim en gerideyse o alır; ders programı ve kısıtlar da kimin uygun olduğunu değiştirir. Bu yüzden mesai dışı görev <b>sayıları</b> eşit olmaz, ama <b>puanlar</b> dengelenir.</p>
+            <p><b>3. Sonuç:</b> mesai dışı görevi fazla olan aynı puana daha az saatle ulaşır; az olan daha çok saat görev yapar. Bölümde mesai dışı payı yüksek olanların toplam süresi genelde daha düşüktür.</p>
+            <p class="scz-neden-ben"><b>Sizin için:</b> ${kisisel}</p>
+        </details>`;
+}
+
+/**
  * Puan Karnem: görev zamanı özeti. Kişi YALNIZCA kendi değerlerini ve bölüm ortalamasını görür
  * (başka gözetmenlerin adı/değeri gösterilmez). Tüm zamanlar, şu ana kadar yapılan görevler.
  */
@@ -15731,6 +15766,7 @@ function renderScorecardZamanOzeti(myStaffId) {
             ${kart('Süre (taban dahil)', `${n(ben.sinav.saatTabanDahil)} sa`, `${n(ben.tabanSaat)} önceki + ${n(ben.sinav.saat)} sistemde<br>bölüm ort. ${n(ort(k => k.sinav.saatTabanDahil))} sa`)}
             ${kart('Saat başına puan (taban dahil)', `${n(ben.sinav.puanSaatTabanDahil)} P`, `bölüm ort. ${n(st.sinavPuanSaatTabanDahil)} P`)}
         </div>
+        ${nedenMesaiDisiHtml(ben, st, n, ort)}
         <p class="scz-not">Şu ana kadar yapılan sınav gözetmenlikleri (tüm zamanlar). Görevin tamamı hafta içi 09:00–17:00 arasındaysa "09–17", 09:00'dan önce başlayan ya da 17:00'den sonra biten hafta içi görevler "mesai dışı", Cumartesi–Pazar "hafta sonu" sayılır. Taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki).${ben.disi.gorev ? ` Ayrıca ${ben.disi.gorev} sınav dışı göreviniz var (${n(ben.disi.puan)} P, ${n(ben.disi.saat)} sa).` : ''}</p>`;
 }
 
