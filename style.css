@@ -6740,4 +6740,21 @@ a.sb-link { display: inline-block; }/* "Neden ben?" atama anındaki tablo (atama
 .to-kart.to-uyari-olumsuz { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.09); }
 .to-uyari-baslik { font-weight: 800; font-size: 0.92rem; margin-bottom: 4px; }
 .to-uyari .to-eylem { justify-content: space-between; align-items: center; }
-.to-gordum { background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); color: inherit; border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-weight: 600; }
+.to-gordum { background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); color: inherit; border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-weight: 600; }.to-bolum { font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 0.9rem 0 0.45rem; }
+.to-bolum:first-child { margin-top: 0; }
+.to-kart.to-sure { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.08); }
+.to-kapat-alt { width: 100%; margin-top: 0.6rem; }
+/* ===== Takılan işler (takilan_isler.js) ===== */
+#card-takilan-isler { margin-bottom: 2rem; border-color: rgba(239, 68, 68, 0.5); }
+.ti-baslik { margin: 0 0 0.3rem; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+.ti-sayi { background: #ef4444; color: #fff; border-radius: 999px; font-size: 0.75rem; padding: 1px 9px; }
+.ti-not { margin: 0 0 0.6rem; font-size: 0.8rem; color: var(--text-muted); }
+.ti-bolum { font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 0.8rem 0 0.4rem; }
+.ti-bolum span { font-weight: 600; }
+.ti-satir { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0.55rem 0.75rem; border: 1px solid var(--glass-border); border-radius: 10px; margin-bottom: 0.4rem; }
+.ti-metin { font-size: 0.86rem; }
+.ti-ayrinti { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+.ti-sag { flex-shrink: 0; }
+.ti-btn { background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.45); color: inherit; border-radius: 8px; padding: 0.35rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+.ti-gonderildi { font-size: 0.76rem; color: #16a34a; white-space: nowrap; }
+@media (max-width: 640px) { .ti-satir { flex-direction: column; align-items: flex-start; } }

@@ -517,8 +517,15 @@
 
     // Siteye girişte, hangi sayfada olursa olsun, süresi onaylanmamış sınavları listeleyen pencere.
     // "Daha Sonra" denirse bu oturumda yeni bir sınav eklenmedikçe tekrar açılmaz.
+    window.getMyPendingDurationExams = getMyPendingDurationExams;
     window.showPendingDurationPrompt = function (force) {
         if (sessionStorage.getItem('isLoggedIn') !== 'true') return;
+        // Tek pencere: onay bekleyen takas teklifi ya da görülmemiş görev uyarısı varsa süre teyitleri de
+        // "📌 Yapmanız gerekenler" penceresinde (takas_onay.js) birlikte gösterilir; ayrı pencere açılmaz.
+        if (window.TakasOnay && typeof window.TakasOnay.birlesikMi === 'function' && window.TakasOnay.birlesikMi()) {
+            window.TakasOnay.kontrolEt(null, !!force);
+            return;
+        }
         const pending = getMyPendingDurationExams();
         let modal = document.getElementById('modal-pending-duration');
 

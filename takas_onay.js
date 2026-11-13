@@ -152,7 +152,7 @@
             renderListe();
             if (!pencereAcik()) return;
             const c = icerik(benimId());
-            if (c.uyari.length || c.aksiyon.length || (!sessiz && c.bekleme.length)) pencereGoster(c); else pencereKapat();
+            if (c.uyari.length || c.aksiyon.length || c.sure.length || (!sessiz && c.bekleme.length)) pencereGoster(c); else pencereKapat();
         }, 300);
     }
     const sonraAnahtari = (id, pid) => `takas_sonra_${id}_${pid}`;
@@ -161,21 +161,64 @@
         const pid = benimId();
         lsSet(sonraAnahtari(id, pid), String(Date.now()));
         const c = icerik(pid);
-        if (c.uyari.length || c.aksiyon.length) pencereGoster(c); else pencereKapat();
+        if (c.uyari.length || c.aksiyon.length || c.sure.length) pencereGoster(c); else pencereKapat();
     }
-    /** Pencerede / listede gösterilecekler: okunmamış uyarılar, onayımı bekleyenler, karşı tarafı bekleyenler */
+    /** Süresi onaylanmamış bitmiş sınavlarım (notification_engine.js ile aynı kural) */
+    function sureler() {
+        try { return typeof window.getMyPendingDurationExams === 'function' ? window.getMyPendingDurationExams() : []; }
+        catch (e) { return []; }
+    }
+    /**
+     * Pencerede / listede gösterilecekler: okunmamış uyarılar, onayımı bekleyen teklifler,
+     * karşı tarafı bekleyenler ve süre teyidi bekleyen sınavlar
+     */
     function icerik(pid, ertelenenlerDahil) {
         return {
             uyari: uyarilar(pid),
             aksiyon: bekleyenler(pid).filter(b => ertelenenlerDahil || !ertelendiMi(b)),
-            bekleme: onayladiklarim(pid)
+            bekleme: onayladiklarim(pid),
+            sure: pid ? sureler() : []
         };
     }
+    function sureKartHtml(ex) {
+        const mins = parseInt(ex.scheduledDuration || ex.duration, 10) || 60;
+        const id = esc(ex.id);
+        const myId = benimId();
+        const konum = typeof window.myRoomText === 'function' ? window.myRoomText(ex, myId) : (ex.location || '-');
+        const onayMetni = typeof window.quickConfirmLabel === 'function' ? window.quickConfirmLabel(ex, myId, mins) : `${ex.time}'da başladı, ${mins} dk sürdü`;
+        return `<div class="to-kart to-sure">
+            <div class="to-tur">⏱️ Sınav saatini ve sürenizi onaylayın</div>
+            <div class="to-aciklama"><b>${esc(ex.name)}</b></div>
+            <div class="to-alt">📅 ${esc(tarih(ex.date))} · ⏰ ${esc(ex.time)} · 📍 ${esc(konum)} · Planlanan <b>${mins} dk</b></div>
+            <div class="to-eylem">
+                <button type="button" class="btn-primary to-onayla" onclick="window.confirmPendingDuration('${id}', ${mins})">✓ ${esc(onayMetni)}</button>
+                <button type="button" class="to-sonra" onclick="TakasOnay.kapat(); window.openPendingDurationEdit('${id}')">⏱️ Saat veya süre farklı</button>
+            </div>
+        </div>`;
+    }
+    /** Tek pencere kullanılmalı mı? (takas / uyarı varsa ya da pencere zaten açıksa süre teyitleri de buraya gelir) */
+    function birlesikMi() {
+        const pid = benimId();
+        if (!pid) return false;
+        if (pencereAcik()) return true;
+        const c = icerik(pid);
+        return !!(c.uyari.length || c.aksiyon.length);
+    }
+    const imza = (c) => [].concat(c.uyari.map(u => 'u' + u.id), c.aksiyon.map(b => 'a' + b.r.id), c.sure.map(e => 's' + e.id)).join(',');
+    const KAPATILAN = 'to_kapatilan_imza';
 
     // ---------------------------------------------------------------- 1) açılış penceresi
     const pencereAcik = () => { const m = document.getElementById('modal-takas-onay'); return !!(m && !m.classList.contains('hidden')); };
-    function pencereKapat() { const m = document.getElementById('modal-takas-onay'); if (m) m.classList.add('hidden'); }
+    function pencereKapat() {
+        const m = document.getElementById('modal-takas-onay');
+        if (m && !m.classList.contains('hidden')) {
+            // Aynı içerik bu oturumda kendiliğinden tekrar açılmasın (yeni bir şey gelirse açılır)
+            try { sessionStorage.setItem(KAPATILAN, imza(icerik(benimId()))); } catch (e) { /* yok say */ }
+            m.classList.add('hidden');
+        }
+    }
     function pencereGoster(c) {
+        if (!c.sure) c.sure = [];
         let m = document.getElementById('modal-takas-onay');
         if (!m) {
             m = document.createElement('div');
@@ -189,27 +232,48 @@
             document.body.appendChild(m);
         }
         const n = c.aksiyon.length;
-        m.querySelector('h3').textContent = n > 1 ? `🔄 Onayınızı bekleyen ${n} teklif` : n === 1 ? '🔄 Onayınızı bekleyen teklif'
-            : c.uyari.length ? '🔔 Görevinizde değişiklik' : '🔄 Takas durumu';
-        m.querySelector('.to-govde').innerHTML = c.uyari.map(uyariKartHtml).join('') + c.aksiyon.map(b => kartHtml(b, 'pencere')).join('') +
-            c.bekleme.map(beklemeKartHtml).join('') +
-            (n ? `<p class="to-not">Bu teklifleri Profilim › Takas › Taleplerim'de de görebilirsiniz. "Sonra" derseniz 4 saat sonra tekrar sorulur.</p>` : '');
+        const turSayisi = [c.uyari.length, n, c.sure.length].filter(Boolean).length;
+        m.querySelector('h3').textContent = turSayisi > 1 ? '📌 Yapmanız gerekenler'
+            : n > 1 ? `🔄 Onayınızı bekleyen ${n} teklif` : n === 1 ? '🔄 Onayınızı bekleyen teklif'
+            : c.uyari.length ? '🔔 Görevinizde değişiklik' : c.sure.length ? '⏱️ Sınav saatini ve sürenizi onaylayın' : '🔄 Takas durumu';
+        const bolum = (baslik, html) => html ? (turSayisi > 1 ? `<div class="to-bolum">${baslik}</div>` : '') + html : '';
+        m.querySelector('.to-govde').innerHTML =
+            bolum('🔔 Görevinizdeki değişiklikler', c.uyari.map(uyariKartHtml).join('')) +
+            bolum('🔄 Onayınızı bekleyen teklifler', c.aksiyon.map(b => kartHtml(b, 'pencere')).join('') + c.bekleme.map(beklemeKartHtml).join('')) +
+            bolum('⏱️ Süre onayı bekleyen sınavlar', c.sure.map(sureKartHtml).join('')) +
+            (n ? `<p class="to-not">Teklifleri Profilim › Takas › Taleplerim'de de görebilirsiniz. "Sonra" derseniz 4 saat sonra tekrar sorulur.</p>` : '') +
+            `<button type="button" class="to-sonra to-kapat-alt" onclick="TakasOnay.kapat()">Daha sonra</button>`;
+        if (c.sure.length) {
+            // Ayrı süre penceresi aynı sınavlar için bu oturumda tekrar açılmasın
+            try { sessionStorage.setItem('pending_duration_prompt_seen', c.sure.map(e => e.id).join(',')); } catch (e) { /* yok say */ }
+            const eski = document.getElementById('modal-pending-duration');
+            if (eski) eski.classList.add('hidden');
+        }
         m.classList.remove('hidden');
     }
     /** Giriş yapılmış ve kişi belliyse, ertelenmemiş bekleyen teklifleri pencerede gösterir. */
-    function kontrolEt(zorlaId) {
+    function kontrolEt(zorlaId, zorla) {
         try {
             if (!sessionStorage.getItem('isLoggedIn')) return false;
             const pid = benimId();
             if (!pid) return false;
             if (zorlaId != null) {
                 const hedef = bekleyenler(pid).filter(b => S(b.r.id) === S(zorlaId));
-                if (hedef.length) { pencereGoster({ uyari: uyarilar(pid), aksiyon: hedef, bekleme: [] }); return true; }
+                if (hedef.length) { pencereGoster({ uyari: uyarilar(pid), aksiyon: hedef, bekleme: [], sure: sureler() }); return true; }
             }
             const c = icerik(pid);
-            // Pencere yalnızca yapılacak bir şey (onay ya da okunmamış uyarı) varsa açılır
+            if (pencereAcik()) {
+                // Açık pencere güncel içerikle yenilenir; yapılacak bir şey kalmadıysa kapanır
+                if (c.uyari.length || c.aksiyon.length || c.sure.length || c.bekleme.length) pencereGoster(c); else pencereKapat();
+                return true;
+            }
+            // Pencere yalnızca takas onayı ya da okunmamış uyarı varsa açılır (yalnızca süre teyidi varsa
+            // eski süre penceresi açılır); kapatılan aynı içerik bu oturumda kendiliğinden tekrar açılmaz
             if (!c.aksiyon.length && !c.uyari.length) return false;
-            if (!pencereAcik()) pencereGoster(c);
+            if (!zorla && sessionStorage.getItem(KAPATILAN) === imza(c)) return false;
+            // Başka bir pencerenin (ör. düzenleme) üstüne açılma; eski süre penceresi açıksa onun yerine geçer
+            if (!zorla && document.querySelector('.modal:not(.hidden):not(#modal-pending-duration)')) return false;
+            pencereGoster(c);
             return true;
         } catch (e) { console.warn('[TakasOnay]', e); return false; }
     }
@@ -248,7 +312,7 @@
         setInterval(() => { if (!document.hidden) kontrolEt(); }, 10 * 60 * 1000);
     }
 
-    window.TakasOnay = { bekleyenler, onayladiklarim, uyarilar, icerik, iyelik, kontrolEt, renderListe, gordum,
+    window.TakasOnay = { bekleyenler, onayladiklarim, uyarilar, icerik, iyelik, kontrolEt, renderListe, gordum, birlesikMi, sureKartHtml,
         onayla: (id) => islem(id, true), reddet: (id) => islem(id, false), sonra, kapat: pencereKapat, kartHtml, beklemeKartHtml, uyariKartHtml };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
