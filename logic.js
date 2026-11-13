@@ -5319,6 +5319,70 @@ function simulateHybridFairnessWithForecast(mode = 'exam') {
 }
 
 /**
+ * 🔔 GÖREV UYARILARI: görevi değişen kişinin profilinde "Tamam, gördüm" denene kadar duran uyarı
+ * (takas_onay.js açılış penceresinde ve Profilim › Takas › Taleplerim'de gösterilir).
+ *   DB.gorevUyarilari = [{ id, pid, tur, baslik, metin, examIds, requestId, createdAt, okundu }]
+ *   tur: takas_tamam | devir_alan | devir_veren | takas_red | takas_yapildi
+ * push: true → aynı metin kişinin telefonuna da gider (hedefli duyuru; 09:00–19:00).
+ */
+function gorevUyarisiEkle(dbObj, pid, uyari, push) {
+    dbObj = dbObj || _fairnessDB();
+    if (!dbObj || pid === null || pid === undefined || pid === '') return null;
+    if (!Array.isArray(dbObj.gorevUyarilari)) dbObj.gorevUyarilari = dbObj.gorevUyarilari ? Object.values(dbObj.gorevUyarilari).filter(Boolean) : [];
+    const kayit = Object.assign({
+        id: 'gu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        pid: String(pid), createdAt: new Date().toISOString(), okundu: false
+    }, uyari || {});
+    dbObj.gorevUyarilari.unshift(kayit);
+    if (dbObj.gorevUyarilari.length > 300) dbObj.gorevUyarilari.length = 300;
+    if (push) {
+        if (!Array.isArray(dbObj.adminBroadcasts)) dbObj.adminBroadcasts = dbObj.adminBroadcasts ? Object.values(dbObj.adminBroadcasts).filter(Boolean) : [];
+        dbObj.adminBroadcasts.unshift({
+            id: 'bc_' + kayit.id, title: kayit.baslik, message: kayit.metin, priority: 'normal',
+            target: [String(pid)], pushToDevice: true, senderName: 'Yönetici', senderRole: 'admin',
+            kaynak: 'gorev_uyarisi', createdAt: kayit.createdAt, timestamp: Date.now()
+        });
+    }
+    return kayit;
+}
+/** "MATH 211" (16.11.2026 09:30) */
+function _sinavMetni(ex, yedekAd) {
+    if (!ex) return `"${yedekAd || 'sınav'}"`;
+    const t = ex.date ? String(ex.date).split('-').reverse().join('.') : '';
+    return `"${ex.name || yedekAd || 'sınav'}" (${t}${ex.time ? ' ' + ex.time : ''})`;
+}
+/**
+ * Yöneticinin adalet dengesi kararıyla görevi değişenlere uyarı metinleri.
+ * Görev devri: alan → "görev devri gerçekleşti", veren → "görev devri sebebiyle sınavınız iptal edilmiştir".
+ * Takas: iki tarafa verdiği / aldığı sınavlar.
+ */
+function adaletUyarilari(dbObj, o, push) {
+    if (o.tur === 'devir') {
+        gorevUyarisiEkle(dbObj, o.alanId, {
+            tur: 'devir_alan', examIds: [o.sinav && o.sinav.id], requestId: o.requestId || null,
+            baslik: '📥 Görev devri gerçekleşti',
+            metin: `Yönetici tarafından görev devri gerçekleşti: ${_sinavMetni(o.sinav, o.sinavAd)} sınavı size verildi${o.verenAd ? ` (${o.verenAd} yerine)` : ''}.`
+        }, push);
+        gorevUyarisiEkle(dbObj, o.verenId, {
+            tur: 'devir_veren', examIds: [o.sinav && o.sinav.id], requestId: o.requestId || null,
+            baslik: '🚫 Sınav göreviniz iptal edildi',
+            metin: `Yönetici tarafından görev devri sebebiyle ${_sinavMetni(o.sinav, o.sinavAd)} sınavındaki göreviniz iptal edilmiştir.${o.alanAd ? ` Görev ${o.alanAd} kişisine devredildi.` : ''}`
+        }, push);
+    } else {
+        const ikisi = [
+            { id: o.aId, verilen: o.aSinav, alinan: o.bSinav, karsi: o.bAd },
+            { id: o.bId, verilen: o.bSinav, alinan: o.aSinav, karsi: o.aAd }
+        ];
+        ikisi.forEach(k => gorevUyarisiEkle(dbObj, k.id, {
+            tur: o.onayli ? 'takas_tamam' : 'takas_yapildi', examIds: [k.verilen && k.verilen.id, k.alinan && k.alinan.id], requestId: o.requestId || null,
+            baslik: o.onayli ? '✅ Adalet takası gerçekleşti' : '🔁 Yönetici tarafından takas yapıldı',
+            metin: `${o.onayli ? 'Yönetici tarafından adalet dengesi için önerilen takas iki tarafın onayıyla gerçekleşti' : 'Yönetici tarafından adalet dengesi için takas yapıldı'}${k.karsi ? ` (${k.karsi} ile)` : ''}. Verdiğiniz: ${_sinavMetni(k.verilen)} · Aldığınız: ${_sinavMetni(k.alinan)}.`
+        }, push));
+    }
+}
+if (typeof window !== 'undefined') { window.gorevUyarisiEkle = gorevUyarisiEkle; window.adaletUyarilari = adaletUyarilari; }
+
+/**
  * 🤝 P2P Takas Pazarı: Simülatör önerisinden asistanlara çift taraflı teklif oluşturur
  */
 function createFairnessSwapProposal(action, metadata = {}) {
@@ -5490,6 +5554,13 @@ function acceptFairnessProposal(proposalId, staffId) {
         prop.status = 'completed';
         prop.completedAt = new Date().toISOString();
 
+        // Görevi değişen iki kişiye profil uyarısı + telefon bildirimi
+        if (prop.type === 'p2p_fairness_transfer') {
+            adaletUyarilari(dbObj, { tur: 'devir', sinav: exFrom, sinavAd: prop.fromExamName, alanId: prop.toStaffId, alanAd: prop.toStaffName, verenId: prop.fromStaffId, verenAd: prop.fromStaffName, requestId: prop.id }, true);
+        } else {
+            adaletUyarilari(dbObj, { tur: 'takas', onayli: true, aId: prop.fromStaffId, aAd: prop.fromStaffName, aSinav: exFrom, bId: prop.toStaffId, bAd: prop.toStaffName, bSinav: exTo, requestId: prop.id }, true);
+        }
+
         if (typeof recalculateAllScores === 'function') {
             recalculateAllScores();
         }
@@ -5517,6 +5588,19 @@ function rejectFairnessProposal(proposalId, staffId, reason = '') {
     prop.rejectedBy = staffId;
     prop.rejectReason = reason;
     prop.rejectedAt = new Date().toISOString();
+
+    // Karşı tarafa (yöneticinin önerdiği takas / devir yapılmadı) uyarı
+    if (String(prop.type || '').startsWith('p2p_fairness')) {
+        const redden = String(prop.fromStaffId) === String(staffId) ? prop.fromStaffName : prop.toStaffName;
+        const diger = String(prop.fromStaffId) === String(staffId) ? prop.toStaffId : prop.fromStaffId;
+        const exFrom = (dbObj.exams || []).find(e => String(e.id) === String(prop.fromExamId));
+        const exTo = prop.toExamId != null ? (dbObj.exams || []).find(e => String(e.id) === String(prop.toExamId)) : null;
+        gorevUyarisiEkle(dbObj, diger, {
+            tur: 'takas_red', examIds: [prop.fromExamId, prop.toExamId].filter(x => x != null), requestId: prop.id,
+            baslik: prop.type === 'p2p_fairness_transfer' ? '❌ Görev devri kabul edilmedi' : '❌ Takas teklifi reddedildi',
+            metin: `${redden || 'Karşı taraf'}, yönetici tarafından adalet dengesi için önerilen ${prop.type === 'p2p_fairness_transfer' ? `${_sinavMetni(exFrom, prop.fromExamName)} görev devrini` : `${_sinavMetni(exFrom, prop.fromExamName)} ⇄ ${_sinavMetni(exTo, prop.toExamName)} takasını`} kabul etmedi. Görevleriniz değişmedi.`
+        }, true);
+    }
 
     return { success: true, status: 'rejected', message: 'Talep reddedildi.' };
 }

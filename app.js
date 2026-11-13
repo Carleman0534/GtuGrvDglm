@@ -7916,8 +7916,8 @@ window.renderProfile = function() {
                                 return `
                                     <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(147,51,234,0.15); padding: 1rem; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(168,85,247,0.3); flex-wrap:wrap; gap:10px;">
                                         <div style="font-size: 0.88rem;">
-                                            <span style="background: #a855f7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-right: 8px; font-weight: 700;">⚖️ ADALET SİSTEMİ ÖNERİSİ</span>
-                                            <strong>${safeEsc(peerName)}</strong> ile karşılıklı görev takası önerildi:<br>
+                                            <span style="background: #a855f7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-right: 8px; font-weight: 700;">⚖️ YÖNETİCİ: ADALET DENGESİ İÇİN TAKAS</span>
+                                            <strong>${safeEsc(peerName)}</strong> ile karşılıklı görev takası teklif edildi (ikiniz de onaylarsanız gerçekleşir)${(isFrom ? r.toApproved : r.fromApproved) ? ` <span style="color:#86efac;">✓ ${safeEsc(peerName)} onayladı</span>` : ''}:<br>
                                             <div style="margin-top:4px; font-size:0.82rem; color:#cbd5e1;">
                                                 Sizin vereceğiniz: <b style="color:#fca5a5;">${safeEsc(myExamName)}</b> ⇄ Alacağınız: <b style="color:#86efac;">${safeEsc(peerExamName)}</b>
                                                 <span style="color:#d8b4fe; font-size:0.75rem; margin-left:6px;">(Net Denge: ±${r.netDelta} P.)</span>
@@ -16710,6 +16710,27 @@ window.handleBroadcastTargetChange = function () {
     }
 
     window.updateBroadcastPreview();
+    window.updateBroadcastSendLabel();
+};
+
+// Gönder düğmesinin yazısı seçilen hedefi gösterir (eskiden her durumda "Herkese Gönder" yazıyordu;
+// gönderim aslında seçilen hedefe yapılıyordu)
+window.updateBroadcastSendLabel = function () {
+    const label = document.getElementById('btn-broadcast-send-label');
+    if (!label) return;
+    const val = document.getElementById('broadcast-target-select')?.value || 'all';
+    let metin = 'Bildirimi Gönder';
+    if (val === 'all') metin = 'Bildirimi HERKESE Gönder';
+    else if (val === 'tomorrow_only') metin = 'Yarın Sınavı Olanlara Gönder';
+    else if (val === 'single') {
+        const sel = document.getElementById('broadcast-staff-select');
+        const ad = sel && sel.selectedOptions && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent.replace(/\s*\(.*\)\s*$/, '') : '';
+        metin = ad ? `${ad} Kişisine Gönder` : 'Seçilen Kişiye Gönder';
+    } else if (val === 'manual_multi') {
+        const n = document.querySelectorAll('.broadcast-staff-cb:checked').length;
+        metin = n ? `Seçilen ${n} Kişiye Gönder` : 'Önce Kişi Seçin';
+    }
+    label.textContent = metin;
 };
 
 window.selectAllBroadcastStaff = function (select) {
@@ -16727,6 +16748,7 @@ window.updateBroadcastMultiCount = function () {
     const countSpan = document.getElementById('broadcast-multi-count');
     const checked = document.querySelectorAll('.broadcast-staff-cb:checked').length;
     if (countSpan) countSpan.textContent = checked.toString();
+    if (typeof window.updateBroadcastSendLabel === 'function') window.updateBroadcastSendLabel();
 };
 
 window.filterBroadcastStaffList = function (query) {
@@ -17787,6 +17809,21 @@ function notifyFairnessChanges(applied, offered) {
     const ex = (o) => `"${o.name}" (${fmt(o.date)} ${o.time}${o.location && o.location !== '-' ? ', ' + o.location : ''})`;
     const lines = {};   // staffId -> [satır]
     const add = (id, text) => { const k = String(id); (lines[k] = lines[k] || []).push(text); };
+    // Profil uyarıları ("Tamam, gördüm" denene kadar durur): yönetici kararıyla görevi değişenler
+    if (typeof window.adaletUyarilari === 'function') {
+        const sinav = (id, yedek) => (DB.exams || []).find(e => String(e.id) === String(id)) || yedek || null;
+        (applied || []).forEach(a => {
+            try {
+                if (a.type === 'transfer') {
+                    window.adaletUyarilari(DB, { tur: 'devir', sinav: sinav(a.examId, { id: a.examId, name: a.examName, date: a.examDate, time: a.examTime }),
+                        alanId: a.toStaff.id, alanAd: a.toStaff.name, verenId: a.fromStaff.id, verenAd: a.fromStaff.name }, false);
+                } else {
+                    window.adaletUyarilari(DB, { tur: 'takas', onayli: false, aId: a.staffA.id, aAd: a.staffA.name, aSinav: sinav(a.examFromA && a.examFromA.id, a.examFromA),
+                        bId: a.staffB.id, bAd: a.staffB.name, bSinav: sinav(a.examFromB && a.examFromB.id, a.examFromB) }, false);
+                }
+            } catch (e) { console.warn('Görev uyarısı eklenemedi:', e); }
+        });
+    }
     (applied || []).forEach(a => {
         if (a.type === 'transfer') {
             const e = { name: a.examName, date: a.examDate, time: a.examTime, location: a.examLocation };
