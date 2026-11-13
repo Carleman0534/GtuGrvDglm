@@ -6640,6 +6640,8 @@ html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
 .atama-gerekce-etiket { color: var(--text-muted); font-size: 0.76rem; }
 #stats-time-score-draft .tsd-siralama { background: rgba(245, 158, 11, 0.08); }
 #stats-time-score-draft .tsd-siralama-th { background: rgba(245, 158, 11, 0.25) !important; }
+#stats-time-score-draft small.tsd-siralama-not { display: block; margin-top: 2px; color: #d97706; }
+body.dark-theme #stats-time-score-draft small.tsd-siralama-not { color: #fbbf24; }
 /* Süre ve Puan Analizi — seçmeli görünüm */
 #stats-time-score-draft .tsd-kapsam-label { font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; }
 #stats-time-score-draft #tsd-kapsam { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--glass-border, rgba(148,163,184,0.35)); background: var(--bg-card, transparent); color: inherit; font-size: 0.82rem; font-weight: 600; }

@@ -5423,6 +5423,16 @@ window.renderTimeScoreDraft = function() {
 
     // --- Sütunlar (yalnızca seçili gruplar) ---
     const kol = [];   // { grup, baslik, hucre(k), alt(st) }
+    // "Sınav Gözetmenliği Puan Sıralaması"ndaki puanla karşılaştırma: fark = planlanan sınavlar + eski sınav dışı görevler
+    const siralamaFarki = (puan, siralama, plan, eski) => {
+        if (Math.abs(siralama - puan) < 0.5) return `<small class="tsd-siralama-not">= sıralamadaki puan ✓</small>`;
+        const parca = [];
+        if (plan >= 0.05) parca.push(`${n(plan)} planlanan`);
+        if (eski >= 0.05) parca.push(`${n(eski)} eski sınav dışı*`);
+        const kalan = siralama - puan - plan - eski;
+        if (Math.abs(kalan) >= 0.5) parca.push(`${kalan > 0 ? '' : '−'}${n(Math.abs(kalan))} diğer`);
+        return `<small class="tsd-siralama-not">Sıralamada <b>${n(siralama)}</b>${parca.length ? ' = bu + ' + parca.join(' + ') : ''}</small>`;
+    };
     const dilimHucre = (z) => z.gorev ? `<b>${z.gorev}</b> görev<small>${n(z.puan)} P · ${n(z.saat)} sa</small>` : '<span class="tsd-bos">—</span>';
     if (goster.includes('sinav')) {
         kol.push(
@@ -5434,7 +5444,8 @@ window.renderTimeScoreDraft = function() {
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta sonu', hucre: k => dilimHucre(k.sinav.dilim.hsonu), alt: () => dilimHucre(st.sinavDilim.hsonu) });
         if (tumZaman) kol.push(
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (taban dahil)', hucre: k => `<b>${n(k.sinav.saatTabanDahil)}</b><small>${n(k.tabanSaat)} önceki + ${n(k.sinav.saat)} sistemde</small>`, alt: () => `<b>${n(st.sinavSaatTabanDahil)}</b>` },
-            { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan (taban dahil)', hucre: k => `<b>${n(k.sinav.puanTabanDahil)}</b><small>${n(k.taban)} taban + ${n(k.sinav.puan)} sistemde</small>`, alt: () => `<b>${n(st.sinavPuanTabanDahil)}</b>` },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan (taban dahil)', hucre: k => `<b>${n(k.sinav.puanTabanDahil)}</b><small>${n(k.taban)} taban + ${n(k.sinav.puan)} sistemde</small>${siralamaFarki(k.sinav.puanTabanDahil, k.siralamaPuan, planDahil ? 0 : k.siralamaPlan, k.siralamaEski)}`,
+                alt: () => `<b>${n(st.sinavPuanTabanDahil)}</b>${siralamaFarki(st.sinavPuanTabanDahil, st.siralamaPuan, planDahil ? 0 : st.siralamaPlan, st.eskiDisiPuan)}` },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'P/sa (taban dahil)', hucre: k => n(k.sinav.puanSaatTabanDahil), alt: () => n(st.sinavPuanSaatTabanDahil) });
     }
     if (goster.includes('disi')) kol.push(
@@ -5477,9 +5488,10 @@ window.renderTimeScoreDraft = function() {
         ${puanKapali && secili.includes('puan') ? '🏆 Puan özeti (taban, genel toplam, sıralamadaki puan) tüm zamanları kapsadığı için yalnızca "Tüm zamanlar" seçiliyken gösterilir.' : ''}
         ${goster.includes('puan') ? `<br><b>Taban puan</b> önceki dönemlerde yapılmış görevleri temsil eder; her <b>${st.tabanGorevPuani} puan 1 görev</b> sayılarak "önceden yapıldığı varsayılan görev" hesaplanır ve "Görev (taban dahil)" sütununa eklenir. Süre karşılığı için hafta içi mesai katsayısıyla (1,0) <b>1 puan = 1 dakika</b> alınır (${st.tabanGorevPuani} puan = ${st.tabanGorevPuani} dk = 1 görev) ve "Süre (taban dahil)" sütununa eklenir. <b>Önceki</b> = sistemden önce (taban puandan, varsayım; gerçek görev kaydı değildir), <b>sistemde</b> = sistemde kayıtlı görevler.
             <br><b>Sıralamadaki puan</b>, "Sınav Gözetmenliği Puan Sıralaması"nda görünen puandır (taban + yapılan + planlanan sınavlar).` : ''}
-        ${st.eskiDisiGorev && (goster.includes('disi') || goster.includes('puan')) ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev bu tabloda sınav dışı sütununda gösterilir; sistem bunları o tarihteki kurala göre sınav puanına saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}
+        ${st.eskiDisiGorev && (goster.includes('disi') || goster.includes('puan') || (goster.includes('sinav') && tumZaman)) ? `<br>* <b>Eski sınav dışı:</b> 20.06.2026 öncesindeki ${st.eskiDisiGorev} sınav dışı görev bu tabloda sınav dışı sütununda gösterilir; sistem bunları o tarihteki kurala göre sınav puanına saydığı için sıralamadaki puanın dökümünde ayrıca yazılır.` : ''}
         ${goster.includes('sinav') ? `<br><b>Zaman dilimi:</b> görevin tamamı hafta içi 09:00–17:00 arasındaysa "Hafta içi 09–17"; başlangıcı 09:00'dan önce ya da bitişi 17:00'den sonraysa "Hafta içi mesai dışı"; Cumartesi–Pazar ise "Hafta sonu" sayılır. Puanlar o görevden alınan puanların tamamıdır.
-            ${tumZaman ? `<b>Taban dahil</b> sütunlarında taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki); P/sa = (taban + sınav puanı) ÷ (önceki + sistemdeki saat).` : ''}` : ''}
+            ${tumZaman ? `<b>Taban dahil</b> sütunlarında taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki); P/sa = (taban + sınav puanı) ÷ (önceki + sistemdeki saat).
+            "Sıralamada" satırı, "Sınav Gözetmenliği Puan Sıralaması"ndaki puanı ve farkın nereden geldiğini gösterir: sıralama henüz yapılmamış (planlanan) sınavları ve 20.06.2026 öncesi sınav dışı görevleri de sayar.` : ''}` : ''}
         <br>Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre).</p>`;
 };
 
