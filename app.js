@@ -5356,6 +5356,7 @@ window.showEditScheduleModal = (name, date, time, location) => {
 /** 🧪 TASLAK: Süre ve Puan Analizi kartı (İstatistikler; yalnızca yönetici) */
 // Seçili veri grupları (kullanıcı tercihi bu cihazda hatırlanır)
 const TSD_GRUPLAR = ['sinav', 'disi', 'toplam', 'puan'];
+const TSD_DENGE_ESIK = 10;   // mesai dışı + hafta sonu payında bölüm ortalamasından sapma eşiği (yüzde puanı)
 function tsdOku(k, vars) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : vars; } catch (e) { return vars; } }
 function tsdYaz(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* özel mod */ } }
 
@@ -5441,7 +5442,13 @@ window.renderTimeScoreDraft = function() {
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan', hucre: k => n(k.sinav.puan), alt: () => n(st.sinavPuan) },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta içi 09–17', hucre: k => dilimHucre(k.sinav.dilim.mesai), alt: () => dilimHucre(st.sinavDilim.mesai) },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta içi mesai dışı', hucre: k => dilimHucre(k.sinav.dilim.disari), alt: () => dilimHucre(st.sinavDilim.disari) },
-            { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta sonu', hucre: k => dilimHucre(k.sinav.dilim.hsonu), alt: () => dilimHucre(st.sinavDilim.hsonu) });
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta sonu', hucre: k => dilimHucre(k.sinav.dilim.hsonu), alt: () => dilimHucre(st.sinavDilim.hsonu) },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Mesai dışı + h.sonu payı', hucre: k => {
+                if (!k.sinav.gorev) return '<span class="tsd-bos">—</span>';
+                const f = k.sinav.disariPayFark;
+                const cls = f >= TSD_DENGE_ESIK ? 'tsd-denge tsd-denge-yuksek' : (f <= -TSD_DENGE_ESIK ? 'tsd-denge tsd-denge-dusuk' : 'tsd-denge');
+                return `<span class="${cls}">%${k.sinav.disariPay}</span><small>ort. farkı ${f > 0 ? '+' : ''}${f}</small>`;
+            }, alt: () => `<b>%${st.sinavDisariPay}</b><small>bölüm ortalaması</small>` });
         if (tumZaman) kol.push(
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (taban dahil)', hucre: k => `<b>${n(k.sinav.saatTabanDahil)}</b><small>${n(k.tabanSaat)} önceki + ${n(k.sinav.saat)} sistemde</small>`, alt: () => `<b>${n(st.sinavSaatTabanDahil)}</b>` },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan (taban dahil)', hucre: k => `<b>${n(k.sinav.puanTabanDahil)}</b><small>${n(k.taban)} taban + ${n(k.sinav.puan)} sistemde</small>${siralamaFarki(k.sinav.puanTabanDahil, k.siralamaPuan, planDahil ? 0 : k.siralamaPlan, k.siralamaEski)}`,
@@ -5464,9 +5471,31 @@ window.renderTimeScoreDraft = function() {
         { grup: '🏆 Puan özeti', baslik: 'Genel toplam', hucre: k => `<b>${n(k.genel)}</b><small>ort. farkı ${fark(k.genelFark)}</small>`, alt: () => `<b>${n(st.genel)}</b>` },
         { grup: '🏆 Puan özeti', baslik: 'Sıralamadaki puan', cls: 'tsd-siralama', hucre: k => `<b>${n(k.siralamaPuan)}</b><small>${n(k.taban)} taban + ${n(k.siralamaYapilan)} yapılan${k.siralamaEski ? ` + ${n(k.siralamaEski)} eski sınav dışı*` : ''}${k.siralamaPlan ? ` + ${n(k.siralamaPlan)} planlanan` : ''}</small>`, alt: () => `<b>${n(st.siralamaPuan)}</b>` });
 
-    // Sıralama: ilk seçili grubun süresine göre (görevler toplamı varsa ona göre)
-    const sirala = goster.includes('toplam') ? (k => k.toplam.saat) : goster.includes('sinav') ? (k => k.sinav.saat) : goster.includes('disi') ? (k => k.disi.saat) : (k => k.genel);
-    const kisiler = st.kisiler.slice().sort((a, b) => sirala(b) - sirala(a));
+    // Başlığa tıklayarak sıralama: her sütunun sıralama değeri
+    const G = { s: '🎓 Sınav gözetmenliği', d: '📋 Sınav dışı görev', t: '⏱️ Görevler toplamı', p: '🏆 Puan özeti' };
+    const SIRA = {
+        [G.s + '|Görev']: k => k.sinav.gorev, [G.s + '|Süre (sa)']: k => k.sinav.dk, [G.s + '|Puan']: k => k.sinav.puan,
+        [G.s + '|Hafta içi 09–17']: k => k.sinav.dilim.mesai.gorev * 1e6 + k.sinav.dilim.mesai.puan,
+        [G.s + '|Hafta içi mesai dışı']: k => k.sinav.dilim.disari.gorev * 1e6 + k.sinav.dilim.disari.puan,
+        [G.s + '|Hafta sonu']: k => k.sinav.dilim.hsonu.gorev * 1e6 + k.sinav.dilim.hsonu.puan,
+        [G.s + '|Mesai dışı + h.sonu payı']: k => k.sinav.disariPay,
+        [G.s + '|Süre (taban dahil)']: k => k.sinav.saatTabanDahil, [G.s + '|Puan (taban dahil)']: k => k.sinav.puanTabanDahil,
+        [G.s + '|P/sa (taban dahil)']: k => k.sinav.puanSaatTabanDahil,
+        [G.d + '|Görev']: k => k.disi.gorev, [G.d + '|Süre (sa)']: k => k.disi.dk, [G.d + '|Puan']: k => k.disi.puan,
+        [G.t + '|Süre (sa)']: k => k.toplam.saat, [G.t + '|Puan']: k => k.toplam.puan, [G.t + '|P/sa']: k => k.toplam.puanSaat,
+        [G.p + '|Taban']: k => k.taban, [G.p + '|Görev (taban dahil)']: k => k.gorevTabanDahil, [G.p + '|Süre (sa, taban dahil)']: k => k.saatTabanDahil,
+        [G.p + '|Genel toplam']: k => k.genel, [G.p + '|Sıralamadaki puan']: k => k.siralamaPuan
+    };
+    kol.forEach(c => { c.anahtar = c.grup + '|' + c.baslik; c.sira = SIRA[c.anahtar]; });
+    // Varsayılan: ilk seçili grubun süresine göre (görevler toplamı varsa ona göre), çoktan aza
+    const varsayilan = goster.includes('toplam') ? G.t + '|Süre (sa)' : goster.includes('sinav') ? G.s + '|Süre (sa)' : goster.includes('disi') ? G.d + '|Süre (sa)' : G.p + '|Genel toplam';
+    let siraDurum = tsdOku('tsd_sira', null);
+    if (!siraDurum || (siraDurum.a !== 'ad' && !kol.some(c => c.anahtar === siraDurum.a && c.sira))) siraDurum = { a: varsayilan, y: -1 };
+    const trCmp = (a, b) => String(a.name).localeCompare(String(b.name), 'tr');
+    const siraFn = siraDurum.a === 'ad' ? null : SIRA[siraDurum.a];
+    const kisiler = st.kisiler.slice().sort((a, b) => siraFn ? ((siraFn(a) - siraFn(b)) * siraDurum.y || trCmp(a, b)) : trCmp(a, b) * siraDurum.y);
+    const ok = (anahtar) => siraDurum.a === anahtar ? (siraDurum.y < 0 ? ' ▼' : ' ▲') : '';
+    const thSira = (anahtar, etiket, cls) => `<th class="tsd-sirali ${cls || ''}${siraDurum.a === anahtar ? ' tsd-sirali-aktif' : ''}" data-sira="${esc(anahtar)}" title="Bu sütuna göre sırala">${etiket}${ok(anahtar)}</th>`;
 
     const gruplar = [];
     kol.forEach(c => { const g = gruplar[gruplar.length - 1]; if (g && g.ad === c.grup) g.sayi++; else gruplar.push({ ad: c.grup, sayi: 1 }); });
@@ -5476,8 +5505,8 @@ window.renderTimeScoreDraft = function() {
         <div class="tsd-kpis" style="grid-template-columns: repeat(${Math.min(kpi.length, 4)}, minmax(0, 1fr));">${kpi.join('')}</div>
         <div class="table-container"><table class="tsd-table">
             <thead>
-                ${tekGrup ? '' : `<tr><th rowspan="2">Gözetmen</th>${gruplar.map(g => `<th colspan="${g.sayi}" class="tsd-grp">${g.ad}</th>`).join('')}</tr>`}
-                <tr>${tekGrup ? '<th>Gözetmen</th>' : ''}${kol.map(c => `<th class="${c.cls ? c.cls + '-th' : ''}">${c.baslik}</th>`).join('')}</tr>
+                ${tekGrup ? '' : `<tr>${thSira('ad', 'Gözetmen').replace('<th ', '<th rowspan="2" ')}${gruplar.map(g => `<th colspan="${g.sayi}" class="tsd-grp">${g.ad}</th>`).join('')}</tr>`}
+                <tr>${tekGrup ? thSira('ad', 'Gözetmen') : ''}${kol.map(c => c.sira ? thSira(c.anahtar, c.baslik, c.cls ? c.cls + '-th' : '') : `<th class="${c.cls ? c.cls + '-th' : ''}">${c.baslik}</th>`).join('')}</tr>
             </thead>
             <tbody>${kisiler.map(k => `<tr><td><b>${esc(k.name)}</b></td>${kol.map(c => `<td class="${c.cls || ''}">${c.hucre(k)}</td>`).join('')}</tr>`).join('')}</tbody>
             <tfoot><tr><td><b>Bölüm toplamı</b></td>${kol.map(c => `<td class="${c.cls || ''}">${c.alt()}</td>`).join('')}</tr></tfoot>
@@ -5492,7 +5521,14 @@ window.renderTimeScoreDraft = function() {
         ${goster.includes('sinav') ? `<br><b>Zaman dilimi:</b> görevin tamamı hafta içi 09:00–17:00 arasındaysa "Hafta içi 09–17"; başlangıcı 09:00'dan önce ya da bitişi 17:00'den sonraysa "Hafta içi mesai dışı"; Cumartesi–Pazar ise "Hafta sonu" sayılır. Puanlar o görevden alınan puanların tamamıdır.
             ${tumZaman ? `<b>Taban dahil</b> sütunlarında taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki); P/sa = (taban + sınav puanı) ÷ (önceki + sistemdeki saat).
             "Sıralamada" satırı, "Sınav Gözetmenliği Puan Sıralaması"ndaki puanı ve farkın nereden geldiğini gösterir: sıralama henüz yapılmamış (planlanan) sınavları ve 20.06.2026 öncesi sınav dışı görevleri de sayar.` : ''}` : ''}
+        ${goster.includes('sinav') ? `<br><b>Mesai dışı + h.sonu payı:</b> kişinin sınav görevlerinden hafta içi mesai dışı ve hafta sonu olanların oranı. Bölüm ortalamasından ${TSD_DENGE_ESIK} puan ve daha fazla yüksek olanlar <span class="tsd-denge tsd-denge-yuksek">turuncu</span>, düşük olanlar <span class="tsd-denge tsd-denge-dusuk">mavi</span> işaretlenir.` : ''}
+        <br>Sütun başlıklarına tıklayarak sıralayabilirsiniz (ikinci tıklama yönü değiştirir).
         <br>Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre).</p>`;
+    body.querySelectorAll('th[data-sira]').forEach(th => th.addEventListener('click', () => {
+        const a = th.dataset.sira;
+        tsdYaz('tsd_sira', { a, y: siraDurum.a === a ? -siraDurum.y : (a === 'ad' ? 1 : -1) });
+        window.renderTimeScoreDraft();
+    }));
 };
 
 function renderStats() {
@@ -15660,6 +15696,39 @@ window.cleanExpiredConstraints = (silent = false) => {
 };
 
 // ===== KARNE (SCORECARD) MODÜLÜ =====
+/**
+ * Puan Karnem: görev zamanı özeti. Kişi YALNIZCA kendi değerlerini ve bölüm ortalamasını görür
+ * (başka gözetmenlerin adı/değeri gösterilmez). Tüm zamanlar, şu ana kadar yapılan görevler.
+ */
+function renderScorecardZamanOzeti(myStaffId) {
+    const el = document.getElementById('sc-zaman-ozeti');
+    if (!el) return;
+    if (typeof computeTimeScoreStats !== 'function') { el.innerHTML = ''; return; }
+    const st = computeTimeScoreStats();
+    const ben = st.kisiler.find(k => String(k.id) === String(myStaffId));
+    if (!ben) { el.innerHTML = ''; return; }
+    const n = (v) => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+    const kisi = st.kisiler.length || 1;
+    const ort = (f) => st.kisiler.reduce((a, k) => a + f(k), 0) / kisi;
+    const d = ben.sinav.dilim;
+    const kart = (baslik, deger, alt) => `<div class="scz-kart"><span>${baslik}</span><b>${deger}</b><small>${alt}</small></div>`;
+    const dilimKart = (baslik, z, anahtar) => kart(baslik, `${z.gorev} görev`, `${n(z.puan)} P · ${n(z.saat)} sa<br>bölüm ort. ${n(ort(k => k.sinav.dilim[anahtar].gorev))} görev`);
+    const f = ben.sinav.disariPayFark;
+    const payAlt = !ben.sinav.gorev ? 'henüz sınav görevi yok'
+        : `bölüm ortalaması %${st.sinavDisariPay}` + (f >= TSD_DENGE_ESIK ? ' · ortalamanın üstünde' : (f <= -TSD_DENGE_ESIK ? ' · ortalamanın altında' : ' · ortalamaya yakın'));
+    el.innerHTML = `
+        <h4 class="scz-baslik">⏱️ Sınav Gözetmenliği Zaman Özetiniz</h4>
+        <div class="scz-grid">
+            ${dilimKart('Hafta içi 09–17', d.mesai, 'mesai')}
+            ${dilimKart('Hafta içi mesai dışı', d.disari, 'disari')}
+            ${dilimKart('Hafta sonu', d.hsonu, 'hsonu')}
+            ${kart('Mesai dışı + h.sonu payı', ben.sinav.gorev ? `%${ben.sinav.disariPay}` : '—', payAlt)}
+            ${kart('Süre (taban dahil)', `${n(ben.sinav.saatTabanDahil)} sa`, `${n(ben.tabanSaat)} önceki + ${n(ben.sinav.saat)} sistemde<br>bölüm ort. ${n(ort(k => k.sinav.saatTabanDahil))} sa`)}
+            ${kart('Saat başına puan (taban dahil)', `${n(ben.sinav.puanSaatTabanDahil)} P`, `bölüm ort. ${n(st.sinavPuanSaatTabanDahil)} P`)}
+        </div>
+        <p class="scz-not">Şu ana kadar yapılan sınav gözetmenlikleri (tüm zamanlar). Görevin tamamı hafta içi 09:00–17:00 arasındaysa "09–17", 09:00'dan önce başlayan ya da 17:00'den sonra biten hafta içi görevler "mesai dışı", Cumartesi–Pazar "hafta sonu" sayılır. Taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki).${ben.disi.gorev ? ` Ayrıca ${ben.disi.gorev} sınav dışı göreviniz var (${n(ben.disi.puan)} P, ${n(ben.disi.saat)} sa).` : ''}</p>`;
+}
+
 window.renderScorecard = function() {
     const myStaffId = localStorage.getItem('myStaffId');
     const baseEl = document.getElementById('sc-base-score');
@@ -15691,6 +15760,7 @@ window.renderScorecard = function() {
 
     if (examHint) examHint.textContent = `Sinav Gözetmenliği: +${examOnlyGained.toFixed(1)} Puan`;
     if (nonExamHint) nonExamHint.textContent = `${staff.nonExamTaskCount || 0} Adet Sinav Dişi Görev`;
+    try { renderScorecardZamanOzeti(myStaffId); } catch (e) { console.warn('Görev zamanı özeti:', e); }
 
     // Personelin görevli olduğu tüm sinav ve görevleri topla
     const myExams = DB.exams.filter(e => {

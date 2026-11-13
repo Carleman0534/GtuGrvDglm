@@ -173,6 +173,13 @@ test('Zaman dilimleri: hafta içi 09–17 / mesai dışı / hafta sonu; toplamla
     }
     const d = st.sinavDilim;
     assert.equal(d.mesai.gorev + d.disari.gorev + d.hsonu.gorev, st.sinavGorev);
+    // Denge göstergesi: mesai dışı + hafta sonu payı ve bölüm ortalamasından farkı
+    assert.equal(st.sinavDisariPay, Math.round((d.disari.gorev + d.hsonu.gorev) / st.sinavGorev * 100));
+    for (const x of st.kisiler) {
+        if (!x.sinav.gorev) continue;
+        assert.equal(x.sinav.disariPay, Math.round((x.sinav.dilim.disari.gorev + x.sinav.dilim.hsonu.gorev) / x.sinav.gorev * 100));
+        assert.equal(x.sinav.disariPayFark, x.sinav.disariPay - st.sinavDisariPay);
+    }
 });
 
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {

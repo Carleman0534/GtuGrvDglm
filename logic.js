@@ -3900,6 +3900,8 @@ function computeTimeScoreStats(opts = {}) {
             t.puanSaat = t.dk > 0 ? p1(t.puan / (t.dk / 60)) : 0;
             t.zorOran = t.dk > 0 ? Math.round(t.dkZor / t.dk * 100) : 0;
             Object.values(t.dilim).forEach(z => { z.puan = p1(z.puan); z.saat = sa(z.dk); });
+            // Mesai dışı + hafta sonu payı (görev sayısına göre, %)
+            t.disariPay = t.gorev > 0 ? Math.round((t.dilim.disari.gorev + t.dilim.hsonu.gorev) / t.gorev * 100) : 0;
         });
         const dk = r.sinav.dk + r.disi.dk;
         r.toplam = {
@@ -3956,6 +3958,10 @@ function computeTimeScoreStats(opts = {}) {
             ozet[k + 'Dilim'][z] = { gorev: sum(r => r[k].dilim[z].gorev), saat: sa(sum(r => r[k].dilim[z].dk)), puan: p1(sum(r => r[k].dilim[z].puan)) };
         });
     });
+    // Denge göstergesi: bölümün mesai dışı + hafta sonu payı ve kişinin bundan farkı (yüzde puanı)
+    const sd = ozet.sinavDilim, sg = sd.mesai.gorev + sd.disari.gorev + sd.hsonu.gorev;
+    ozet.sinavDisariPay = sg > 0 ? Math.round((sd.disari.gorev + sd.hsonu.gorev) / sg * 100) : 0;
+    list.forEach(r => { r.sinav.disariPayFark = r.sinav.gorev > 0 ? r.sinav.disariPay - ozet.sinavDisariPay : 0; });
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);
     ozet.puanSaat = ozet.toplamSaat > 0 ? p1(ozet.toplamPuan / ozet.toplamSaat) : 0;

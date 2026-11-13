@@ -6642,6 +6642,23 @@ html.gg-tarih input[type="date"].gg-bos:not(:focus)::before { opacity: 0.55; }
 #stats-time-score-draft .tsd-siralama-th { background: rgba(245, 158, 11, 0.25) !important; }
 #stats-time-score-draft small.tsd-siralama-not { display: block; margin-top: 2px; color: #d97706; }
 body.dark-theme #stats-time-score-draft small.tsd-siralama-not { color: #fbbf24; }
+#stats-time-score-draft th.tsd-sirali { cursor: pointer; user-select: none; }
+#stats-time-score-draft th.tsd-sirali:hover { filter: brightness(1.12); text-decoration: underline; }
+#stats-time-score-draft th.tsd-sirali-aktif { text-decoration: underline; }
+.tsd-denge { font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+.tsd-denge-yuksek { background: rgba(249, 115, 22, 0.18); color: #c2410c; }
+.tsd-denge-dusuk { background: rgba(59, 130, 246, 0.16); color: #1d4ed8; }
+body.dark-theme .tsd-denge-yuksek { color: #fdba74; }
+body.dark-theme .tsd-denge-dusuk { color: #93c5fd; }
+/* Puan Karnem: görev zamanı özeti (yalnızca kişinin kendi değerleri + bölüm ortalaması) */
+#sc-zaman-ozeti { margin-bottom: 1.5rem; }
+#sc-zaman-ozeti .scz-baslik { font-size: 1rem; color: #e2e8f0; margin: 0 0 0.6rem 0; }
+#sc-zaman-ozeti .scz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+#sc-zaman-ozeti .scz-kart { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 14px; padding: 0.85rem 1rem; }
+#sc-zaman-ozeti .scz-kart span { display: block; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+#sc-zaman-ozeti .scz-kart b { display: block; font-size: 1.35rem; color: #fff; margin: 2px 0; }
+#sc-zaman-ozeti .scz-kart small { display: block; font-size: 0.78rem; color: #94a3b8; }
+#sc-zaman-ozeti .scz-not { font-size: 0.78rem; color: var(--text-muted); margin: 0.6rem 0 0; }
 /* Süre ve Puan Analizi — seçmeli görünüm */
 #stats-time-score-draft .tsd-kapsam-label { font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; }
 #stats-time-score-draft #tsd-kapsam { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--glass-border, rgba(148,163,184,0.35)); background: var(--bg-card, transparent); color: inherit; font-size: 0.82rem; font-weight: 600; }
