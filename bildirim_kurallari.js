@@ -429,6 +429,101 @@
         return out;
     }
 
+    // ------------------------------------------------------------------ Takas teklifleri
+    // Onayı beklenen teklifler (site açılış penceresi, Takas › Taleplerim ve telefon hatırlatmaları ortak kullanır).
+    const TAKAS = Object.freeze({
+        HATIRLAT_SONRA_MS: 12 * 60 * 60 * 1000,   // yanıtlanmamış teklif: 12 saat sonra hatırlat
+        SON_ONCE_MS: 24 * 60 * 60 * 1000          // teklifteki ilk sınava 24 saatten az kala son hatırlatma
+    });
+    const istekListesi = (db) => (db && db.requests ? (Array.isArray(db.requests) ? db.requests : Object.values(db.requests)) : []).filter(Boolean);
+    const sinavBul = (db, id) => (id === null || id === undefined || id === '') ? null
+        : ((db && Array.isArray(db.exams) ? db.exams : []).find(e => e && String(e.id) === String(id)) || null);
+    const S_ = (v) => String(v);
+
+    /**
+     * Onay bekleyen takas / devir teklifleri, kişi başına.
+     * @returns [{ r, tip, pid, karsiAd, verilecek: sinav|null, alinacak: sinav|null, karsiOnayladi, ilkSinavMs, olusturmaMs }]
+     *   tip: 'adalet_takas' | 'adalet_devir' | 'dogrudan' | 'akilli' | 'pazar_devir'
+     * Sınavlarından biri başlamış / silinmiş teklifler listelenmez.
+     */
+    function takasBekleyenleri(db, now) {
+        const out = [];
+        const ekle = (r, tip, pid, karsiAd, verId, alId, karsiOnayladi) => {
+            if (pid === null || pid === undefined || pid === '') return;
+            const verilecek = sinavBul(db, verId), alinacak = sinavBul(db, alId);
+            if ((verId != null && verId !== '' && !verilecek) || (alId != null && alId !== '' && !alinacak)) return;
+            const basl = [verilecek, alinacak].filter(Boolean).map(sinavBaslangic).filter(x => !isNaN(x));
+            if (!basl.length) return;
+            const ilk = Math.min(...basl);
+            if (ilk <= now) return;
+            out.push({ r, tip, pid: S_(pid), karsiAd: karsiAd || 'Bir meslektaşınız', verilecek, alinacak, karsiOnayladi: !!karsiOnayladi,
+                ilkSinavMs: ilk, olusturmaMs: Date.parse(r.createdAt) || (typeof r.id === 'number' ? r.id : now) });
+        };
+        for (const r of istekListesi(db)) {
+            if (!r || r.id === undefined) continue;
+            if (r.type === 'p2p_fairness_swap' && (r.status === 'pending_peers' || r.status === 'pending_other')) {
+                if (!r.fromApproved) ekle(r, 'adalet_takas', r.fromStaffId, r.toStaffName, r.fromExamId, r.toExamId, r.toApproved);
+                if (!r.toApproved) ekle(r, 'adalet_takas', r.toStaffId, r.fromStaffName, r.toExamId, r.fromExamId, r.fromApproved);
+            } else if (r.type === 'p2p_fairness_transfer' && r.status === 'pending_receiver' && !r.toApproved) {
+                ekle(r, 'adalet_devir', r.toStaffId, r.fromStaffName, null, r.fromExamId, true);
+            } else if (r.type === 'direct_swap' && r.status === 'pending_peer') {
+                ekle(r, 'dogrudan', r.receiverId, r.initiatorName, r.receiverExamId, r.initiatorExamId, true);
+            } else if (r.type === 'smart_swap' && r.status === 'pending' && r.receiverId != null) {
+                ekle(r, 'akilli', r.receiverId, r.initiatorName, r.targetExamId, r.examId, true);
+            } else if (r.status === 'claim_pending' && r.receiverId != null && r.initiatorId != null) {
+                // Pazar yeri: görevi isteyen var, görev sahibinin onayı bekleniyor
+                ekle(r, 'pazar_devir', r.initiatorId, r.receiverName, r.examId != null ? r.examId : r.initiatorExamId, null, true);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Telefon hatırlatmaları (yan etkisiz). durum: { [anahtar]: iso } — gönderilenler.
+     *  - ilk:   yalnızca "akıllı takas" için (diğer türlerin ilk bildirimi zaten gidiyor)
+     *  - karsi: adalet takasında karşı taraf onayladı, sizin onayınız bekleniyor
+     *  - 12s:   teklif 12 saattir yanıtsız
+     *  - son:   teklifteki ilk sınava 24 saatten az kaldı
+     * Aynı teklif ve kişi için bir çalıştırmada en fazla bir bildirim.
+     * @returns [{ pid, anahtar, payload }]
+     */
+    function takasHatirlatmalari(db, now, durum, siteUrl) {
+        const d = durum || {};
+        const out = [];
+        const fmt = (ex) => ex ? `"${ex.name || 'sınav'}" (${ex.date ? ex.date.split('-').reverse().join('.') : ''} ${ex.time || ''})`.replace(/\s+\)/, ')') : '';
+        for (const b of takasBekleyenleri(db, now)) {
+            const k = `takas:${b.r.id}:${b.pid}`;
+            const ne = b.tip === 'adalet_devir' ? `${fmt(b.alinacak)} görevinin size devri`
+                : b.tip === 'pazar_devir' ? `${fmt(b.verilecek)} görevinizi ${b.karsiAd} almak istiyor; devir`
+                : `${b.karsiAd} ile takas: vereceğiniz ${fmt(b.verilecek)} ⇄ alacağınız ${fmt(b.alinacak)}`;
+            let tur = null, title = '', body = '';
+            if (!d[k + ':son'] && b.ilkSinavMs - now <= TAKAS.SON_ONCE_MS) {
+                tur = 'son'; title = '🚨 Takas onayınız bekleniyor (sınav yakın)';
+                body = `${ne} onayınızı bekliyor. Sınava 24 saatten az kaldı; yanıt vermezseniz teklif geçersiz kalır.`;
+            } else if (b.tip === 'adalet_takas' && b.karsiOnayladi && !d[k + ':karsi']) {
+                tur = 'karsi'; title = '✅ Karşı taraf onayladı';
+                body = `${b.karsiAd} takası onayladı; yalnızca sizin onayınız bekleniyor. ${ne}.`;
+            } else if (b.tip === 'akilli' && !d[k + ':ilk']) {
+                tur = 'ilk'; title = '🔄 Yeni takas teklifi';
+                body = `${ne}. Onaylamak için dokunun.`;
+            } else if (!d[k + ':12s'] && !d[k + ':son'] && now - b.olusturmaMs >= TAKAS.HATIRLAT_SONRA_MS) {
+                tur = '12s'; title = '⏳ Takas teklifi yanıt bekliyor';
+                body = `${ne} 12 saattir onayınızı bekliyor. Onaylamak ya da reddetmek için dokunun.`;
+            }
+            if (!tur) continue;
+            const base = (siteUrl || './index.html').split('?')[0];
+            out.push({
+                pid: b.pid, anahtar: `${k}:${tur}`, tur,
+                payload: {
+                    title, body: body.slice(0, 300), tag: `gtu_takas_${b.r.id}_${b.pid}`,
+                    data: { tur: TUR.TAKAS_TEKLIF, action: 'open_swap_request', requestId: b.r.id, tab: 'swap-history',
+                        url: `${base}?tab=swap-history&requestId=${encodeURIComponent(b.r.id)}` }
+                }
+            });
+        }
+        return out;
+    }
+
     /** Gönderilen bir planı kayda işler (durum nesnesini değiştirir) */
     function kaydet(durum, item, now) {
         const stamp = new Date(now).toISOString();
@@ -446,6 +541,7 @@
         SURE_ALANI, sureAlani, gozetmenSureKaydi, satirOnayli, gozetmenSuresi, gozetmenBaslangicSaati,
         DERSLIK_ALANI, derslikAlani, derslikAnahtari, derslikler, gozetmenDersligi, ayniDerslikGozetmenleri,
         gunHatirlatmasi, saatHatirlatmasi, sureTeyidi, duyuru, duyuruHedefleri, duyuruHedefMi, gozetmenKonumu,
-        tiklamaHedefi, planla, kaydet
+        tiklamaHedefi, planla, kaydet,
+        TAKAS, takasBekleyenleri, takasHatirlatmalari
     };
 });

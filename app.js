@@ -17800,11 +17800,11 @@ function notifyFairnessChanges(applied, offered) {
     (offered || []).forEach(a => {
         if (a.type === 'transfer') {
             const e = { name: a.examName, date: a.examDate, time: a.examTime, location: a.examLocation };
-            add(a.toStaff.id, `📤 Teklif: ${ex(e)} görevini ${a.fromStaff.name} yerine almanız öneriliyor. Profilim › Takas'tan kabul edebilirsiniz.`);
+            add(a.toStaff.id, `📤 Teklif: ${ex(e)} görevini ${a.fromStaff.name} yerine almanız öneriliyor. Siteyi açtığınızda çıkan pencereden ya da Profilim › Takas › Taleplerim'den kabul edebilirsiniz.`);
             add(a.fromStaff.id, `📤 Bilgi: ${ex(e)} görevinizin ${a.toStaff.name} kişisine devri önerildi. Kabul ederse görev ona geçer; o zamana kadar görev sizde.`);
         } else {
-            add(a.staffA.id, `📤 Takas teklifi: ${ex(a.examFromA)} ⇄ ${ex(a.examFromB)} (${a.staffB.name} ile). Profilim › Takas'tan onaylayın.`);
-            add(a.staffB.id, `📤 Takas teklifi: ${ex(a.examFromB)} ⇄ ${ex(a.examFromA)} (${a.staffA.name} ile). Profilim › Takas'tan onaylayın.`);
+            add(a.staffA.id, `📤 Takas teklifi: ${ex(a.examFromA)} ⇄ ${ex(a.examFromB)} (${a.staffB.name} ile). Siteyi açtığınızda çıkan pencereden ya da Profilim › Takas › Taleplerim'den onaylayın (iki tarafın da onayı gerekir).`);
+            add(a.staffB.id, `📤 Takas teklifi: ${ex(a.examFromB)} ⇄ ${ex(a.examFromA)} (${a.staffA.name} ile). Siteyi açtığınızda çıkan pencereden ya da Profilim › Takas › Taleplerim'den onaylayın (iki tarafın da onayı gerekir).`);
         }
     });
     const ids = Object.keys(lines);

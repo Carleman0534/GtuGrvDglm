@@ -265,6 +265,28 @@ async function main() {
         }
     }
 
+    // --- Takas teklifi hatırlatmaları (kurallar: bildirim_kurallari.js › takasHatirlatmalari) ---
+    // Yanıtlanmamış teklif 12 saat sonra, karşı taraf onaylayınca ve ilk sınava 24 saatten az kala
+    let takasHatirlatma = 0;
+    state._takasHatirlatma = state._takasHatirlatma || {};
+    for (const h of K.takasHatirlatmalari(db, now, state._takasHatirlatma, SITE_URL)) {
+        const subs = staffIds.has(h.pid) ? subsOf(h.pid) : [];
+        if (!subs.length) continue;
+        if (dryRun) { console.log(`[Deneme] Takas hatırlatması (${h.tur}): gözetmen #${h.pid}, ${subs.length} cihaz`); continue; }
+        if (!webpush) {
+            webpush = (await import('web-push')).default;
+            webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL.replace(/\/GtuGrvDglm\/$/, ''), vapidPublic, vapidPrivate);
+        }
+        let delivered = false;
+        for (const s of subs) {
+            if (await send(h.pid, s, JSON.stringify(h.payload), { TTL: 12 * 60 * 60, urgency: h.tur === 'son' ? 'high' : 'normal' })) { delivered = true; takasHatirlatma++; }
+        }
+        if (delivered) {
+            state._takasHatirlatma[h.anahtar] = new Date(now).toISOString();
+            console.log(`Takas hatırlatması (${h.tur}) iletildi: gözetmen #${h.pid}`);
+        }
+    }
+
     // 30 günden eski kayıtları temizle
     const MONTH = 30 * 24 * 60 * 60 * 1000;
     for (const [k, v] of Object.entries(state)) {
@@ -280,6 +302,9 @@ async function main() {
     for (const [k, v] of Object.entries(state._takasOnaylari || {})) {
         if (now - Date.parse(v) > MONTH) delete state._takasOnaylari[k];
     }
+    for (const [k, v] of Object.entries(state._takasHatirlatma || {})) {
+        if (now - Date.parse(v) > MONTH) delete state._takasHatirlatma[k];
+    }
     if (!dryRun) writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 
     const planSayisi = (tur) => plan.filter(p => p.tur === tur).length;
@@ -287,7 +312,7 @@ async function main() {
         `planlanan → süre teyidi: ${planSayisi(K.TUR.SURE_SORU)} (kayıtlı cihazı olmayan: ${noDevice}), ` +
         `gün hatırlatması: ${planSayisi(K.TUR.GUN)}, ${K.AYAR.SAAT_ONCE} saat kala: ${planSayisi(K.TUR.SAAT)}; ` +
         `gönderilen bildirim → süre: ${sayac[K.TUR.SURE_SORU]}, gün: ${sayac[K.TUR.GUN]}, saat: ${sayac[K.TUR.SAAT]}; ` +
-        `yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), takas bildirimi: ${swapPushed}, hata: ${failed}`);
+        `yeni duyuru: ${broadcastsDue.length} (${broadcastPushed} cihaza), takas bildirimi: ${swapPushed}, takas hatırlatması: ${takasHatirlatma}, hata: ${failed}`);
     if (!pushEnabled) console.log('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY tanımlı değil: telefon bildirimi gönderilmiyor (deneme modu).');
     if (failed) process.exitCode = 1;
 }

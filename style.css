@@ -6718,3 +6718,20 @@ a.sb-link { display: inline-block; }/* "Neden ben?" atama anındaki tablo (atama
 .atama-gerekce-oneri-tamam, .atama-gerekce-oneri-farkli { margin-top: 0.5rem; padding: 0.5rem 0.7rem; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; }
 .atama-gerekce-oneri-tamam { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); }
 .atama-gerekce-oneri-farkli { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); }
+/* ===== Takas onayı (takas_onay.js) ===== */
+.to-modal { max-width: 560px; }
+.to-kart { border: 1px solid rgba(139, 92, 246, 0.45); background: rgba(139, 92, 246, 0.1); border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
+.to-tur { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; color: #a78bfa; margin-bottom: 4px; }
+.to-aciklama { font-size: 0.9rem; line-height: 1.5; }
+.to-onayli { display: inline-block; margin-top: 2px; color: #16a34a; font-weight: 700; }
+.to-sinavlar { margin: 0.5rem 0 0.3rem; font-size: 0.86rem; display: flex; flex-direction: column; gap: 3px; }
+.to-alt { font-size: 0.78rem; color: var(--text-muted); }
+.to-eylem { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.7rem; }
+.to-eylem .to-onayla { background: #16a34a !important; border: none; color: #fff; padding: 0.5rem 1rem; font-weight: 700; }
+.to-eylem .to-reddet { padding: 0.5rem 1rem; }
+.to-sonra { background: none; border: 1px solid var(--glass-border); color: var(--text-muted); border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; }
+.to-not { font-size: 0.78rem; color: var(--text-muted); margin: 0.4rem 0 0; }
+.to-liste-kart { background: rgba(15, 23, 42, 0.75); border: 1.5px solid rgba(139, 92, 246, 0.5); border-radius: 18px; padding: 1.1rem; margin-bottom: 1.25rem; }
+.to-liste-baslik { margin: 0 0 0.75rem; font-size: 1rem; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+.to-sayi { background: #ef4444; color: #fff; border-radius: 999px; font-size: 0.75rem; padding: 1px 9px; }
+#takas-onay-liste .to-aciklama, #takas-onay-liste .to-sinavlar { color: #e2e8f0; }

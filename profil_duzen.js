@@ -231,6 +231,9 @@
                     if (window.SinavBildirimi) window.SinavBildirimi.renderProfil();
                     const pane = document.getElementById('tab-sinav-bildir');
                     if (pane) pane.classList.remove('hidden');
+                } else if (tabId === 'swap-history') {
+                    // Onayınızı bekleyen teklifler (takas_onay.js) Taleplerim'in en üstünde
+                    if (window.TakasOnay) window.TakasOnay.renderListe();
                 } else if (tabId === 'my-timeline') {
                     const myStaffId = lsGet('myStaffId');
                     if (myStaffId && typeof window.renderPersonalCalendar === 'function') {
