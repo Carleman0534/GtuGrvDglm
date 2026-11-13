@@ -5434,6 +5434,12 @@ window.renderTimeScoreDraft = function() {
         if (Math.abs(kalan) >= 0.5) parca.push(`${kalan > 0 ? '' : '−'}${n(Math.abs(kalan))} diğer`);
         return `<small class="tsd-siralama-not">Sıralamada <b>${n(siralama)}</b>${parca.length ? ' = bu + ' + parca.join(' + ') : ''}</small>`;
     };
+    // Mesai dışı + hafta sonu payı hücresi: oran, miktar ve bölüm ortalamasından fark (eşik aşılırsa renkli)
+    const payHucre = (k, pay, f, miktar) => {
+        if (!k.sinav.gorev) return '<span class="tsd-bos">—</span>';
+        const cls = f >= TSD_DENGE_ESIK ? 'tsd-denge tsd-denge-yuksek' : (f <= -TSD_DENGE_ESIK ? 'tsd-denge tsd-denge-dusuk' : 'tsd-denge');
+        return `<span class="${cls}">%${pay}</span><small>${miktar} · ort. farkı ${f > 0 ? '+' : ''}${f}</small>`;
+    };
     const dilimHucre = (z) => z.gorev ? `<b>${z.gorev}</b> görev<small>${n(z.puan)} P · ${n(z.saat)} sa</small>` : '<span class="tsd-bos">—</span>';
     if (goster.includes('sinav')) {
         kol.push(
@@ -5443,12 +5449,10 @@ window.renderTimeScoreDraft = function() {
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta içi 09–17', hucre: k => dilimHucre(k.sinav.dilim.mesai), alt: () => dilimHucre(st.sinavDilim.mesai) },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta içi mesai dışı', hucre: k => dilimHucre(k.sinav.dilim.disari), alt: () => dilimHucre(st.sinavDilim.disari) },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Hafta sonu', hucre: k => dilimHucre(k.sinav.dilim.hsonu), alt: () => dilimHucre(st.sinavDilim.hsonu) },
-            { grup: '🎓 Sınav gözetmenliği', baslik: 'Mesai dışı + h.sonu payı', hucre: k => {
-                if (!k.sinav.gorev) return '<span class="tsd-bos">—</span>';
-                const f = k.sinav.disariPayFark;
-                const cls = f >= TSD_DENGE_ESIK ? 'tsd-denge tsd-denge-yuksek' : (f <= -TSD_DENGE_ESIK ? 'tsd-denge tsd-denge-dusuk' : 'tsd-denge');
-                return `<span class="${cls}">%${k.sinav.disariPay}</span><small>ort. farkı ${f > 0 ? '+' : ''}${f}</small>`;
-            }, alt: () => `<b>%${st.sinavDisariPay}</b><small>bölüm ortalaması</small>` });
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Mesai dışı + h.sonu (süre)', hucre: k => payHucre(k, k.sinav.disariPaySure, k.sinav.disariPaySureFark, n(k.sinav.dilim.disari.saat + k.sinav.dilim.hsonu.saat) + ' sa'),
+                alt: () => `<b>%${st.sinavDisariPaySure}</b><small>${n(st.sinavDilim.disari.saat + st.sinavDilim.hsonu.saat)} sa · bölüm ort.</small>` },
+            { grup: '🎓 Sınav gözetmenliği', baslik: 'Mesai dışı + h.sonu (puan)', hucre: k => payHucre(k, k.sinav.disariPayPuan, k.sinav.disariPayPuanFark, n(k.sinav.dilim.disari.puan + k.sinav.dilim.hsonu.puan) + ' P'),
+                alt: () => `<b>%${st.sinavDisariPayPuan}</b><small>${n(st.sinavDilim.disari.puan + st.sinavDilim.hsonu.puan)} P · bölüm ort.</small>` });
         if (tumZaman) kol.push(
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Süre (taban dahil)', hucre: k => `<b>${n(k.sinav.saatTabanDahil)}</b><small>${n(k.tabanSaat)} önceki + ${n(k.sinav.saat)} sistemde</small>`, alt: () => `<b>${n(st.sinavSaatTabanDahil)}</b>` },
             { grup: '🎓 Sınav gözetmenliği', baslik: 'Puan (taban dahil)', hucre: k => `<b>${n(k.sinav.puanTabanDahil)}</b><small>${n(k.taban)} taban + ${n(k.sinav.puan)} sistemde</small>${siralamaFarki(k.sinav.puanTabanDahil, k.siralamaPuan, planDahil ? 0 : k.siralamaPlan, k.siralamaEski)}`,
@@ -5478,7 +5482,8 @@ window.renderTimeScoreDraft = function() {
         [G.s + '|Hafta içi 09–17']: k => k.sinav.dilim.mesai.gorev * 1e6 + k.sinav.dilim.mesai.puan,
         [G.s + '|Hafta içi mesai dışı']: k => k.sinav.dilim.disari.gorev * 1e6 + k.sinav.dilim.disari.puan,
         [G.s + '|Hafta sonu']: k => k.sinav.dilim.hsonu.gorev * 1e6 + k.sinav.dilim.hsonu.puan,
-        [G.s + '|Mesai dışı + h.sonu payı']: k => k.sinav.disariPay,
+        [G.s + '|Mesai dışı + h.sonu (süre)']: k => k.sinav.disariPaySure,
+        [G.s + '|Mesai dışı + h.sonu (puan)']: k => k.sinav.disariPayPuan,
         [G.s + '|Süre (taban dahil)']: k => k.sinav.saatTabanDahil, [G.s + '|Puan (taban dahil)']: k => k.sinav.puanTabanDahil,
         [G.s + '|P/sa (taban dahil)']: k => k.sinav.puanSaatTabanDahil,
         [G.d + '|Görev']: k => k.disi.gorev, [G.d + '|Süre (sa)']: k => k.disi.dk, [G.d + '|Puan']: k => k.disi.puan,
@@ -5521,7 +5526,7 @@ window.renderTimeScoreDraft = function() {
         ${goster.includes('sinav') ? `<br><b>Zaman dilimi:</b> görevin tamamı hafta içi 09:00–17:00 arasındaysa "Hafta içi 09–17"; başlangıcı 09:00'dan önce ya da bitişi 17:00'den sonraysa "Hafta içi mesai dışı"; Cumartesi–Pazar ise "Hafta sonu" sayılır. Puanlar o görevden alınan puanların tamamıdır.
             ${tumZaman ? `<b>Taban dahil</b> sütunlarında taban puan süreye 1 puan = 1 dakika olarak eklenir (önceki); P/sa = (taban + sınav puanı) ÷ (önceki + sistemdeki saat).
             "Sıralamada" satırı, "Sınav Gözetmenliği Puan Sıralaması"ndaki puanı ve farkın nereden geldiğini gösterir: sıralama henüz yapılmamış (planlanan) sınavları ve 20.06.2026 öncesi sınav dışı görevleri de sayar.` : ''}` : ''}
-        ${goster.includes('sinav') ? `<br><b>Mesai dışı + h.sonu payı:</b> kişinin sınav görevlerinden hafta içi mesai dışı ve hafta sonu olanların oranı. Bölüm ortalamasından ${TSD_DENGE_ESIK} puan ve daha fazla yüksek olanlar <span class="tsd-denge tsd-denge-yuksek">turuncu</span>, düşük olanlar <span class="tsd-denge tsd-denge-dusuk">mavi</span> işaretlenir.` : ''}
+        ${goster.includes('sinav') ? `<br><b>Mesai dışı + h.sonu:</b> kişinin sınav gözetmenliği <b>süresinin</b> ve <b>puanının</b> hafta içi mesai dışı ve hafta sonu görevlerinden gelen oranı (iki ayrı sütun). Bölüm ortalamasından ${TSD_DENGE_ESIK} puan ve daha fazla yüksek olanlar <span class="tsd-denge tsd-denge-yuksek">turuncu</span>, düşük olanlar <span class="tsd-denge tsd-denge-dusuk">mavi</span> işaretlenir.` : ''}
         <br>Sütun başlıklarına tıklayarak sıralayabilirsiniz (ikinci tıklama yönü değiştirir).
         <br>Süre ve puan, gözetmenin kendi girdiği süreden hesaplanır (yoksa planlanan süre).</p>`;
     body.querySelectorAll('th[data-sira]').forEach(th => th.addEventListener('click', () => {
@@ -15713,16 +15718,16 @@ function renderScorecardZamanOzeti(myStaffId) {
     const d = ben.sinav.dilim;
     const kart = (baslik, deger, alt) => `<div class="scz-kart"><span>${baslik}</span><b>${deger}</b><small>${alt}</small></div>`;
     const dilimKart = (baslik, z, anahtar) => kart(baslik, `${z.gorev} görev`, `${n(z.puan)} P · ${n(z.saat)} sa<br>bölüm ort. ${n(ort(k => k.sinav.dilim[anahtar].gorev))} görev`);
-    const f = ben.sinav.disariPayFark;
-    const payAlt = !ben.sinav.gorev ? 'henüz sınav görevi yok'
-        : `bölüm ortalaması %${st.sinavDisariPay}` + (f >= TSD_DENGE_ESIK ? ' · ortalamanın üstünde' : (f <= -TSD_DENGE_ESIK ? ' · ortalamanın altında' : ' · ortalamaya yakın'));
+    const payAlt = (f, ortalama) => !ben.sinav.gorev ? 'henüz sınav görevi yok'
+        : `bölüm ortalaması %${ortalama}` + (f >= TSD_DENGE_ESIK ? ' · ortalamanın üstünde' : (f <= -TSD_DENGE_ESIK ? ' · ortalamanın altında' : ' · ortalamaya yakın'));
     el.innerHTML = `
         <h4 class="scz-baslik">⏱️ Sınav Gözetmenliği Zaman Özetiniz</h4>
         <div class="scz-grid">
             ${dilimKart('Hafta içi 09–17', d.mesai, 'mesai')}
             ${dilimKart('Hafta içi mesai dışı', d.disari, 'disari')}
             ${dilimKart('Hafta sonu', d.hsonu, 'hsonu')}
-            ${kart('Mesai dışı + h.sonu payı', ben.sinav.gorev ? `%${ben.sinav.disariPay}` : '—', payAlt)}
+            ${kart('Mesai dışı + h.sonu (süre)', ben.sinav.gorev ? `%${ben.sinav.disariPaySure}` : '—', `${n(d.disari.saat + d.hsonu.saat)} sa · ` + payAlt(ben.sinav.disariPaySureFark, st.sinavDisariPaySure))}
+            ${kart('Mesai dışı + h.sonu (puan)', ben.sinav.gorev ? `%${ben.sinav.disariPayPuan}` : '—', `${n(d.disari.puan + d.hsonu.puan)} P · ` + payAlt(ben.sinav.disariPayPuanFark, st.sinavDisariPayPuan))}
             ${kart('Süre (taban dahil)', `${n(ben.sinav.saatTabanDahil)} sa`, `${n(ben.tabanSaat)} önceki + ${n(ben.sinav.saat)} sistemde<br>bölüm ort. ${n(ort(k => k.sinav.saatTabanDahil))} sa`)}
             ${kart('Saat başına puan (taban dahil)', `${n(ben.sinav.puanSaatTabanDahil)} P`, `bölüm ort. ${n(st.sinavPuanSaatTabanDahil)} P`)}
         </div>

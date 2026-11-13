@@ -179,7 +179,14 @@ test('Zaman dilimleri: hafta içi 09–17 / mesai dışı / hafta sonu; toplamla
         if (!x.sinav.gorev) continue;
         assert.equal(x.sinav.disariPay, Math.round((x.sinav.dilim.disari.gorev + x.sinav.dilim.hsonu.gorev) / x.sinav.gorev * 100));
         assert.equal(x.sinav.disariPayFark, x.sinav.disariPay - st.sinavDisariPay);
+        const dd = x.sinav.dilim;
+        assert.equal(x.sinav.disariPaySure, Math.round((dd.disari.dk + dd.hsonu.dk) / x.sinav.dk * 100));
+        assert.ok(Math.abs(x.sinav.disariPayPuan - (dd.disari.puan + dd.hsonu.puan) / x.sinav.puan * 100) <= 0.6);
+        assert.equal(x.sinav.disariPaySureFark, x.sinav.disariPaySure - st.sinavDisariPaySure);
+        assert.equal(x.sinav.disariPayPuanFark, x.sinav.disariPayPuan - st.sinavDisariPayPuan);
     }
+    const top = (f) => st.kisiler.reduce((a, k) => a + f(k), 0);
+    assert.equal(st.sinavDisariPaySure, Math.round(top(k => k.sinav.dilim.disari.dk + k.sinav.dilim.hsonu.dk) / top(k => k.sinav.dk) * 100));
 });
 
 test('Bölüm toplamları kişilerin toplamına eşit; dönem kapsamı daha dar', () => {

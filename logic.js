@@ -3902,6 +3902,9 @@ function computeTimeScoreStats(opts = {}) {
             Object.values(t.dilim).forEach(z => { z.puan = p1(z.puan); z.saat = sa(z.dk); });
             // Mesai dışı + hafta sonu payı (görev sayısına göre, %)
             t.disariPay = t.gorev > 0 ? Math.round((t.dilim.disari.gorev + t.dilim.hsonu.gorev) / t.gorev * 100) : 0;
+            // Aynı pay süreye ve puana göre (%)
+            t.disariPaySure = t.dk > 0 ? Math.round((t.dilim.disari.dk + t.dilim.hsonu.dk) / t.dk * 100) : 0;
+            t.disariPayPuan = t.puan > 0 ? Math.round((t.dilim.disari.puan + t.dilim.hsonu.puan) / t.puan * 100) : 0;
         });
         const dk = r.sinav.dk + r.disi.dk;
         r.toplam = {
@@ -3961,7 +3964,15 @@ function computeTimeScoreStats(opts = {}) {
     // Denge göstergesi: bölümün mesai dışı + hafta sonu payı ve kişinin bundan farkı (yüzde puanı)
     const sd = ozet.sinavDilim, sg = sd.mesai.gorev + sd.disari.gorev + sd.hsonu.gorev;
     ozet.sinavDisariPay = sg > 0 ? Math.round((sd.disari.gorev + sd.hsonu.gorev) / sg * 100) : 0;
-    list.forEach(r => { r.sinav.disariPayFark = r.sinav.gorev > 0 ? r.sinav.disariPay - ozet.sinavDisariPay : 0; });
+    const sdk = sum(r => r.sinav.dk), spu = sum(r => r.sinav.puan);
+    ozet.sinavDisariPaySure = sdk > 0 ? Math.round(sum(r => r.sinav.dilim.disari.dk + r.sinav.dilim.hsonu.dk) / sdk * 100) : 0;
+    ozet.sinavDisariPayPuan = spu > 0 ? Math.round(sum(r => r.sinav.dilim.disari.puan + r.sinav.dilim.hsonu.puan) / spu * 100) : 0;
+    list.forEach(r => {
+        const var_ = r.sinav.gorev > 0;
+        r.sinav.disariPayFark = var_ ? r.sinav.disariPay - ozet.sinavDisariPay : 0;
+        r.sinav.disariPaySureFark = var_ ? r.sinav.disariPaySure - ozet.sinavDisariPaySure : 0;
+        r.sinav.disariPayPuanFark = var_ ? r.sinav.disariPayPuan - ozet.sinavDisariPayPuan : 0;
+    });
     ozet.ortSaat = p1(ozet.toplamSaat / n);
     ozet.ortGenel = p1(ozet.genel / n);
     ozet.puanSaat = ozet.toplamSaat > 0 ? p1(ozet.toplamPuan / ozet.toplamSaat) : 0;
