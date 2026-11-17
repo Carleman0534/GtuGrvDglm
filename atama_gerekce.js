@@ -288,7 +288,10 @@
         const onde = slot.uygunlar.filter(s => key(s) < benim - 0.005);
         const arkada = slot.uygunlar.filter(s => key(s) >= benim - 0.005);
         const enYakin = arkada.length ? Math.min(...arkada.map(s => key(s) - benim)) : null;
-        const yakinMetni = enYakin != null ? ` Uygun olanlar arasında size en yakın kişinin ${kuralAdi} sizinkinden <strong>${n(enYakin)} puan</strong> yüksek.` : '';
+        const esitler = arkada.filter(s => Math.abs(key(s) - benim) < 0.05).length;
+        const yakinMetni = enYakin == null ? ''
+            : esitler ? ` Uygun olanlar arasında <strong>${esitler} kişinin</strong> ${kuralAdi} sizinkiyle <strong>eşit</strong>; eşitlikte görev bu kişilerden birine verilir.`
+            : ` Uygun olanlar arasında size en yakın kişinin ${kuralAdi} sizinkinden <strong>${n(enYakin)} puan</strong> yüksek.`;
 
         let metin;
         if (!slot.uygunlar.length) {
@@ -297,7 +300,7 @@
             // Atama anındaki kayıt
             const ondeO = (r.s && r.s.uygun) || 0;
             if (!ondeO) {
-                metin = `Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>kimse yoktu</strong>: uygun olanların hepsinin ${kuralAdi} sizinkinden yüksekti. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size verildi.`;
+                metin = `Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>kimse yoktu</strong>: uygun olanların hiçbirinin ${kuralAdi} sizinkinden düşük değildi. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size verildi.`;
             } else {
                 const neden = r.y === 'yonetici' ? 'Görevi yönetici elle atadığı için sıra uygulanmadı.'
                     : r.y === 'dengeleme' ? 'Görev, adalet dengelemesiyle puanları birbirine yaklaştırmak için size aktarıldı.'
@@ -306,7 +309,7 @@
                 metin = `Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>${ondeO} kişi</strong> vardı. ${neden}`;
             }
         } else if (!onde.length) {
-            metin = `O saatte uygun <strong>${slot.uygunlar.length} kişinin hepsi</strong> sıralamada sizden sonra geliyor: hepsinin ${kuralAdi} sizinkinden yüksek. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size gelir.${yakinMetni}`;
+            metin = `O saatte uygun <strong>${slot.uygunlar.length} kişinin hepsi</strong> sıralamada sizden önde değil: hiçbirinin ${kuralAdi} sizinkinden düşük değil. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size gelir.${yakinMetni}`;
         } else {
             metin = `Bugünkü puanlara göre o saatte uygun ${slot.uygunlar.length} kişiden <strong>${onde.length} kişi</strong> sıralamada sizden önde (${kuralAdi} daha düşük), ${arkada.length} kişi sizden sonra. Görev atandığı gün puanlar farklıydı; o gün bu kişiler sizden sonra gelmiş olabilir.`;
         }
@@ -381,7 +384,13 @@
             return { id, kod, deger, puan, metin, ben: false };
         })
             .concat([{ id: pid, kod: 'ben', deger: benimDeger, puan: r.p, ben: true }])
-            .sort((a, b) => a.deger - b.deger);   // önce artan: sistemin önerisini bulmak için
+            // Önce artan: sistemin önerisini bulmak için. Değer eşitse görev alan kişi öne alınır
+            // (eşitlikte kural ikisinden birini seçer; "öneri başkasıydı" denmesin)
+            .sort((a, b) => {
+                const d = a.deger - b.deger;
+                if (Math.abs(d) >= 0.005) return d;
+                return (b.ben ? 1 : 0) - (a.ben ? 1 : 0);
+            });
         const sinavDisi = r.k === 'sinavdisi';
         const puanAdi = sinavDisi ? 'Sınav dışı görev puanı' : 'Sınav gözetmenliği puanı';
         const donemli = r.k === 'donem';
@@ -394,8 +403,10 @@
         const adaylar = satirlar.filter(x => x.ben || x.kod === 'u');
         const oneri = adaylar[0];
         const zaman = yaklasik ? 'bugünkü verilerle' : 'atama anında';
+        const esitSayisi = adaylar.filter(x => !x.ben && Math.abs(x.deger - benimDeger) < 0.005).length;
+        const esitMetni = esitSayisi ? ` Sizinle <strong>eşit</strong> değerde ${esitSayisi} kişi daha vardı; eşitlikte görev bu kişilerden birine verilir ve sıra size geldi.` : '';
         const ust = oneri && oneri.ben
-            ? `<div class="atama-gerekce-oneri-tamam">✅ ${yaklasik ? 'Bugünkü verilere göre de' : 'Atama anında'} sistemin bu görev için önerdiği kişi <strong>sizdiniz</strong>: o saatte uygun olanlar arasında ${sinavDisi ? 'sınav dışı görev puanı' : (donemli ? 'sıralama değeri (sınav gözetmenliği puanı + beklenen pay)' : 'sınav gözetmenliği puanı')} en düşük olan sizdiniz.</div>`
+            ? `<div class="atama-gerekce-oneri-tamam">✅ ${yaklasik ? 'Bugünkü verilere göre de' : 'Atama anında'} sistemin bu görev için önerdiği kişi <strong>sizdiniz</strong>: o saatte uygun olanlar arasında ${sinavDisi ? 'sınav dışı görev puanı' : (donemli ? 'sıralama değeri (sınav gözetmenliği puanı + beklenen pay)' : 'sınav gözetmenliği puanı')} en düşük olan ${esitSayisi ? 'kişilerden biri ' : ''}sizdiniz.${esitMetni}</div>`
             : `<div class="atama-gerekce-oneri-farkli">ℹ️ ${yaklasik ? 'Bugünkü verilere göre' : 'Atama anında'} sistemin önerisi <strong>${esc(ad(oneri.id))}</strong> olurdu (${puanAdi.toLocaleLowerCase('tr')} ${puanHucre(oneri)}, sizinki ${puanHucre({ puan: r.p, deger: benimDeger })}).${r.y && METHOD_TEXT[r.y] && !yaklasik ? ' ' + METHOD_TEXT[r.y] : ''}</div>`;
         const tur = sinavDisi
             ? `<div class="atama-gerekce-note">📋 Bu bir <strong>sınav dışı görev</strong>; karşılaştırma yalnızca <strong>sınav dışı görev puanlarıyla</strong> yapılır (sınav gözetmenliği puanı sayılmaz).</div>`
