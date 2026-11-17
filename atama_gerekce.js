@@ -309,7 +309,7 @@
                 metin = `Atama anında o saatte uygun olup sıralamada sizden önde olan <strong>${ondeO} kişi</strong> vardı. ${neden}`;
             }
         } else if (!onde.length) {
-            metin = `O saatte uygun <strong>${slot.uygunlar.length} kişinin hepsi</strong> sıralamada sizden önde değil: hiçbirinin ${kuralAdi} sizinkinden düşük değil. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size gelir.${yakinMetni}`;
+            metin = `O saatte uygun <strong>${slot.uygunlar.length} kişinin hepsi</strong> sıralamada sizden sonra geliyor: hiçbirinin ${kuralAdi} sizinkinden düşük değil. Kurala göre görev, uygun olanlar arasında sıralamada en öndeki kişiye, yani size gelir.${yakinMetni}`;
         } else {
             metin = `Bugünkü puanlara göre o saatte uygun ${slot.uygunlar.length} kişiden <strong>${onde.length} kişi</strong> sıralamada sizden önde (${kuralAdi} daha düşük), ${arkada.length} kişi sizden sonra. Görev atandığı gün puanlar farklıydı; o gün bu kişiler sizden sonra gelmiş olabilir.`;
         }
