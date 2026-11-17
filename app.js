@@ -13923,6 +13923,31 @@ function findHistoricalExamDuration(code, name) {
 }
 
 
+/**
+ * Excel hücresini metne çevirir. Excel tarihleri seri sayı olarak saklar:
+ *   46399 → "2027-01-12", 46399.5625 → "2027-01-12 13:30", 0.5625 (yalnızca saat) → "13:30"
+ */
+function excelHucreMetni(v) {
+    if (v === null || v === undefined) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    if (v instanceof Date) {
+        if (isNaN(v.getTime())) return '';
+        const hm = (v.getHours() || v.getMinutes()) ? ` ${pad(v.getHours())}:${pad(v.getMinutes())}` : '';
+        return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}${hm}`;
+    }
+    if (typeof v === 'number' && isFinite(v)) {
+        const totalMin = Math.round(v * 1440);
+        const dayPart = Math.floor(totalMin / 1440);
+        const minPart = totalMin - dayPart * 1440;
+        const saat = `${pad(Math.floor(minPart / 60))}:${pad(minPart % 60)}`;
+        if (dayPart < 1) return saat;
+        const d = new Date(Date.UTC(1899, 11, 30) + dayPart * 86400000); // Excel 1900 tarih sistemi
+        const tarih = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+        return minPart ? `${tarih} ${saat}` : tarih;
+    }
+    return String(v);
+}
+
 function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 90) {
     let dateStr = "";
     let timeStr = "09:00";
@@ -13936,23 +13961,16 @@ function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 90) {
         return { date: "", time: "", duration: defaultDuration, endTime: "", isValid: false, hasExplicitTime: false, errorReason: "Tarih ve saat alanı boş!" };
     }
 
-    if (typeof rawStr === 'number') {
-        const excelDate = new Date((rawStr - (25567 + 1)) * 86400 * 1000);
-        if (!isNaN(excelDate.getTime())) {
-            const d = String(excelDate.getUTCDate()).padStart(2, '0');
-            const m = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
-            const y = excelDate.getUTCFullYear();
-            dateStr = `${y}-${m}-${d}`;
-            timeStr = `${String(excelDate.getUTCHours()).padStart(2,'0')}:${String(excelDate.getUTCMinutes()).padStart(2,'0')}`;
-            return { date: dateStr, time: timeStr, duration: defaultDuration, endTime: "", isValid: true, hasExplicitTime: true };
-        }
-    }
+    // Excel tarih/saat hücreleri sayı olarak gelir: önce metne çevrilir (eskiden bir gün kayıyordu)
+    if (typeof rawStr === 'number' || rawStr instanceof Date) rawStr = excelHucreMetni(rawStr);
 
     let s = String(rawStr).replace(/\r?\n/g, ' ').trim();
     let sNorm = trNormalize(s);
-    
+    // Saat aranırken tarihler çıkarılır: "14.01.2027" içindeki "14.01" saat sanılmasın
+    const sSaat = s.replace(/\b\d{1,4}([\/.\-])\d{1,2}\1\d{2,4}\b/g, ' ');
+
     // 1. Saat Aralığı Kontrolü: "09:30-11:20", "13:30 - 15:20", "10:00-12:00"
-    const timeRangeMatch = s.match(/(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/);
+    const timeRangeMatch = sSaat.match(/(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/);
     if (timeRangeMatch) {
         const startH = parseInt(timeRangeMatch[1], 10);
         const startM = parseInt(timeRangeMatch[2], 10);
@@ -13970,7 +13988,7 @@ function parseTurkishDateTimeAndDuration(rawStr, defaultDuration = 90) {
         hasExplicitTime = true;
     } else {
         // Tekil saat: "10:30", "09:00"
-        const singleTimeMatch = s.match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/);
+        const singleTimeMatch = sSaat.match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/);
         if (singleTimeMatch) {
             const h = parseInt(singleTimeMatch[1], 10);
             const m = parseInt(singleTimeMatch[2], 10);
@@ -14177,9 +14195,18 @@ function processExcelRows(rows) {
         const lecturerKey = findColumnKey(row, ["ogretim uyesi", "dersi veren", "hocalar", "hoca", "ogretim elemani", "lecturer", "instructor", "sorumlu"]);
         const lecturer = lecturerKey ? String(row[lecturerKey] || '').trim() : '';
 
-        // Sınıf Mevcudu ve Sınav Yerleri
-        const locKey = findColumnKey(row, ["sinif mevcudu ve sinav yerleri", "sinif mevcudu", "sinav yerleri", "mevcut", "kapasite", "derslik", "salon", "yer", "location", "room"]);
-        let locationRaw = locKey ? row[locKey] : null;
+        // Sınıf Mevcudu ve Sınav Yerleri: tek sütunda ("120 - Amfi 1 + Amfi 2") ya da ayrı sütunlarda (Derslik | Mevcut)
+        const roomKey = findColumnKey(row, ["sinav yerleri", "sinav yeri", "derslik", "salon", "yer", "location", "room"], ["mevcut", "mevcud", "kapasite", "sayisi"]);
+        const capKey = findColumnKey(row, ["sinif mevcudu ve sinav yerleri", "sinif mevcudu", "mevcut", "kapasite", "ogrenci sayisi", "capacity"]);
+        const isOnlyNumber = (v) => /^\s*\d+\s*$/.test(String(v));
+        let locationRaw = null;
+        let separateCapacity = 0;
+        if (capKey && !isOnlyNumber(row[capKey]) && (!roomKey || roomKey === capKey)) {
+            locationRaw = row[capKey];                       // birleşik sütun: "120 - Amfi 1 + Amfi 2"
+        } else {
+            if (roomKey && roomKey !== capKey) locationRaw = row[roomKey];
+            if (capKey && isOnlyNumber(row[capKey])) separateCapacity = parseInt(row[capKey], 10) || 0;
+        }
 
         if (!locationRaw) {
             for (let k of Object.keys(row)) {
@@ -14191,7 +14218,7 @@ function processExcelRows(rows) {
             }
         }
 
-        let capacity = 0;
+        let capacity = separateCapacity;
         let cleanLocation = "";
         if (locationRaw) {
             const strLoc = String(locationRaw).replace(/\r?\n/g, ' ').trim();
@@ -14199,24 +14226,34 @@ function processExcelRows(rows) {
             if (capMatch) {
                 capacity = parseInt(capMatch[1], 10);
                 cleanLocation = capMatch[2].replace(/\++$/, '').trim();
+            } else if (separateCapacity || (roomKey && locationRaw === row[roomKey])) {
+                // Ayrı derslik sütunu: "Amfi 1", "Z01, Z02" olduğu gibi alınır (içindeki sayılar mevcut sanılmaz)
+                cleanLocation = strLoc;
             } else {
                 const onlyNum = strLoc.match(/\b(\d+)\b/);
                 if (onlyNum) capacity = parseInt(onlyNum[1], 10);
                 cleanLocation = strLoc.replace(/\b\d+\b/g, '').replace(/^[\s\-\/\:]+/, '').trim();
             }
 
+            // Derslik ayırıcıları: "+", ",", ";", " ve " → hepsi " + " (gözetmen sayısı derslik sayısından hesaplanır)
             cleanLocation = cleanLocation
                 .replace(/(amfi)(\d+)/gi, '$1 $2')
-                .replace(/\s*\+\s*/g, ' + ')
+                .split(/\s*(?:\+|,|;|\s+ve\s+)\s*/i).map(p => p.trim()).filter(Boolean).join(' + ')
                 .trim();
             if (!cleanLocation) cleanLocation = strLoc;
         } else {
             cleanLocation = "Ortak / Havuz Sınavı";
         }
 
-        // Tarih ve Saat
-        const dateKey = findColumnKey(row, ["sinav tarihi ve saati", "sinav tarihi", "tarih ve saat", "tarih", "saat", "date", "time"]);
+        // Tarih ve Saat: tek sütunda ("12 Ocak 2027 Salı, 09:30-11:20") ya da ayrı Tarih | Saat sütunlarında
+        const dateKey = findColumnKey(row, ["sinav tarihi ve saati", "sinav tarihi", "tarih ve saat", "tarih", "date"]);
+        const timeKey = findColumnKey(row, ["sinav saati", "saat", "baslangic", "time"], ["tarih"]);
         let dateTimeRaw = dateKey ? row[dateKey] : null;
+        if (dateKey && timeKey && timeKey !== dateKey) {
+            const dateText = excelHucreMetni(row[dateKey]);
+            const timeText = excelHucreMetni(row[timeKey]);
+            dateTimeRaw = `${dateText} ${timeText}`.trim();
+        }
 
         if (!dateTimeRaw) {
             for (let k of Object.keys(row)) {
@@ -14244,6 +14281,13 @@ function processExcelRows(rows) {
         const time = parsedDT.time;
         const duration = parsedDT.duration;
         const endTime = parsedDT.endTime;
+        // Saat okunamadıysa sessizce 09:00 yazılmaz: satır kırmızı işaretlenir
+        let dtValid = parsedDT.isValid;
+        let dtError = parsedDT.errorReason || "";
+        if (dtValid && !parsedDT.hasExplicitTime) {
+            dtValid = false;
+            dtError = "Sınav saati bulunamadı (Excel'de saat yok ya da okunamadı)";
+        }
 
         // İsteğe bağlı Sınav Türü Sütunu ("Vize", "Final", "Büt")
         const typeKey = findColumnKey(row, ["sinav turu", "tur", "type", "kind"]);
@@ -14255,7 +14299,7 @@ function processExcelRows(rows) {
 
         let roomCount = 1;
         if (cleanLocation.includes('+')) {
-            roomCount = cleanLocation.split('+').filter(Boolean).length;
+            roomCount = cleanLocation.split('+').map(p => p.trim()).filter(Boolean).length;
         }
 
         let requiredProctors = 1;
@@ -14271,7 +14315,7 @@ function processExcelRows(rows) {
 
         // Gerçek Puan Hesaplama (calculateScore ile gerçek katsayılar: hafta sonu, akşam, erken kuş)
         let examScore = 0;
-        if (parsedDT.isValid && date && time) {
+        if (dtValid && date && time) {
             examScore = calculateScore(getSafeDate(date, time), duration);
         }
 
@@ -14299,9 +14343,9 @@ function processExcelRows(rows) {
             endTime: endTime,
             duration: duration,
             score: examScore,
-            isValidDate: parsedDT.isValid,
-            hasError: !parsedDT.isValid,
-            errorMessage: parsedDT.errorReason || "",
+            isValidDate: dtValid,
+            hasError: !dtValid,
+            errorMessage: dtError,
             isDuplicate: isDuplicate,
             proctorIds: [],
             proctorId: null,
@@ -14672,6 +14716,8 @@ Mükerrer sınavlar ATLANSIN mı?
     if (!confirm(`${toImport.length} sınav sisteme aktarılacaktır. Onaylıyor musunuz?`)) return;
 
     takeSnapshot("Excel İçe Aktarma");
+    // "Neden ben?": önizlemede atanan gözetmenler "içe aktarırken otomatik atandı" olarak kaydedilsin
+    if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi('*', 'ice_aktarim');
     
     let addedCount = 0;
     let unassignedCount = 0;
