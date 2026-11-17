@@ -19247,9 +19247,11 @@ window.applyBatchPlannerDefaults = function() {
 };
 
 /**
- * Seçili dersler için DB.exams'a toplu sinav ekler.
+ * Seçili dersler için DB.exams'a toplu sınav ekler.
+ * withAssign = true ise her sınava girilen sayıda gözetmen, sistemin adil dağıtım kuralıyla atanır
+ * (o saatte uygun olanlar arasından puanı en düşük olan; findBestProctor).
  */
-window.createBatchExams = async function() {
+window.createBatchExams = async function(withAssign = false) {
     const type = document.getElementById('batch-default-type')?.value || 'Vize';
     const checkedBoxes = document.querySelectorAll('.batch-course-check:checked');
 
@@ -19261,90 +19263,137 @@ window.createBatchExams = async function() {
 
     const catalog = window._batchPlannerData || [];
     const errors = [];
-    const created = [];
+    const rows = [];
 
     checkedBoxes.forEach(cb => {
-        const idx = parseInt(cb.dataset.idx);
-        const course = catalog[idx];
-        if (!course) return;
-
+        const course = catalog[parseInt(cb.dataset.idx, 10)];
         const row = cb.closest('.batch-course-row');
-        if (!row) return;
-
+        if (!course || !row) return;
         const date = row.querySelector('.batch-row-date')?.value || '';
-        const time = row.querySelector('.batch-row-time')?.value || '09:00';
-        const duration = parseInt(row.querySelector('.batch-row-duration')?.value || '90', 10);
-        const location = row.querySelector('.batch-row-location')?.value || 'Belirsiz';
-        const requiredProctors = parseInt(row.querySelector('.batch-row-proctors')?.value || '2', 10);
+        const time = row.querySelector('.batch-row-time')?.value || '';
+        const duration = parseInt(row.querySelector('.batch-row-duration')?.value || '90', 10) || 90;
+        const location = (row.querySelector('.batch-row-location')?.value || '').trim();
+        const required = Math.max(1, Math.min(10, parseInt(row.querySelector('.batch-row-proctors')?.value || '1', 10) || 1));
+        if (!date) { errors.push(`${course.code}: tarih girilmedi`); return; }
+        if (!time) { errors.push(`${course.code}: saat girilmedi`); return; }
+        rows.push({ course, date, time, duration, location, required });
+    });
 
-        if (!date) {
-            errors.push(`${course.code}: Tarih girilmedi`);
-            return;
-        }
+    if (!rows.length) {
+        alert('Hiç sınav oluşturulamadı:\n' + errors.join('\n'));
+        return;
+    }
 
-        // Bitiş saatini hesapla (HH:MM-HH:MM formati)
-        let timeRange = time;
-        try {
-            const [h, m] = time.split(':').map(Number);
-            const endTotalMins = h * 60 + m + duration;
-            const endH = Math.floor(endTotalMins / 60) % 24;
-            const endM = endTotalMins % 60;
-            timeRange = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}-${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
-        } catch(e) { timeRange = time; }
+    const totalSlots = rows.reduce((t, r) => t + r.required, 0);
+    const draft = !!DB.isDraftMode;
+    const draftNote = draft ? '\n(Taslak modu açık: sınavlar taslak olarak eklenir.)' : '';
+    const question = withAssign
+        ? `${rows.length} sınav eklenecek ve toplam ${totalSlots} gözetmenlik görevi otomatik dağıtılacak.${draftNote}\n\nDevam edilsin mi?`
+        : `${rows.length} sınav gözetmensiz olarak eklenecek.${draftNote}\n\nDevam edilsin mi?`;
+    if (!confirm(question)) return;
 
-        // Katsayi hesapla
-        const katsayi = (typeof calculateKatsayi === 'function')
-            ? calculateKatsayi({ duration, location, requiredProctors, type })
-            : parseFloat(((duration / 60) * 1.0).toFixed(2));
+    // Geri alınabilsin diye önce anlık yedek
+    if (typeof takeSnapshot === 'function') takeSnapshot('Vize / Final Sihirbazı');
+    if (typeof saveAutoSnapshot === 'function') saveAutoSnapshot(DB, 'Vize / Final Sihirbazı öncesi');
 
+    const capacityDefault = parseInt(document.getElementById('batch-default-capacity')?.value || '', 10);
+    const created = [];
+    const usedIds = new Set((DB.exams || []).map(e => String(e.id)));
+    let idSeed = Date.now();
+
+    rows.forEach(r => {
+        // Bitiş saatiyle birlikte yazılır (HH:MM-HH:MM); sistemin her yeri başlangıç saatini okur
+        const [h, m] = r.time.split(':').map(Number);
+        const endTotal = h * 60 + m + r.duration;
+        const pad = (n) => String(n).padStart(2, '0');
+        const timeRange = `${pad(h)}:${pad(m)}-${pad(Math.floor(endTotal / 60) % 24)}:${pad(endTotal % 60)}`;
+
+        let id = idSeed++;
+        while (usedIds.has(String(id))) id = idSeed++;
+        usedIds.add(String(id));
+
+        const start = getSafeDate(r.date, timeRange);
         const newExam = {
-            id: Date.now() + Math.floor(Math.random() * 10000) + created.length,
-            name: `${course.code} - ${course.name}`,
-            lecturer: course.lecturer || '',
-            date,
+            id,
+            name: `${r.course.code} - ${r.course.name}`,
+            lecturer: r.course.lecturer || '',
+            date: r.date,
             time: timeRange,
-            duration,
-            location,
-            capacity: 30,
+            duration: r.duration,
+            location: r.location || 'Belirsiz',
+            capacity: Number.isFinite(capacityDefault) && capacityDefault > 0 ? capacityDefault : '',
             type,
-            requiredProctors,
-            proctors: [],
+            requiredProctors: r.required,
             proctorIds: [],
+            proctorId: null,
             isNonExam: false,
-            katsayi: katsayi,
-            isDraft: false
+            katsayi: (typeof getKatsayi === 'function') ? getKatsayi(start, r.duration, id) : parseFloat((r.duration / 60).toFixed(2)),
+            score: (typeof calculateScore === 'function') ? calculateScore(start, r.duration, id) : 0,
+            isDraft: draft,
+            createdAt: new Date().toISOString()
         };
-
         DB.exams.push(newExam);
         created.push(newExam);
     });
 
-    if (created.length === 0 && errors.length > 0) {
-        alert('Hiç sinav oluşturulamadi:\n' + errors.join('\n'));
-        return;
+    // Gözetmen ataması: en çok gözetmen isteyen ve puanı yüksek (zor) sınavlar önce
+    let assigned = 0;
+    const shortages = [];
+    if (withAssign) {
+        const order = created.slice().sort((a, b) => (b.requiredProctors - a.requiredProctors) || ((b.score || 0) - (a.score || 0)));
+        const nowNotif = new Date().toISOString();
+        order.forEach(ex => {
+            for (let i = 0; i < ex.requiredProctors; i++) {
+                // Seçilen kişi sınava eklendiği için bir sonraki turda "aynı saatte görevi var" sayılır
+                const best = findBestProctor(ex.date, ex.time, ex.duration, null, false, '', ex);
+                if (!best) break;
+                if (typeof noteAtamaYontemi === 'function') noteAtamaYontemi(ex.id, 'otomatik');
+                ex.proctorIds.push(best.id);
+                ex.proctorId = ex.proctorIds[0];
+                best.totalScore = parseFloat(((best.totalScore || 0) + (ex.score || 0)).toFixed(2));
+                best.taskCount = (best.taskCount || 0) + 1;
+                assigned++;
+                if (!ex.isDraft) {
+                    if (!DB.notifications) DB.notifications = {};
+                    if (!Array.isArray(DB.notifications[best.id])) DB.notifications[best.id] = [];
+                    DB.notifications[best.id].unshift({
+                        id: Date.now() + Math.floor(Math.random() * 100000),
+                        message: `📅 Yeni Görev: "${ex.name}" (${formatTarih(ex.date)} - ${ex.time}) sınavına gözetmen olarak atandınız.`,
+                        type: 'new_assignment',
+                        createdAt: nowNotif,
+                        isRead: false
+                    });
+                }
+            }
+            if (ex.proctorIds.length < ex.requiredProctors) {
+                shortages.push(`${ex.name} (${formatTarih(ex.date)} ${ex.time}): ${ex.proctorIds.length}/${ex.requiredProctors}`);
+            }
+        });
     }
 
-    // Kaydet ve UI'i güncelle
+    if (typeof logAction === 'function') {
+        logAction('admin', 'Vize / Final Sihirbazı',
+            `${created.length} sınav eklendi${withAssign ? `, ${assigned}/${totalSlots} gözetmenlik görevi otomatik dağıtıldı` : ' (gözetmensiz)'}${draft ? ' [taslak]' : ''}.`);
+    }
+
+    // Kaydet ve arayüzü güncelle
     if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-    if (typeof saveToBackend === 'function') await saveToBackend();
     if (typeof renderExams === 'function') renderExams();
     if (typeof renderSchedule === 'function') renderSchedule();
     if (typeof renderDashboard === 'function') renderDashboard();
-
+    if (withAssign && typeof renderStaff === 'function') renderStaff();
     closeBatchExamPlanner();
+    if (typeof saveToBackend === 'function') { try { await saveToBackend(); } catch (e) { console.error('Sihirbaz kaydı:', e); } }
 
-    const msg = `✅ ${created.length} sinav başariyla sisteme eklendi!${errors.length ? `\n⚠️ ${errors.length} ders atlandi (tarih girilmemiş).` : ''}`;
-    if (typeof showToast === 'function') showToast(msg, 'success');
-    else alert(msg);
-
-    // Yapay zeka atamasi kisayolu
-    if (created.length > 0 && typeof openAIAssignModal === 'function') {
-        setTimeout(() => {
-            if (confirm(`${created.length} yeni sinav eklendi.\nHemen yapay zeka ile gözetmen atamasi yapmak ister misiniz?`)) {
-                openAIAssignModal();
-            }
-        }, 500);
+    let msg = `✅ ${created.length} sınav eklendi${draft ? ' (taslak)' : ''}.`;
+    if (withAssign) msg += `\n👥 ${assigned} / ${totalSlots} gözetmenlik görevi adil dağıtım kuralıyla atandı.`;
+    if (shortages.length) {
+        msg += `\n\n⚠️ Uygun gözetmen bulunamadığı için eksik kalan sınavlar:\n• ${shortages.slice(0, 10).join('\n• ')}`;
+        if (shortages.length > 10) msg += `\n… ve ${shortages.length - 10} sınav daha`;
     }
+    if (errors.length) msg += `\n\n⏭️ Atlanan dersler:\n• ${errors.slice(0, 10).join('\n• ')}`;
+    msg += `\n\nBir yanlışlık olursa "Geri Al" düğmesiyle ya da "Yedek Geçmişi & Kurtarma" penceresindeki "Vize / Final Sihirbazı öncesi" yedeğiyle geri dönebilirsiniz.`;
+    alert(msg);
 };
 
 // ==========================================

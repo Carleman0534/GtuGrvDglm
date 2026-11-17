@@ -2142,7 +2142,7 @@
                     <span style="font-size:2.2rem;filter:drop-shadow(0 0 14px #7c3aed);">⚡</span>
                     <div>
                         <h2 style="margin:0;font-size:1.25rem;color:#c4b5fd;">Vize / Final Sihirbazı</h2>
-                        <p style="margin:3px 0 0;color:var(--text-muted);font-size:0.8rem;">Katalogdan ders seçin → Toplu ayar yapın → Tek tıkla sisteme ekleyin</p>
+                        <p style="margin:3px 0 0;color:var(--text-muted);font-size:0.8rem;">Katalogdan ders seçin → Tarih, saat ve gözetmen sayısını girin → Ekleyin; isterseniz gözetmenler adil dağıtım kuralıyla otomatik atanır</p>
                     </div>
                 </div>
                 <button onclick="closeBatchExamPlanner()" style="background:none;border:none;color:#94a3b8;font-size:1.75rem;cursor:pointer;line-height:1;">&times;</button>
@@ -2171,7 +2171,7 @@
                         </select>
                     </div>
                     <div>
-                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Başlangıç Tarihi</label>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Tarih (seçilenlerin hepsine)</label>
                         <input type="date" id="batch-default-date" style="background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
                     </div>
                     <div>
@@ -2189,6 +2189,10 @@
                     <div>
                         <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Gözetmen Sayısı</label>
                         <input type="number" id="batch-default-proctors" value="2" min="1" max="10" style="width:70px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Sınıf Mevcudu</label>
+                        <input type="number" id="batch-default-capacity" min="1" placeholder="Boş" title="İsteğe bağlı: eklenen tüm sınavlara yazılır" style="width:80px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);padding:6px 10px;border-radius:8px;color:white;font-size:0.85rem;">
                     </div>
                     <button type="button" onclick="applyBatchPlannerDefaults()" style="background:linear-gradient(135deg,#10b981,#059669);border:none;padding:6px 16px;border-radius:8px;color:white;font-weight:700;cursor:pointer;font-size:0.85rem;height:34px;margin-top:auto;">
                         ⚡ Seçilenlere Uygula
@@ -2217,8 +2221,11 @@
                 </div>
                 <div style="display:flex;gap:10px;">
                     <button type="button" class="btn-secondary" onclick="closeBatchExamPlanner()">Vazgeç</button>
-                    <button type="button" id="btn-create-batch-exams" onclick="createBatchExams()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border:none;padding:0.75rem 1.5rem;border-radius:10px;color:white;font-weight:700;cursor:pointer;font-size:0.95rem;box-shadow:0 0 16px rgba(124,58,237,0.4);">
-                        ✨ Seçilen Sınavları Sisteme Ekle
+                    <button type="button" class="btn-secondary" id="btn-create-batch-exams-only" onclick="createBatchExams(false)" title="Sınavlar gözetmensiz eklenir; atamayı sonra yaparsınız">
+                        Yalnızca Ekle
+                    </button>
+                    <button type="button" id="btn-create-batch-exams" onclick="createBatchExams(true)" title="Her sınava girilen sayıda gözetmen, o saatte uygun olanlar arasından puanı en düşük olanlar seçilerek atanır" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border:none;padding:0.75rem 1.5rem;border-radius:10px;color:white;font-weight:700;cursor:pointer;font-size:0.95rem;box-shadow:0 0 16px rgba(124,58,237,0.4);">
+                        ✨ Ekle ve Gözetmenleri Ata
                     </button>
                 </div>
             </div>
@@ -3358,7 +3365,7 @@
     <script src="bildirim_kurallari.js?v=20261113k"></script>
     <script src="atama_destek.js?v=20261108m"></script>
     <script src="logic.js?v=20261113l"></script>
-    <script src="app.js?v=20261113m"></script>
+    <script src="app.js?v=20261117a"></script>
     <script src="auth_google.js?v=20261113g"></script>
     <script src="swap_email.js?v=20261112b"></script>
     <script src="swap_market.js?v=20261110c"></script>
