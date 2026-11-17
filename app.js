@@ -14121,7 +14121,7 @@ async function handleExcelExamsFile(e) {
                     return;
                 }
 
-                processExcelRows(mappedRows);
+                processExcelRows(mappedRows, file.name);
             } catch (err) {
                 console.error(err);
                 showToast('Excel okuma hatası! Lütfen geçerli bir dosya yükleyin.', 'error');
@@ -14137,8 +14137,25 @@ async function handleExcelExamsFile(e) {
     e.target.value = '';
 }
 
-function processExcelRows(rows) {
+function processExcelRows(rows, fileName = '') {
     draftExams = [];
+
+    // Excel'de "Tür" sütunu yoksa sınav türü dosya adından tahmin edilir ("…Arasinav_Takvimi.xlsx" → Vize)
+    const fileNorm = trNormalize(fileName).replace(/[_\-.]+/g, ' ');
+    const defaultExamType = /ara ?sinav|vize|midterm/.test(fileNorm) ? 'Vize'
+        : /butunleme|\bbut\b/.test(fileNorm) ? 'Bütünleme'
+        : /mazeret/.test(fileNorm) ? 'Mazeret'
+        : 'Final';
+
+    // Metnin sonundaki öğrenci sayısını ayırır: "Differential Equations I 80 kişi" → { text, n: 80 }
+    // allowBare: sayı "kişi" olmadan da kabul edilir (hoca sütunu: "Prof. Dr. Mustafa AKKURT  109")
+    const kisiAyikla = (text, allowBare) => {
+        const t = String(text || '').trim();
+        const re = allowBare ? /\s+(\d{2,4})\s*(?:ki[sş]i|i[sş]i)?\s*$/i : /\s+(\d{2,4})\s*(?:ki[sş]i|i[sş]i)\s*$/i;
+        const m = t.match(re);
+        return m ? { text: t.slice(0, m.index).trim(), n: parseInt(m[1], 10) } : { text: t, n: 0 };
+    };
+    const GUNLER = ['pazar', 'pazartesi', 'sali', 'carsamba', 'persembe', 'cuma', 'cumartesi'];
     
     // Geçici durum (state) kopyaları
     let tempStaff = JSON.parse(JSON.stringify(DB.staff || []));
@@ -14178,6 +14195,8 @@ function processExcelRows(rows) {
 
         const courseCode = (codeColKey ? String(row[codeColKey] || '').trim() : '');
         let courseName = (nameColKey ? String(row[nameColKey] || '').trim() : '');
+        const nameKisi = kisiAyikla(courseName, false);
+        courseName = nameKisi.text;
 
         // Eğer dersin adı bulunamadıysa ama ilk sütunda bir değer varsa
         if (!courseName && !courseCode) {
@@ -14192,8 +14211,14 @@ function processExcelRows(rows) {
         }
 
         // Öğretim Üyesi / Dersi Veren Hocalar
-        const lecturerKey = findColumnKey(row, ["ogretim uyesi", "dersi veren", "hocalar", "hoca", "ogretim elemani", "lecturer", "instructor", "sorumlu"]);
-        const lecturer = lecturerKey ? String(row[lecturerKey] || '').trim() : '';
+        let lecturerKey = findColumnKey(row, ["ogretim uyesi", "dersi veren", "hocalar", "hoca", "ogretim elemani", "lecturer", "instructor", "sorumlu"]);
+        if (!lecturerKey) {
+            // Başlığı boş bırakılmış hoca sütunu: unvanla başlayan değer ("Prof. Dr.", "Doç. Dr.", "Dr. Öğr. Üyesi")
+            lecturerKey = Object.keys(row).find(k => !k.startsWith('__raw_') && k !== nameColKey && k !== codeColKey &&
+                /^(prof|doc|dr|ogr|ars|arastirma|ogretim)\b/.test(trNormalize(row[k])));
+        }
+        const lecturerKisi = kisiAyikla(lecturerKey ? row[lecturerKey] : '', true);
+        const lecturer = lecturerKisi.text;
 
         // Sınıf Mevcudu ve Sınav Yerleri: tek sütunda ("120 - Amfi 1 + Amfi 2") ya da ayrı sütunlarda (Derslik | Mevcut)
         const roomKey = findColumnKey(row, ["sinav yerleri", "sinav yeri", "derslik", "salon", "yer", "location", "room"], ["mevcut", "mevcud", "kapasite", "sayisi"]);
@@ -14227,8 +14252,13 @@ function processExcelRows(rows) {
                 capacity = parseInt(capMatch[1], 10);
                 cleanLocation = capMatch[2].replace(/\++$/, '').trim();
             } else if (separateCapacity || (roomKey && locationRaw === row[roomKey])) {
-                // Ayrı derslik sütunu: "Amfi 1", "Z01, Z02" olduğu gibi alınır (içindeki sayılar mevcut sanılmaz)
-                cleanLocation = strLoc;
+                // Ayrı derslik sütunu: "Amfi 1", "Z01, Z02" olduğu gibi alınır (içindeki sayılar mevcut sanılmaz).
+                // Derslik başına yazılmış mevcutlar toplanır: "Z01 (44 kişi),Z02 (44 kişi)" → 88
+                let roomCapSum = 0;
+                cleanLocation = strLoc.replace(/\(\s*(\d+)\s*(?:ki[sş]i)?\s*\)/gi, (_, n) => { roomCapSum += parseInt(n, 10); return ''; })
+                    .replace(/\s*\/\s*/g, ' + ')
+                    .replace(/\s{2,}/g, ' ').trim();
+                if (!capacity && roomCapSum) capacity = roomCapSum;
             } else {
                 const onlyNum = strLoc.match(/\b(\d+)\b/);
                 if (onlyNum) capacity = parseInt(onlyNum[1], 10);
@@ -14244,6 +14274,8 @@ function processExcelRows(rows) {
         } else {
             cleanLocation = "Ortak / Havuz Sınavı";
         }
+
+        if (!capacity) capacity = nameKisi.n || lecturerKisi.n || 0;
 
         // Tarih ve Saat: tek sütunda ("12 Ocak 2027 Salı, 09:30-11:20") ya da ayrı Tarih | Saat sütunlarında
         const dateKey = findColumnKey(row, ["sinav tarihi ve saati", "sinav tarihi", "tarih ve saat", "tarih", "date"]);
@@ -14281,6 +14313,15 @@ function processExcelRows(rows) {
         const time = parsedDT.time;
         const duration = parsedDT.duration;
         const endTime = parsedDT.endTime;
+        let dateWarning = "";
+        const dayKey = findColumnKey(row, ["gun", "day"], ["tarih", "saat"]);
+        if (dayKey && date) {
+            const yazilan = trNormalize(row[dayKey]).replace(/[^a-z]/g, '');
+            const gercek = GUNLER[new Date(date + 'T12:00:00').getDay()];
+            if (yazilan && GUNLER.includes(yazilan) && yazilan !== gercek) {
+                dateWarning = `Gün uyuşmuyor: ${formatTarih(date)} ${gercek.charAt(0).toUpperCase() + gercek.slice(1)} günü, tabloda "${String(row[dayKey]).trim()}" yazıyor`;
+            }
+        }
         // Saat okunamadıysa sessizce 09:00 yazılmaz: satır kırmızı işaretlenir
         let dtValid = parsedDT.isValid;
         let dtError = parsedDT.errorReason || "";
@@ -14291,11 +14332,13 @@ function processExcelRows(rows) {
 
         // İsteğe bağlı Sınav Türü Sütunu ("Vize", "Final", "Büt")
         const typeKey = findColumnKey(row, ["sinav turu", "tur", "type", "kind"]);
-        const examType = typeKey ? String(row[typeKey] || '').trim() : "Final";
+        const examType = typeKey ? String(row[typeKey] || '').trim() : defaultExamType;
 
         // Gözetmen İhtiyacı Hesabı: İsteğe bağlı özel sütun ("Gözetmen Sayısı") varsa öncelikli al
-        const explicitProctorKey = findColumnKey(row, ["gozetmen sayisi", "gozetmen adedi", "gozetmen ihtiyaci", "proctor count"]);
-        const explicitProctorCount = explicitProctorKey ? (parseInt(row[explicitProctorKey], 10) || 0) : 0;
+        // "Gözetmen" sütununda isim değil sayı varsa ("2", "5 kişi") gözetmen ihtiyacı olarak alınır
+        const explicitProctorKey = findColumnKey(row, ["gozetmen sayisi", "gozetmen adedi", "gozetmen ihtiyaci", "proctor count", "gozetmen"]);
+        const proctorCountMatch = explicitProctorKey ? String(row[explicitProctorKey]).match(/^\s*(\d{1,2})\s*(?:ki[sş]i)?\s*$/i) : null;
+        const explicitProctorCount = proctorCountMatch ? parseInt(proctorCountMatch[1], 10) : 0;
 
         let roomCount = 1;
         if (cleanLocation.includes('+')) {
@@ -14329,7 +14372,7 @@ function processExcelRows(rows) {
         const newEx = {
             id: Date.now() + index + Math.floor(Math.random() * 1000),
             tempOrder: index,
-            type: examType || "Final",
+            type: examType || defaultExamType,
             name: displayName,
             code: courseCode,
             title: courseName,
@@ -14346,6 +14389,7 @@ function processExcelRows(rows) {
             isValidDate: dtValid,
             hasError: !dtValid,
             errorMessage: dtError,
+            warning: dateWarning,
             isDuplicate: isDuplicate,
             proctorIds: [],
             proctorId: null,
@@ -14588,7 +14632,7 @@ function renderExcelPreview() {
         if (ex.hasError) {
             tr.style.background = 'rgba(239, 68, 68, 0.12)';
             tr.style.borderLeft = '4px solid #ef4444';
-        } else if (ex.isDuplicate) {
+        } else if (ex.isDuplicate || ex.warning) {
             tr.style.background = 'rgba(245, 158, 11, 0.1)';
             tr.style.borderLeft = '4px solid #f59e0b';
         }
@@ -14613,7 +14657,7 @@ function renderExcelPreview() {
         tr.innerHTML = `
             <td>${yearBadge}<span class="badge" style="background: rgba(255,255,255,0.08); color:white;">${ex.type}</span>${dupBadge}</td>
             <td><strong>${ex.name}</strong><br><small style="color:var(--text-muted); font-size:0.8rem;">👨‍🏫 ${ex.lecturer || 'Belirtilmedi'}</small></td>
-            <td>${ex.hasError ? '<span style="color:#ef4444;">❌ Belirsiz</span>' : `📅 ${formatTarih(ex.date)}`}</td>
+            <td>${ex.hasError ? '<span style="color:#ef4444;">❌ Belirsiz</span>' : `📅 ${formatTarih(ex.date)}`}${ex.warning ? `<div style="color:#f59e0b; font-size:0.75rem; font-weight:600; margin-top:3px;">⚠️ ${ex.warning}</div>` : ''}</td>
             <td>${durationBadge}</td>
             <td>📍 ${locBadge}</td>
             <td style="vertical-align:middle;">
