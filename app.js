@@ -7106,12 +7106,19 @@ window.selectSuggestedProctor = (areaId, selectId, staffId) => {
             // Görsel geribildirim için alani gizle
             document.getElementById(areaId).classList.add('hidden');
         }
+    } else if (areaId === 'add-suggestions' || areaId === 'edit-suggestions') {
+        // Sınav ekleme / düzenleme: öneriye tıklamak kişiyi doğrudan gözetmen listesine ekler
+        // (önceden yalnızca uyarı gösteriliyor, kaydedince kimse atanmıyordu)
+        const isEdit = areaId === 'edit-suggestions';
+        const select = document.getElementById(isEdit ? 'edit-exam-proctor-select' : 'exam-proctor-select');
+        const addFn = isEdit ? window.addProctorToEditList : window.addProctorToAddList;
+        if (select && typeof addFn === 'function') {
+            select.value = String(staffId);
+            if (select.value === String(staffId)) addFn();
+            const staff = DB.staff.find(s => String(s.id) === String(staffId));
+            if (staff && typeof showToast === 'function') showToast(`👤 ${staff.name} gözetmen listesine eklendi.`, 'success');
+        }
     } else {
-        // Ekleme modalinda "proctor" seçimi yok, algoritmaya birakiliyor. 
-        // Ancak kullanici "Ben bunu istiyorum" diyorsa, bir hoca ismi seçtirip Manuel atama gibi davranabiliriz.
-        // Basitlik adina ekleme modalinda öneriye tiklayinca otomatik atama yapacak bir gizli alan ekleyelim.
-        window.selectedProctorId = staffId;
-        alert(`${DB.staff.find(s=>s.id === staffId).name} seçildi. Kaydet'e bastiğinizda bu hoca atanacaktir.`);
         document.getElementById(areaId).classList.add('hidden');
     }
 };

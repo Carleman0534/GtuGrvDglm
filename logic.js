@@ -1752,7 +1752,10 @@ function _examCtxFor(ignoreExamId, examCtx) {
 function getRecommendedProctors(dateStr, timeStr, duration, ignoreExamId = null, isNonExam = false, examName = "", examCtx = null) {
     if (!dateStr || !timeStr || DB.staff.length === 0) return [];
     const ctx = _examCtxFor(ignoreExamId, examCtx);
-    const available = DB.staff.filter(s => isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName, ctx));
+    // Bu sınava zaten eklenmiş gözetmenler önerilmez (formdaki güncel liste ya da kayıtlı sınav)
+    const alreadyOn = new Set(((ctx && ctx.proctorIds) || []).map(String));
+    const available = DB.staff.filter(s => !alreadyOn.has(String(s.id)) &&
+        isProctorTrulyFree(s.id, dateStr, timeStr, duration, ignoreExamId, isNonExam, examName, ctx));
     if (available.length === 0) return [];
 
     // Sıralama dönem sonu beklenen puana göre (sınav dışı görevlerde bugünkü puana göre)
