@@ -6758,3 +6758,18 @@ a.sb-link { display: inline-block; }/* "Neden ben?" atama anındaki tablo (atama
 .ti-btn { background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.45); color: inherit; border-radius: 8px; padding: 0.35rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
 .ti-gonderildi { font-size: 0.76rem; color: #16a34a; white-space: nowrap; }
 @media (max-width: 640px) { .ti-satir { flex-direction: column; align-items: flex-start; } }
+/* ===== KİMLER SİTEDE? (aktif_kullanicilar.js) ===== */
+.aktif-kullanici-govde { font-size: 0.88rem; }
+.aktif-kullanici-bolum { margin-bottom: 1rem; }
+.aktif-kullanici-baslik { font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+.aktif-kullanici-sayi { font-size: 0.75rem; padding: 1px 8px; border-radius: 10px; background: rgba(99,102,241,0.18); }
+.aktif-kullanici-aciklama { font-size: 0.75rem; color: var(--text-muted); margin: 2px 0 6px; }
+.aktif-kullanici-satir { padding: 0.5rem 0.7rem; margin-bottom: 6px; border-radius: 10px;
+    background: rgba(148,163,184,0.08); border: 1px solid var(--glass-border, rgba(148,163,184,0.25)); }
+.aktif-kullanici-ad { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.aktif-kullanici-rol { font-size: 0.72rem; color: var(--text-muted); }
+.aktif-kullanici-detay { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+.aktif-kullanici-bos { font-size: 0.8rem; color: var(--text-muted); font-style: italic; padding: 2px 0 4px; }
+.aktif-kullanici-not { font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid var(--glass-border, rgba(148,163,184,0.25)); padding-top: 8px; }
+#modal-aktif-kullanicilar .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#modal-aktif-kullanicilar .modal-header h3 { margin: 0; font-size: 1.05rem; }

@@ -488,6 +488,17 @@
                 if (busy()) return;
                 if (!isValidRemote(remote.data)) return;
                 if (_serverLoaded && same(remote.data, _base)) return;
+                // Yalnızca "kim çevrimiçi" kayıtları (aktif_kullanicilar.js) değiştiyse: sessizce güncelle,
+                // ekranı yenileme ve "başka kullanıcının değişiklikleri" bildirimi gösterme
+                const disindaOturum = (o) => { if (!isPlainObj(o)) return o; const c = Object.assign({}, o); delete c.aktifOturumlar; return c; };
+                if (_serverLoaded && same(disindaOturum(remote.data), disindaOturum(_base))) {
+                    _base = clone(remote.data);
+                    if (window.DB && isPlainObj(DB)) {
+                        if (remote.data.aktifOturumlar !== undefined) DB.aktifOturumlar = clone(remote.data.aktifOturumlar);
+                        else delete DB.aktifOturumlar;
+                    }
+                    return;
+                }
 
                 const wasLoaded = _serverLoaded;
                 adoptRemote(remote.data, null);

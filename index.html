@@ -44,7 +44,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=20261113n">
+    <link rel="stylesheet" href="style.css?v=20261118a">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -279,6 +279,9 @@
                     </button>
                     <button id="btn-nav-final-forecast" class="admin-tool-pill tool-forecast" onclick="openFinalForecastModal()" title="Final Dönemi Sonuna Kadar Tahmini Görev ve Süre Analizi" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2)); border-color: rgba(16, 185, 129, 0.45); color: #6ee7b7;">
                         <span class="icon" style="margin:0; margin-right:4px;">🔮</span>Final & Mazeret Tahmini
+                    </button>
+                    <button id="btn-aktif-kullanicilar" class="admin-tool-pill tool-aktif" onclick="openAktifKullanicilar()" title="Şu an sitede kimler var?">
+                        <span class="icon" style="margin:0; margin-right:4px;">🟢</span>Aktif: <b id="aktif-kullanici-sayac" style="margin-left:3px;">–</b>
                     </button>
                     <button id="btn-audit" class="admin-tool-pill tool-audit" title="İşlem & Değişiklik Geçmişi">
                         <span class="icon" style="margin:0; margin-right:4px;">📜</span>İşlem Geçmişi
@@ -3385,8 +3388,9 @@
 
     <script src="mobil_tablo.js"></script>
     <script src="atama_gerekce.js?v=20261117d"></script>
+    <script src="aktif_kullanicilar.js?v=20261118a"></script>
 
-    <script src="veri_koruma.js?v=20261112b"></script>
+    <script src="veri_koruma.js?v=20261118a"></script>
 
     <!-- E-posta Taslağı / İstemci Seçimi Modalı (swap_market.js) -->
     <div id="modal-mail-draft" class="modal hidden">
